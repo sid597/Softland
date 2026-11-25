@@ -21,7 +21,7 @@
   The state is one map:
 
     :persons  person -> {:claim :invited-by :invited-at, and from her first
-                         enter :account :own-layer :making :own-layer-made?
+                         enter :account :own-lane :making :own-lane-made?
                          :entered-at}
     :claims   claim -> the person whom it names, for good
     :links    account -> {:person :says :said-at}
@@ -206,7 +206,7 @@
   (or (= :browser x) (= :program x)))
 
 (defn- making?
-  "Whether `x` is a `:making`: the UUID of the act that makes an own layer,
+  "Whether `x` is a `:making`: the UUID of the act that makes an own lane,
   and the id that the act names as its session, a UUID too (QUESTIONS.md,
   4)."
   [x]
@@ -233,12 +233,12 @@
 (def ^:private forms
   "The form of each write's map: every part, with its test. A part that the
   contract writes `-or-nil` must be there, and may be nil; a part that the
-  contract does not name does not fit; `:own-layer` is a UUID (Sid's call
+  contract does not name does not fit; `:own-lane` is a UUID (Sid's call
   of 22 November)."
   {:invite {:person id? :claim claim? :invited-by maker-or-system? :at time?}
    :enter {:account account? :says says? :email (or-nil email?) :code-hash (or-nil hash?)
-           :own-layer id? :making making? :at time?}
-   :own-layer-made {:person id? :at time?}
+           :own-lane id? :making making? :at time?}
+   :own-lane-made {:person id? :at time?}
    :begin-sign-in {:root id? :actor id? :sign-in id? :kind kind? :hash hash? :until time?
                    :label (or-nil text?) :at time?}
    :replace-secret {:root id? :sign-in id? :old-hash hash? :new-hash hash? :until time?
@@ -263,9 +263,9 @@
   {:long-label-fits (-> forms
                         (assoc-in [:begin-sign-in :label] (or-nil string?))
                         (assoc-in [:make-actor :label] string?))
-   :provider-and-layer-unchecked (-> forms
+   :provider-and-lane-unchecked (-> forms
                                      (assoc-in [:enter :account] #(account? % keyword?))
-                                     (assoc-in [:enter :own-layer] any?))
+                                     (assoc-in [:enter :own-lane] any?))
    :capital-email-fits (-> forms
                            (assoc-in [:invite :claim] #(claim? % text?))
                            (assoc-in [:enter :email] (or-nil text?)))})
@@ -434,28 +434,28 @@
 
 (defn- entered
   "What an enter of an account that is linked to the person `P` gives: her
-  id, the own layer and the `:making` that her first enter fixed, and
-  whether her layer is marked as made, as it stands at that enter (Sid's
+  id, the own lane and the `:making` that her first enter fixed, and
+  whether her lane is marked as made, as it stands at that enter (Sid's
   call of 22 November)."
   [state P]
   (let [p (get-in state [:persons P])]
-    {:person P :own-layer (:own-layer p) :making (:making p) :own-layer-made? (boolean (:own-layer-made? p))}))
+    {:person P :own-lane (:own-lane p) :making (:making p) :own-lane-made? (boolean (:own-lane-made? p))}))
 
 (defn- write-enter
   "enter: an account that has a link gives its person, whatever claim came
-  with it, with the own layer and the `:making` that were fixed, and
-  `:own-layer-made?` as it stands. One that has none takes the person of
+  with it, with the own lane and the `:making` that were fixed, and
+  `:own-lane-made?` as it stands. One that has none takes the person of
   the claim that it proves, the code's when `:code-hash` names an
   invitation that waits, else the email's: the link is written, the claim
   is used up, and the person becomes an actor, her own root, with the
-  offered own layer and `:making` fixed. One that proves no claim is
+  offered own lane and `:making` fixed. One that proves no claim is
   `:not-invited`, and nothing of it is kept. The link keeps the `:says` of
   the enter with the latest `:at`, with that `:at`: an enter whose `:at`
   is not later leaves it. Nothing remembers what an enter gave (Sid's call
   of 22 November). The broken copy `:enter-repeats-what-it-gave` keeps
   that memory, under `:decided`, as the reading that the call set aside
   did."
-  [state {:keys [account says email code-hash own-layer making at] :as input} broken]
+  [state {:keys [account says email code-hash own-lane making at] :as input} broken]
   (let [link (get-in state [:links account])
         waits (fn [claim]
                 (when-let [P (get-in state [:claims claim])]
@@ -474,19 +474,19 @@
       proven
       (let [state' (-> state
                        (assoc-in [:links account] {:person proven :says says :said-at at})
-                       (update-in [:persons proven] assoc :account account :own-layer own-layer
-                                  :making making :own-layer-made? false :entered-at at)
+                       (update-in [:persons proven] assoc :account account :own-lane own-lane
+                                  :making making :own-lane-made? false :entered-at at)
                        (update-in [:roots proven] #(or % empty-root)))
             result (entered state' proven)]
         [(cond-> state' remembering? (assoc-in [:decided account input] result)) result])
       :else (refuse state :not-invited))))
 
-(defn- write-own-layer-made
-  "own-layer-made: marks the own layer of a person who has entered as made.
+(defn- write-own-lane-made
+  "own-lane-made: marks the own lane of a person who has entered as made.
   A person who waits, or no person, is `:no-such-person`."
   [state {:keys [person]} _]
   (if (entered? state person)
-    [(assoc-in state [:persons person :own-layer-made?] true) {:made person}]
+    [(assoc-in state [:persons person :own-lane-made?] true) {:made person}]
     (refuse state :no-such-person)))
 
 (defn- begin
@@ -781,7 +781,7 @@
   "Each write's keyword, with the function that judges it."
   {:invite write-invite
    :enter write-enter
-   :own-layer-made write-own-layer-made
+   :own-lane-made write-own-lane-made
    :begin-sign-in write-begin-sign-in
    :replace-secret write-replace-secret
    :end-sign-in write-end-sign-in
@@ -794,7 +794,7 @@
 
 (def names-a-root
   "The writes that name a `:root`, and so take out what has passed under it.
-  `invite`, `enter`, `own-layer-made` and `ask` name none."
+  `invite`, `enter`, `own-lane-made` and `ask` name none."
   #{:begin-sign-in :replace-secret :end-sign-in :make-actor :end-actor
     :open-session :close-session :answer-ask})
 
@@ -845,14 +845,14 @@
    "a label of more than 256 characters fits"
    :loose-form
    "a part that the contract names may be left out, and reads as nil, and a part that it does not name is dropped"
-   :provider-and-layer-unchecked
-   "a provider's name of more than 256 characters, and an :own-layer that is no UUID, fit"
+   :provider-and-lane-unchecked
+   "a provider's name of more than 256 characters, and an :own-lane that is no UUID, fit"
    :capital-email-fits
    "an email with a capital letter fits, and is compared as given"
    :no-takes-any-parts
    "the parts of a no that it does not judge may be anything"
    :enter-repeats-what-it-gave
-   "an enter that is a copy of one that its link decided gives what that one gave, its :own-layer-made? too"
+   "an enter that is a copy of one that its link decided gives what that one gave, its :own-lane-made? too"
    :says-of-every-enter
    "every enter of an account that has a link keeps its own :says, whatever its :at"
    :answered-ask-judged-first
@@ -894,7 +894,7 @@
 (defn- who-is-in
   "who-is of a state: the sign-in of the root, with its standing, the
   session asked for, which can be of another sign-in, with its
-  `:driven-by`, and the root person's own layer. Ended and closed things
+  `:driven-by`, and the root person's own lane. Ended and closed things
   are given too."
   [state query]
   (if-not (try (shaped? query {:root id? :sign-in id? :session (or-nil id?)} {})
@@ -911,8 +911,8 @@
        :session (when s
                   {:sign-in (:sign-in s) :until (:until s) :closed? (boolean (:closed? s))
                    :driven-by (:driven-by s)})
-       :own-layer (:own-layer p)
-       :own-layer-made? (boolean (:own-layer-made? p))})))
+       :own-lane (:own-lane p)
+       :own-lane-made? (boolean (:own-lane-made? p))})))
 
 (defn- ask-of-in
   "ask-of of a state: the ask under the code, or nil. It judges no time."
@@ -1107,15 +1107,15 @@
   (write! client :invite input))
 
 (defn enter
-  "enter through the client: `{:account :says :email :code-hash :own-layer
+  "enter through the client: `{:account :says :email :code-hash :own-lane
   :making :at}`."
   [client input]
   (write! client :enter input))
 
-(defn own-layer-made
-  "own-layer-made through the client: `{:person P :at t}`."
+(defn own-lane-made
+  "own-lane-made through the client: `{:person P :at t}`."
   [client input]
-  (write! client :own-layer-made input))
+  (write! client :own-lane-made input))
 
 (defn begin-sign-in
   "begin-sign-in through the client: `{:root :actor :sign-in :kind :hash
@@ -1170,7 +1170,7 @@
   "Takes a client or a state, and `{:root P :sign-in G :session S-or-nil}`.
   Gives `{:sign-in {:actor :kind :hash :until :previous :ended?
   :actor-ended?}-or-nil :session {:sign-in :until :closed? :driven-by}-or-nil
-  :own-layer :own-layer-made?}`. It judges no time: the caller holds each
+  :own-lane :own-lane-made?}`. It judges no time: the caller holds each
   time against its clock."
   [client-or-state query]
   (read-with client-or-state #(who-is-in % query)))

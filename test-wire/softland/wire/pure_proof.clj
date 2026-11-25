@@ -70,10 +70,10 @@
 ;; ------------------------------------------------------------------- the words
 
 (def ^:private an-act
-  {:version 1 :who :asha :session (UUID/randomUUID) :layer :notes :permission [:asha :notes :notes]
+  {:version 1 :who :asha :session (UUID/randomUUID) :lane :notes :permission [:asha :notes :notes]
    :facts [{:e :chair-7 :k :colour :v :green}]})
 
-(def ^:private a-query {:asks [:place :chair-7 :colour] :asker :asha :layers [:notes]})
+(def ^:private a-query {:asks [:place :chair-7 :colour] :asker :asha :lanes [:notes]})
 
 (def ^:private a-hash (apply str (repeat 64 "a")))
 
@@ -213,7 +213,7 @@
         place-answer (fn [] (if (zero? (.nextInt random 4))
                               {:holds :no-fact}
                               {:holds :value :value (.nextInt random 100) :stamp (.nextInt random 1000)}))
-        whole (fn [] {:anew {:layers [:l] :left-out []
+        whole (fn [] {:anew {:lanes [:l] :left-out []
                              :places (into {} (keep (fn [place] (let [pa (place-answer)]
                                                                   (when-not (= :no-fact (:holds pa)) [place pa]))))
                                            places)}})

@@ -28,7 +28,7 @@
   Each copy runs with the stand-in for Google, so an account is whatever
   the form says; what makes an account a person is an invitation.
 
-  State. It writes people, layers and acts into the store and Auth that the
+  State. It writes people, lanes and acts into the store and Auth that the
   copies stand on."
   (:require [clojure.string :as str]
             [softland.command.client :as client]
@@ -87,25 +87,25 @@
   (client/say line word 40000))
 
 (defn- act-of
-  "Builds one act of one fact. Takes a hello, the layer, the permission
+  "Builds one act of one fact. Takes a hello, the lane, the permission
   that the act names, and the fact's three parts."
-  [hello layer permission e k v]
-  {:version 1 :who (:who hello) :session (:session hello) :layer layer :permission permission
+  [hello lane permission e k v]
+  {:version 1 :who (:who hello) :session (:session hello) :lane lane :permission permission
    :facts [{:e e :k k :v v}]})
 
 (defn- place
   "Reads one place as the line's caller. Gives the read's answer."
-  [opened layer e k]
-  (say opened {:word :read :query {:asks [:place e k] :asker (:who (:hello opened)) :layers [layer]
+  [opened lane e k]
+  (say opened {:word :read :query {:asks [:place e k] :asker (:who (:hello opened)) :lanes [lane]
                                    :with #{:writer}}}))
 
 (defn- watching
   "Opens a watch of one place on a line. Gives {:id the watch's number
   :seen an atom of the messages that came}."
-  [{:keys [line hello]} layer e k]
+  [{:keys [line hello]} lane e k]
   (let [seen (atom [])]
     {:seen seen
-     :id (client/watch line {:asks [:place e k] :asker (:who hello) :layers [layer]}
+     :id (client/watch line {:asks [:place e k] :asker (:who hello) :lanes [lane]}
                        (fn [message] (swap! seen conj message)))}))
 
 (defn- value-seen
@@ -173,24 +173,24 @@
         (let [me (line a (:credential mine) nil)
               hello (:hello me)
               who (:who hello)
-              layer (:own-layer hello)
-              own [who layer layer]]
-          (check "The line says hello with who the program is, her root, a new session and her own layer; and a connection with no credential is a visitor."
-                 (and (= (:person first-in) who (:root hello)) (uuid? (:session hello)) (uuid? layer)
+              lane (:own-lane hello)
+              own [who lane lane]]
+          (check "The line says hello with who the program is, her root, a new session and her own lane; and a connection with no credential is a visitor."
+                 (and (= (:person first-in) who (:root hello)) (uuid? (:session hello)) (uuid? lane)
                       (= {:visitor true} (:hello (line a nil nil))))
                  hello)
-          (check "Her name is a fact on her own id in her own layer, and she is its writer: the box's act was hers, and the runtime wrote no who into it."
-                 (let [answer (place me layer who :person/name)]
+          (check "Her name is a fact on her own id in her own lane, and she is its writer: the box's act was hers, and the runtime wrote no who into it."
+                 (let [answer (place me lane who :person/name)]
                    (and (= "Sid" (:value (:place answer))) (= who (:writer (:place answer)))))
-                 (place me layer who :person/name))
+                 (place me lane who :person/name))
 
           ;; ------------------------------------------------------- an act
           (let [uuid (UUID/randomUUID)
-                act (act-of hello layer own :chair-7 :colour :green)
+                act (act-of hello lane own :chair-7 :colour :green)
                 sent (say me {:word :send :act act :act-id uuid})
                 other (line b (:credential mine) (:session hello))
                 again (say other {:word :send :act act :act-id uuid})
-                another (say other {:word :send :act (act-of hello layer own :chair-7 :colour :red) :act-id uuid})]
+                another (say other {:word :send :act (act-of hello lane own :chair-7 :colour :red) :act-id uuid})]
             (check "A send is one round trip: the whole act goes in with the maker's UUID, and the door's receipt comes back with the answer that a gate gave, accepted."
                    (and (= :accepted (get-in sent [:answer :answer])) (= uuid (nth (:act-id sent) 2)) (string? (:digest sent)))
                    sent)
@@ -199,7 +199,7 @@
                    [sent again])
             (check "Another act under the used UUID is not hers to read: the answer says not mine, and the place holds what the first act wrote."
                    (and (= :not-mine (get-in another [:answer :answer]))
-                        (= :green (:value (:place (place me layer :chair-7 :colour)))))
+                        (= :green (:value (:place (place me lane :chair-7 :colour)))))
                    another)
             (check "A program that names the session that it was in stays in it at another copy; one that names a session that is not its own is not let in."
                    (and (= (:session hello) (:session (:hello other)))
@@ -208,12 +208,12 @@
 
           ;; --------------------------------------------- nobody acts for another
           (let [uuid (UUID/randomUUID)
-                as-system (say me {:word :send :act (assoc (act-of hello layer own :chair-7 :colour :blue) :who :system)
+                as-system (say me {:word :send :act (assoc (act-of hello lane own :chair-7 :colour :blue) :who :system)
                                    :act-id uuid})
-                as-session (say me {:word :send :act (assoc (act-of hello layer own :chair-7 :colour :blue) :session (UUID/randomUUID))
+                as-session (say me {:word :send :act (assoc (act-of hello lane own :chair-7 :colour :blue) :session (UUID/randomUUID))
                                     :act-id uuid})
-                unsent (say me {:word :answer :act-id [layer :streaming uuid] :digest (apply str (repeat 64 "0"))})
-                as-asker (say me {:word :read :query {:asks [:place :chair-7 :colour] :asker :system :layers [layer]}})
+                unsent (say me {:word :answer :act-id [lane :streaming uuid] :digest (apply str (repeat 64 "0"))})
+                as-asker (say me {:word :read :query {:asks [:place :chair-7 :colour] :asker :system :lanes [lane]}})
                 visitor (line a nil nil)]
             (check "An act that names another who than its sender, or another session than the one it is sent in, is refused by the runtime, and nothing is sent for it: nothing is under its UUID."
                    (= [{:could-not :send-as-another :at :who} {:could-not :send-as-another :at :session} {:answer :nothing-yet}]
@@ -221,32 +221,32 @@
                    [as-system as-session unsent])
             (check "A query that names another asker than its sender is refused, and a visitor's query that names any asker is refused."
                    (= [{:could-not :send-as-another :at :asker} {:could-not :send-as-another :at :asker}]
-                      [as-asker (say visitor {:word :read :query {:asks [:place :chair-7 :colour] :asker who :layers [layer]}})]))
-            (check "A visitor sends no act, and reads her layer as somebody who may not see it."
-                   (and (= :find-her-sign-in (:could-not (say visitor {:word :send :act (act-of hello layer own :a :b 1)
+                      [as-asker (say visitor {:word :read :query {:asks [:place :chair-7 :colour] :asker who :lanes [lane]}})]))
+            (check "A visitor sends no act, and reads her lane as somebody who may not see it."
+                   (and (= :find-her-sign-in (:could-not (say visitor {:word :send :act (act-of hello lane own :a :b 1)
                                                                        :act-id (UUID/randomUUID)})))
                         (nil? (:value (:place (say visitor {:word :read :query {:asks [:place :chair-7 :colour]
-                                                                                :not-signed-in true :layers [layer]}}))))))
+                                                                                :not-signed-in true :lanes [lane]}}))))))
             (check "An act of a wrong form is sent all the same, and a gate refuses it under its act-id: the log keeps it."
-                   (= :refused (get-in (say me {:word :send :act (assoc (act-of hello layer own :a :b 1) :version 99)
+                   (= :refused (get-in (say me {:word :send :act (assoc (act-of hello lane own :a :b 1) :version 99)
                                                 :act-id (UUID/randomUUID)})
                                        [:answer :answer]))))
 
           ;; ------------------------------------------------------- a series
-          (let [acts (mapv (fn [n] {:act (act-of hello layer own :counter :n n) :act-id (UUID/randomUUID)}) (range 5))
+          (let [acts (mapv (fn [n] {:act (act-of hello lane own :counter :n n) :act-id (UUID/randomUUID)}) (range 5))
                 sent (say me {:word :send-all :acts acts})]
             (check "A series of acts is sent in order and gives a result for each, and the last of them is what a read gives."
                    (and (= 5 (count (:results sent)))
                         (every? (fn [r] (= :accepted (get-in r [:answer :answer]))) (:results sent))
-                        (= 4 (:value (:place (place me layer :counter :n)))))
+                        (= 4 (:value (:place (place me lane :counter :n)))))
                    sent))
 
           ;; ------------------------------------------- one line, many watches
-          (let [one (watching me layer :chair-7 :colour)
-                two (watching me layer :lamp-2 :lit)
+          (let [one (watching me lane :chair-7 :colour)
+                two (watching me lane :lamp-2 :lit)
                 first-colour (wait-for (fn [] (value-seen @(:seen one))) 10000)]
-            (say me {:word :send :act (act-of hello layer own :lamp-2 :lit true) :act-id (UUID/randomUUID)})
-            (say me {:word :send :act (act-of hello layer own :chair-7 :colour :amber) :act-id (UUID/randomUUID)})
+            (say me {:word :send :act (act-of hello lane own :lamp-2 :lit true) :act-id (UUID/randomUUID)})
+            (say me {:word :send :act (act-of hello lane own :chair-7 :colour :amber) :act-id (UUID/randomUUID)})
             (check "Two watches on one connection each give the whole answer first and then the change of their own place, while words go on being answered on the same connection."
                    (and (= :green first-colour)
                         (wait-for (fn [] (= :amber (value-seen @(:seen one)))) 10000)
@@ -257,7 +257,7 @@
             (check "A watch that is left is told nothing more, and its number is free: a leave of it a second time finds no watch."
                    (let [seen-before (count @(:seen two))]
                      (and (= {:left (:id two)} (client/leave (:line me) (:id two)))
-                          (do (say me {:word :send :act (act-of hello layer own :lamp-2 :lit false) :act-id (UUID/randomUUID)})
+                          (do (say me {:word :send :act (act-of hello lane own :lamp-2 :lit false) :act-id (UUID/randomUUID)})
                               (Thread/sleep 500)
                               (= seen-before (count @(:seen two))))
                           (= :find-the-watch (:could-not (client/leave (:line me) (:id two)))))))
@@ -289,29 +289,29 @@
                 agent-credential (credential/text (:root made) (:sign-in made) secret)
                 agent (line b agent-credential nil)
                 agent-hello (:hello agent)
-                agent-own [(:who agent-hello) layer layer]
-                before (say agent {:word :send :act (act-of agent-hello layer agent-own :crate-1 :packed true)
+                agent-own [(:who agent-hello) lane lane]
+                before (say agent {:word :send :act (act-of agent-hello lane agent-own :crate-1 :packed true)
                                    :act-id (UUID/randomUUID)})
-                given [(:who agent-hello) layer layer own :see-and-act]
+                given [(:who agent-hello) lane lane own :see-and-act]
                 gave (say me {:word :send
-                              :act {:version 1 :who who :session (:session hello) :layer layer :permission own
+                              :act {:version 1 :who who :session (:session hello) :lane lane :permission own
                                     :subjects #{(:who agent-hello)}
                                     :facts [{:e (:who agent-hello) :k :softland.store/permission :v given}]}
                               :act-id (UUID/randomUUID)})
-                after (say agent {:word :send :act (act-of agent-hello layer given :crate-1 :packed true)
+                after (say agent {:word :send :act (act-of agent-hello lane given :crate-1 :packed true)
                                   :act-id (UUID/randomUUID)})]
             (check "An agent that she makes has a who of its own, which is neither her id nor the UUID that her program sent, and the same UUID again makes the same agent."
                    (and (uuid? (:made made)) (not= who (:made made)) (not= uuid (:made made))
                         (= (:made made) (:made made-again)) (= who (:root made)))
                    made)
-            (check "The agent signs in as a program with its own credential: the line says that it is the agent, beneath her as its root, and gives it her own layer's id."
-                   (and (= (:made made) (:who agent-hello)) (= who (:root agent-hello)) (= layer (:own-layer agent-hello)))
+            (check "The agent signs in as a program with its own credential: the line says that it is the agent, beneath her as its root, and gives it her own lane's id."
+                   (and (= (:made made) (:who agent-hello)) (= who (:root agent-hello)) (= lane (:own-lane agent-hello)))
                    agent-hello)
             (check "An agent acts only under what it was given: before she gives it a permission a gate refuses its act, and after, a gate accepts it and the fact names the agent as its writer."
                    (and (= :refused (get-in before [:answer :answer]))
                         (= :accepted (get-in gave [:answer :answer]))
                         (= :accepted (get-in after [:answer :answer]))
-                        (= (:who agent-hello) (:writer (:place (place me layer :crate-1 :packed)))))
+                        (= (:who agent-hello) (:writer (:place (place me lane :crate-1 :packed)))))
                    [before gave after])
             (check "A word that is a person's own is refused to an agent: it invites nobody and lists nothing of her sign-ins."
                    (= [:do-that-as-an-agent :do-that-as-an-agent]
@@ -361,13 +361,13 @@
                      (and together?
                           (= (:invited by-email) (:person (first both)) (:person (second both))))
                      {:together? together? :by-email by-email :both (mapv #(dissoc % :cookie) both)})
-              (check "Both of those sign-ins lead to one own layer."
-                     (let [layers (doall (map (fn [signed]
+              (check "Both of those sign-ins lead to one own lane."
+                     (let [lanes (doall (map (fn [signed]
                                                 (let [program (drive/program a "asha's program"
                                                                              (fn [code] (drive/yes a (:cookie signed) code {})))]
-                                                  (:own-layer (:hello (line a (:credential program) nil)))))
+                                                  (:own-lane (:hello (line a (:credential program) nil)))))
                                               both))]
-                       (and (uuid? (first layers)) (apply = layers)))))
+                       (and (uuid? (first lanes)) (apply = lanes)))))
 
             ;; ------------------------------------------- a secret is replaced
             ;; The times are read from what the copy `c` reports: the end of
@@ -453,13 +453,13 @@
             (let [visitor (line a nil nil)
                   long-number (bigint (apply str (repeat 70000 "7")))]
               (check "A frame whose one token is longer than any value that the store takes is turned away before it is read as EDN: the runtime says that it could not read the frame, and the connection goes on."
-                     (do (client/say (:line me) {:word :read :query {:asks [:place :n long-number] :asker who :layers [layer]}} 3000)
+                     (do (client/say (:line me) {:word :read :query {:asks [:place :n long-number] :asker who :lanes [lane]}} 3000)
                          (and (= {:could-not :read-the-frame :why :a-token-too-long} (:said @(:state (:line me))))
                               (= who (:who (say me {:word :who-am-i})))))
                      (:said @(:state (:line me))))
               (check "A visitor's frame over the small bound is not taken into memory: the connection is closed."
                      (do (client/say (:line visitor) {:word :read :query {:asks [:place :x (apply str (repeat 70000 "x"))]
-                                                                          :not-signed-in true :layers [layer]}} 3000)
+                                                                          :not-signed-in true :lanes [lane]}} 3000)
                          (wait-for (fn [] (:gone @(:state (:line visitor)))) 5000))))
 
             ;; ----------------------------------------------- the pages' sign-out

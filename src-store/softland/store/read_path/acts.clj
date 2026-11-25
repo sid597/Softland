@@ -1,5 +1,5 @@
 (ns softland.store.read-path.acts
-  "The read of a layer's acts by stamp: the decisions of one layer from a
+  "The read of a lane's acts by stamp: the decisions of one lane from a
   stamp on, in the order of the stamps, each with its answer and the thing
   whole, for an asker who may read it. Pure code. It needs no cluster: it
   says, from what is known so far, which sources the read wants next; it
@@ -7,15 +7,15 @@
   together. `softland.store.read-path` fetches what it names.
 
   The query. The word `:acts` of a query
-  (`softland.store.read-path.query`): `[:acts start most]`, with one layer,
-  named by `:from-layer` or as the one layer of `:layers`. The read takes
-  that layer alone, never what it builds on: two lines have no order
+  (`softland.store.read-path.query`): `[:acts start most]`, with one lane,
+  named by `:from-lane` or as the one lane of `:lanes`. The read takes
+  that lane alone, never what it builds on: two lines have no order
   between them. `most` is cut to `:max-acts-of-one-read`. `:with` and
   `:stores-own-facts` say what of a fact's row a read gives, and this read
   gives no fact's row: it does not read them.
 
-  Where it reads: all on the layer's own task, each source with the layer
-  as its routing id. In a streaming layer every row is there. In the base,
+  Where it reads: all on the lane's own task, each source with the lane
+  as its routing id. In a streaming lane every row is there. In the base,
   the line, its things, its last stamp, its rows by who and a copy of its
   facts are on the base's task, where the base's gate decides, so a read of
   the base's acts is read there and not on the task of a home, whose copy
@@ -26,14 +26,14 @@
   The rounds, in the order of what must hold. Each is one call of Rama's
   client for each table, all of a round sent at once.
 
-    1. the last stamp      the layer's last stamp, in the gate's table for
+    1. the last stamp      the lane's last stamp, in the gate's table for
                            a task: one row
-    2. the rights          the layer's own rows, her permission for the
-                           layer and her run's: the same sources as a read
+    2. the rights          the lane's own rows, her permission for the
+                           lane and her run's: the same sources as a read
                            of facts reads (`softland.store.read-path.sources`)
     3. the rows above      the rows above her permission and her run's, when
                            the rows of round 2 name them
-    4. for an asker who may see the layer: the window, the line rows from
+    4. for an asker who may see the lane: the window, the line rows from
        the start, `most` at most. For an asker outside it: her rows by who
        from the start, `most` at most
     5. for an asker outside: her line rows at those stamps
@@ -43,7 +43,7 @@
   Why in that order. The last stamp is read before the rights, and only
   decisions up to it are given. A decision at that stamp or before was
   decided before the rights were read, so the rights that judge the answer
-  are not older, in the layer's line, than any decision that the answer
+  are not older, in the lane's line, than any decision that the answer
   gives whole on their ground: a permission that ended at stamp s, or a
   setting that changed there, is read as such by any read that gives s
   (IMPLICIT_SPEC.md R12 and R13). And since a line row is written in the
@@ -52,15 +52,15 @@
   decision that lands after the last stamp is read is left for the next
   read. Her rows by who are read only once the rights say that she is
   outside, and her things only then: a read by an asker who may see the
-  layer reads no row by who, and a read by an asker outside it reads no row
-  of the layer that is not hers, so what it costs is bounded by what is
+  lane reads no row by who, and a read by an asker outside it reads no row
+  of the lane that is not hers, so what it costs is bounded by what is
   hers (SPEC.md, \"Her own things, without a walk through everyone's\").
   Things are read last, when what is given whole is known, so a thing that
   is withheld is never fetched (R16). A row of the line and its thing are
   written in one event and never again.
 
   What one read costs, counted from the code and not measured. Round 1:
-  one seek. Round 2: one seek and a step for each row of the layer's own,
+  one seek. Round 2: one seek and a step for each row of the lane's own,
   and one seek for each of her two permission rows. Round 3: one seek for
   each permission above hers. Round 4: one seek and n steps for the window;
   for her rows by who, one seek and a step for each of hers. Round 5 and
@@ -70,37 +70,37 @@
   field in the table for a task as one read more, for rounds 1 and 4.
 
   Who reads a decision whole: `reads-whole?`, the one place. By what the
-  asker is in the layer (`asker-kind`):
+  asker is in the lane (`asker-kind`):
 
-    a holder   her permission for the layer, or the run that she asks in,
-               stands (`softland.store.read-path.layers/either`): every
+    a holder   her permission for the lane, or the run that she asks in,
+               stands (`softland.store.read-path.lanes/either`): every
                decision whole, those from before her permission too
-    a visitor  she may see the layer, which is open to everyone, and is no
+    a visitor  she may see the lane, which is open to everyone, and is no
                holder; signed in or not: every decision whole when the
-               layer's acts setting says `:everyone`; else her own whole,
+               lane's acts setting says `:everyone`; else her own whole,
                and every other one withheld, given as its stamp alone
-    outside    she may not see the layer, or it is not made: her own
+    outside    she may not see the lane, or it is not made: her own
                decisions whole, wherever they are, and nothing else of the
-               layer, not its stamps and not its last stamp; the answer
-               says that the layer is otherwise left out
+               lane, not its stamps and not its last stamp; the answer
+               says that the lane is otherwise left out
 
   Her own: a decision whose thing names her id as its `:who`, the line
   row's `:who`. A thing's who is what its sender wrote, and the asker is
   what the caller says; neither is held here (the runtime will hold the
   asker against the caller). So in this build a caller that names an asker
-  reads that asker's things, and a sender can put a thing into a layer
+  reads that asker's things, and a sender can put a thing into a lane
   that names another as its who, which she then reads as her own.
 
   The answer. A plain map, as every answer of the read path:
 
-    :layers      [the layer]
-    :left-out    [] or [{:layer layer :why :may-not-see or :not-made}]
+    :lanes      [the lane]
+    :left-out    [] or [{:lane lane :why :may-not-see or :not-made}]
     :acts        the decisions given, in the order of the stamps
     :next        the stamp from which the next read begins
-    :last-stamp  the layer's last stamp when the read began; only to an
-                 asker who may see the layer. nil when the layer had no
+    :last-stamp  the lane's last stamp when the read began; only to an
+                 asker who may see the lane. nil when the lane had no
                  decision then: a read whose last stamp was read before
-                 the layer was made, and its rights after
+                 the lane was made, and its rights after
 
   A decision given, one of three:
 
@@ -118,7 +118,7 @@
   `:answer` is the answer of the door's read by act-id
   (`softland.store.record.rows/line-answer`). `:thing` is the thing as Rama
   gave it, the arrival that the gate decided. To an asker who may see the
-  layer the stamps are consecutive from the start, none above the last
+  lane the stamps are consecutive from the start, none above the last
   stamp, and `:next` is the start and the count of what was given; she is at
   the end when `:next` is the last stamp and one. To an asker outside,
   `:next` is the stamp after her last decision given, or the start.
@@ -141,7 +141,7 @@
 
   Inputs and results, by call:
 
-    asker-kind     a layer, its own rows, whether she holds a permission
+    asker-kind     a lane, its own rows, whether she holds a permission
                    that stands, whether she is signed in -> `:holder`,
                    `:visitor`, `:outside` or `:not-known-yet`
     reads-whole?   a kind, the acts setting, her id's text, a line row's
@@ -156,72 +156,72 @@
   Callers. `softland.store.read-path`."
   (:require [softland.store.door.declaration :as declaration]
             [softland.store.gate.first-act :as first-act]
-            [softland.store.read-path.layers :as layers]
+            [softland.store.read-path.lanes :as lanes]
             [softland.store.read-path.sources :as sources]
             [softland.store.record.rows :as rows]))
 
 ;; -------------------------------------------------------------- the sources
 
 (defn- source-of
-  "Takes a layer, a table and a path. Gives the source, read on the layer's
-  own task: the layer is its routing id, in both gates."
-  [layer table path]
-  {:gate (first-act/depot-at-making layer) :table table :layer layer :routing-id layer :path path})
+  "Takes a lane, a table and a path. Gives the source, read on the lane's
+  own task: the lane is its routing id, in both gates."
+  [lane table path]
+  {:gate (first-act/depot-at-making lane) :table table :lane lane :routing-id lane :path path})
 
 (defn last-stamp-source
-  "Takes a layer. Gives the source of its last stamp, in the gate's table
+  "Takes a lane. Gives the source of its last stamp, in the gate's table
   for a task."
-  [layer]
-  (source-of layer :task [:last-stamp (declaration/id-text layer)]))
+  [lane]
+  (source-of lane :task [:last-stamp (declaration/id-text lane)]))
 
 (defn window-source
-  "Takes a layer, a stamp and a count. Gives the source of the window: the
-  rows of the layer's line from that stamp on, that many at most."
-  [layer start n]
-  (let [[from to] (rows/line-run layer start)]
-    (source-of layer :line [:window from to n])))
+  "Takes a lane, a stamp and a count. Gives the source of the window: the
+  rows of the lane's line from that stamp on, that many at most."
+  [lane start n]
+  (let [[from to] (rows/line-run lane start)]
+    (source-of lane :line [:window from to n])))
 
 (defn by-who-source
-  "Takes a layer, an asker's id, a stamp and a count. Gives the source of
-  her rows by who in the layer from that stamp on, that many at most."
-  [layer asker start n]
-  (let [[from to] (rows/by-who-run layer asker start)]
-    (source-of layer :task [:by-who from to n])))
+  "Takes a lane, an asker's id, a stamp and a count. Gives the source of
+  her rows by who in the lane from that stamp on, that many at most."
+  [lane asker start n]
+  (let [[from to] (rows/by-who-run lane asker start)]
+    (source-of lane :task [:by-who from to n])))
 
 (defn run-source
-  "Takes a layer, a table (`:line` or `:things`) and a run, [first last
+  "Takes a lane, a table (`:line` or `:things`) and a run, [first last
   count]: neighbouring stamps from the first to the last, of which `count`
   have a row in that table. Gives the source that reads those rows and no
   other: a window from the key of the first stamp, cut after the key of the
   last. The key of the last and a space sorts after that key and before the
   key of the next stamp, whose digits are greater."
-  [layer table [first-stamp last-stamp n]]
-  (source-of layer table [:window (rows/line-key layer first-stamp) (str (rows/line-key layer last-stamp) " ") n]))
+  [lane table [first-stamp last-stamp n]]
+  (source-of lane table [:window (rows/line-key lane first-stamp) (str (rows/line-key lane last-stamp) " ") n]))
 
 ;; ------------------------------------------------- who reads what whole
 
 (defn asker-kind
-  "What the asker is in the layer, for this read. Takes the layer, its own
+  "What the asker is in the lane, for this read. Takes the lane, its own
   rows (nil when not known), whether she holds a permission that stands in
-  it (`softland.store.read-path.layers/either`: `:stands`, `:none` or
+  it (`softland.store.read-path.lanes/either`: `:stands`, `:none` or
   `:not-known-yet`), and whether she is signed in. Gives `:holder`,
   `:visitor`, `:outside`, or `:not-known-yet`, by the table of the
   namespace docstring. Unlike a read of facts, it reads her permission in a
-  layer that everyone may see too: there it decides between whole and
+  lane that everyone may see too: there it decides between whole and
   withheld (IMPLICIT_SPEC.md R4)."
-  [layer own-rows permission-state signed-in?]
+  [lane own-rows permission-state signed-in?]
   (cond
     (nil? own-rows) :not-known-yet
-    (not (layers/made? own-rows layer)) :outside
+    (not (lanes/made? own-rows lane)) :outside
     (= :stands permission-state) :holder
     (= :not-known-yet permission-state) :not-known-yet
-    (= :everyone (layers/who-may-see own-rows layer)) :visitor
+    (= :everyone (lanes/who-may-see own-rows lane)) :visitor
     :else :outside))
 
 (defn reads-whole?
   "Who reads a decision whole: the one rule. Takes the asker's kind
-  (`asker-kind`), the layer's acts setting (`:members` or `:everyone`,
-  `softland.store.read-path.layers/who-may-read-acts`), the printed text
+  (`asker-kind`), the lane's acts setting (`:members` or `:everyone`,
+  `softland.store.read-path.lanes/who-may-read-acts`), the printed text
   of the asker's id, nil for one who is not signed in, and the line row's
   `:who`, nil for a thing that names no usable who. Gives true when she
   reads it whole: a holder reads every decision; a visitor every decision
@@ -285,11 +285,11 @@
         run-sources))
 
 (defn- whole-entry
-  "Takes the layer, the stamp and its line row. Gives the decision whole, but
+  "Takes the lane, the stamp and its line row. Gives the decision whole, but
   for its thing: its stamp, its act-id and its answer."
-  [layer stamp row]
+  [lane stamp row]
   {:stamp stamp
-   :act-id [layer (first-act/depot-at-making layer) (:act row)]
+   :act-id [lane (first-act/depot-at-making lane) (:act row)]
    :answer (rows/line-answer stamp row)})
 
 (defn- keeps-no-thing?
@@ -342,15 +342,15 @@
 
 (defn- answer-of-page
   "The last round of a read: the things of a page, then the answer. Takes
-  the layer, the asker's kind, the decisions to give (each {:stamp :whole?
+  the lane, the asker's kind, the decisions to give (each {:stamp :whole?
   :row}, in the order of the stamps), the sources wanted so far, `known`,
-  the numbers, the start, the last stamp and the layer's own rows. Gives
+  the numbers, the start, the last stamp and the lane's own rows. Gives
   the reading: {:wanted :missing} while a thing is missing, else with
   `:answer` or with `:fault`."
-  [layer kind decisions wanted known numbers start last-stamp own-rows]
+  [lane kind decisions wanted known numbers start last-stamp own-rows]
   (let [held (page decisions (:max-thing-weight-of-one-read numbers))
         fetched (filterv :fetch? held)
-        thing-sources (mapv #(run-source layer :things %) (things-runs held))
+        thing-sources (mapv #(run-source lane :things %) (things-runs held))
         wanted (into wanted thing-sources)
         reading (wants wanted known)]
     (if (seq (:missing reading))
@@ -362,15 +362,15 @@
           (assoc reading :fault {:stamp lost})
           (assoc reading
                  :answer
-                 (cond-> {:layers [layer]
+                 (cond-> {:lanes [lane]
                           :left-out (if outside?
-                                      [(layers/left-out layer (if (layers/made? own-rows layer) :may-not-see :not-made))]
+                                      [(lanes/left-out lane (if (lanes/made? own-rows lane) :may-not-see :not-made))]
                                       [])
                           :acts (mapv (fn [{:keys [stamp row] :as d}]
                                         (cond
                                           (not (:whole? d)) {:stamp stamp}
-                                          (:fetch? d) (assoc (whole-entry layer stamp row) :thing (get thing-of stamp))
-                                          :else (assoc (whole-entry layer stamp row) :no-thing (:no-thing d))))
+                                          (:fetch? d) (assoc (whole-entry lane stamp row) :thing (get thing-of stamp))
+                                          :else (assoc (whole-entry lane stamp row) :no-thing (:no-thing d))))
                                       held)
                           :next (if outside?
                                   (if (seq held) (inc (long (:stamp (peek held)))) start)
@@ -386,18 +386,18 @@
         (map-indexed vector pairs)))
 
 (defn- inside-reading
-  "Rounds 4 and 6 for an asker who may see the layer. Takes the layer, the
+  "Rounds 4 and 6 for an asker who may see the lane. Takes the lane, the
   asker's kind, the function that says whether she reads a line row whole,
   the sources wanted so far, `known`, the numbers, the start, the count,
-  the last stamp and the layer's own rows. Gives the reading. No window is
+  the last stamp and the lane's own rows. Gives the reading. No window is
   read when nothing is decided from the start up to the last stamp."
-  [layer kind whole? wanted known numbers start n last-stamp own-rows]
+  [lane kind whole? wanted known numbers start n last-stamp own-rows]
   (let [expected (if (and (some? last-stamp) (<= (long start) (long last-stamp)))
                    (min (long n) (inc (- (long last-stamp) (long start))))
                    0)]
     (if (zero? expected)
-      (answer-of-page layer kind [] wanted known numbers start last-stamp own-rows)
-      (let [window (window-source layer start n)
+      (answer-of-page lane kind [] wanted known numbers start last-stamp own-rows)
+      (let [window (window-source lane start n)
             wanted (conj wanted window)]
         (if-not (contains? known window)
           (wants wanted known)
@@ -406,26 +406,26 @@
                 gap (or (first-gap start rows) (when (< (count rows) expected) (+ (long start) (count rows))))]
             (if gap
               (assoc (wants wanted known) :fault {:stamp gap})
-              (answer-of-page layer kind
+              (answer-of-page lane kind
                               (mapv (fn [[s row]] {:stamp s :whole? (whole? row) :row row}) (take expected rows))
                               wanted known numbers start last-stamp own-rows))))))))
 
 (defn- outside-reading
-  "Rounds 4, 5 and 6 for an asker outside the layer: her rows by who from
+  "Rounds 4, 5 and 6 for an asker outside the lane: her rows by who from
   the start, the line rows at their stamps, and her things; for an asker
-  who is not signed in, nothing. Takes the layer, the query's asker and
+  who is not signed in, nothing. Takes the lane, the query's asker and
   session parts as the reading has them, the sources wanted so far,
-  `known`, the numbers, the start, the count and the layer's own rows.
+  `known`, the numbers, the start, the count and the lane's own rows.
   Gives the reading."
-  [layer asker wanted known numbers start n own-rows]
+  [lane asker wanted known numbers start n own-rows]
   (if (nil? asker)
-    (answer-of-page layer :outside [] wanted known numbers start nil own-rows)
-    (let [by-who (by-who-source layer asker start n)
+    (answer-of-page lane :outside [] wanted known numbers start nil own-rows)
+    (let [by-who (by-who-source lane asker start n)
           wanted (conj wanted by-who)]
       (if-not (contains? known by-who)
         (wants wanted known)
         (let [stamps (mapv first (rows-of-run by-who (get known by-who) rows/stamp-of-by-who-key))
-              line-sources (mapv #(run-source layer :line %) (runs (map (fn [s] [s :take]) stamps)))
+              line-sources (mapv #(run-source lane :line %) (runs (map (fn [s] [s :take]) stamps)))
               wanted (into wanted line-sources)]
           (if (some #(not (contains? known %)) line-sources)
             (wants wanted known)
@@ -433,7 +433,7 @@
                   lost (some #(when-not (contains? row-of %) %) stamps)]
               (if lost
                 (assoc (wants wanted known) :fault {:stamp lost})
-                (answer-of-page layer :outside
+                (answer-of-page lane :outside
                                 (mapv (fn [s] {:stamp s :whole? true :row (get row-of s)}) stamps)
                                 wanted known numbers start nil own-rows)))))))))
 
@@ -449,38 +449,38 @@
   The rounds are those of the namespace docstring, each wanted only when
   what it rests on is known: at most six, for an asker outside whose
   permission's rows above must be read, and five for one who may see the
-  layer. A kind that is not known when every source of the rights is known
+  lane. A kind that is not known when every source of the rights is known
   cannot be reached; it is read as outside, which shows the least."
   [query known numbers]
   (let [[_ start most] (:asks query)
         start (long start)
-        layer (layers/home query)
+        lane (lanes/home query)
         n (min (long most) (long (:max-acts-of-one-read numbers)))
         asker (:asker query)
         session (:session query)
         signed-in? (some? asker)
-        last-source (last-stamp-source layer)]
+        last-source (last-stamp-source lane)]
     (if-not (contains? known last-source)
       (wants [last-source] known)
-      (let [own (sources/own-rows-source layer layer)
-            permission (when signed-in? (sources/permission-source layer layer asker))
-            run-permission (when (and signed-in? session) (sources/run-permission-source layer layer session))
+      (let [own (sources/own-rows-source lane lane)
+            permission (when signed-in? (sources/permission-source lane lane asker))
+            run-permission (when (and signed-in? session) (sources/run-permission-source lane lane session))
             rights [last-source own permission run-permission]]
         (if (some #(and % (not (contains? known %))) rights)
           (wants rights known)
-          (let [above (into (if permission (sources/chain-sources layer layer (get known permission)) [])
+          (let [above (into (if permission (sources/chain-sources lane lane (get known permission)) [])
                             (when run-permission
-                              (sources/chain-sources layer layer (sources/askers-run-row (get known run-permission) asker))))
+                              (sources/chain-sources lane lane (sources/askers-run-row (get known run-permission) asker))))
                 wanted (into rights above)]
             (if (some #(not (contains? known %)) above)
               (wants wanted known)
               (let [own-rows (get known own)
-                    kind (let [k (asker-kind layer own-rows (sources/permission-state query layer layer known) signed-in?)]
+                    kind (let [k (asker-kind lane own-rows (sources/permission-state query lane lane known) signed-in?)]
                            (if (= :not-known-yet k) :outside k))
-                    setting (layers/who-may-read-acts own-rows layer)
+                    setting (lanes/who-may-read-acts own-rows lane)
                     asker-text (when signed-in? (declaration/id-text asker))
                     whole? (fn [row] (reads-whole? kind setting asker-text (:who row)))]
                 (if (= :outside kind)
-                  (outside-reading layer asker wanted known numbers start n own-rows)
-                  (inside-reading layer kind whole? wanted known numbers start n
+                  (outside-reading lane asker wanted known numbers start n own-rows)
+                  (inside-reading lane kind whole? wanted known numbers start n
                                   (get known last-source) own-rows))))))))))

@@ -1,11 +1,11 @@
 (ns piece3-statements.generator
   "Generator of Piece 3 histories using `clojure.test.check.generators`.
 
-  Generates histories across both streaming layers (`:lab`) and the microbatch
+  Generates histories across both streaming lanes (`:lab`) and the microbatch
   base (`:base`), combining:
   - pre-making refusals (from strangers and future holders, so stamp 0 can be
-    a refusal and Q3 is exercised before `:make-layer` runs);
-  - `:make-layer`;
+    a refusal and Q3 is exercised before `:make-lane` runs);
+  - `:make-lane`;
   - permission gives (`:see`, `:see-and-act`, `:run-permission`,
     `:act-permission`, and depth-2/3 chains `:first -> :ben -> :cal`), ends
     (direct and ancestor ends), and re-gives;
@@ -55,10 +55,10 @@
   (let [u1 (det-uuid 1000 idx)
         u2 (det-uuid 2000 idx)]
     (gen/frequency
-     [[4 (gen/return {:op :make-layer :uuid u1})]
+     [[4 (gen/return {:op :make-lane :uuid u1})]
       [5 (gen/let [who (gen/elements [:ben :cal])
                    allows (gen/elements [:see :see-and-act])]
-           {:op :give-layer-perm :holder who :allows allows :uuid u1})]
+           {:op :give-lane-perm :holder who :allows allows :uuid u1})]
       [4 (gen/let [who (gen/elements [:ben :cal :dov])
                    run-id (gen/elements [:run-1 :run-2])
                    allows (gen/elements [:see :see-and-act])]
@@ -84,7 +84,7 @@
                                        :val-100k :val-350k
                                        :no-who :bad-who-string :bad-who-long])]
            {:op :refused-declaration :kind kind :uuid u1})]
-      [3 (gen/let [kind (gen/elements [:not-a-map :no-act-id :other-layer :other-gate-act-id])]
+      [3 (gen/let [kind (gen/elements [:not-a-map :no-act-id :other-lane :other-gate-act-id])]
            {:op :stray :kind kind :uuid u1})]
       [3 (gen/return {:op :other-gate-arrival :uuid u1})]
       [4 (gen/let [kind (gen/elements [:same-new-time :different-act :time-after-no-time])]
@@ -92,10 +92,10 @@
       [5 (gen/return {:op :read-sweep})]])))
 
 (def history-gen
-  "Generates `{:layer (:lab|:base) :steps [...]}` of 14 to 28 steps, always
+  "Generates `{:lane (:lab|:base) :steps [...]}` of 14 to 28 steps, always
   ending with a `:read-sweep`."
-  (gen/let [layer (gen/elements [:lab :base])
+  (gen/let [lane (gen/elements [:lab :base])
             n (gen/choose 14 26)
             steps (apply gen/tuple (map step-gen (range 1 (inc n))))]
-    {:layer layer
+    {:lane lane
      :steps (conj (vec steps) {:op :read-sweep})}))

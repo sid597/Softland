@@ -13,7 +13,7 @@
   has it. Both stand on one seam.
 
   State. One in-process cluster, two Jetty servers on two free ports of the
-  loopback address, both closed at the end. The proof makes people, layers
+  loopback address, both closed at the end. The proof makes people, lanes
   and acts in the store that it started."
   (:require [clojure.string :as str]
             [com.rpl.rama :as rama]
@@ -229,28 +229,28 @@
         (check "Her yes is taken."
                (= 200 (:status (yes {"Cookie" cookie "Origin" origin} {"hash" hash "say" "yes"}))))
         (let [[status me] (deref waiting 10000 [:late nil])]
-          (check "The program that waited is answered at her yes: who she is, its session, and her own layer."
-                 (and (= 200 status) (uuid? (:who me)) (uuid? (:session me)) (uuid? (:own-layer me)))
+          (check "The program that waited is answered at her yes: who she is, its session, and her own lane."
+                 (and (= 200 status) (uuid? (:who me)) (uuid? (:session me)) (uuid? (:own-lane me)))
                  [status me])
           (check "The same link a second time is refused: a hash is bound once."
                  (= 409 (:status (yes {"Cookie" cookie "Origin" origin} {"hash" hash "say" "yes"}))))
 
           ;; --------------------------------------------------------- the words
-          (let [layer (:own-layer me)
+          (let [lane (:own-lane me)
                 who (:who me)
-                [_ [act-id]] (say origin token {:word :act-ids :layer layer})
-                act {:version 1 :layer layer :permission [who layer layer] :facts [{:e :chair-7 :k :colour :v :green}]}
-                watched (stream-lines origin token {:asks [:entity :chair-7] :from-layer layer})
+                [_ [act-id]] (say origin token {:word :act-ids :lane lane})
+                act {:version 1 :lane lane :permission [who lane lane] :facts [{:e :chair-7 :k :colour :v :green}]}
+                watched (stream-lines origin token {:asks [:entity :chair-7] :from-lane lane})
                 _ (until #(seq @watched))
                 [send-status receipt] (say origin token {:word :send :act act :act-id act-id})
                 [_ answer] (say origin token {:word :answer :act-id act-id :digest (:digest receipt) :wait-ms 2000})]
             (check "A program asks an act-id, sends an act under it and reads its answer: the receipt holds the act-id and the digest, and the answer says accepted."
                    (and (= 200 send-status) (= act-id (:act-id receipt)) (= :accepted (:answer answer)))
                    [receipt answer])
-            (check "A read gives the fact back, and a visitor who names the layer is told that she may not see it."
-                   (and (= :green (:value (:place (second (say origin token {:word :read :query {:asks [:place :chair-7 :colour] :from-layer layer}})))))
-                        (= [{:layer layer :why :may-not-see}]
-                           (:left-out (second (say origin nil {:word :read :query {:asks [:place :chair-7 :colour] :layers [layer]}}))))))
+            (check "A read gives the fact back, and a visitor who names the lane is told that she may not see it."
+                   (and (= :green (:value (:place (second (say origin token {:word :read :query {:asks [:place :chair-7 :colour] :from-lane lane}})))))
+                        (= [{:lane lane :why :may-not-see}]
+                           (:left-out (second (say origin nil {:word :read :query {:asks [:place :chair-7 :colour] :lanes [lane]}}))))))
             (check "A visitor who sends an act gets 401 and the server's word."
                    (= [401 {:could-not :find-her-session :why :no-credential}] (say origin nil {:word :send :act act})))
             (check "A gate's refusal is no fault of the request: the act is sent, the status is 200, and the answer says refused."

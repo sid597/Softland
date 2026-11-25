@@ -3,25 +3,25 @@
 [Parent: store](../README.md) · [Store source entry](../../../README.md).
 
 This folder says what the record is made of: its rows, the keys of its two
-orders of facts, the layer's line, and the schemas of the PStates that hold
-them. The first order is by place: layer, entity, key. The second, the facts by
-value, is kept only for the keys that a layer marks: layer, key, the stamp
+orders of facts, the lane's line, and the schemas of the PStates that hold
+them. The first order is by place: lane, entity, key. The second, the facts by
+value, is kept only for the keys that a lane marks: lane, key, the stamp
 since which the key is marked, the digest of the value, entity. The line is
-each decision of a layer by its stamp: a small row, the thing again when the
+each decision of a lane by its stamp: a small row, the thing again when the
 gate keeps it, and a row by the who that the thing names. It holds no record and it declares
 nothing. Each gate declares its own PStates with these schemas, because in Rama
 only the topology that owns a PState can write it. Those PStates are durable
 state of the cluster, and they are owned in [module/](../module/README.md).
 
 The rows and the schemas are the same for both gates. Where a row lives is not:
-every row of a streaming layer is on the layer's task; of a microbatch layer the
+every row of a streaming lane is on the lane's task; of a microbatch lane the
 facts and the facts by value are on every task, and the answers and the line on
-the layer's task. [rows.clj](rows.clj) says it row by row.
+the lane's task. [rows.clj](rows.clj) says it row by row.
 
 | File | Responsibility | State and lifetime |
 |---|---|---|
-| [rows.clj](rows.clj) | The record's rows: the text of each key, the making and the reading of each row, the text that a fact's row holds for its value, the run of one value in the facts by value and the digest that its keys hold, the keys and runs of the line and of the rows by who, the line row and the answer that it gives, the routing id of an act-id, which is its layer, and the test of what a caller gave a read. And what only a reader of the tables needs: the two ends of a run of places, the order in which a table keeps its keys, and two tests of one row against another row or a value. Pure code; it loads with Clojure alone. | None. It holds no record. |
-| [tables.clj](tables.clj) | The record as PStates: the six schemas, written once for both gates. The answers, the facts, the facts by value, the line, the things, and what a gate keeps for a task: the last stamp of each layer, since a stamp is counted in its layer, the rows by who, and the strays. It requires Rama. | None. It declares nothing. |
+| [rows.clj](rows.clj) | The record's rows: the text of each key, the making and the reading of each row, the text that a fact's row holds for its value, the run of one value in the facts by value and the digest that its keys hold, the keys and runs of the line and of the rows by who, the line row and the answer that it gives, the routing id of an act-id, which is its lane, and the test of what a caller gave a read. And what only a reader of the tables needs: the two ends of a run of places, the order in which a table keeps its keys, and two tests of one row against another row or a value. Pure code; it loads with Clojure alone. | None. It holds no record. |
+| [tables.clj](tables.clj) | The record as PStates: the six schemas, written once for both gates. The answers, the facts, the facts by value, the line, the things, and what a gate keeps for a task: the last stamp of each lane, since a stamp is counted in its lane, the rows by who, and the strays. It requires Rama. | None. It declares nothing. |
 
 ## How the files relate
 

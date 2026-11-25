@@ -13,11 +13,11 @@
                         the yes page offers to make this program an agent
                         of that name
     who                 who this program is signed in as
-    write e k v         one fact, written into a layer
+    write e k v         one fact, written into a lane
     read e k            one place, read once
     watch e k           one place, kept live until the program is stopped
     send file           the acts of a file, sent in order, each once
-    give who layer see|act
+    give who lane see|act
                         gives a permission beneath the one that this
                         program acts under
     invite [--email a]  makes a person who waits for an account; prints the
@@ -35,11 +35,11 @@
     sign-out            ends this program's sign-in
 
   Common arguments: `--as file`, the file that holds the sign-in, when it
-  is not the default; `--layer id`, the layer, when it is not the person's
+  is not the default; `--lane id`, the lane, when it is not the person's
   own; `--permission edn`, the permission that an act names, when it is
-  not the first permission of the person's own layer.
+  not the first permission of the person's own lane.
 
-  Values. `e`, `k`, `v`, a layer and a permission are read as EDN, so a
+  Values. `e`, `k`, `v`, a lane and a permission are read as EDN, so a
   keyword, a set and a number of any width are typed as they are; a UUID
   is typed bare, or as EDN writes one; a text that is no EDN, or a bare
   word, is taken as a string.
@@ -48,7 +48,7 @@
   `~/.config/softland`, readable by its owner alone: the runtime's address,
   the credential, and the id of the session that it is in. It keeps
   nothing else between two runs: who it is and where the person's own
-  layer is come from the runtime's hello each time. `send` keeps the UUIDs
+  lane is come from the runtime's hello each time. `send` keeps the UUIDs
   of a file's acts beside the file, so that a run that was cut off sends
   each act again under its own UUID and the store takes it once.
 
@@ -366,24 +366,24 @@
 (defn- act-of
   "Builds one act of this program. Takes the hello, the flags, and the
   facts. Gives the act, whole: the who and the session are the hello's;
-  the layer is `--layer` or the person's own; the permission is
-  `--permission`, or the first permission of that layer for its person."
-  [hello {:keys [layer permission]} facts]
-  (let [layer (if layer (value-of layer) (:own-layer hello))]
+  the lane is `--lane` or the person's own; the permission is
+  `--permission`, or the first permission of that lane for its person."
+  [hello {:keys [lane permission]} facts]
+  (let [lane (if lane (value-of lane) (:own-lane hello))]
     {:version 1
      :who (:who hello)
      :session (:session hello)
-     :layer layer
-     :permission (if permission (value-of permission) [(:who hello) layer layer])
+     :lane lane
+     :permission (if permission (value-of permission) [(:who hello) lane lane])
      :facts facts}))
 
 (defn- query-of
   "Builds the query of one place. Takes the hello, the flags, an entity
   and a key."
-  [hello {:keys [layer]} e k]
+  [hello {:keys [lane]} e k]
   {:asks [:place e k]
    :asker (:who hello)
-   :layers [(if layer (value-of layer) (:own-layer hello))]})
+   :lanes [(if lane (value-of lane) (:own-lane hello))]})
 
 ;; ---------------------------------------------------------------- the commands
 
@@ -486,18 +486,18 @@
       (with-line flags
         (fn [connection hello]
           (let [who (value-of a)
-                layer (value-of b)
-                flags (assoc flags :layer b)
+                lane (value-of b)
+                flags (assoc flags :lane b)
                 act (act-of hello flags [])
                 allows (case c "see" :see "act" :see-and-act nil)]
             (if-not allows
-              {:could-not :read-the-command :said "give who layer see|act"}
+              {:could-not :read-the-command :said "give who lane see|act"}
               (client/say connection
                           {:word :send
                            :act (assoc act
                                        :subjects #{who}
                                        :facts [{:e who :k :softland.store/permission
-                                                :v [who layer layer (:permission act) allows]}])
+                                                :v [who lane lane (:permission act) allows]}])
                            :act-id (UUID/randomUUID)})))))
 
       "invite"

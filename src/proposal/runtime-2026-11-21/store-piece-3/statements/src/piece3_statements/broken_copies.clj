@@ -7,7 +7,7 @@
 
 (def broken-copies
   [{:name :stray-gets-a-stamp
-    :breaks "L1: gives a stray a stamp in the layer's line"
+    :breaks "L1: gives a stray a stamp in the lane's line"
     :make #(model/make-target {:stray-gets-stamp? true})}
 
    {:name :other-gate-mixed-in
@@ -50,23 +50,23 @@
 
    {:name :base-acts-open-by-default
     :breaks "S1: defaults :base's :who-may-read-acts to :everyone instead of :members"
-    :make #(model/make-target {:default-acts-setting-fn (fn [layer] (if (= :base layer) :everyone :members))})}
+    :make #(model/make-target {:default-acts-setting-fn (fn [lane] (if (= :base lane) :everyone :members))})}
 
    {:name :given-holder-writes-acts-setting
     :breaks "S2: allows a non-first holder to write :softland.store/who-may-read-acts"
     :make #(model/make-target {:given-holder-writes-acts-setting? true})}
 
    {:name :visitor-reads-taken-act-whole
-    :breaks "R3: gives a visitor of an :everyone layer another sender's taken act whole while acts setting is :members"
+    :breaks "R3: gives a visitor of an :everyone lane another sender's taken act whole while acts setting is :members"
     :make #(model/make-target {:visitor-reads-taken-act-whole? true})}
 
    {:name :withheld-leaks-answer
     :breaks "R3: includes :act-id and :answer on a :withheld decision"
     :make #(model/make-target {:withheld-leaks-answer? true})}
 
-   {:name :open-layer-skips-permission-read
-    :breaks "R1 / R4: skips reading the asker's permission in an :everyone layer, treating holders as visitors"
-    :make #(model/make-target {:open-layer-skips-permission? true})}
+   {:name :open-lane-skips-permission-read
+    :breaks "R1 / R4: skips reading the asker's permission in an :everyone lane, treating holders as visitors"
+    :make #(model/make-target {:open-lane-skips-permission? true})}
 
    {:name :act-permission-grants-line-read
     :breaks "R1: treats an :act-permission holder as holding a permission to read the line"
@@ -76,13 +76,13 @@
     :breaks "R2: checks only the asker's own permission row without checking that permissions above it still stand"
     :make #(model/make-target {:ended-chain-still-reads-whole? true})}
 
-   {:name :closed-layer-hides-own-things
-    :breaks "R5 / R6: omits a signed-in asker's own taken and refused things in a :may-not-see or :not-made layer"
-    :make #(model/make-target {:closed-layer-hides-own-things? true})}
+   {:name :closed-lane-hides-own-things
+    :breaks "R5 / R6: omits a signed-in asker's own taken and refused things in a :may-not-see or :not-made lane"
+    :make #(model/make-target {:closed-lane-hides-own-things? true})}
 
-   {:name :closed-layer-leaks-stamps
-    :breaks "R5: leaks :last-stamp and withheld stamps of others' decisions in a :may-not-see layer"
-    :make #(model/make-target {:closed-layer-leaks-stamps? true})}
+   {:name :closed-lane-leaks-stamps
+    :breaks "R5: leaks :last-stamp and withheld stamps of others' decisions in a :may-not-see lane"
+    :make #(model/make-target {:closed-lane-leaks-stamps? true})}
 
    {:name :too-large-stops-line
     :breaks "R8: stops returning entries when encountering a decision whose thing is :too-large"

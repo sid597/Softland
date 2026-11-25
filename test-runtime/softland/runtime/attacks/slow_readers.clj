@@ -117,18 +117,18 @@
                 healthy (h/line url (:credential prog) nil)
                 hello (:hello healthy)
                 who (:who hello)
-                layer (:own-layer hello)
-                own [who layer layer]
+                lane (:own-lane hello)
+                own [who lane lane]
                 chunk (apply str (repeat 60000 "s"))
                 wrote (h/say healthy {:word :send
                                       :act {:version 1 :who who :session (:session hello)
-                                            :layer layer :permission own
+                                            :lane lane :permission own
                                             :facts (mapv (fn [i] {:e :blob :k (keyword (str "p" i)) :v chunk})
                                                          (range 20))}
                                       :act-id (UUID/randomUUID)})
                 _ (assert (= :accepted (get-in wrote [:answer :answer]))
                           (str "setup write must be accepted, got: " (pr-str wrote)))
-                query {:asks [:entity :blob] :asker who :layers [layer]}
+                query {:asks [:entity :blob] :asker who :lanes [lane]}
                 cores (.availableProcessors (Runtime/getRuntime))
                 ;; Upgrade `cores + 2` connections up front while carriers are
                 ;; free, then stall all of them on unread large answers across

@@ -22,12 +22,12 @@
 
     M1  a gate under 100 acts a second: one maker sends acts of one fact, a
         string of 100 bytes under a plain key, each to another place of one
-        layer. The streaming gate, timed to the return of `send-act`, which
+        lane. The streaming gate, timed to the return of `send-act`, which
         is the streaming depot's ack: once with the key not marked and once
         with it marked. And the base, timed to the moment at which the
         door's wait gives \"accepted\"
     M2  M1's first shape with 1, 100 and 1,000 live reads asked for on the
-        layer, of one asker who holds a permission in it: each read on
+        lane, of one asker who holds a permission in it: each read on
         another place that is not written; and each on another run that
         holds the written places. The read path holds 900 pushes on one
         table under one routing id, so of 1,000 such reads 898 open and
@@ -35,23 +35,23 @@
         many opened
     M3  the opening of a canvas of 5,000 facts: asked as the run across the
         5,000 entities and as what points at the canvas, once and kept
-        live, through one layer and through three; with a streaming layer
+        live, through one lane and through three; with a streaming lane
         as the farthest, and with the base as the farthest. Through one
-        layer the base is read from the base itself, on the base's own
-        task; through three it is read on the task of the nearest layer,
+        lane the base is read from the base itself, on the base's own
+        task; through three it is read on the task of the nearest lane,
         the read's home. Either way the run and the order come whole from
-        one task. Kept live through three layers, what points at the
+        one task. Kept live through three lanes, what points at the
         canvas needs a check, and so a push, for each place and each
-        nearer layer: far more than the 250 that one live read may need,
+        nearer lane: far more than the 250 that one live read may need,
         so that shape measures how soon the read is turned away. One shape
         more gives the cost of those checks where they are few enough to
         open: what points at a canvas of 100 facts, kept live through three
-        layers
+        lanes
     M4  how late a push is: one live read of one place, which one maker
-        changes 10 times a second; in a streaming layer; in the base, read
-        from the base itself; in the base, read through a layer of the
-        asker's own, so on that layer's task, which holds a copy of the
-        base's rows; and, in a streaming layer, of one place of the facts
+        changes 10 times a second; in a streaming lane; in the base, read
+        from the base itself; in the base, read through a lane of the
+        asker's own, so on that lane's task, which holds a copy of the
+        base's rows; and, in a streaming lane, of one place of the facts
         by value
     M5  what is not measured here
 
@@ -65,8 +65,8 @@
 
   What a time to the return of `send-act` holds. Each act of the measures
   is sent with no act-id, so the door makes one. The call is then two round
-  trips and no more, for every act alike: one read of the layer's depot,
-  and one append of the act. In a streaming layer the append comes back
+  trips and no more, for every act alike: one read of the lane's depot,
+  and one append of the act. In a streaming lane the append comes back
   when the gate has run; in the base, when the depot holds the thing. The
   door's proof holds those two counts; the measures count neither.
 
@@ -122,18 +122,18 @@
 ;; ------------------------------------------------------------- through the door
 
 (defn- send!
-  "Sends one act of a who into a layer through the door, under a
+  "Sends one act of a who into a lane through the door, under a
   permission. Gives what `send-act` gave."
-  [who layer permission facts]
-  (door/send-act (:door @round) {:version 1 :who who :layer layer :permission permission
+  [who lane permission facts]
+  (door/send-act (:door @round) {:version 1 :who who :lane lane :permission permission
                                  :session :read-measures :facts facts}))
 
 (defn- accepted!
   "Sends one act and waits until the door's wait gives its answer. Gives
   the answer. It stops the run when the act is not accepted: the measures
-  cannot run on a layer that is not as they made it."
-  [who layer permission facts]
-  (let [sent (send! who layer permission facts)
+  cannot run on a lane that is not as they made it."
+  [who lane permission facts]
+  (let [sent (send! who lane permission facts)
         answer (when-not (:could-not sent)
                  (door/answer-of (:door @round) (:act-id sent) (:digest sent) 60000))]
     (when-not (= :accepted (:answer answer))
@@ -141,11 +141,11 @@
     answer))
 
 (defn- make!
-  "Makes a streaming layer whose holder is `:maker`. Gives the maker's
+  "Makes a streaming lane whose holder is `:maker`. Gives the maker's
   permission in it."
-  [layer]
-  (let [own [:maker layer layer]]
-    (accepted! :maker layer own [{:e layer :k :softland.store/depot :v :streaming}
+  [lane]
+  (let [own [:maker lane lane]]
+    (accepted! :maker lane own [{:e lane :k :softland.store/depot :v :streaming}
                                  {:e :maker :k :softland.store/permission :v own}])
     own))
 
@@ -173,19 +173,19 @@
 ;; ------------------------------------------------------------------------ M1
 
 (defn- streaming-gate-times
-  "One maker sends acts of one fact into a streaming layer, 100 a second,
-  after acts that are not counted. Takes the layer, the maker's permission,
+  "One maker sends acts of one fact into a streaming lane, 100 a second,
+  after acts that are not counted. Takes the lane, the maker's permission,
   how many acts, how many are not counted, and a function from the act's
   number to its fact. Gives {:from-due :from-call}, each the times to the
   return of `send-act`, in nanoseconds."
-  [layer permission n warm fact-of]
+  [lane permission n warm fact-of]
   (dotimes [i warm]
-    (send! :maker layer permission [(fact-of (- i warm))]))
+    (send! :maker lane permission [(fact-of (- i warm))]))
   (let [from-due (atom []) from-call (atom [])]
     (paced n 10
            (fn [i due]
              (let [called (System/nanoTime)
-                   sent (send! :maker layer permission [(fact-of i)])
+                   sent (send! :maker lane permission [(fact-of i)])
                    returned (System/nanoTime)]
                (when-not (:could-not sent)
                  (swap! from-due conj (- returned due))
@@ -201,11 +201,11 @@
   "M1, the streaming gate: once with the key not marked, once with it
   marked."
   [{:keys [acts warm]}]
-  (let [layer :m1
-        own (make! layer)
-        plain (streaming-gate-times layer own acts warm another-place)
-        _ (accepted! :maker layer own [{:e layer :k :softland.store/marked-keys :v #{:text}}])
-        marked (streaming-gate-times layer own acts warm (fn [i] (another-place (+ 50000 i))))]
+  (let [lane :m1
+        own (make! lane)
+        plain (streaming-gate-times lane own acts warm another-place)
+        _ (accepted! :maker lane own [{:e lane :k :softland.store/marked-keys :v #{:text}}])
+        marked (streaming-gate-times lane own acts warm (fn [i] (another-place (+ 50000 i))))]
     (doseq [[what got] [["the key not marked" plain] ["the key marked, so each act also writes a row of the facts by value" marked]]]
       (measured "M1 the streaming gate, 100 acts a second, one fact of 100 bytes each to another place," what
                 "| from the act's due moment to the return of send-act:" (times (:from-due got)))
@@ -250,11 +250,11 @@
 ;; ------------------------------------------------------------------------ M2
 
 (defn- m2
-  "M2: M1's first shape with live reads open on the layer, in two shapes
-  and three counts. The asker holds a permission in the layer, whose
+  "M2: M1's first shape with live reads open on the lane, in two shapes
+  and three counts. The asker holds a permission in the lane, whose
   setting is \"members\", so n reads hold n + 2 pushes: the n fact sources,
-  the layer's own rows and her permission. All of them are on the facts
-  table under the layer's routing id, where the read path holds 900 at
+  the lane's own rows and her permission. All of them are on the facts
+  table under the lane's routing id, where the read path holds 900 at
   most: of 1,000 reads asked for, 898 open, and each other is turned away
   at once with the read path's word. The line gives the words that came.
 
@@ -265,11 +265,11 @@
   [{:keys [acts warm reads]}]
   (doseq [shape [:places :runs]
           n reads]
-    (let [layer (keyword (str "m2-" (name shape) "-" n))
-          own (make! layer)
+    (let [lane (keyword (str "m2-" (name shape) "-" n))
+          own (make! lane)
           opening-began (System/nanoTime)
-          asker-permission [:asker layer layer own]
-          _ (accepted! :maker layer own [{:e :asker :k :softland.store/permission :v asker-permission}])
+          asker-permission [:asker lane lane own]
+          _ (accepted! :maker lane own [{:e :asker :k :softland.store/permission :v asker-permission}])
           told (atom 0)
           rp (:read-path @round)
           opened (vec (for [j (range n)]
@@ -278,7 +278,7 @@
                          {:asks (if (= :places shape)
                                   [:place (keyword (str "unwritten-" j)) :text]
                                   [:run [:p] [(keyword (str "q" (+ 100000 j)))]])
-                          :asker :asker :layers [layer]}
+                          :asker :asker :lanes [lane]}
                          (fn [change] (when (:changed change) (swap! told inc))))))
           opening-took (- (System/nanoTime) opening-began)
           words (frequencies (keep :could-not opened))
@@ -286,11 +286,11 @@
           fact-of (if (= :places shape)
                     another-place
                     (fn [i] {:e (keyword (str "p" (+ 100000 (mod i 256)))) :k :text :v (text-of-100-bytes i)}))
-          got (streaming-gate-times layer own acts warm fact-of)
+          got (streaming-gate-times lane own acts warm fact-of)
           began (System/nanoTime)
           _ (run! #(read-path/leave rp (:leave-with %)) (remove :could-not opened))
           left (- (System/nanoTime) began)]
-      (measured "M2 the streaming gate, 100 acts a second, with" n "live reads asked for on the layer,"
+      (measured "M2 the streaming gate, 100 acts a second, with" n "live reads asked for on the lane,"
                 (if (= :places shape)
                   "each on another place that is not written"
                   "each on another run that holds the written places, which go round 256 places")
@@ -329,21 +329,21 @@
   (keyword (format "blk-%05d" i)))
 
 (defn- canvas!
-  "Writes the canvas of M3 with one farthest layer: `canvas` blocks with ids
+  "Writes the canvas of M3 with one farthest lane: `canvas` blocks with ids
   that are neighbours, each with one fact under the marked key `:parent`
-  that points at the canvas; and two nearer layers, which mark the key too
+  that points at the canvas; and two nearer lanes, which mark the key too
   and each hold 50 facts at places of the canvas, 25 that say another thing
-  and 25 that say the canvas. Takes the farthest layer, who writes into it
-  and under which permission, the names of the two nearer layers, and the
-  count of blocks. Gives the three layers, nearest first."
+  and 25 that say the canvas. Takes the farthest lane, who writes into it
+  and under which permission, the names of the two nearer lanes, and the
+  count of blocks. Gives the three lanes, nearest first."
   [far far-who far-permission [near mid] canvas]
   (accepted! far-who far far-permission [{:e far :k :softland.store/marked-keys :v #{:parent}}])
   (doseq [part (partition-all 250 (range canvas))]
     (accepted! far-who far far-permission (mapv (fn [i] {:e (block i) :k :parent :v :canvas-1}) part)))
-  (doseq [[layer offset] [[near 0] [mid 100]]]
-    (let [own (make! layer)]
-      (accepted! :maker layer own [{:e layer :k :softland.store/marked-keys :v #{:parent}}])
-      (accepted! :maker layer own
+  (doseq [[lane offset] [[near 0] [mid 100]]]
+    (let [own (make! lane)]
+      (accepted! :maker lane own [{:e lane :k :softland.store/marked-keys :v #{:parent}}])
+      (accepted! :maker lane own
                  (vec (for [i (range 50)]
                         {:e (block (+ offset (* 7 i))) :k :parent :v (if (even? i) :canvas-2 :canvas-1)})))))
   [near mid far])
@@ -351,16 +351,16 @@
 (defn- m3-shapes
   "The eight shapes of M3 for one canvas: asked as the run across the
   entities and as what points at the canvas; once and kept live; through
-  the farthest layer alone and through the three. Each shape is run `runs`
+  the farthest lane alone and through the three. Each shape is run `runs`
   times, of which the first `dropped` are not counted."
   [what [_ _ far :as three] asker {:keys [canvas runs dropped]}]
   (let [rp (:patient @round)
         last-block (block (dec canvas))]
     (doseq [[asked asks] [["the run across the entities" [:run [(block 0)] [last-block]]]
                           ["what points at the canvas" [:points-at :parent :canvas-1]]]
-            [through layers] [["one layer" [far]] ["three layers" three]]
+            [through lanes] [["one lane" [far]] ["three lanes" three]]
             live? [false true]]
-      (let [query {:asks asks :asker asker :layers layers}
+      (let [query {:asks asks :asker asker :lanes lanes}
             before (heap-in-use)
             turns (vec (for [turn (range runs)]
                          (let [began (System/nanoTime)
@@ -391,7 +391,7 @@
 
 (defn- m3-small-canvas-live
   "M3's one shape more: what points at a canvas of 100 facts, kept live
-  through three layers. Its checks of nearer layers are few enough for one
+  through three lanes. Its checks of nearer lanes are few enough for one
   live read, so the read opens, with one push for each check: the cost of
   the way of the checks that is built, where it can be paid. Each time is
   from the call of `read-live` to its return."
@@ -399,7 +399,7 @@
   (let [rp (:patient @round)
         far-own (make! :s-far)
         three (canvas! :s-far :maker far-own [:s-near :s-mid] 100)
-        query {:asks [:points-at :parent :canvas-1] :asker :maker :layers three}
+        query {:asks [:points-at :parent :canvas-1] :asker :maker :lanes three}
         turns (vec (for [_ (range runs)]
                      (let [began (System/nanoTime)
                            counted (counting #(read-path/read-live rp query (fn [_] nil)))
@@ -412,21 +412,21 @@
                         :places (count (:places (:now got))) :word (:could-not got)})))
         counted (subvec turns dropped)
         last-turn (peek turns)]
-    (measured "M3 a canvas of 100 facts in a streaming layer | what points at the canvas kept live through three layers, where the checks of nearer layers are few enough to open"
+    (measured "M3 a canvas of 100 facts in a streaming lane | what points at the canvas kept live through three lanes, where the checks of nearer lanes are few enough to open"
               "| from the call to its return:" (times (map :took counted)) "| each time:" (pr-str (mapv (comp ms :took) counted))
               (if (some :word turns) (str "| a word came in the place of an answer: " (pr-str (distinct (keep :word turns)))) ""))
     (measured "M3 the same |" (:places last-turn) "places in the answer | pushes that it opened:" (:opens last-turn)
               "| pushes held:" (:pushes last-turn) "| leave took" (pr-str (mapv (comp ms :left) counted)) "ms")))
 
 (defn- m3
-  "M3: the opening of a canvas, with a streaming layer as the farthest and
+  "M3: the opening of a canvas, with a streaming lane as the farthest and
   with the base as the farthest; and the one shape more of
   `m3-small-canvas-live`."
   [load]
   (let [far-own (make! :c-far)
         streaming (canvas! :c-far :maker far-own [:c-near :c-mid] (:canvas load))
         base (canvas! :base :system system-own [:b-near :b-mid] (:canvas load))]
-    (m3-shapes "a canvas in a streaming layer" streaming :maker load)
+    (m3-shapes "a canvas in a streaming lane" streaming :maker load)
     (m3-shapes "a canvas in the base" base :maker load)
     (m3-small-canvas-live load)))
 
@@ -440,10 +440,10 @@
   the base at one place give one change, with the later one, so an act can
   have no call of its own.
 
-  `layers` is the list of the read. With the written layer alone the read
-  starts from it. With a layer of the asker's own before the base, the
-  read's home is that layer, and the push on the base's row is on that
-  layer's task: a time then holds the commit of the batch on a task that
+  `lanes` is the list of the read. With the written lane alone the read
+  starts from it. With a lane of the asker's own before the base, the
+  read's home is that lane, and the push on the base's row is on that
+  lane's task: a time then holds the commit of the batch on a task that
   only holds a copy.
 
   `table` is `:facts` or `:facts-by-value`. For `:facts` the read is of one
@@ -454,17 +454,17 @@
   facts by value, whose rows hold no value, and each act changes the one
   row of it.
   An act is known in a change by its act-id, which the place-answer's fact
-  holds. What must hold for `:facts-by-value`: the layer marks `:late-on`;
-  for a list of two layers: the nearer one holds no fact at the place, and
+  holds. What must hold for `:facts-by-value`: the lane marks `:late-on`;
+  for a list of two lanes: the nearer one holds no fact at the place, and
   the asker may see both."
-  [what table who layer permission asker layers {:keys [late-acts late-warm]}]
+  [what table who lane permission asker lanes {:keys [late-acts late-warm]}]
   (let [rp (:read-path @round)
         told (atom [])
         number-of (atom {})
         by-value? (= :facts-by-value table)
         read (read-path/read-live rp
                                   {:asks (if by-value? [:points-at :late-on :late-thing] [:place :late :n])
-                                   :asker asker :layers layers}
+                                   :asker asker :lanes lanes}
                                   (fn [change]
                                     (when-let [[act-id] (:fact (first (vals (:changed change))))]
                                       (swap! told conj [act-id (System/nanoTime)]))))
@@ -472,7 +472,7 @@
     (paced (+ late-warm late-acts) 100
            (fn [i _]
              (let [called (System/nanoTime)
-                   got (send! who layer permission
+                   got (send! who lane permission
                               [(if by-value? {:e :late :k :late-on :v :late-thing} {:e :late :k :n :v i})])]
                (when-not (:could-not got)
                  (swap! number-of assoc (:act-id got) i)
@@ -492,28 +492,28 @@
       (measured "M4 how late a push is," what ", one live read, 10 acts a second | from the call of send-act to the first call of the asker's function that tells that act or a later one:"
                 (times (map :from-call timed)))
       (measured "M4 the same," what "| from the return of send-act, which is"
-                (if (= :base layer) "the microbatch depot's append-ack" "the streaming depot's ack") ", to that call:"
+                (if (= :base lane) "the microbatch depot's append-ack" "the streaming depot's ack") ", to that call:"
                 (times (map :from-return timed))
                 "| a time below zero says that the function was called before send-act returned"
                 "| acts told by a call of their own:" (count (filter :own? timed)) "| only by a later act's:" (count (remove :own? timed))
                 "| acts that were sent and never told:" (- (count (filter (fn [[i]] (<= late-warm i)) @sent)) (count timed))))))
 
 (defn- m4
-  "M4: a place of the facts table, in a streaming layer and in the base; and
-  a place of the facts by value in a streaming layer, so that a push on one
+  "M4: a place of the facts table, in a streaming lane and in the base; and
+  a place of the facts by value in a streaming lane, so that a push on one
   row of the facts table and a push on a run of the facts by value are
   measured under the same load. The base is measured twice: read from the
-  base itself, on the base's own task; and read through a layer of the
-  asker's own that holds nothing at the place, on that layer's task."
+  base itself, on the base's own task; and read through a lane of the
+  asker's own that holds nothing at the place, on that lane's task."
   [load]
   (let [own (make! :m4)]
     (accepted! :maker :m4 own [{:e :m4 :k :softland.store/marked-keys :v #{:late-on}}])
     (make! :m4-own)
-    (m4-one "of a place of the facts table, in a streaming layer" :facts :maker :m4 own :maker [:m4] load)
+    (m4-one "of a place of the facts table, in a streaming lane" :facts :maker :m4 own :maker [:m4] load)
     (m4-one "of a place of the facts table, in the base, read from the base itself" :facts :system :base system-own :system [:base] load)
-    (m4-one "of a place of the facts table, in the base, read through a layer of the asker's own, on that layer's task"
+    (m4-one "of a place of the facts table, in the base, read through a lane of the asker's own, on that lane's task"
             :facts :system :base system-own :maker [:m4-own :base] load)
-    (m4-one "of a place of the facts by value, in a streaming layer" :facts-by-value :maker :m4 own :maker [:m4] load)))
+    (m4-one "of a place of the facts by value, in a streaming lane" :facts-by-value :maker :m4 own :maker [:m4] load)))
 
 ;; ----------------------------------------------------------------------- the run
 

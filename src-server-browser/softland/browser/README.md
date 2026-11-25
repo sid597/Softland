@@ -8,7 +8,7 @@ half draws a plain page.
 
 | File | Responsibility | State |
 |---|---|---|
-| [app.cljc](app.cljc) | The Electric program, and the one function that boots it on both peers. On the server: her standing, her own layer's id, the steps of an act, and the live read. On the client: the page, its forms, and the acts under way. | On the server, none of its own: what a socket's program holds is Electric's, and ends with the socket. On the client, the page's state: the acts under way and the entity that is watched. |
+| [app.cljc](app.cljc) | The Electric program, and the one function that boots it on both peers. On the server: her standing, her own lane's id, the steps of an act, and the live read. On the client: the page, its forms, and the acts under way. | On the server, none of its own: what a socket's program holds is Electric's, and ends with the socket. On the client, the page's state: the acts under way and the entity that is watched. |
 | [boot.cljs](boot.cljs) | The browser's entry: boots the client's half into the page, with the page's state made once for each load. | The page's state, and the function that stops the client. |
 | [host.clj](host.clj) | A Ring handler in front of the face over HTTP: tests a socket's `Origin`, boots the program for a socket that passes, serves `/app` and the built files under `/js/`. Also Jetty's WebSocket limits. | None. |
 | [main.clj](main.clj) | The command: starts the cluster and the server as `softland.server.main` does, wraps its handler with the host, and serves it. | The cluster and what the server opened, for the life of the process. |
@@ -30,10 +30,10 @@ program, and the server's half speaks to the store through the seam alone.
    of `Main`, and the actor is used only inside `e/server` expressions. The
    seam, sign-in and watching are required on the server peer alone, so a call
    of the seam written on the client does not compile. The client is sent
-   `seam/about` and her own layer's id. Every act and every query is built on
-   the server from her who and her own layer; the client hands back only an
+   `seam/about` and her own lane's id. Every act and every query is built on
+   the server from her who and her own lane; the client hands back only an
    entity, a key, a value, and an act-id that the server gave it, which the
-   server tests against her own layer before it sends anything.
+   server tests against her own lane before it sends anything.
 2. **No state that sockets share lives in an atom of the server.** No file
    here defines state on the server. The state of a socket is Electric's; the
    state of a page is the client's.
@@ -50,7 +50,7 @@ program, and the server's half speaks to the store through the seam alone.
   page, not in the browser's storage.
 - Every change of a live read sends the whole answer to the client, not the
   places that changed.
-- One entity is watched at a time, from her own layer only.
+- One entity is watched at a time, from her own lane only.
 - No ration of acts or of live reads: that is the seam's, and not built there
   either.
 - No styling, and no part of Softland's own renderer.

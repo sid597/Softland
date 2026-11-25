@@ -19,8 +19,8 @@
              a place. Entity and key are one sorted key, not a map inside a
              map, which would cost one seek for each level.
     facts-by-value
-             {String -> a row}. For each key that a layer marks, the same
-             facts in one more order: layer, key, the stamp since which the
+             {String -> a row}. For each key that a lane marks, the same
+             facts in one more order: lane, key, the stamp since which the
              key is marked, the digest of the value, then the entity. So
              the places that hold one value under one key are neighbours,
              and \"what points at this thing\" is one seek and one step for
@@ -30,9 +30,9 @@
              table of its own and not more keys of `facts`: its key has five
              parts where a place has three, so in one map a key of this
              order could sort into the run of an entity.
-    line     {String -> a row}. The layer's line: one row for each
-             decision, under \"<layer> <stamp>\" with the stamp in 19
-             digits, so that a layer's decisions are one run of
+    line     {String -> a row}. The lane's line: one row for each
+             decision, under \"<lane> <stamp>\" with the stamp in 19
+             digits, so that a lane's decisions are one run of
              neighbouring keys in the order of their stamps, and a page of
              n is one seek and n steps. A top-level map, as the facts: a
              read of a run of its keys is the form that Rama's push was
@@ -51,59 +51,59 @@
              has no schema and can have none, since a thing can be
              anything.
     task     a fixed-keys value for each task, what a gate keeps beside
-             its five tables: under `:last-stamp`, for each layer that the
+             its five tables: under `:last-stamp`, for each lane that the
              gate has decided a thing of on the task, the last stamp that
-             it gave in that layer; under `:by-who`, the rows by who of the
-             layers of the task; and the strays seen on the task. Three
+             it gave in that lane; under `:by-who`, the rows by who of the
+             lanes of the task; and the strays seen on the task. Three
              things that are no row of a fact, of an answer or of the line,
              in one PState so that they cost one partition and not three.
-             The rows by who are a map from \"<layer> <who> <stamp>\" to the
+             The rows by who are a map from \"<lane> <who> <stamp>\" to the
              stamp, subindexed with size tracking off, as `:last-stamp`
              is: one write for each decision whose thing names a usable
-             who, and a read of one who's decisions in one layer is a run of
+             who, and a read of one who's decisions in one lane is a run of
              it. A field here and not a PState of its own: it is read only
-             by an asker who may not see a layer, for her own things, so
+             by an asker who may not see a lane, for her own things, so
              the one seek more that the field's level costs at that read
              saves a partition on every task (Sid's call of 22 November
              2026, on the plan's check).
-             `:last-stamp` is a map from the printed text of a layer id to
+             `:last-stamp` is a map from the printed text of a lane id to
              a number, subindexed, with size tracking off. A map with one
-             key for each layer, and not one number for the task, because
-             a stamp is counted in its layer
+             key for each lane, and not one number for the task, because
+             a stamp is counted in its lane
              (`softland.store.gate.stamp`). The key is the text of the
-             layer id, as in every key of a row, so that the position has
-             one class: a layer id is a keyword or a
+             lane id, as in every key of a row, so that the position has
+             one class: a lane id is a keyword or a
              UUID. Subindexed, because a task of the streaming gate holds
-             every layer that hashes to it, a personal layer for each
+             every lane that hashes to it, a personal lane for each
              person among them, and a map that is not subindexed is read
              and written whole at each decision. Size tracking is off:
-             nothing asks how many layers the map holds, and tracking
+             nothing asks how many lanes the map holds, and tracking
              costs a read at each write. The cost of the level: a read of
-             one layer's last stamp goes through the field and then the
-             layer's key, where a row of the three tables is one key;
+             one lane's last stamp goes through the field and then the
+             lane's key, where a row of the three tables is one key;
              Rama's skill text counts each such level as a read on disk,
              and no run here measured it.
 
-  Why flat maps and not one PState keyed by the layer. An answer is found
+  Why flat maps and not one PState keyed by the lane. An answer is found
   by an act's uuid, a fact by its place, a row of the facts by value by the
-  digest of its value: they share no key. With the layer as the top-level
+  digest of its value: they share no key. With the lane as the top-level
   key and three subindexed maps under it, each row would cost two seeks to
   read and one more to write, where each costs one here.
 
   A row is placed by the task on which its gate writes it, not by a hash of
   its whole key. So nothing may route by a whole key. The streaming gate
-  writes each row of a layer on the layer's task, and each read of a
-  streaming layer routes by the layer. The microbatch gate writes an
-  answer, a layer's last stamp, its line, its things and its rows by who on
-  the layer's task, and each row of the facts and of the facts by value on
-  every task: a read of an answer, or of the line, routes by the layer, and
-  a read of a microbatch layer's facts finds each row on whichever task it
+  writes each row of a lane on the lane's task, and each read of a
+  streaming lane routes by the lane. The microbatch gate writes an
+  answer, a lane's last stamp, its line, its things and its rows by who on
+  the lane's task, and each row of the facts and of the facts by value on
+  every task: a read of an answer, or of the line, routes by the lane, and
+  a read of a microbatch lane's facts finds each row on whichever task it
   runs. `softland.store.record.rows` says it row by row.
 
   No row holds a collection, and no position is of the class Object. Each
   row is a fixed-keys schema, each field of one class; a field that a row
   does not have is absent: `:value` in the row of a retract, `:level-since`
-  in every row but the one at a layer's marked-keys place, `:by-index` in
+  in every row but the one at a lane's marked-keys place, `:by-index` in
   the row of the use of a yes for one act, which no fact wrote, `:time` in
   the answer of a thing that held no usable time. A fact's value, who wrote
   it, the permission that its act named and the stamps of the
@@ -127,7 +127,7 @@
 
   A last stamp is durable state because a stamp must increase through a
   restart and through a move of the task's leader. The walk reads the last
-  stamp of the act's layer from the gate's PState at each decision, in both
+  stamp of the act's lane from the gate's PState at each decision, in both
   gates; neither gate keeps one in the memory of a process.
 
   State and effects. None: each function gives a schema, a value. The
@@ -207,9 +207,9 @@
   "Gives the schema of what a gate keeps for a task beside its five
   tables. It serves both gates: the streaming gate declares
   `$$streaming-task` with it and the microbatch gate `$$microbatch-task`.
-  `:last-stamp`: a map from the printed text of a layer id
+  `:last-stamp`: a map from the printed text of a lane id
   (`softland.store.door.declaration/id-text`) to the last stamp that the
-  gate gave in that layer; a layer of which the gate has decided nothing on
+  gate gave in that lane; a lane of which the gate has decided nothing on
   the task has no key. `:by-who`: a map from the key of a row by who
   (`softland.store.record.rows/by-who-key`) to the stamp of its decision.
   `:strays`: by reason word, the digests, as hex text, of the strays seen
@@ -217,11 +217,11 @@
 
   The maps of `:last-stamp` and of `:by-who` are subindexed, with size
   tracking off. The choice and its reasons are in the namespace docstring:
-  a task can hold very many layers, and the gate reads and writes one
-  layer's number at each decision, and writes one row by who. What must
+  a task can hold very many lanes, and the gate reads and writes one
+  lane's number at each decision, and writes one row by who. What must
   hold of what is written: a key of `:last-stamp` is a String of
   `softland.store.door.declaration/max-id-text` characters at most, which
-  the layer of a thing that is no stray keeps; a key of `:by-who` is made of
+  the lane of a thing that is no stray keeps; a key of `:by-who` is made of
   two such ids and a stamp; each value is a Long. A value of another class
   throws at the write."
   []

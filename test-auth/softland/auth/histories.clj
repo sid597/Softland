@@ -30,13 +30,13 @@
 
 (def write-kinds
   "The twelve writes."
-  [:invite :enter :own-layer-made :begin-sign-in :replace-secret :end-sign-in :make-actor :end-actor
+  [:invite :enter :own-lane-made :begin-sign-in :replace-secret :end-sign-in :make-actor :end-actor
    :open-session :close-session :ask :answer-ask])
 
 (def weighted-kinds
   "The writes that a history makes, each as many times as its weight."
   (vec (mapcat (fn [[k n]] (repeat n k))
-               [[:invite 6] [:enter 8] [:own-layer-made 3] [:begin-sign-in 12] [:replace-secret 8]
+               [[:invite 6] [:enter 8] [:own-lane-made 3] [:begin-sign-in 12] [:replace-secret 8]
                 [:end-sign-in 5] [:make-actor 10] [:end-actor 6] [:open-session 14] [:close-session 4]
                 [:ask 5] [:answer-ask 9]])))
 
@@ -173,10 +173,10 @@
                                         (chance? rnd 0.6) (pick rnd (:emails w)))
                            :code-hash (cond (= :code (:by proving)) (:hash proving)
                                             (chance? rnd 0.6) (pick rnd (:code-hashes w)))
-                           :own-layer (uuid-of rnd)
+                           :own-lane (uuid-of rnd)
                            :making {:uuid (uuid-of rnd) :session (uuid-of rnd)}
                            :at now}]])
-      :own-layer-made [w [:own-layer-made {:person (a-root w state) :at now}]]
+      :own-lane-made [w [:own-lane-made {:person (a-root w state) :at now}]]
       :begin-sign-in (let [P (a-root w state)
                            [w H] (fresh-hash w)]
                        [w [:begin-sign-in {:root P :actor (one-of w (conj (agents-of state P) P) 0.9 (:agents w))
@@ -253,7 +253,7 @@
   (let [rnd (:rnd w)]
     (case kind
       :invite (assoc input :invited-by (uuid-of rnd))
-      :enter (assoc input :says {"name" "Another"} :own-layer (uuid-of rnd)
+      :enter (assoc input :says {"name" "Another"} :own-lane (uuid-of rnd)
                     :making {:uuid (uuid-of rnd) :session (uuid-of rnd)}
                     :email (pick rnd (:emails w)) :code-hash (pick rnd (:code-hashes w)))
       :begin-sign-in (assoc input :until (end-after w) :label "another")
@@ -316,11 +316,11 @@
              {:account [:google long-text]} {:says {"k" (text-of 2049)}}
              {:says (into {} (map (fn [i] [(str i) "v"])) (range 33))} {:says {:k "v"}} {:says nil}
              {:email "A@x.org"} {:email 7} {:code-hash (apply str (repeat 64 "A"))}
-             {:making {:uuid (uuid-of rnd)}} {:account [(keyword long-text) "1"]} {:own-layer "a layer"}
-             {:own-layer nil} {:account [:google (str lone "1")]} {:account [:google (str "1" lone-low)]}
+             {:making {:uuid (uuid-of rnd)}} {:account [(keyword long-text) "1"]} {:own-lane "a lane"}
+             {:own-lane nil} {:account [:google (str lone "1")]} {:account [:google (str "1" lone-low)]}
              {:account [(keyword (str "goo" lone "gle")) "1"]} {:says {"name" (str "A" lone "sha")}}
              {:says {(str "na" lone-low "me") "Asha"}} {:email (str "asha" lone "@x.org")}]
-     :own-layer-made [{:person "a person"}]
+     :own-lane-made [{:person "a person"}]
      :begin-sign-in [{:kind :robot} {:hash (apply str (repeat 64 "A"))} {:hash (apply str (repeat 63 "a"))}
                      {:label long-text} {:until "5"} {:root "a root"} {:label (str "lap" lone "top")}]
      :replace-secret [{:old-hash nil} {:new-hash "x"} {:previous-until 1.5}]

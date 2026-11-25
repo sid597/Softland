@@ -40,9 +40,9 @@ out. The broken copy `:loose-form` takes (b).
 
 **2. What the runtime keeps, and Auth does not check.** Under the heading "What
 the runtime does, and Auth does not check": "A provider's name is at most 256
-characters. `:own-layer` is a UUID." Under "Rules for every call", an input
+characters. `:own-lane` is a UUID." Under "Rules for every call", an input
 that "does not fit gives `{:could-not :read-the-event}`". That rule's own list of
-forms says "A provider is a keyword", and gives `:own-layer` no form. The same
+forms says "A provider is a keyword", and gives `:own-lane` no form. The same
 section also holds rules that Auth does keep, such as the order of refusals.
 
 - (a) Auth keeps them too, as form: an input that breaks them does not fit.
@@ -50,16 +50,16 @@ section also holds rules that Auth does keep, such as the order of refusals.
 
 The reference took (b), though (a) refuses more. The grounds were the heading,
 and the brief, which asks the reference to hold only the order of refusals from
-that section. A provider must still be a keyword, and `:own-layer` must be there
+that section. A provider must still be a keyword, and `:own-lane` must be there
 (1).
 
 **Turned by Sid's call of 22 November, to (a).** A provider's length and
-`:own-layer` being a UUID are forms, and Auth checks them: an input that breaks
+`:own-lane` being a UUID are forms, and Auth checks them: an input that breaks
 either does not fit. The spec moved both, with the other sentences that Auth
 keeps, out of that heading. A provider's name is counted with its namespace
 when it has one, `:g/x` as the three characters `g/x`: the reference's reading
 of "name", which the spec does not say. The broken copy
-`:provider-and-layer-unchecked` takes (b).
+`:provider-and-lane-unchecked` takes (b).
 
 **3. An email that is not in lower case.** "Two emails are the same when their
 texts are the same. The runtime gives every email in lower case."
@@ -121,13 +121,13 @@ The reference takes (a), with the module (`softland.auth.fit/carried?`), and
 the spec says so in "What fits". **The build's default of 23 November, not
 Sid's call: his to turn.** A surrogate pair that stands together fits.
 
-## invite, enter, own-layer-made
+## invite, enter, own-lane-made
 
-**6. What an enter that is run again says of the own layer.** Three sentences
+**6. What an enter that is run again says of the own lane.** Three sentences
 bear on it:
 
 - "An enter that is run again after a failure gives what it gave."
-- "Until that call every enter says `:own-layer-made? false`, and the copy that
+- "Until that call every enter says `:own-lane-made? false`, and the copy that
   made that enter sends the act again."
 - Of every repeat: "The second call gives the result of the first, which says
   that the write was taken; it does not say how the thing stands now, which a
@@ -135,19 +135,19 @@ bear on it:
 
 The readings:
 
-- (a) `:own-layer-made?` says how it stands at each enter: true once
-  `own-layer-made` went through, also for a copy of the first enter.
+- (a) `:own-lane-made?` says how it stands at each enter: true once
+  `own-lane-made` went through, also for a copy of the first enter.
 - (b) A copy of an enter that the link decided gives what that enter gave, flag
   and all. An enter that is no copy is decided anew, and says how the flag
   stands.
 
 The reference took (b), which held all three sentences, and neither reading
-refuses more. A copy that was run again after `own-layer-made` said false, so
+refuses more. A copy that was run again after `own-lane-made` said false, so
 its runtime sent the act once more.
 
 **Turned by Sid's call of 22 November, to (a).** A repeat's result comes from
 what stands, never from a memory of calls. An enter of an account that has a
-link gives its person, the fixed own layer and making, and `:own-layer-made?` as
+link gives its person, the fixed own lane and making, and `:own-lane-made?` as
 it stands at that enter, a copy of the first enter among them. The spec's rule
 for every call names it as the one part of a repeat's result that says how
 things stand now. The broken copy `:enter-repeats-what-it-gave` takes (b).

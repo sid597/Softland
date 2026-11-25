@@ -31,7 +31,7 @@
 
 (def ^:private forms-text
   "What every tool's description says of the EDN forms."
-  (str "Each argument that is data is a string of EDN text. Ids (an entity, a layer) are keywords "
+  (str "Each argument that is data is a string of EDN text. Ids (an entity, a lane) are keywords "
        "such as :chair-7 or UUIDs written #uuid \"...\"; keys are keywords; a value is any EDN value "
        "(nil, true, a string, a keyword, a UUID, a number, a map, a vector, a set). "))
 
@@ -40,12 +40,12 @@
   the arguments."
   [{:name "who_am_i"
     :description (str "Who the saved credential stands for. Gives {:who #uuid \"..\" :session #uuid \"..\" "
-                      ":until ms :own-layer #uuid \"..\"}. Call it first: :who and :own-layer are what an act "
-                      "in her own layer needs. Takes no argument.")
+                      ":until ms :own-lane #uuid \"..\"}. Call it first: :who and :own-lane are what an act "
+                      "in her own lane needs. Takes no argument.")
     :inputSchema {:type "object" :properties {}}}
    {:name "write"
-    :description (str "Writes one fact into her own layer and gives {:receipt .. :answer ..}. The simplest "
-                      "way to write. It builds the act {:version 1 :layer own :permission [who own own] "
+    :description (str "Writes one fact into her own lane and gives {:receipt .. :answer ..}. The simplest "
+                      "way to write. It builds the act {:version 1 :lane own :permission [who own own] "
                       ":facts [{:e entity :k key :v value}]}, asks an act-id, sends, and waits up to 5 s for "
                       "the answer: {:answer :accepted :stamp n :time ms} or {:answer :refused :reason word ..}; "
                       "{:answer :nothing-yet} means ask again with the tool answer. " forms-text
@@ -57,11 +57,11 @@
                   :required ["entity" "key" "value"]}}
    {:name "read"
     :description (str "A read, once. The query is a map WITHOUT :asker (the server adds it): "
-                      "{:asks Q :layers [layer ...]} or {:asks Q :from-layer layer}, optionally with "
+                      "{:asks Q :lanes [lane ...]} or {:asks Q :from-lane lane}, optionally with "
                       ":with #{:writer :permission :time}. Q is one of [:place entity key], [:entity entity], "
-                      "[:run first-end last-end], [:points-at key thing]. Gives {:layers [..] :left-out [..] "
+                      "[:run first-end last-end], [:points-at key thing]. Gives {:lanes [..] :left-out [..] "
                       ":place {..}} or {.. :places {[e k] {..}}}. " forms-text
-                      "Example: {:asks [:place :chair-7 :colour] :from-layer #uuid \"<own-layer>\"}.")
+                      "Example: {:asks [:place :chair-7 :colour] :from-lane #uuid \"<own-lane>\"}.")
     :inputSchema {:type "object"
                   :properties {:query {:type "string" :description "EDN text of the query"}}
                   :required ["query"]}}
@@ -71,39 +71,39 @@
                       "EDN form per line: first {:anew answer}, then {:changed {[entity key] place-answer}} "
                       "or {:anew answer} as things change, and {:ended word} if the server ended it. A last "
                       "line {:still-open true} means the stream had not ended. The query is as for read "
-                      "(no :asker). Example: query {:asks [:entity :chair-7] :from-layer #uuid \"<own-layer>\"}, "
+                      "(no :asker). Example: query {:asks [:entity :chair-7] :from-lane #uuid \"<own-lane>\"}, "
                       "wait_ms 3000.")
     :inputSchema {:type "object"
                   :properties {:query {:type "string" :description "EDN text of the query"}
                                :wait_ms {:type "integer" :description "how long to collect, in ms (default 2000, at most 55000)"}}
                   :required ["query"]}}
    {:name "act"
-    :description (str "Sends any act and gives {:receipt .. :answer ..}: asks one act-id of the act's :layer, "
+    :description (str "Sends any act and gives {:receipt .. :answer ..}: asks one act-id of the act's :lane, "
                       "sends the act under it, and waits up to 5 s for the answer. An act is a map WITHOUT "
                       ":who and :session (the server adds them; an act holding either is refused): "
-                      "{:version 1 :layer L :permission [who L L] :facts [{:e entity :k key :v value} ...]}. "
-                      "In her own layer the permission is [who own-layer own-layer], from who_am_i. " forms-text
-                      "Example: {:version 1 :layer #uuid \"<own>\" :permission [#uuid \"<who>\" #uuid \"<own>\" "
+                      "{:version 1 :lane L :permission [who L L] :facts [{:e entity :k key :v value} ...]}. "
+                      "In her own lane the permission is [who own-lane own-lane], from who_am_i. " forms-text
+                      "Example: {:version 1 :lane #uuid \"<own>\" :permission [#uuid \"<who>\" #uuid \"<own>\" "
                       "#uuid \"<own>\"] :facts [{:e :chair-7 :k :colour :v :green}]}.")
     :inputSchema {:type "object"
                   :properties {:act {:type "string" :description "EDN text of the act"}}
                   :required ["act"]}}
    {:name "act_ids"
-    :description (str "Asks the server for act-ids of a layer, ahead of sending. Gives [[layer depot #uuid \"..\"] ...]. "
+    :description (str "Asks the server for act-ids of a lane, ahead of sending. Gives [[lane depot #uuid \"..\"] ...]. "
                       "Use it with send when you want to hold the act-id before sending. " forms-text
-                      "Example: layer \"#uuid \\\"<own-layer>\\\"\", count 2.")
+                      "Example: lane \"#uuid \\\"<own-lane>\\\"\", count 2.")
     :inputSchema {:type "object"
-                  :properties {:layer {:type "string" :description "EDN text of the layer id"}
+                  :properties {:lane {:type "string" :description "EDN text of the lane id"}
                                :count {:type "integer" :description "how many act-ids (default 1)"}}
-                  :required ["layer"]}}
+                  :required ["lane"]}}
    {:name "send"
     :description (str "Sends one act and gives the receipt {:act-id [..] :digest \"64 hex\" :ack :gate-ran | :depot-holds}. "
                       "The act is as for the tool act (no :who, no :session). act_id, optional, is an act-id "
                       "from act_ids, as EDN text; sending again under the same act-id is safe. Read the "
-                      "answer with the tool answer. Example: act \"{:version 1 :layer ... :facts [...]}\".")
+                      "answer with the tool answer. Example: act \"{:version 1 :lane ... :facts [...]}\".")
     :inputSchema {:type "object"
                   :properties {:act {:type "string" :description "EDN text of the act"}
-                               :act_id {:type "string" :description "EDN text of an act-id, [layer depot #uuid \"..\"]"}}
+                               :act_id {:type "string" :description "EDN text of an act-id, [lane depot #uuid \"..\"]"}}
                   :required ["act"]}}
    {:name "answer"
     :description (str "The answer of a sent act, by its act-id and the digest of its receipt. Gives "
@@ -170,7 +170,7 @@
 (def ^:private edn-arguments
   "The EDN arguments of each tool, each with whether it is needed."
   {"who_am_i" {}
-   "act_ids" {:layer true}
+   "act_ids" {:lane true}
    "send" {:act true :act_id false}
    "answer" {:act_id true}
    "act" {:act true}
@@ -195,7 +195,7 @@
       :else
       (case tool-name
         "who_am_i" (.then (commands/say ctx {:word :who-am-i}) #(outcome-result ctx (pure/outcome-of %)))
-        "act_ids" (.then (commands/say ctx {:word :act-ids :layer (:layer read) :count (or (whole (:count args)) 1)})
+        "act_ids" (.then (commands/say ctx {:word :act-ids :lane (:lane read) :count (or (whole (:count args)) 1)})
                          #(outcome-result ctx (pure/outcome-of %)))
         "send" (.then (commands/say ctx (cond-> {:word :send :act (:act read)}
                                           (contains? read :act_id) (assoc :act-id (:act_id read))))
@@ -207,7 +207,7 @@
                           #(outcome-result ctx (pure/outcome-of %))))
         ("act" "write")
         (-> (if (= "act" tool-name)
-              (commands/act-outcome ctx (:act read) (when (map? (:act forms)) (:layer (:act forms))) on-act-id)
+              (commands/act-outcome ctx (:act read) (when (map? (:act forms)) (:lane (:act forms))) on-act-id)
               (commands/write-outcome ctx (:entity read) (:key read) (:value read) on-act-id))
             (.then (fn [outcome]
                      (let [r (outcome-result ctx outcome)]

@@ -12,27 +12,27 @@
   The proof plays the door by hand and does not use `softland.store.door`:
   the store stays proven without the door, and the hand stays the proof that
   anything can append to a depot without it. The hand is a few functions of
-  this namespace, in the order of one act: it reads the depot of the layer;
+  this namespace, in the order of one act: it reads the depot of the lane;
   makes the act-id, with a random UUID; writes a time on the thing, as the
   door does; appends the thing, each value plain as a maker gives it; reads
-  the answer by act-id, with the act-id's layer as the routing id, for both
+  the answer by act-id, with the act-id's lane as the routing id, for both
   depots; and compares the answer's digest with the digest of what it sent.
   The time is a reading of the proof's own clock, or a time that a check
   chose: a check of the time chooses it, in both gates, so that the time
   that an answer and a row hold is a number that the proof wrote out. A
   stamp holds no time: the proof works out each stamp that it holds from
-  the order in which it sent the things of a layer. The hand
+  the order in which it sent the things of a lane. The hand
   also plays a reader of the tables, and does not use the read path
   (`softland.store.read-path`), which has a proof of its own: it selects a
-  fact's row, the row of a layer's marked keys, and a run of the facts by
+  fact's row, the row of a lane's marked keys, and a run of the facts by
   value, with the keys that `softland.store.record.rows` gives, and reads a
   row back with that namespace's functions. An error from the append is not
   an answer. It keeps each thing that it sent, so that a repeat is the same
   thing byte for byte.
 
-  The two depots. For a streaming layer the hand appends with the ack level
+  The two depots. For a streaming lane the hand appends with the ack level
   :ack and reads the answer once: the ack waits for the gate. For the base,
-  the one microbatch layer, no ack carries an answer: the hand appends with
+  the one microbatch lane, no ack carries an answer: the hand appends with
   :append-ack, waits with Rama's test tool until the gate has processed
   each thing that it appended, and reads the answer once. It sends things of
   the base in three ways: one alone; several in a row, with no wait for the
@@ -43,12 +43,12 @@
   by value are on every task. The hand reads one on the base's task; on
   each of the four tasks, with a key that hashes to the task; and, at
   chosen moments of the run, in the whole table on every task, which it
-  holds against itself task by task. An answer, a layer's last stamp and
-  the digest of a stray are on one task. Which task is a layer's is told
-  from the depot's log: the partition that holds the layer's things.
+  holds against itself task by task. An answer, a lane's last stamp and
+  the digest of a stray are on one task. Which task is a lane's is told
+  from the depot's log: the partition that holds the lane's things.
 
   The checks of the base. The streaming gate's groups are their measure:
-  what the proof shows of a streaming layer it shows of the base, group for
+  what the proof shows of a streaming lane it shows of the base, group for
   group. Two things are held once, for the streaming depot: the kinds of
   value that Rama carries on a depot, and what the two reads give for a
   thing that is no id. Beside them stand the checks of what only the base
@@ -95,7 +95,7 @@
   chose one, and to end a loop that watches a table.
 
   Approach. The checks run in one order on one cluster, and later checks
-  build on the layers, the facts and the permissions that earlier ones
+  build on the lanes, the facts and the permissions that earlier ones
   made. The checks of the streaming gate run first. The base is made after
   the check that sends its making act to the streaming gate, because that
   check holds the word that the streaming gate gives an act for the base
@@ -147,9 +147,9 @@
       and the retry all 40.
     - A second module over the same two depots. That is the proof of the
       run again (`softland.store.run-again-proof`).
-    - A microbatch layer beside the base. No layer but the base starts
-      with the microbatch depot. So the second layer in the check of two
-      layers of one task is a layer of the other gate, whose acts this gate
+    - A microbatch lane beside the base. No lane but the base starts
+      with the microbatch depot. So the second lane in the check of two
+      lanes of one task is a lane of the other gate, whose acts this gate
       refuses: it has stamps and answers there, and no fact.
 
   What else it does not reach is in the folder's README."
@@ -217,7 +217,7 @@
 
 (defonce ^{:private true
            :doc "The first answer that the hand read for each act-id of a streaming
-  layer, in the order sent: {:act-id :layer :stamp}. It holds each thing
+  lane, in the order sent: {:act-id :lane :stamp}. It holds each thing
   that the streaming gate decided for the hand, in the order decided: what
   the check of the stamps goes through."}
   first-answers (atom []))
@@ -241,7 +241,7 @@
     {:ipc        ipc
      :streaming-depot (rama/foreign-depot ipc m "*streaming-depot")
      :answer     (rama/foreign-query ipc m "answer-by-act-id")
-     :depot-of-layer (rama/foreign-query ipc m "depot-of-layer")
+     :depot-of-lane (rama/foreign-query ipc m "depot-of-lane")
      :answers-ps (rama/foreign-pstate ipc m "$$streaming-answers")
      :facts-ps   (rama/foreign-pstate ipc m "$$streaming-facts")
      :by-value-ps (rama/foreign-pstate ipc m "$$streaming-facts-by-value")
@@ -257,18 +257,18 @@
      :mb-line-ps    (rama/foreign-pstate ipc m "$$microbatch-line")
      :mb-things-ps  (rama/foreign-pstate ipc m "$$microbatch-things")}))
 
-(defn- depot-of-layer
-  "Reads the depot of a layer, or nil for a layer that is not made. The hand
+(defn- depot-of-lane
+  "Reads the depot of a lane, or nil for a lane that is not made. The hand
   tests what it passes before it calls, and gives nil itself for a thing
   that is no id."
-  [layer]
-  (when (record/depot-read layer)
-    (rama/foreign-invoke-query (:depot-of-layer *hand*) layer)))
+  [lane]
+  (when (record/depot-read lane)
+    (rama/foreign-invoke-query (:depot-of-lane *hand*) lane)))
 
 (defn- answer-of
   "Reads the answer under an act-id, or nil for nothing yet: one call of
   the query. The hand passes the act-id's routing id as the first argument,
-  which is the act-id's layer for both depots, and tests the act-id before
+  which is the act-id's lane for both depots, and tests the act-id before
   it calls."
   [act-id]
   (let [routing-id (record/routing-id act-id)]
@@ -276,11 +276,11 @@
       (rama/foreign-invoke-query (:answer *hand*) routing-id act-id))))
 
 (defn- new-act-id
-  "Makes an act-id for a layer: the layer, its depot as the module gives it,
-  or the depot that the layer starts with when it is not made, and a random
+  "Makes an act-id for a lane: the lane, its depot as the module gives it,
+  or the depot that the lane starts with when it is not made, and a random
   UUID."
-  [layer]
-  [layer (or (depot-of-layer layer) (first-act/depot-at-making layer)) (UUID/randomUUID)])
+  [lane]
+  [lane (or (depot-of-lane lane) (first-act/depot-at-making lane)) (UUID/randomUUID)])
 
 (defn- thing
   "An act as the door sends it: the maker's parts, and the door's three: the
@@ -289,11 +289,11 @@
   the proof's clock, taken here, as the door takes its server's. `more` is
   merged in last, for the optional parts, for faults, and for a time that a
   check chose."
-  ([layer who permission facts] (thing layer who permission facts {}))
-  ([layer who permission facts more]
-   (let [act-id (new-act-id layer)]
+  ([lane who permission facts] (thing lane who permission facts {}))
+  ([lane who permission facts more]
+   (let [act-id (new-act-id lane)]
      (merge {:act-id act-id :depot (nth act-id 1) declaration/time-part (System/currentTimeMillis)
-             :version 1 :who who :layer layer :permission permission :session :proof-session
+             :version 1 :who who :lane lane :permission permission :session :proof-session
              :facts (vec facts)}
             more))))
 
@@ -344,7 +344,7 @@
                    (= :accepted (:verdict answer)) :accepted
                    :else (:reason answer))]
     (when (and answer mine? (not-any? #(= (:act-id x) (:act-id %)) @first-answers))
-      (swap! first-answers conj {:act-id (:act-id x) :layer (:layer x) :stamp (:stamp answer)}))
+      (swap! first-answers conj {:act-id (:act-id x) :lane (:lane x) :stamp (:stamp answer)}))
     {:thing x :ack ack :answer answer :mine? mine? :word word}))
 
 (defn- value-fact
@@ -365,12 +365,12 @@
   (nth (iterate vector v) n))
 
 (defn- chain-of-permissions
-  "Permissions of a layer, one beneath the other, down to a depth: a vector
-  whose first is `top`, the layer's first permission, of depth 1, and whose
+  "Permissions of a lane, one beneath the other, down to a depth: a vector
+  whose first is `top`, the lane's first permission, of depth 1, and whose
   entry at index d - 1 is the permission of depth d, held by the keyword
-  `prefix`-d and given in the layer beneath the one before it."
-  [layer top prefix depth]
-  (vec (reductions (fn [above d] [(keyword (str prefix "-" d)) layer layer above]) top (range 2 (inc depth)))))
+  `prefix`-d and given in the lane beneath the one before it."
+  [lane top prefix depth]
+  (vec (reductions (fn [above d] [(keyword (str prefix "-" d)) lane lane above]) top (range 2 (inc depth)))))
 
 (defn- asked-of-the-cluster
   "Runs a call to the cluster on a thread of its own. Gives :there when the
@@ -440,14 +440,14 @@
 
 (defn- row
   "Selects one row of a PState of the gate, by its key, on the task of the
-  layer."
-  [pstate layer k]
-  (rama/foreign-select-one (path/keypath k) (get *hand* pstate) {:pkey layer}))
+  lane."
+  [pstate lane k]
+  (rama/foreign-select-one (path/keypath k) (get *hand* pstate) {:pkey lane}))
 
 (defn- fact-row
-  "The row of a place of a layer, or nil for an empty place."
-  [layer e k]
-  (row :facts-ps layer (record/place-key layer e k)))
+  "The row of a place of a lane, or nil for an empty place."
+  [lane e k]
+  (row :facts-ps lane (record/place-key lane e k)))
 
 (defn- value-bytes
   "The plain bytes of the value that a fact's row holds, as a vector: what
@@ -457,30 +457,30 @@
   (some-> (record/plain-bytes-of row) vec))
 
 (defn- marked-keys
-  "The keys that a streaming layer marks, each with the stamp since which its
-  order by value is level: read from the row at the layer's marked-keys
+  "The keys that a streaming lane marks, each with the stamp since which its
+  order by value is level: read from the row at the lane's marked-keys
   place."
-  [layer]
-  (record/marked-keys-of (fact-row layer layer :softland.store/marked-keys)))
+  [lane]
+  (record/marked-keys-of (fact-row lane lane :softland.store/marked-keys)))
 
 (defn- entries-of
-  "The rows of the run of one value under a marked key of a streaming layer,
+  "The rows of the run of one value under a marked key of a streaming lane,
   since a stamp of that key: [key row] of each, in the order of the keys.
-  One select of a range of the facts by value, on the layer's task."
-  [layer k since v]
-  (let [[from to] (record/by-value-run layer k since v)]
-    (rama/foreign-select [(path/sorted-map-range from to) path/ALL] (:by-value-ps *hand*) {:pkey layer})))
+  One select of a range of the facts by value, on the lane's task."
+  [lane k since v]
+  (let [[from to] (record/by-value-run lane k since v)]
+    (rama/foreign-select [(path/sorted-map-range from to) path/ALL] (:by-value-ps *hand*) {:pkey lane})))
 
 (defn- run-of
   "The entities of the places in the run of one value: what points at it, in
-  a streaming layer, under a marked key, since a stamp of that key."
-  [layer k since v]
-  (mapv (fn [[k _]] (record/by-value-entity k)) (entries-of layer k since v)))
+  a streaming lane, under a marked key, since a stamp of that key."
+  [lane k since v]
+  (mapv (fn [[k _]] (record/by-value-entity k)) (entries-of lane k since v)))
 
 (defn- entry
-  "The row at one key of the facts by value of a streaming layer, or nil."
-  [layer k since v e]
-  (row :by-value-ps layer (record/by-value-key layer k since (record/value-digest-of v) e)))
+  "The row at one key of the facts by value of a streaming lane, or nil."
+  [lane k since v e]
+  (row :by-value-ps lane (record/by-value-key lane k since (record/value-digest-of v) e)))
 
 (defn- record-of-act
   "The record that a depot's log holds under an act-id, among records read
@@ -489,27 +489,27 @@
   (some (fn [[_ r]] (when (and (map? r) (= act-id (:act-id r))) r)) records))
 
 (defn- last-stamp
-  "The last stamp that the streaming gate gave in a layer: the number under
-  the text of the layer id in `:last-stamp` of the gate's task table, read
-  on the task of `on-the-task-of`, the layer's own when none is given. nil
-  for a layer of which the gate decided nothing on that task."
-  ([layer] (last-stamp layer layer))
-  ([layer on-the-task-of]
-   (rama/foreign-select-one (path/keypath :last-stamp (declaration/id-text layer)) (:task-ps *hand*)
+  "The last stamp that the streaming gate gave in a lane: the number under
+  the text of the lane id in `:last-stamp` of the gate's task table, read
+  on the task of `on-the-task-of`, the lane's own when none is given. nil
+  for a lane of which the gate decided nothing on that task."
+  ([lane] (last-stamp lane lane))
+  ([lane on-the-task-of]
+   (rama/foreign-select-one (path/keypath :last-stamp (declaration/id-text lane)) (:task-ps *hand*)
                             {:pkey on-the-task-of})))
 
 (defn- answer-row
   "The row of the answer under the act-id of a thing that the hand sent, as
-  the answers table of the act-id's gate holds it on the layer's task, or
+  the answers table of the act-id's gate holds it on the lane's task, or
   nil: one select, of the streaming gate's table or, for an act-id of the
   microbatch depot, of the microbatch gate's. The read by act-id gives
   `:time` nil both for a row whose time is nil and for one with no time;
   the row tells the two apart."
   [x]
-  (let [[layer depot uuid] (:act-id x)]
-    (rama/foreign-select-one (path/keypath (record/answer-key layer uuid))
+  (let [[lane depot uuid] (:act-id x)]
+    (rama/foreign-select-one (path/keypath (record/answer-key lane uuid))
                              (get *hand* (if (= :microbatch depot) :mb-answers-ps :answers-ps))
-                             {:pkey layer})))
+                             {:pkey lane})))
 
 (defn- strays
   "The number of different strays under a word, over every task: one select
@@ -549,21 +549,21 @@
   "Holds each stamp of a gate's answers against the gates' one rule, by the
   proof's own count. Takes answers as `first-answers` keeps the streaming
   gate's, or as `decided-on-the-microbatch-depot` gives the microbatch
-  gate's, {:act-id :layer :stamp} each, in the order decided. For each it
+  gate's, {:act-id :lane :stamp} each, in the order decided. For each it
   makes the stamp that the rule gives, for an accept and a refusal alike:
-  the stamp of the answer before it in its layer plus one, or 0 for the
-  first answer of its layer. Neither the time on the thing nor a stamp that
+  the stamp of the answer before it in its lane plus one, or 0 for the
+  first answer of its lane. Neither the time on the thing nor a stamp that
   it carries counts. The stamp before is the one that the answer before
   holds, so each answer is held alone. Gives [short act-id, the stamp of
   the answer, the stamp by the rule] for each answer whose stamp is
   another: an empty vector when each is the rule's. What must hold: the
-  answers hold each decision of each of their layers, or a layer's count
+  answers hold each decision of each of their lanes, or a lane's count
   shows a gap where the hand missed one."
   [answers]
   (:apart
-   (reduce (fn [{:keys [last apart]} {:keys [act-id layer stamp]}]
-             (let [by-the-rule (if-some [before (get last layer)] (inc before) 0)]
-               {:last (assoc last layer stamp)
+   (reduce (fn [{:keys [last apart]} {:keys [act-id lane stamp]}]
+             (let [by-the-rule (if-some [before (get last lane)] (inc before) 0)]
+               {:last (assoc last lane stamp)
                 :apart (if (= by-the-rule stamp) apart (conj apart [(short-id act-id) stamp by-the-rule]))}))
            {:last {} :apart []}
            answers)))
@@ -604,7 +604,7 @@
   microbatch depot and that the gate has processed: the thing, the ack, the
   answer, whether the answer's digest is the digest of what was sent, and
   one word. The answer is read once, by one call of the query with the
-  act-id's layer as the routing id: the hand waits for nothing behind the
+  act-id's lane as the routing id: the hand waits for nothing behind the
   gate's processing. What must hold: the gate has processed the thing."
   [x ack]
   (let [answer (answer-of (when (map? x) (get x :act-id)))]
@@ -750,21 +750,21 @@
           index-keys)))
 
 (defn- last-stamps-by-task
-  "The last stamp that the microbatch gate keeps for a layer, on each task
+  "The last stamp that the microbatch gate keeps for a lane, on each task
   that keeps one: a sorted map from the task's number to the stamp."
-  [layer]
+  [lane]
   (into (sorted-map)
         (keep-indexed (fn [task n] (when n [task n])))
-        (on-each-task :mb-task-ps (path/keypath :last-stamp (str layer)))))
+        (on-each-task :mb-task-ps (path/keypath :last-stamp (str lane)))))
 
 (defn- base-last-stamp
-  "The last stamp that the microbatch gate gave in a layer, the base when
-  none is given: the number under the text of the layer id in `:last-stamp`
-  of the gate's task table, read on the layer's task. nil for a layer of
+  "The last stamp that the microbatch gate gave in a lane, the base when
+  none is given: the number under the text of the lane id in `:last-stamp`
+  of the gate's task table, read on the lane's task. nil for a lane of
   which the gate decided nothing."
   ([] (base-last-stamp :base))
-  ([layer]
-   (rama/foreign-select-one (path/keypath :last-stamp (str layer)) (:mb-task-ps *hand*) {:pkey layer})))
+  ([lane]
+   (rama/foreign-select-one (path/keypath :last-stamp (str lane)) (:mb-task-ps *hand*) {:pkey lane})))
 
 (defn- times-on-every-task
   "The time that the row of a place of the base holds, the time on the act
@@ -806,26 +806,26 @@
   [records x]
   (into #{} (keep (fn [[p r]] (when (= x r) p))) records))
 
-(defn- partitions-of-layers
+(defn- partitions-of-lanes
   "Takes the records of a depot's log, each [partition record]. Gives, for
-  each layer that a record names under `:layer`, by the printed text of the
-  layer id, the set of the partitions that hold a record of it: what a
-  client can see of where the depot's partitioner put a layer."
+  each lane that a record names under `:lane`, by the printed text of the
+  lane id, the set of the partitions that hold a record of it: what a
+  client can see of where the depot's partitioner put a lane."
   [records]
-  (reduce (fn [by-layer [p r]]
-            (let [layer (when (map? r) (get r :layer))]
-              (if (or (keyword? layer) (uuid? layer))
-                (update by-layer (str layer) (fnil conj #{}) p)
-                by-layer)))
+  (reduce (fn [by-lane [p r]]
+            (let [lane (when (map? r) (get r :lane))]
+              (if (or (keyword? lane) (uuid? lane))
+                (update by-lane (str lane) (fnil conj #{}) p)
+                by-lane)))
           {}
           records))
 
 (defn- on-more-than-one-partition
-  "Takes the records of a depot's log. Gives the text of each layer whose
+  "Takes the records of a depot's log. Gives the text of each lane whose
   records are on more than one partition, sorted: an empty vector when each
-  layer is one partition."
+  lane is one partition."
   [records]
-  (vec (sort (keep (fn [[layer partitions]] (when (< 1 (count partitions)) layer)) (partitions-of-layers records)))))
+  (vec (sort (keep (fn [[lane partitions]] (when (< 1 (count partitions)) lane)) (partitions-of-lanes records)))))
 
 (defn- table-on-each-task
   "Selects a whole table of rows of the microbatch gate on each task. Gives,
@@ -841,8 +841,8 @@
 
 (defn- task-table-on-each-task
   "What the microbatch gate keeps for each task beside its three tables. In
-  the order of the tasks: {:last-stamp, a map from the text of a layer id to
-  that layer's last stamp; :strays, a map from each word that has a stray on
+  the order of the tasks: {:last-stamp, a map from the text of a lane id to
+  that lane's last stamp; :strays, a map from each word that has a stray on
   the task to the set of the digests under it}."
   []
   (mapv (fn [pkey]
@@ -895,20 +895,20 @@
     :by-value-apart   the same for the facts by value
     :answers          how many answers each task holds
     :answers-off      the key of each answer that is on a task which is not
-                      the one partition of its layer in the depot's log
-    :last-stamps      for each task, the texts of the layers of which it
+                      the one partition of its lane in the depot's log
+    :last-stamps      for each task, the texts of the lanes of which it
                       keeps a last stamp
-    :last-stamps-off  [task layer] of each last stamp on a task which is
-                      not the one partition of its layer
+    :last-stamps-off  [task lane] of each last stamp on a task which is
+                      not the one partition of its lane
     :strays           how many digests of strays each task holds
     :strays-off       [task word] of each digest of a stray on a task whose
                       partition holds no stray of that digest
 
-  The layer of an answer is the text before the space in its key."
+  The lane of an answer is the text before the space in its key."
   [records]
   (let [{:keys [facts by-value answers task]} (base-tables)
-        partitions (partitions-of-layers records)
-        on-its-task? (fn [task-number layer-text] (= #{task-number} (get partitions layer-text)))
+        partitions (partitions-of-lanes records)
+        on-its-task? (fn [task-number lane-text] (= #{task-number} (get partitions lane-text)))
         strays-arrived (into #{}
                              (keep (fn [[p r]] (when (declaration/stray-reason :microbatch r) [p (digest/hex-of r)])))
                              records)]
@@ -923,9 +923,9 @@
                          k))
      :last-stamps (mapv (comp vec sort keys :last-stamp) task)
      :last-stamps-off (vec (for [[task-number kept-there] (map-indexed vector task)
-                                 layer-text (sort (keys (:last-stamp kept-there)))
-                                 :when (not (on-its-task? task-number layer-text))]
-                             [task-number layer-text]))
+                                 lane-text (sort (keys (:last-stamp kept-there)))
+                                 :when (not (on-its-task? task-number lane-text))]
+                             [task-number lane-text]))
      :strays (mapv (fn [kept-there] (reduce + (map count (vals (:strays kept-there))))) task)
      :strays-off (vec (for [[task-number kept-there] (map-indexed vector task)
                             [word digests] (sort-by key (:strays kept-there))
@@ -940,19 +940,19 @@
   one SHOWN line. Gives what `the-copies` gave."
   [at records]
   (let [copies (the-copies records)
-        base-partition (first (get (partitions-of-layers records) ":base"))]
+        base-partition (first (get (partitions-of-lanes records) ":base"))]
     (check (str at ": `$$microbatch-facts` is the same map on every task: each task holds rows, as many as each other task, and no key has a row that is not the same on all of them, in every field")
            [true 1 []] [(pos? (first (:facts copies))) (count (set (:facts copies))) (:facts-apart copies)])
     (check (str at ": `$$microbatch-facts-by-value` is the same map on every task")
            [1 []] [(count (set (:by-value copies))) (:by-value-apart copies)])
-    (check (str at ": `$$microbatch-answers` holds a row only on the task of its layer: no answer is on a task that is not the partition of its layer in the depot's log, and the base's task holds answers")
+    (check (str at ": `$$microbatch-answers` holds a row only on the task of its lane: no answer is on a task that is not the partition of its lane in the depot's log, and the base's task holds answers")
            [[] true] [(:answers-off copies) (pos? (nth (:answers copies) base-partition 0))])
-    (check (str at ": `$$microbatch-task` keeps a layer's last stamp only on the task of that layer, and the digest of a stray only on the task of the partition where the stray arrived")
+    (check (str at ": `$$microbatch-task` keeps a lane's last stamp only on the task of that lane, and the digest of a stray only on the task of the partition where the stray arrived")
            [[] []] [(:last-stamps-off copies) (:strays-off copies)])
-    (check (str at ": each layer that a thing of the microbatch depot names is on one partition of the depot")
+    (check (str at ": each lane that a thing of the microbatch depot names is on one partition of the depot")
            [] (on-more-than-one-partition records))
     (shown (str at ":") "the rows of the microbatch gate by task | facts" (pr-str (:facts copies)) "| facts by value" (pr-str (:by-value copies))
-           "| answers" (pr-str (:answers copies)) "| the layers of the last stamps" (pr-str (:last-stamps copies))
+           "| answers" (pr-str (:answers copies)) "| the lanes of the last stamps" (pr-str (:last-stamps copies))
            "| digests of strays" (pr-str (:strays copies)) "| the base's task is" base-partition)
     copies))
 
@@ -961,10 +961,10 @@
   in the order of the partitions and of each partition's offsets. Gives one
   entry for each act-id under which the microbatch gate decided a thing, in
   that order, as `first-answers` holds the streaming gate's, with one word
-  more: {:act-id :layer :stamp :word}. The first record under an act-id is
+  more: {:act-id :lane :stamp :word}. The first record under an act-id is
   the one that the gate decided. A stray has no entry. The answer is read
   by act-id, once; an act-id with no answer has the word :nothing-yet and
-  no stamp. A layer is one partition, so the entries of one layer are in
+  no stamp. A lane is one partition, so the entries of one lane are in
   the order in which the gate decided them."
   [records]
   (:out
@@ -974,7 +974,7 @@
                  so-far
                  (let [answer (answer-of act-id)]
                    {:seen (conj seen act-id)
-                    :out (conj out {:act-id act-id :layer (nth act-id 0) :stamp (:stamp answer)
+                    :out (conj out {:act-id act-id :lane (nth act-id 0) :stamp (:stamp answer)
                                     :word (cond (nil? answer) :nothing-yet
                                                 (= :accepted (:verdict answer)) :accepted
                                                 :else (:reason answer))})}))))
@@ -1074,11 +1074,11 @@
 
 ;; ------------------------------------------------------------- the people
 
-(def ^:private alice-own "Alice's permission in her personal layer." [:alice :alice :alice])
-(def ^:private alice-in-team "Alice's permission in the group's layer that she makes." [:alice :team :team])
-(def ^:private bobs "Bob's permission in Alice's layer, beneath hers." [:bob :alice :alice alice-own])
-(def ^:private carols "Carol's permission in Alice's layer, beneath Bob's." [:carol :alice :alice bobs])
-(def ^:private daves "Dave's permission in Alice's layer, beneath Carol's: four deep." [:dave :alice :alice carols])
+(def ^:private alice-own "Alice's permission in her personal lane." [:alice :alice :alice])
+(def ^:private alice-in-team "Alice's permission in the group's lane that she makes." [:alice :team :team])
+(def ^:private bobs "Bob's permission in Alice's lane, beneath hers." [:bob :alice :alice alice-own])
+(def ^:private carols "Carol's permission in Alice's lane, beneath Bob's." [:carol :alice :alice bobs])
+(def ^:private daves "Dave's permission in Alice's lane, beneath Carol's: four deep." [:dave :alice :alice carols])
 
 (def ^:private system-own "The system's permission in the base, the base's first." [:system :base :base])
 (def ^:private alice-in-base "Alice's permission in the base, beneath the system's." [:alice :base :base system-own])
@@ -1087,24 +1087,24 @@
 (def ^:private bob-in-base "Bob's permission in the base, beneath Alice's." [:bob :base :base alice-in-base])
 
 (def ^:private alice-in-canvas
-  "Alice's permission in the layer :canvas, which she makes for the checks of
+  "Alice's permission in the lane :canvas, which she makes for the checks of
   what the gates keep for a read."
   [:alice :canvas :canvas])
 
-(def ^:private who-may-see "The store key of who may see a layer." :softland.store/who-may-see)
-(def ^:private builds-on "The store key of what a layer builds on." :softland.store/builds-on)
-(def ^:private marks "The store key of the keys that a layer marks." :softland.store/marked-keys)
+(def ^:private who-may-see "The store key of who may see a lane." :softland.store/who-may-see)
+(def ^:private builds-on "The store key of what a lane builds on." :softland.store/builds-on)
+(def ^:private marks "The store key of the keys that a lane marks." :softland.store/marked-keys)
 
 (defn- making
-  "The making act of a layer: by `who`, naming the first permission of
-  `holder`, with the depot that the layer starts with."
-  [layer who holder]
-  (thing layer who [holder layer layer]
-         [{:e layer :k :softland.store/depot :v (first-act/depot-at-making layer)}
-          {:e holder :k :softland.store/permission :v [holder layer layer]}]))
+  "The making act of a lane: by `who`, naming the first permission of
+  `holder`, with the depot that the lane starts with."
+  [lane who holder]
+  (thing lane who [holder lane lane]
+         [{:e lane :k :softland.store/depot :v (first-act/depot-at-making lane)}
+          {:e holder :k :softland.store/permission :v [holder lane lane]}]))
 
 (defn- alice
-  "Alice's act into her personal layer, with these facts."
+  "Alice's act into her personal lane, with these facts."
   ([facts] (alice facts {}))
   ([facts more] (thing :alice :alice alice-own facts more)))
 
@@ -1114,7 +1114,7 @@
   ([facts more] (thing :base :system system-own facts more)))
 
 (defn- canvas-act
-  "Alice's act into the layer :canvas, with these facts."
+  "Alice's act into the lane :canvas, with these facts."
   [facts]
   (thing :canvas :alice alice-in-canvas facts))
 
@@ -1165,18 +1165,18 @@
   (str at-the-bound-of-a-value "c"))
 
 (defn- act-over-its-bound
-  "An act into a layer whose accept would write more text into the rows of
+  "An act into a lane whose accept would write more text into the rows of
   its facts than a gate takes for one act, 18,874,368 bytes: 256 facts, each
   with a value at the bound of one value, 65,536 bytes, under a who of 256
   characters and a permission of depth 32 whose holders have 256 characters
   each, which are more than 8,192 bytes for each row. So it is at least
   256 x (65,536 + 8,193) = 18,874,624 bytes. The permission stands nowhere:
   the bound is held before any row of the act's standing is read."
-  [layer]
+  [lane]
   (let [long-id (fn [i] (keyword (apply str "holder-" i "-" (repeat (- 256 (count (str ":holder-" i "-"))) "h"))))
-        top [(long-id 1) layer layer]
-        permission (reduce (fn [above d] [(long-id d) layer layer above]) top (range 2 33))]
-    (thing layer (long-id 32) permission
+        top [(long-id 1) lane lane]
+        permission (reduce (fn [above d] [(long-id d) lane lane above]) top (range 2 33))]
+    (thing lane (long-id 32) permission
            (mapv (fn [i] (value-fact (keyword (str "over-" i)) :text at-the-bound-of-a-value)) (range 256)))))
 
 ;; ---------------------------------------------------------------- the checks
@@ -1186,7 +1186,7 @@
                :uuid (UUID/randomUUID) :big-integer 100000000000000000000N :decimal 1.50M
                :bytes (byte-array [1 2 -3]) :set #{1 2} :narrow-integer (int 5) :minus-zero -0.0
                :string "a \"text\"" :nothing nil :subvector (subvec [0 1 2] 1)}
-        x {:act-id (new-act-id :carrier) :layer :carrier :kinds kinds}
+        x {:act-id (new-act-id :carrier) :lane :carrier :kinds kinds}
         sent-digest (digest/hex-of x)
         result (decide! x)
         [partition back] (first (filter (fn [[_ r]] (and (map? r) (= (:act-id x) (:act-id r)))) (stored)))
@@ -1195,7 +1195,7 @@
     (check "the gate's digest of the thing as it arrived is the digest that the door took before the append"
            sent-digest (:digest (:answer result)))
     (check "a thing that is no act, with a usable act-id, gets a recorded refusal" :unknown-part (:word result))
-    (check "the thing holds no time, and it is the first thing that the gate decides in its layer: the stamp of its refusal is 0, and that is the layer's last stamp"
+    (check "the thing holds no time, and it is the first thing that the gate decides in its lane: the stamp of its refusal is 0, and that is the lane's last stamp"
            [nil 0 0] [(time-on x) (:stamp (:answer result)) (last-stamp :carrier)])
     (check "the record read back from the depot's log is another object than the one sent: it was serialised"
            false (identical? x back))
@@ -1216,60 +1216,60 @@
            (pr-str (into (sorted-map) (map (fn [[k v]] [k (some-> v class .getSimpleName)])) back-kinds)))
     (shown "the gate took the same digest of the thing as it arrived, and recorded it with its refusal:" (told result))))
 
-(deftest layers-are-made
-  (let [before (depot-of-layer :alice)
+(deftest lanes-are-made
+  (let [before (depot-of-lane :alice)
         not-made (decide! (alice [{:e :note-1 :k :text}]))
-        value-early (decide! (alice [(value-fact :note-0 :text "a value for a layer that is not made")]))
+        value-early (decide! (alice [(value-fact :note-0 :text "a value for a lane that is not made")]))
         row-early (fact-row :alice :note-0 :text)
         by-stranger (decide! (assoc (making :alice :system :alice) :who :mallory))
         base-here (decide! (thing :base :system [:system :base :base]
                                   [{:e :base :k :softland.store/depot :v :microbatch}
                                    {:e :system :k :softland.store/permission :v [:system :base :base]}]
                                   {:act-id [:base :streaming (UUID/randomUUID)] :depot :streaming}))
-        base-then (depot-of-layer :base)
+        base-then (depot-of-lane :base)
         personal (decide! (making :alice :system :alice))
         group (decide! (making :team :alice :alice))
         own-uuid (UUID/randomUUID)
-        own-layer (UUID/randomUUID)
-        by-uuid (decide! (making own-layer own-uuid own-uuid))
+        own-lane (UUID/randomUUID)
+        by-uuid (decide! (making own-lane own-uuid own-uuid))
         again-by-system (decide! (making :alice :system :alice))
         again-by-holder (decide! (making :team :alice :alice))
         system-again (decide! (thing :alice :system alice-own [{:e :note-1 :k :text}]))]
-    (check "before its making, the depot of a layer is nothing" nil before)
-    (check "an act into a layer that is not made is refused" :layer-not-made (:word not-made))
-    (check "an act with a value into a layer that is not made is refused with the same word, under its own act-id and with the digest of what was sent, and writes no row at its place"
-           [:acked :layer-not-made true nil] [(:ack value-early) (:word value-early) (:mine? value-early) row-early])
-    (check "a making act by a who that is neither the holder nor the system is refused" :layer-not-made (:word by-stranger))
-    (check "a making act of the base on the streaming depot, while the base is not made, is refused as an act for a layer of the other gate, under its streaming act-id and with the digest of what was sent: the gate tells it from the layer id, and the base has no depot yet"
-           [:layer-belongs-to-the-other-gate true nil] [(:word base-here) (:mine? base-here) base-then])
-    (check "a person's layer made by the system for that person: accepted, and its depot is streaming"
-           [:accepted true :streaming] [(:word personal) (:mine? personal) (depot-of-layer :alice)])
-    (check "the record holds the depot as a fact on the layer's own entity, and the person's permission on its holder"
+    (check "before its making, the depot of a lane is nothing" nil before)
+    (check "an act into a lane that is not made is refused" :lane-not-made (:word not-made))
+    (check "an act with a value into a lane that is not made is refused with the same word, under its own act-id and with the digest of what was sent, and writes no row at its place"
+           [:acked :lane-not-made true nil] [(:ack value-early) (:word value-early) (:mine? value-early) row-early])
+    (check "a making act by a who that is neither the holder nor the system is refused" :lane-not-made (:word by-stranger))
+    (check "a making act of the base on the streaming depot, while the base is not made, is refused as an act for a lane of the other gate, under its streaming act-id and with the digest of what was sent: the gate tells it from the lane id, and the base has no depot yet"
+           [:lane-belongs-to-the-other-gate true nil] [(:word base-here) (:mine? base-here) base-then])
+    (check "a person's lane made by the system for that person: accepted, and its depot is streaming"
+           [:accepted true :streaming] [(:word personal) (:mine? personal) (depot-of-lane :alice)])
+    (check "the record holds the depot as a fact on the lane's own entity, and the person's permission on its holder"
            [:streaming alice-own]
            [(record/value-of (fact-row :alice :alice :softland.store/depot)) (record/value-of (fact-row :alice :alice :softland.store/permission))])
     (check "the depot, the permission and the answer hold one stamp"
            [(:stamp (:answer personal)) (:stamp (:answer personal))]
            [(:stamp (fact-row :alice :alice :softland.store/depot)) (:stamp (fact-row :alice :alice :softland.store/permission))])
-    (check "a group's layer made by the person who creates it: accepted, and its depot is streaming"
-           [:accepted :streaming] [(:word group) (depot-of-layer :team)])
-    (check "a layer whose id is a UUID, made by a person whose id is a UUID" [:accepted :streaming]
-           [(:word by-uuid) (depot-of-layer own-layer)])
-    (check "a making act for a layer that is made, by the system under the person's permission, is refused"
+    (check "a group's lane made by the person who creates it: accepted, and its depot is streaming"
+           [:accepted :streaming] [(:word group) (depot-of-lane :team)])
+    (check "a lane whose id is a UUID, made by a person whose id is a UUID" [:accepted :streaming]
+           [(:word by-uuid) (depot-of-lane own-lane)])
+    (check "a making act for a lane that is made, by the system under the person's permission, is refused"
            :who-not-the-permissions-holder (:word again-by-system))
-    (check "a making act for a layer that is made, by its holder, is refused: its permission is not beneath its own"
+    (check "a making act for a lane that is made, by its holder, is refused: its permission is not beneath its own"
            :permission-fact-not-beneath-the-acts-own (:word again-by-holder))
-    (check "the system holds no permission in the personal layer that it made: its second act there is refused"
+    (check "the system holds no permission in the personal lane that it made: its second act there is refused"
            :who-not-the-permissions-holder (:word system-again))
-    (check "the first permission of the group's layer is the one that the first making act wrote"
+    (check "the first permission of the group's lane is the one that the first making act wrote"
            alice-in-team (record/value-of (fact-row :team :alice :softland.store/permission)))
-    (shown "an act into a layer that is not made refused:" (told not-made) "| one with a value, the same:" (told value-early)
+    (shown "an act into a lane that is not made refused:" (told not-made) "| one with a value, the same:" (told value-early)
            "| the row at its place:" (pr-str row-early)
            "| a making act of the base on the streaming depot, while the base is not made:" (told base-here))
-    (shown "a person's layer made by the system for that person, with the depot streaming:" (told personal)
-           "| depot-of-layer :alice =" (depot-of-layer :alice))
-    (shown "a group's layer made by the person who creates it:" (told group) "| depot-of-layer :team =" (depot-of-layer :team))
-    (shown "a making act for a layer that is made is refused: by the system" (:word again-by-system)
-           "| by its holder" (:word again-by-holder) "| a second act of the system in a personal layer" (:word system-again))))
+    (shown "a person's lane made by the system for that person, with the depot streaming:" (told personal)
+           "| depot-of-lane :alice =" (depot-of-lane :alice))
+    (shown "a group's lane made by the person who creates it:" (told group) "| depot-of-lane :team =" (depot-of-lane :team))
+    (shown "a making act for a lane that is made is refused: by the system" (:word again-by-system)
+           "| by its holder" (:word again-by-holder) "| a second act of the system in a personal lane" (:word system-again))))
 
 (deftest an-act-lands
   (let [fact (value-fact :note-1 :text "the first text")
@@ -1330,7 +1330,7 @@
         other-time (decide! at-another-time)
         after-other-time [(last-stamp :alice) (fact-row :alice :note-1 :text)]
         other-under-used (decide! (assoc (alice [{:e :note-8 :k :text}]) :act-id (:act-id accepted-thing)))
-        junk (decide! {:act-id (new-act-id :alice) :layer :alice :junk 1})
+        junk (decide! {:act-id (new-act-id :alice) :lane :alice :junk 1})
         good-under-junk (decide! (assoc (alice [{:e :note-8 :k :text}]) :act-id (:act-id (:thing junk))))
         stale (decide! (alice [(assoc (value-fact :note-1 :text "stale") :replaces [(new-act-id :alice) 0])]))
         empty-place (decide! (alice [(assoc (value-fact :note-7 :text "x") :replaces first-fact-id)]))
@@ -1348,7 +1348,7 @@
         retract-of-retract (decide! (alice [{:e :note-6 :k :text}]))
         retract-again (decide! (alice [{:e :note-6 :k :text}]))
         onto-retract (decide! (alice [(value-fact :note-6 :text "onto a retract, naming nothing")]))
-        on-the-layer (decide! (alice [(value-fact :alice :title "a fact of the layer's own entity, under a plain key")]))
+        on-the-lane (decide! (alice [(value-fact :alice :title "a fact of the lane's own entity, under a plain key")]))
         twice (decide! (alice [{:e :note-10 :k :text} {:e :note-10 :k :text}]))
         own-base (alice [])
         own-fact (decide! (assoc own-base :facts [{:e :note-10 :k :text}
@@ -1360,12 +1360,12 @@
     (check "a repeat is acked and answered from the record: the same answer, with the stamp of the first decision"
            [:acked answer-before] [repeat-ack answer-after])
     (check "a repeat of a refused act reads the recorded refusal" (:answer refused-one) refused-again)
-    (check "not decided twice: the layer's last stamp is the same after two repeats" stamp-before stamp-after)
+    (check "not decided twice: the lane's last stamp is the same after two repeats" stamp-before stamp-after)
     (check "two things under one act-id that differ only in the time on them, the second 5 ms later: they are not equal, and they have one digest; the second is acked and reads the one answer, that of the first, which is of its own digest too"
            [false true :acked answer-before true]
            [(= accepted-thing at-another-time) (= (digest/hex-of accepted-thing) (digest/hex-of at-another-time))
             (:ack other-time) (:answer other-time) (:mine? other-time)])
-    (check "and it is a repeat: nothing is decided a second time, so the layer's last stamp and the row of the act's fact are as they were; the answer that the second reads holds the time on the first, and not its own"
+    (check "and it is a repeat: nothing is decided a second time, so the lane's last stamp and the row of the act's fact are as they were; the answer that the second reads holds the time on the first, and not its own"
            [stamp-before row-before (time-on accepted-thing)] (conj after-other-time (:time (:answer other-time))))
     (check "a second, different act under a used act-id is told so: the answer it reads is not of its own digest"
            [answer-before false]
@@ -1391,15 +1391,15 @@
     (check "a retract on an empty place, and a retract of a retract, are accepted" [:accepted :accepted]
            [(:word retract-of-retract) (:word retract-again)])
     (check "a value that names nothing, on a place that holds a retract, is accepted" :accepted (:word onto-retract))
-    (check "a value fact on the layer's own entity, under a plain key, is a fact like any other" :accepted (:word on-the-layer))
+    (check "a value fact on the lane's own entity, under a plain key, is a fact like any other" :accepted (:word on-the-lane))
     (check "an act names a place once: two facts on one place, and a fact that replaces a fact of its own act, are refused"
            [:place-named-twice :replaces-own-fact nil] [(:word twice) (:word own-fact) (fact-row :alice :note-11 :text)])
     (shown "a refusal recorded with its reason:" (pr-str (:answer refused-one)))
     (shown "a repeat of that refused act reads the recorded refusal:" (pr-str refused-again))
     (shown "a repeat (same act-id sent twice) answered from the record, not decided twice: stamp before" (:stamp answer-before)
-           "after" (:stamp answer-after) "| the layer's last stamp before" stamp-before "after" stamp-after)
+           "after" (:stamp answer-after) "| the lane's last stamp before" stamp-before "after" stamp-after)
     (shown "the same act under its act-id with another time on it, 5 ms later, is a repeat: one digest" (subs (digest/hex-of at-another-time) 0 16)
-           "| it reads the first's answer, stamp" (:stamp (:answer other-time)) "| the layer's last stamp after it" (first after-other-time))
+           "| it reads the first's answer, stamp" (:stamp (:answer other-time)) "| the lane's last stamp after it" (first after-other-time))
     (shown "a second, different act under a used act-id told so: the digest of the answer" (subs (:digest (:answer other-under-used)) 0 16)
            "is not the digest of what was sent" (subs (digest/hex-of (:thing other-under-used)) 0 16))
     (shown "a stale replaces refused:" (told stale) "| the current fact named:" (told replaced) "| the replaced fact named again:" (told stale-now))
@@ -1409,7 +1409,7 @@
 
 (deftest settings-and-permissions
   (let [setting (decide! (alice [{:e :team :k :softland.store/depot :v :streaming}]))
-        other-layer (decide! (thing :alice :alice alice-in-team [{:e :note-5 :k :text}]))
+        other-lane (decide! (thing :alice :alice alice-in-team [{:e :note-5 :k :text}]))
         not-yet (decide! (thing :alice :bob bobs [{:e :note-5 :k :text}]))
         give (decide! (alice [{:e :bob :k :softland.store/permission :v bobs}]))
         not-yet-again (do (send! (:thing not-yet)) (answer-of (:act-id (:thing not-yet))))
@@ -1444,9 +1444,9 @@
                                    (value-fact :bob :permission "a tool's own permission")]))
         bob-after (decide! (thing :alice :bob bobs [{:e :bobs-note-5 :k :text}]))
         unknown-key (decide! (alice [{:e :alice :k :softland.store/owner :v :alice}]))]
-    (check "a setting key on another layer is refused, and that layer's depot is as it was"
-           [:setting-not-on-the-layer :streaming] [(:word setting) (depot-of-layer :team)])
-    (check "an act with a permission for another layer is refused by the form" :permission-not-in-layer (:word other-layer))
+    (check "a setting key on another lane is refused, and that lane's depot is as it was"
+           [:setting-not-on-the-lane :streaming] [(:word setting) (depot-of-lane :team)])
+    (check "an act with a permission for another lane is refused by the form" :permission-not-in-lane (:word other-lane))
     (check "an act under a permission that does not stand is refused" :permission-does-not-stand (:word not-yet))
     (check "a permission given beneath another by its holder is accepted, and sits on its holder as a fact"
            [:accepted bobs] [(:word give) (record/value-of (fact-row :alice :bob :softland.store/permission))])
@@ -1468,33 +1468,33 @@
             (:value eves-row) (record/permission-of eves-row) (:permission eves-row)])
     (check "an act that names as its own a permission six deep that nobody gave is refused for its standing, with the word of a permission that does not stand: its depth is no fault"
            [:permission-does-not-stand nil] [(:word never-given) (fact-row :alice :zeds-note :text)])
-    (check "a granted-in that is not the act's layer is refused" :permission-fact-granted-in-another-layer (:word granted-elsewhere))
-    (check "a permission fact for another layer is refused" :permission-fact-for-another-layer (:word for-elsewhere))
-    (check "a permission with nothing above it, in a layer that is made, is refused" :permission-fact-not-beneath-the-acts-own (:word at-the-top))
-    (check "a permission that stands is not given again: a holder has one permission in a layer" :holder-has-a-permission (:word give-again))
+    (check "a granted-in that is not the act's lane is refused" :permission-fact-granted-in-another-lane (:word granted-elsewhere))
+    (check "a permission fact for another lane is refused" :permission-fact-for-another-lane (:word for-elsewhere))
+    (check "a permission with nothing above it, in a lane that is made, is refused" :permission-fact-not-beneath-the-acts-own (:word at-the-top))
+    (check "a permission that stands is not given again: a holder has one permission in a lane" :holder-has-a-permission (:word give-again))
     (check "an end at a place that holds no permission is refused, and writes nothing there"
            [:no-permission-to-end nil] [(:word end-nothing) (fact-row :alice :nobody :softland.store/permission)])
     (check "a depot fact after the making: the same depot, the other depot, a retract"
            [:store-key-takes-one-write :changing-a-depot-not-decided :store-key-retract-not-built]
            [(:word depot-again) (:word depot-other) (:word depot-retract)])
     (check "after each of those refusals the permission stands and the depot is as it was"
-           [:accepted :streaming] [(:word bob-still) (depot-of-layer :alice)])
+           [:accepted :streaming] [(:word bob-still) (depot-of-lane :alice)])
     (check "an act that gives a permission and names that permission as its own is refused: it does not stand before the act"
            :permission-does-not-stand (:word own-give))
     (check "whole or nothing: an act that gives a permission and carries a stale fact is refused, and the permission is not given"
            [:replaced-fact-not-current :permission-does-not-stand nil]
            [(:word with-stale) (:word erin-acts) (fact-row :alice :erin :softland.store/permission)])
-    (check "a tool's own facts under the bare words :class and :permission, on the layer's entity and on a holder's, are accepted as facts under plain keys"
+    (check "a tool's own facts under the bare words :class and :permission, on the lane's entity and on a holder's, are accepted as facts under plain keys"
            [:accepted true] [(:word tools-own) (:mine? tools-own)])
-    (check "each sits at its own place, and its row's value reads back as the tool's value; the store's facts are as they were: the layer's depot, Bob's permission, and Bob still acts"
+    (check "each sits at its own place, and its row's value reads back as the tool's value; the store's facts are as they were: the lane's depot, Bob's permission, and Bob still acts"
            [[:value "a tool's own class"] [:value "a tool's own permission"] :streaming bobs :accepted]
            [(record/read-value (fact-row :alice :alice :class)) (record/read-value (fact-row :alice :bob :permission))
-            (depot-of-layer :alice) (record/value-of (fact-row :alice :bob :softland.store/permission)) (:word bob-after)])
+            (depot-of-lane :alice) (record/value-of (fact-row :alice :bob :softland.store/permission)) (:word bob-after)])
     (check "a fact under a key in the store's namespace that the store does not know is refused, the refusal is recorded, and nothing is written"
            [:store-key-not-known true nil]
            [(:word unknown-key) (:mine? unknown-key) (fact-row :alice :alice :softland.store/owner)])
-    (shown "a setting key on another layer refused:" (told setting))
-    (shown "an act with a permission for another layer refused:" (told other-layer))
+    (shown "a setting key on another lane refused:" (told setting))
+    (shown "an act with a permission for another lane refused:" (told other-lane))
     (shown "an act under a permission that does not stand refused:" (told not-yet))
     (shown "a permission given beneath another by its holder:" (told give) "| and an act under it accepted:" (told bob-writes))
     (shown "a permission given by one who does not hold the one above refused:" (told beside)
@@ -1502,11 +1502,11 @@
     (shown "a chain four deep stands:" (:word give-carol) (:word give-dave) (:word dave-acts)
            "| a fifth is given and acted under:" (:word give-five) (:word eve-acts) "| the permission in the row of that act:" (:permission eves-row)
            "| an own permission six deep that nobody gave:" (:word never-given))
-    (shown "granted-in must be the act's layer:" (:word granted-elsewhere) "| a permission given again while it stands:" (:word give-again)
+    (shown "granted-in must be the act's lane:" (:word granted-elsewhere) "| a permission given again while it stands:" (:word give-again)
            "| an end at a place that holds no permission:" (:word end-nothing) "| a depot after the making:" (:word depot-again) (:word depot-other) (:word depot-retract))
     (shown "whole or nothing: a give with a stale fact" (:word with-stale) "| an act under the permission that was not given" (:word erin-acts))
     (shown "a tool's own facts under the bare words :class and :permission, accepted as facts under plain keys:" (told tools-own)
-           "| depot-of-layer :alice =" (depot-of-layer :alice) "| an act under Bob's permission after:" (:word bob-after)
+           "| depot-of-lane :alice =" (depot-of-lane :alice) "| an act under Bob's permission after:" (:word bob-after)
            "| a key in softland.store that the store does not know refused:" (told unknown-key))))
 
 (deftest a-permission-deeper-than-four
@@ -1532,7 +1532,7 @@
         looker-acts (decide! (thing :deep :looker-32 sees [{:e :lookers-note :k :text}]))
         slot-at-33 (decide! (thing :deep (holder 32) (at 32)
                                    [{:e :seer-33 :k :softland.store/permission :v [:seer-33 :deep :deep (at 32) :see-and-act]}]))]
-    (check "a layer for these checks is made, and its first permission, the first of the proof's chain and of depth 1, sits on its holder"
+    (check "a lane for these checks is made, and its first permission, the first of the proof's chain and of depth 1, sits on its holder"
            [:accepted [:alice :deep :deep] [:alice :deep :deep]] [(:word made) (at 1) (on-its-holder 1)])
     (check "each holder gives a permission beneath her own, one at each depth from 2 to 32: the 31 gives are each accepted"
            (vec (repeat 31 :accepted)) (mapv :word (pop gives)))
@@ -1567,15 +1567,15 @@
 (deftest the-time-on-the-act
   (let [t chosen-time
         hour 3600000
-        layers (mapv #(keyword (str "timed-" %)) (range 5))
-        own (fn [layer] [:alice layer layer])
-        act-in (fn [layer e] (thing layer :alice (own layer) [(value-fact e :text (str "the text of " (name e)))]))
-        makings (mapv (fn [layer] (decide! (at-time (making layer :alice :alice) t))) layers)
-        ;; Five layers on four tasks: two of them are on one task. The pair
+        lanes (mapv #(keyword (str "timed-" %)) (range 5))
+        own (fn [lane] [:alice lane lane])
+        act-in (fn [lane e] (thing lane :alice (own lane) [(value-fact e :text (str "the text of " (name e)))]))
+        makings (mapv (fn [lane] (decide! (at-time (making lane :alice :alice) t))) lanes)
+        ;; Five lanes on four tasks: two of them are on one task. The pair
         ;; is found in the gate's own table: the task of the one holds a
         ;; last stamp of the other.
-        on-one-task (first (for [a layers
-                                 b layers
+        on-one-task (first (for [a lanes
+                                 b lanes
                                  :when (and (not= a b) (some? (last-stamp b a)))]
                              [a b]))
         [l1 l2] on-one-task
@@ -1595,7 +1595,7 @@
         without (mapv decide! no-times)
         last-after-without (last-stamp l1)
         unknown-part (decide! (at-time (assoc (act-in l1 :unknown-part) :a-part-that-no-form-names 1) (+ t hour)))
-        other-layers-permission (decide! (at-time (thing l1 :alice (own l2) [(value-fact :another-fault :text "x")]) (+ t hour)))
+        other-lanes-permission (decide! (at-time (thing l1 :alice (own l2) [(value-fact :another-fault :text "x")]) (+ t hour)))
         stranger (decide! (at-time (thing l1 :mallory [:mallory l1 l1] [(value-fact :a-strangers :text "x")]) (+ t hour)))
         ;; Acts with times far ahead; behind them, two acts with the chosen
         ;; time, the second of which carries the stamp of the first one's
@@ -1609,38 +1609,38 @@
                                           {:based-on {fact-after (:stamp (:answer written-after))}})
                                    t))
         names-it-row (fact-row l1 :written-after :text)
-        in-l1 (vec (concat [(get (zipmap layers makings) l1) same-1 same-2] moved without
-                           [unknown-part other-layers-permission stranger] far [written-after names-it]))
+        in-l1 (vec (concat [(get (zipmap lanes makings) l1) same-1 same-2] moved without
+                           [unknown-part other-lanes-permission stranger] far [written-after names-it]))
         lasts-at-the-end [(last-stamp l1) (last-stamp l2)]
         as-told (fn [results] (pr-str (mapv (juxt :word (comp :stamp :answer) (comp :time :answer)) results)))]
-    (swap! kept assoc :timed {:layers [l1 l2] :last-stamps lasts-at-the-end})
-    (check "a. five layers are made by hand, each with the one chosen time on its making act: each is accepted, and the stamp of each is 0, the first stamp of its layer; so five layers hold one stamp. The answer of each holds the chosen time"
+    (swap! kept assoc :timed {:lanes [l1 l2] :last-stamps lasts-at-the-end})
+    (check "a. five lanes are made by hand, each with the one chosen time on its making act: each is accepted, and the stamp of each is 0, the first stamp of its lane; so five lanes hold one stamp. The answer of each holds the chosen time"
            [(vec (repeat 5 :accepted)) #{0} #{t}]
            [(mapv :word makings) (set (map (comp :stamp :answer) makings)) (set (map (comp :time :answer) makings))])
-    (check "a. a second act into one of them, with the same time on it, gets the stamp 1, and a third the stamp 2: one more for each decision of the layer. The row of the third's fact holds its stamp and the time on its act"
+    (check "a. a second act into one of them, with the same time on it, gets the stamp 1, and a third the stamp 2: one more for each decision of the lane. The row of the third's fact holds its stamp and the time on its act"
            [[:accepted :accepted] [1 2] [2 t]]
            [(mapv :word [same-1 same-2]) (mapv (comp :stamp :answer) [same-1 same-2]) [(:stamp same-2-row) (:time same-2-row)]])
-    (check "b. two of the five layers are on one task, and the three decisions in the one did not raise the other: its last stamp is still its making act's, 0, read on its own task and on the task of the first, which holds it too"
+    (check "b. two of the five lanes are on one task, and the three decisions in the one did not raise the other: its last stamp is still its making act's, 0, read on its own task and on the task of the first, which holds it too"
            [true [0 0]] [(some? on-one-task) other-before])
-    (check "b. an act into the other layer gets the stamp 1, that layer's own count, while the first layer of the task stands at 2: two layers of one task each hold an answer with the stamp 1"
+    (check "b. an act into the other lane gets the stamp 1, that lane's own count, while the first lane of the task stands at 2: two lanes of one task each hold an answer with the stamp 1"
            [:accepted 1 1]
            [(:word other-1) (:stamp (:answer other-1)) (:stamp (:answer same-1))])
-    (check "b. the task keeps a last stamp for each of the two layers, each its own, whichever of the two layers the read is routed by"
+    (check "b. the task keeps a last stamp for each of the two lanes, each its own, whichever of the two lanes the read is routed by"
            [2 1 2 1] lasts-then)
-    (check "c. the time on an act moves no stamp. An act with a time one millisecond after the chosen one, an act with a time 5 seconds before it, and an act with the time 0, the earliest there is, are each accepted with the layer's last stamp plus one: 3, 4 and 5. The clock went back, and the stamps of the layer did not. The answer of each, and the row of its fact, hold the time on its own act"
+    (check "c. the time on an act moves no stamp. An act with a time one millisecond after the chosen one, an act with a time 5 seconds before it, and an act with the time 0, the earliest there is, are each accepted with the lane's last stamp plus one: 3, 4 and 5. The clock went back, and the stamps of the lane did not. The answer of each, and the row of its fact, hold the time on its own act"
            [[:accepted :accepted :accepted] [3 4 5] (mapv second moved-times) (mapv second moved-times)]
            [(mapv :word moved) (mapv (comp :stamp :answer) moved) (mapv (comp :time :answer) moved)
             (mapv (fn [[e _]] (:time (fact-row l1 e :text))) moved-times)])
-    (check "d. a thing with a usable act-id and no time, one with a nil time, one with a time below zero and one with a time that is no integer: each is refused with the word of the time, under its own act-id with the digest of what was sent, with the layer's last stamp plus one, 6 to 9, which the layer then keeps; none writes a row; and the row of each answer holds no time, so the read gives none"
+    (check "d. a thing with a usable act-id and no time, one with a nil time, one with a time below zero and one with a time that is no integer: each is refused with the word of the time, under its own act-id with the digest of what was sent, with the lane's last stamp plus one, 6 to 9, which the lane then keeps; none writes a row; and the row of each answer holds no time, so the read gives none"
            [(vec (repeat 4 :no-door-time)) (vec (repeat 4 true)) [6 7 8 9] 9 (vec (repeat 4 nil)) (vec (repeat 4 false)) (vec (repeat 4 nil))]
            [(mapv :word without) (mapv :mine? without) (mapv (comp :stamp :answer) without) last-after-without
             (mapv (fn [x] (fact-row l1 (:e (first (:facts x))) :text)) no-times)
             (mapv #(some-> (answer-row (:thing %)) (contains? :time)) without) (mapv (comp :time :answer) without)])
-    (check "d. a refused thing keeps the time that it carried, as a label, and its stamp holds nothing of it. Three things, each with a usable time one hour after the chosen one: one with a part that no form names, whose word comes before the time's in the declaration's order; one whose permission is for another layer, whose word comes after it; and an act of a stranger under a permission that no act gave, which the declaration takes and the gate refuses for its standing. Each gets the layer's last stamp plus one, 10, 11 and 12, and its answer holds the time one hour ahead"
-           [[:unknown-part 10 (+ t hour)] [:permission-not-in-layer 11 (+ t hour)] [:permission-does-not-stand 12 (+ t hour)]]
+    (check "d. a refused thing keeps the time that it carried, as a label, and its stamp holds nothing of it. Three things, each with a usable time one hour after the chosen one: one with a part that no form names, whose word comes before the time's in the declaration's order; one whose permission is for another lane, whose word comes after it; and an act of a stranger under a permission that no act gave, which the declaration takes and the gate refuses for its standing. Each gets the lane's last stamp plus one, 10, 11 and 12, and its answer holds the time one hour ahead"
+           [[:unknown-part 10 (+ t hour)] [:permission-not-in-lane 11 (+ t hour)] [:permission-does-not-stand 12 (+ t hour)]]
            (mapv (fn [result] [(:word result) (:stamp (:answer result)) (:time (:answer result))])
-                 [unknown-part other-layers-permission stranger]))
-    (check "e. no time is too far ahead: an act with a time one hour after the chosen one, one with a time in the year 3084, 2^45 milliseconds, and one with the greatest fixed-width integer, 2^63 less one, are each accepted with the layer's last stamp plus one, 13, 14 and 15; the answer of each, and the row of its fact, hold its own time"
+                 [unknown-part other-lanes-permission stranger]))
+    (check "e. no time is too far ahead: an act with a time one hour after the chosen one, one with a time in the year 3084, 2^45 milliseconds, and one with the greatest fixed-width integer, 2^63 less one, are each accepted with the lane's last stamp plus one, 13, 14 and 15; the answer of each, and the row of its fact, hold its own time"
            [[:accepted :accepted :accepted] [13 14 15] (mapv second far-times) (mapv second far-times)]
            [(mapv :word far) (mapv (comp :stamp :answer) far) (mapv (comp :time :answer) far)
             (mapv (fn [[e _]] (:time (fact-row l1 e :text))) far-times)])
@@ -1648,32 +1648,32 @@
            [[:accepted 16] [:accepted 17] [(nth (:act-id (:thing names-it)) 2) 17 t]]
            [[(:word written-after) (:stamp (:answer written-after))] [(:word names-it) (:stamp (:answer names-it))]
             [(:by-act names-it-row) (:stamp names-it-row) (:time names-it-row)]])
-    (check "the stamps of the eighteen decisions of the first layer, in the order sent, accepts and refusals alike, are 0 to 17 with no gap; at the end each of the two layers of one task keeps the stamp of its own last decision, 17 and 1"
+    (check "the stamps of the eighteen decisions of the first lane, in the order sent, accepts and refusals alike, are 0 to 17 with no gap; at the end each of the two lanes of one task keeps the stamp of its own last decision, 17 and 1"
            [(vec (range 18)) [17 1]]
            [(mapv (comp :stamp :answer) in-l1) lasts-at-the-end])
-    (shown "the time on the act is a label beside the stamp, in the streaming gate. Five layers made with the chosen time" t
+    (shown "the time on the act is a label beside the stamp, in the streaming gate. Five lanes made with the chosen time" t
            "on their making acts, each with the stamp 0 | in one of them the same time again:" (told same-1) "|" (told same-2)
            "| a later time, a time 5 s earlier, and the time 0, as [word stamp time]:" (as-told moved))
-    (shown "two layers of one task count apart," l1 "and" l2 "| after three decisions in the first the other stood at" (pr-str other-before)
-           "| its next act:" (told other-1) "| the last stamps that the task keeps, of the first and of the other, read by each layer:" (pr-str lasts-then))
-    (shown "a thing with no usable time is refused, with the layer's last stamp plus one and no time in its answer: no time, nil, below zero, no integer:"
+    (shown "two lanes of one task count apart," l1 "and" l2 "| after three decisions in the first the other stood at" (pr-str other-before)
+           "| its next act:" (told other-1) "| the last stamps that the task keeps, of the first and of the other, read by each lane:" (pr-str lasts-then))
+    (shown "a thing with no usable time is refused, with the lane's last stamp plus one and no time in its answer: no time, nil, below zero, no integer:"
            (as-told without) "| refused for another fault, with a time one hour ahead, which its answer keeps:"
-           (as-told [unknown-part other-layers-permission stranger]))
+           (as-told [unknown-part other-lanes-permission stranger]))
     (shown "times far ahead, accepted: an hour, the year 3084, 2^63 less one:" (as-told far)
            "| behind them, an act at the chosen time:" (told written-after) "| one that carries its stamp and replaces its fact:" (told names-it)
-           "| the stamps of the first layer, in the order sent:" (pr-str (mapv (comp :stamp :answer) in-l1)))))
+           "| the stamps of the first lane, in the order sent:" (pr-str (mapv (comp :stamp :answer) in-l1)))))
 
 (deftest strays-and-limits
   (let [counts (fn [] (into {} (map (fn [w] [w (strays w)])) declaration/stray-reasons))
         before (counts)
         long (keyword (apply str (repeat 300 "a")))
         no-act-id 5
-        malformed {:act-id [:alice :streaming] :layer :alice :marker (UUID/randomUUID)}
+        malformed {:act-id [:alice :streaming] :lane :alice :marker (UUID/randomUUID)}
         other-gate (assoc (alice [{:e :note-30 :k :text}]) :act-id [:alice :microbatch (UUID/randomUUID)] :depot :microbatch)
-        other-layer (assoc (alice [{:e :note-30 :k :text}]) :layer :team)
-        too-long {:act-id [long :streaming (UUID/randomUUID)] :layer long}
+        other-lane (assoc (alice [{:e :note-30 :k :text}]) :lane :team)
+        too-long {:act-id [long :streaming (UUID/randomUUID)] :lane long}
         stamp-before-strays (last-stamp :alice)
-        acks (mapv send! [no-act-id malformed other-gate other-layer too-long other-gate other-gate])
+        acks (mapv send! [no-act-id malformed other-gate other-lane too-long other-gate other-gate])
         after (counts)
         second-of-a-word (do (send! (assoc malformed :marker (UUID/randomUUID))) (counts))
         stamp-after-strays (last-stamp :alice)
@@ -1704,17 +1704,17 @@
         next-one (decide! (alice [{:e :note-35 :k :text}]))]
     (check "each stray was acked" (vec (repeat 7 :acked)) acks)
     (check "a stray is kept under its word, once however often it comes: five different strays, one of them sent three times"
-           {:no-act-id 1 :act-id-malformed 1 :id-too-long 1 :act-id-of-the-other-gate 1 :act-id-of-another-layer 1}
+           {:no-act-id 1 :act-id-malformed 1 :id-too-long 1 :act-id-of-the-other-gate 1 :act-id-of-another-lane 1}
            (merge-with - after before))
     (check "what is kept is the digest of the stray thing"
            [true true] [(contains? (stray-digests :act-id-of-the-other-gate) (digest/hex-of other-gate))
                         (contains? (stray-digests :no-act-id) (digest/hex-of no-act-id))])
     (check "the count of strays under a word is the number of different ones: a second, different one makes it two more than before"
            2 (- (:act-id-malformed second-of-a-word) (:act-id-malformed before)))
-    (check "a stray gets no answer: an act-id of the other gate, and an act-id whose layer is not the thing's layer"
-           [nil nil] [(answer-of (:act-id other-gate)) (answer-of (:act-id other-layer))])
+    (check "a stray gets no answer: an act-id of the other gate, and an act-id whose lane is not the thing's lane"
+           [nil nil] [(answer-of (:act-id other-gate)) (answer-of (:act-id other-lane))])
     (check "a stray writes no fact" nil (fact-row :alice :note-30 :text))
-    (check "a stray gets no stamp: after the eight strays the last stamp of the layer :alice is as it was before them"
+    (check "a stray gets no stamp: after the eight strays the last stamp of the lane :alice is as it was before them"
            stamp-before-strays stamp-after-strays)
     (check "an act of 256 facts is accepted, and each fact is a row; one of 257 is refused"
            [:accepted 255 :too-many-facts] [(:word facts-256) (:by-index (fact-row :alice :many-255 :text)) (:word facts-257)])
@@ -1736,11 +1736,11 @@
            [(< 18874368 act-over-bytes) (:ack act-over) (:word act-over) (:mine? act-over) (= (:thing act-over) act-over-logged)
             (count (:facts act-over-logged)) (fact-row :alice :over-0 :text) (fact-row :alice :over-255 :text)])
     (check "an id that prints to more than 256 characters is refused, and the refusal is recorded under the act-id" :id-too-long (:word long-entity))
-    (check "claimed-when far ahead is a claim: the act is accepted, and its stamp does not follow it: it is the layer's last stamp plus one"
+    (check "claimed-when far ahead is a claim: the act is accepted, and its stamp does not follow it: it is the lane's last stamp plus one"
            [:accepted (inc last-before-the-carried)] [(:word claim) (:stamp (:answer claim))])
-    (check "an act that carries the greatest stamp there is, 2^63 less one, in `:based-on`, based on a fact and because of an act that the record does not hold, is accepted with the layer's last stamp plus one: a gate raises no act's stamp above the stamps that it carries"
+    (check "an act that carries the greatest stamp there is, 2^63 less one, in `:based-on`, based on a fact and because of an act that the record does not hold, is accepted with the lane's last stamp plus one: a gate raises no act's stamp above the stamps that it carries"
            [:accepted (+ 2 last-before-the-carried)] [(:word carries-the-greatest) (:stamp (:answer carries-the-greatest))])
-    (check "and the next stamp of the layer is one more; it is the layer's last stamp"
+    (check "and the next stamp of the lane is one more; it is the lane's last stamp"
            [(+ 3 last-before-the-carried) (+ 3 last-before-the-carried)] [(:stamp (:answer next-one)) (last-stamp :alice)])
     (shown "a stray is kept under its word and gets no answer; strays seen, by word:" (pr-str (merge-with - after before))
            "| the same stray sent three times counts once | answer of a stray:" (pr-str (answer-of (:act-id other-gate))))
@@ -1750,9 +1750,9 @@
            "| its row holds" (count (value-bytes at-row)) "bytes in" (count (:value at-row)) "characters")
     (shown "the bound on an act, through the streaming gate: an act whose rows would hold" act-over-bytes "bytes of text, over 18874368:"
            (told act-over) "| in the log whole, with" (count (:facts act-over-logged)) "values plain")
-    (shown "what an act carries is no measure of its stamp: the layer's last stamp before" last-before-the-carried
+    (shown "what an act carries is no measure of its stamp: the lane's last stamp before" last-before-the-carried
            "| claimed-when far ahead:" (told claim) "| carried the greatest stamp, 2^63 less one:" (told carries-the-greatest)
-           "| the next stamp of the layer:" (:stamp (:answer next-one)))))
+           "| the next stamp of the lane:" (:stamp (:answer next-one)))))
 
 (deftest the-reads-take-anything
   (let [u (UUID/randomUUID)
@@ -1761,21 +1761,21 @@
         ask (fn [query & args] (apply rama/foreign-invoke-query (get *hand* query) args))]
     (check "the hand gives nothing itself for what is no id or no act-id, and calls no query"
            [nil nil nil nil]
-           [(depot-of-layer nil) (depot-of-layer "alice") (answer-of nil) (answer-of [:alice :streaming])])
-    (check "the read by act-id, called with what is no act-id of the layer given, gives nothing"
+           [(depot-of-lane nil) (depot-of-lane "alice") (answer-of nil) (answer-of [:alice :streaming])])
+    (check "the read by act-id, called with what is no act-id of the lane given, gives nothing"
            [nil nil nil nil nil true]
            [(ask :answer :alice [:team :streaming u]) (ask :answer :alice 5) (ask :answer :alice [:alice :streaming])
             (ask :answer "alice" ["alice" :streaming u]) (ask :answer long [long :streaming u])
             (some? (ask :answer :alice accepted))])
-    (check "an act-id of the depot microbatch under a streaming layer, asked for with its layer as the routing id, gets nothing: the microbatch gate's answers hold no row under it" nil (ask :answer :alice [:alice :microbatch (nth accepted 2)]))
-    (check "the read of a depot, called with what is no id, or with a layer that is not made, gives nothing"
-           [nil nil nil] [(ask :depot-of-layer "alice") (ask :depot-of-layer long) (ask :depot-of-layer :nobody)])
-    (check "the same two reads give an answer and a depot for what is one: the act-id of an accepted act with its layer, and a layer that is made"
-           [:accepted :streaming] [(:verdict (ask :answer :alice accepted)) (ask :depot-of-layer :alice)])
-    (check "the same uuid in two layers is two answers: an answer is found by its layer and its uuid"
+    (check "an act-id of the depot microbatch under a streaming lane, asked for with its lane as the routing id, gets nothing: the microbatch gate's answers hold no row under it" nil (ask :answer :alice [:alice :microbatch (nth accepted 2)]))
+    (check "the read of a depot, called with what is no id, or with a lane that is not made, gives nothing"
+           [nil nil nil] [(ask :depot-of-lane "alice") (ask :depot-of-lane long) (ask :depot-of-lane :nobody)])
+    (check "the same two reads give an answer and a depot for what is one: the act-id of an accepted act with its lane, and a lane that is made"
+           [:accepted :streaming] [(:verdict (ask :answer :alice accepted)) (ask :depot-of-lane :alice)])
+    (check "the same uuid in two lanes is two answers: an answer is found by its lane and its uuid"
            [nil nil] [(ask :answer :team [:team :streaming (nth accepted 2)]) (answer-of [:team :streaming (nth accepted 2)])])
-    (shown "the two reads, of an answer and of a depot, give nothing for what is no id, no act-id, another layer's act-id or the other depot, and do not fail"
-           "| for an act-id that was accepted and a layer that is made they give:" (:verdict (ask :answer :alice accepted)) (ask :depot-of-layer :alice))))
+    (shown "the two reads, of an answer and of a depot, give nothing for what is no id, no act-id, another lane's act-id or the other depot, and do not fail"
+           "| for an act-id that was accepted and a lane that is made they give:" (:verdict (ask :answer :alice accepted)) (ask :depot-of-lane :alice))))
 
 ;; ------------------------------------ what the streaming gate keeps for a read
 
@@ -1801,7 +1801,7 @@
         personal-depot (fact-row :alice :alice :softland.store/depot)
         personal-permission (fact-row :alice :alice :softland.store/permission)]
     (swap! kept assoc-in [:canvas-before :kept-value] (record/read-value (get rows :map)))
-    (check "a layer for these checks is made, and an act with a plain value of each kind is accepted"
+    (check "a lane for these checks is made, and an act with a plain value of each kind is accepted"
            [:accepted :accepted true] [(:word made) (:word landed) (:mine? landed)])
     (check "each row holds the one text of its value in its normal form, as the proof wrote it out by hand: a keyword, a UUID, a string with spaces, a number, a map, and a map that was not given in its normal form"
            texts-of-kinds (into {} (map (fn [[k row]] [k (:value row)])) rows))
@@ -1828,7 +1828,7 @@
     (check "whole or nothing: an act whose first fact is good and whose second names a fact that is not current is refused whole, with no row at either place"
            [:replaced-fact-not-current nil nil]
            [(:word refused) (fact-row :canvas :not-kept :text) (fact-row :canvas :not-kept-2 :text)])
-    (check "each row holds who wrote it and the permission that the act named: the maker of the layer under her first permission"
+    (check "each row holds who wrote it and the permission that the act named: the maker of the lane under her first permission"
            #{[:alice alice-in-canvas]} (set (map (fn [row] [(record/who-of row) (record/permission-of row)]) (vals rows))))
     (check "a second holder, given a permission in the kept form without the slot, acts: her rows hold her and her permission; a retract's row holds them too; the give's row holds the giver and the giver's permission"
            [:accepted :accepted :accepted
@@ -1837,7 +1837,7 @@
             [(record/who-of graces-row) (record/permission-of graces-row) (record/read-value graces-row)]
             [(record/who-of retract-row) (record/permission-of retract-row) (record/read-value retract-row)]
             [(record/who-of give-row) (record/permission-of give-row) (record/read-value give-row)]])
-    (check "the system made Alice's personal layer for her: the rows of that making hold the system as who, and Alice's permission; the two differ"
+    (check "the system made Alice's personal lane for her: the rows of that making hold the system as who, and Alice's permission; the two differ"
            [[:system alice-own] [:system alice-own]]
            [[(record/who-of personal-depot) (record/permission-of personal-depot)]
             [(record/who-of personal-permission) (record/permission-of personal-permission)]])
@@ -1848,7 +1848,7 @@
     (shown "the edges of a value, each accepted with its text in its row:" (pr-str (into (sorted-map) (map (fn [[k row]] [k (:value row)])) edge-rows))
            "| a number inside 33 vectors:" (told inside-33))
     (shown "who wrote a fact, and under which permission:" (pr-str [(record/who-of graces-row) (record/permission-of graces-row)])
-           "| the system's making of a personal layer:" (pr-str [(record/who-of personal-depot) (record/permission-of personal-depot)]))
+           "| the system's making of a personal lane:" (pr-str [(record/who-of personal-depot) (record/permission-of personal-depot)]))
     (shown "an act refused for its second fact leaves no row of its first:" (told refused))))
 
 (deftest the-keys-that-take-a-second-write
@@ -1879,11 +1879,11 @@
         wrong (mapv (fn [fact] (:word (decide! (team [fact]))))
                     [{:e :team :k who-may-see :v :owner}
                      {:e :team :k builds-on :v #{:base}}
-                     {:e :team :k builds-on :v (mapv #(keyword (str "layer-" %)) (range 65))}
+                     {:e :team :k builds-on :v (mapv #(keyword (str "lane-" %)) (range 65))}
                      {:e :team :k marks :v [:plan]}
                      {:e :team :k marks :v (set (map #(keyword (str "key-" %)) (range 33)))}
                      {:e :team :k marks :v #{:softland.store/permission}}])
-        at-the-limits (decide! (team [{:e :team :k builds-on :v (mapv #(keyword (str "layer-" %)) (range 64))}
+        at-the-limits (decide! (team [{:e :team :k builds-on :v (mapv #(keyword (str "lane-" %)) (range 64))}
                                       {:e :team :k marks :v (set (map #(keyword (str "key-" %)) (range 32)))}]))
         read-at-the-limits [(count (second (record/read-value (fact-row :team :team builds-on)))) (count (marked-keys :team))]
         odd-list (decide! (team [{:e :team :k builds-on :v [:team :base :base :nobody-made-this]}]))
@@ -1893,19 +1893,19 @@
         give-again (decide! (team [{:e :bob :k :softland.store/permission :v bob-in-team}]))
         depot-again (decide! (team [{:e :team :k :softland.store/depot :v :streaming}]))
         by-bob (decide! (thing :team :bob bob-in-team [{:e :team :k who-may-see :v :everyone}]))
-        not-made (decide! (thing :no-such-layer :alice [:alice :no-such-layer :no-such-layer]
-                                 [{:e :no-such-layer :k who-may-see :v :everyone}]))
+        not-made (decide! (thing :no-such-lane :alice [:alice :no-such-lane :no-such-lane]
+                                 [{:e :no-such-lane :k who-may-see :v :everyone}]))
         making-with-a-third (decide! (update (making :third-fact :alice :alice) :facts conj
                                              {:e :third-fact :k who-may-see :v :everyone}))
         expected-words [:accepted :accepted :accepted :replaced-fact-not-current :store-key-retract-not-built
-                        :setting-not-on-the-layer]]
-    (check "before any fact says it, the place of each of the three keys holds no row, and the layer reads as: seen by its members, building on nothing, marking no key"
+                        :setting-not-on-the-lane]]
+    (check "before any fact says it, the place of each of the three keys holds no row, and the lane reads as: seen by its members, building on nothing, marking no key"
            [[nil nil nil] [:members [] #{}]]
            [(mapv :before [seen listed marked]) (mapv :starts-with [seen listed marked])])
-    (check "who may see a layer: written, written a second time, written again naming the fact that is there; then a stale replaces, a retract and a write on another entity are each refused with a recorded word"
+    (check "who may see a lane: written, written a second time, written again naming the fact that is there; then a stale replaces, a retract and a write on another entity are each refused with a recorded word"
            expected-words (:words seen))
-    (check "what a layer builds on: the same" expected-words (:words listed))
-    (check "the keys that a layer marks: the same" expected-words (:words marked))
+    (check "what a lane builds on: the same" expected-words (:words listed))
+    (check "the keys that a lane marks: the same" expected-words (:words marked))
     (check "after each accepted write the place holds that write's value, by that act; after the three refusals it holds the last accepted one"
            [[[:value :everyone] [:value :members] [:value :everyone] [:value :everyone]]
             [[:value [:base :alice]] [:value []] [:value [:base :alice]] [:value [:base :alice]]]
@@ -1921,29 +1921,29 @@
            (conj (:level-since marked) (< (nth (:stamps marked) 0) (nth (:stamps marked) 2))))
     (check "the rows of the setting and of the list hold no stamps of marked keys" [[{} {} {}] [{} {} {}]]
            [(:level-since seen) (:level-since listed)])
-    (check "a wrong value under each key is refused by the declaration: a word that is neither; a set for a list; 65 layers; a vector for the marks; 33 keys; a key of the store's own namespace"
-           [:who-may-see-fact-not-members-or-everyone :builds-on-fact-not-a-list-of-layers :builds-on-too-many-layers
+    (check "a wrong value under each key is refused by the declaration: a word that is neither; a set for a list; 65 lanes; a vector for the marks; 33 keys; a key of the store's own namespace"
+           [:who-may-see-fact-not-members-or-everyone :builds-on-fact-not-a-list-of-lanes :builds-on-too-many-lanes
             :marked-keys-fact-not-a-set-of-keys :too-many-marked-keys :marked-key-in-the-stores-namespace]
            wrong)
-    (check "64 layers and 32 marked keys in one act are accepted; a list that names the layer itself, a layer twice and a layer that nobody made is taken as written"
+    (check "64 lanes and 32 marked keys in one act are accepted; a list that names the lane itself, a lane twice and a lane that nobody made is taken as written"
            [:accepted [64 32] :accepted [:value [:team :base :base :nobody-made-this]]]
            [(:word at-the-limits) read-at-the-limits (:word odd-list) odd-list-read])
-    (check "a permission that stands is not given again, and the layer's depot takes one write"
+    (check "a permission that stands is not given again, and the lane's depot takes one write"
            [:accepted :holder-has-a-permission :store-key-takes-one-write]
            [(:word give) (:word give-again) (:word depot-again)])
-    (check "who may write the three is the layer's first holder alone: a second holder of the layer, who may act in it, sets it to everyone and is refused; the row is as the first holder left it"
+    (check "who may write the three is the lane's first holder alone: a second holder of the lane, who may act in it, sets it to everyone and is refused; the row is as the first holder left it"
            [:only-the-first-holder-writes-a-setting [:value :everyone] :alice] [(:word by-bob) (record/read-value (fact-row :team :team who-may-see))
                                                (record/who-of (fact-row :team :team who-may-see))])
-    (check "a setting into a layer that is not made is refused as any act into it; a making act with a third fact, a setting, is no making act: nothing is written at the making but the depot and the first permission"
-           [:layer-not-made :layer-not-made nil nil]
-           [(:word not-made) (:word making-with-a-third) (depot-of-layer :third-fact) (fact-row :third-fact :third-fact who-may-see)])
-    (shown "the three keys that take a second write, in a streaming layer. For each: written, written again, written again naming the fact there, a stale replaces, a retract, another entity:"
+    (check "a setting into a lane that is not made is refused as any act into it; a making act with a third fact, a setting, is no making act: nothing is written at the making but the depot and the first permission"
+           [:lane-not-made :lane-not-made nil nil]
+           [(:word not-made) (:word making-with-a-third) (depot-of-lane :third-fact) (fact-row :third-fact :third-fact who-may-see)])
+    (shown "the three keys that take a second write, in a streaming lane. For each: written, written again, written again naming the fact there, a stale replaces, a retract, another entity:"
            (pr-str {who-may-see (:words seen) builds-on (:words listed) marks (:words marked)}))
     (shown "no fact reads as:" (pr-str (mapv :starts-with [seen listed marked])) "| a wrong value under each:" (pr-str wrong))
     (shown "the stamps of the marked keys, derived by the gate: after the first write" (pr-str (nth (:level-since marked) 0))
            "after the set was emptied" (pr-str (nth (:level-since marked) 1)) "after the key was marked again" (pr-str (nth (:level-since marked) 2)))
     (shown "a permission a second time:" (:word give-again) "| a depot after the making:" (:word depot-again)
-           "| a second holder of the layer writes who may see it:" (:word by-bob))))
+           "| a second holder of the lane writes who may see it:" (:word by-bob))))
 
 (deftest what-a-permission-allows
   (let [bob-sees [:bob :canvas :canvas alice-in-canvas :see]
@@ -1986,18 +1986,18 @@
             (:word sends-a-value) (:mine? sends-a-value) (fact-row :canvas :bobs-value :text)])
     (check "an act of hers with a second fault, a stale replaces, gets the word of her permission: the standing comes before the places"
            :permission-does-not-allow-acting (:word two-faults))
-    (check "a second give to her, of see and act, while her permission stands, is refused: a holder has one permission in a layer; her row is as it was, and she still cannot act"
+    (check "a second give to her, of see and act, while her permission stands, is refused: a holder has one permission in a lane; her row is as it was, and she still cannot act"
            [:holder-has-a-permission true :permission-does-not-stand]
            [(:word raise) (= (value-bytes the-row) (value-bytes row-after)) (:word still-sees)])
     (check "a permission that says see and act: its holder acts, and gives one beneath her own that says see; the holder of that one cannot act"
            [:accepted :accepted :accepted :permission-does-not-allow-acting]
            [(:word give-carol) (:word carol-writes) (:word carol-gives) (:word frank-acts)])
-    (check "a give to the holder of see by another giver, of see and act: refused with the same word; a holder has one permission in a layer, as built"
+    (check "a give to the holder of see by another giver, of see and act: refused with the same word; a holder has one permission in a lane, as built"
            [:holder-has-a-permission true]
            [(:word by-another-giver) (= (value-bytes the-row) (value-bytes (fact-row :canvas :bob :softland.store/permission)))])
-    (check "a making act whose permission has the slot is no making act: refused as an act into a layer that is not made; the layer is then made by a right act"
-           [:layer-not-made :accepted :streaming] [(:word slotted-making) (:word right-making) (depot-of-layer :slotted)])
-    (check "each of her six refusals got a stamp of its own in the layer: the stamps go up in the order sent, the first later than the layer's last stamp before them"
+    (check "a making act whose permission has the slot is no making act: refused as an act into a lane that is not made; the lane is then made by a right act"
+           [:lane-not-made :accepted :streaming] [(:word slotted-making) (:word right-making) (depot-of-lane :slotted)])
+    (check "each of her six refusals got a stamp of its own in the lane: the stamps go up in the order sent, the first later than the lane's last stamp before them"
            true (apply < stamp-before (map (comp :stamp :answer) [acts names-less names-more gives sends-a-value two-faults])))
     (shown "a permission that says see, as its row holds it:" (pr-str (record/value-of the-row))
            "| its holder acts:" (told acts) "| names it without the slot:" (:word names-less) "| with see and act:" (:word names-more)
@@ -2054,13 +2054,13 @@
         dov-under-the-new (decide! (thing :lab :dov dovs-new [(value-fact :dovs-new-note :text "under the new one")]))
         dov-under-the-old (decide! (dov [(value-fact :dovs-old-note :text "under the old one")]))
         stamps (mapv (comp :stamp :answer) [give-bea end-bea (nth after-end 0) bea-again (nth after-bea-again 0)])]
-    (check "a layer with a chain of four: the first holder, and three permissions each given beneath the one before; each holder acts"
+    (check "a lane with a chain of four: the first holder, and three permissions each given beneath the one before; each holder acts"
            [:accepted :accepted :accepted :accepted [:accepted :accepted :accepted]]
            [(:word made) (:word give-bea) (:word give-cal) (:word give-dov) (mapv :word before)])
-    (check "a holder who is not above a permission does not end it; the layer's first permission does not end, by its own holder or by one beneath"
+    (check "a holder who is not above a permission does not end it; the lane's first permission does not end, by its own holder or by one beneath"
            [:not-above-the-permission :first-permission-does-not-end :first-permission-does-not-end]
            [(:word not-above) (:word the-first) (:word the-first-from-beneath)])
-    (check "only the layer's first holder writes its setting: a holder of a given permission is refused, and the first holder's write is taken"
+    (check "only the lane's first holder writes its setting: a holder of a given permission is refused, and the first holder's write is taken"
            [:only-the-first-holder-writes-a-setting :accepted [:value :everyone]]
            [(:word by-a-setting) (:word by-the-first) (record/read-value (fact-row :lab :lab :softland.store/who-may-see))])
     (check "a give at a place whose permission stands is refused, and the row is as it was"
@@ -2091,9 +2091,9 @@
     (check "a holder beneath an end is given a permission by another holder, straight beneath the first: her act under the new one is taken, and under the one that ended it does not stand"
            [:accepted :accepted :permission-does-not-stand]
            [(:word dov-by-ada) (:word dov-under-the-new) (:word dov-under-the-old)])
-    (check "the give, the end, the refused act after it, the second give and the act after that have stamps in that order: the end is in the layer's one order"
+    (check "the give, the end, the refused act after it, the second give and the act after that have stamps in that order: the end is in the lane's one order"
            true (boolean (apply < stamps)))
-    (shown "a permission ends in a streaming layer, with a chain of four: the end" (told end-bea)
+    (shown "a permission ends in a streaming lane, with a chain of four: the end" (told end-bea)
            "| the acts of the three holders after it:" (pr-str (mapv :word after-end))
            "| after her second give:" (pr-str (mapv :word after-bea-again))
            "| after the second give of the one beneath:" (pr-str (mapv :word after-cal-again))
@@ -2131,7 +2131,7 @@
         own-end (decide! (in-run :joe r2 :run-2 [{:e :run-2 :k run-key}]))
         after-own-end (decide! (in-run :joe r2 :run-2 [(value-fact :run-note-7 :text "after its own end")]))
         ;; a yes for one act, on its own id, for the act as its maker made it
-        maker-x {:version 1 :who :joe :layer :studio :session :run-1
+        maker-x {:version 1 :who :joe :lane :studio :session :run-1
                  :facts [(value-fact :experiment-3 :dose "5 mg")]}
         hex (digest/hex-for-a-yes maker-x)
         yes-of (fn [id above] [:joe :studio :studio above :see-and-act [:act id hex]])
@@ -2166,18 +2166,18 @@
         give-yd (decide! (thing :studio :kim kims [{:e y4 :k act-key :v yd}]))
         end-kim (decide! (ida [{:e :kim :k :softland.store/permission}]))
         under-yd (decide! (x-under yd))]
-    (check "a permission for one run is given by a holder of the layer, and sits on the run's session under its own key"
+    (check "a permission for one run is given by a holder of the lane, and sits on the run's session under its own key"
            [:accepted :accepted r1] [(:word made) (:word give-r1) (record/held-permission (fact-row :studio :run-1 run-key))])
     (check "an act of its holder in that run is taken; in another run of hers it is refused; by another who in that run it is refused"
            [:accepted :permission-for-another-run :who-not-the-permissions-holder]
            [(:word in-its-run) (:word in-another-run) (:word by-another-who)])
-    (check "a permission for a run gives nothing: its holder cannot give herself a permission for the layer beneath it, or a permission for another run; and it writes no setting"
-           [:only-a-permission-for-the-layer-gives :only-a-permission-for-the-layer-gives :only-the-first-holder-writes-a-setting
+    (check "a permission for a run gives nothing: its holder cannot give herself a permission for the lane beneath it, or a permission for another run; and it writes no setting"
+           [:only-a-permission-for-the-lane-gives :only-a-permission-for-the-lane-gives :only-the-first-holder-writes-a-setting
             nil]
            [(:word gives-herself) (:word gives-a-run) (:word a-setting) (fact-row :studio :run-9 run-key)])
-    (check "the declaration refuses a permission for a run under the key of a permission for the layer, and one that does not sit on its run"
+    (check "the declaration refuses a permission for a run under the key of a permission for the lane, and one that does not sit on its run"
            [:permission-fact-under-another-key :permission-fact-not-on-what-it-covers] [(:word wrong-key) (:word wrong-place)])
-    (check "a holder has a permission for the layer and one for each of two runs at once, each on its own place"
+    (check "a holder has a permission for the lane and one for each of two runs at once, each on its own place"
            [:accepted :accepted [[:joe :studio :studio ida-own :see] r1 r2]]
            [(:word give-r2) (:word give-see) (mapv record/held-permission three-rows)])
     (check "a run ends no permission but its own: her other run's is refused; a give at a run that has a permission which stands is refused"
@@ -2194,7 +2194,7 @@
            [:act-not-the-one-permitted :act-not-the-one-permitted :accepted [:value "5 mg"] ya]
            [(:word another-act) (:word x-in-another-run) (:word written-another-way)
             (record/read-value the-row) (record/permission-of the-row)])
-    (check "the accept uses the yes up: its place holds an end, written by the act that used it and naming the yes, on the layer's task"
+    (check "the accept uses the yes up: its place holds an end, written by the act that used it and naming the yes, on the lane's task"
            [true (nth (:act-id (:thing written-another-way)) 2) ya]
            [(record/ended? the-yes-row) (:by-act the-yes-row) (record/permission-of the-yes-row)])
     (check "another thing under the act-id of the taken act is not decided: its sender reads the first answer, which is not hers; the act again under another act-id is refused, the yes being used up"
@@ -2209,7 +2209,7 @@
     (check "a yes stands as any permission does: given beneath a holder who is not the first, the end of that holder's permission ends it"
            [:accepted :accepted :accepted :permission-above-ended]
            [(:word give-kim) (:word give-yd) (:word end-kim) (:word under-yd)])
-    (shown "a permission for a run and for an act, in a streaming layer: in its run" (told in-its-run) "| in another run:" (:word in-another-run)
+    (shown "a permission for a run and for an act, in a streaming lane: in its run" (told in-its-run) "| in another run:" (:word in-another-run)
            "| a give under it:" (:word gives-herself) "| after the giver's end, that run and the other:" (pr-str (mapv :word after-the-end))
            "| the act under its yes:" (told written-another-way) "| again, under another act-id:" (:word again)
            "| another thing under the act's act-id, the first answer and whether it is the sender's:"
@@ -2317,9 +2317,9 @@
     (check "the act that marks the keys again with one key more, and names nothing to replace: the key that was marked before keeps its stamp, and the new key gets the stamp of that act, as in the base"
            {:on s2 :in (:stamp (:answer both))} marked-after-both)
     (check "a later fact under that key is in the order" [:b6] after-later)
-    (check "a fact under a key that the layer does not mark has no row in the order by value"
+    (check "a fact under a key that the lane does not mark has no row in the order by value"
            [] (rama/foreign-select [(path/sorted-map-range ":canvas :text " ":canvas :text!") path/MAP-KEYS] (:by-value-ps *hand*) {:pkey :canvas}))
-    (shown "what points at a thing, in a streaming layer. The key :on is marked since" s1 "| a fact with a keyword id, one with a UUID:"
+    (shown "what points at a thing, in a streaming lane. The key :on is marked since" s1 "| a fact with a keyword id, one with a UUID:"
            (pr-str (mapv first run-1)) "| the place" (pr-str run-2) "points at the UUID")
     (shown "the fact replaced, written over, written again, retracted; after each, the run of the value before, the key of the entry that went out, the run of the new value:"
            (pr-str after-3) (pr-str after-4) "| the same value again is the later fact's:" (= (nth (:act-id (:thing a5)) 2) (:by-act (second (first after-5))))
@@ -2332,21 +2332,21 @@
 ;; ----------------------------------------------- the checks of the base's gate
 
 (deftest the-base-is-made
-  (let [before (depot-of-layer :base)
+  (let [before (depot-of-lane :base)
         on-the-other-depot (decide! (thing :base :system system-own [{:e :early :k :note}]
                                            {:act-id [:base :streaming (UUID/randomUUID)] :depot :streaming}))
         early (decide-in-base! (system-act [{:e :early :k :note}]))
         [by-stranger for-another-holder]
         (decide-in-a-row! [(assoc (making :base :system :system) :who :mallory)
                            (making :base :alice :alice)])
-        depot-then (depot-of-layer :base)
+        depot-then (depot-of-lane :base)
         ;; The line: three acts of which each needs the row of the one before
         ;; it, appended with no wait for the gate between them.
         the-making (making :base :system :system)
         the-give (system-act [{:e :alice :k :softland.store/permission :v alice-in-base}])
         alices-first (thing :base :alice alice-in-base [(value-fact :alices-first-doc :text "alice's first act in the base")])
         [made give first-under :as line] (decide-in-a-row! [the-making the-give alices-first])
-        depot-read (depot-of-layer :base)
+        depot-read (depot-of-lane :base)
         made-again (decide-in-base! (update (making :base :system :system) :facts (comp vec reverse)))
         depot-rows (rows-by-task :mb-facts-ps (record/place-key :base :base :softland.store/depot))
         permission-rows (rows-by-task :mb-facts-ps (record/place-key :base :system :softland.store/permission))
@@ -2354,12 +2354,12 @@
         after (decide-in-base! (system-act [{:e :early :k :note}]))]
     (swap! kept assoc :base-give give)
     (check "before its making, the depot of the base is nothing" nil before)
-    (check "an act for the base on the streaming depot, before the base is made, is refused as an act for a layer of the other gate, under its streaming act-id with the digest of what was sent: the streaming gate tells it from the layer id, and reads no table of the other gate for it"
-           [:layer-belongs-to-the-other-gate true] [(:word on-the-other-depot) (:mine? on-the-other-depot)])
+    (check "an act for the base on the streaming depot, before the base is made, is refused as an act for a lane of the other gate, under its streaming act-id with the digest of what was sent: the streaming gate tells it from the lane id, and reads no table of the other gate for it"
+           [:lane-belongs-to-the-other-gate true] [(:word on-the-other-depot) (:mine? on-the-other-depot)])
     (check "an act into the base before it is made is refused. It was appended alone, with nothing sent after it, and one read by its act-id gave its answer when the gate had processed it: no answer of the base waits for a later run of the gate"
-           [:appended :layer-not-made true] [(:ack early) (:word early) (:mine? early)])
+           [:appended :lane-not-made true] [(:ack early) (:word early) (:mine? early)])
     (check "a making act of the base by a who that is not the system, and one that names a person as the base's holder, are each refused, and the base is not made"
-           [:layer-not-made :layer-not-made nil] [(:word by-stranger) (:word for-another-holder) depot-then])
+           [:lane-not-made :lane-not-made nil] [(:word by-stranger) (:word for-another-holder) depot-then])
     (check "the line: the base's making act, the give of a permission to a person, and her first act under the given permission, appended one after the other with no wait for the gate between them: each is accepted, with the digest of what was sent"
            [[:appended :appended :appended] [:accepted :accepted :accepted] [true true true]]
            [(mapv :ack line) (mapv :word line) (mapv :mine? line)])
@@ -2367,11 +2367,11 @@
            true (apply < (map (comp :stamp :answer) line)))
     (check "a second making act of the base, its two facts in the other order, is refused: the base is made, and the permission that the act gives is not beneath its own"
            :permission-fact-not-beneath-the-acts-own (:word made-again))
-    (check "the base made by the system: one read of depot-of-layer gives microbatch" :microbatch depot-read)
+    (check "the base made by the system: one read of depot-of-lane gives microbatch" :microbatch depot-read)
     (check "the depot row and the system's permission row are on every task, each with the stamp of the making act's answer"
            [tasks tasks #{(:stamp (:answer made))}]
            [(count depot-rows) (count permission-rows) (set (map :stamp (concat (vals depot-rows) (vals permission-rows))))])
-    (check "the rows hold the depot as a fact on the layer's own entity, and the system's permission on its holder"
+    (check "the rows hold the depot as a fact on the lane's own entity, and the system's permission on its holder"
            [:microbatch system-own]
            [(record/value-of (first (vals depot-rows))) (record/value-of (first (vals permission-rows)))])
     (check "the row of the permission that was given is on every task with the stamp of the give's answer, and the fact of the first act under it on every task with the stamp of that act's answer"
@@ -2383,7 +2383,7 @@
            "| a making act of the base by a stranger:" (:word by-stranger) "| for a holder that is not the system:" (:word for-another-holder))
     (shown "the line: the base's making act, a give, and the first act under the given permission, appended with no wait between them:"
            (told made) "|" (told give) "|" (told first-under))
-    (shown "the base made by the system, with the depot microbatch: depot-of-layer :base =" depot-read
+    (shown "the base made by the system, with the depot microbatch: depot-of-lane :base =" depot-read
            "| the depot row is on" (count depot-rows) "tasks, the system's permission on" (count permission-rows)
            "| a second making act, its facts in the other order:" (:word made-again))))
 
@@ -2411,7 +2411,7 @@
     (swap! kept assoc :base-landed landed :base-entities (vec (take 3 entities)) :base-task base-task)
     (check "eight acts of one batch, each with one fact, on eight entities, are each accepted"
            (vec (repeat 8 :accepted)) (mapv :word seen))
-    (check "the eight things, whose first facts are on eight different entities, are on one partition of the microbatch depot: the depot places a thing by its layer"
+    (check "the eight things, whose first facts are on eight different entities, are on one partition of the microbatch depot: the depot places a thing by its lane"
            1 (count partitions-of-seen))
     (check "the fact of each of the eight is on every task, the same row in every field"
            [(vec (repeat 8 tasks)) (vec (repeat 8 1))]
@@ -2426,7 +2426,7 @@
     (check "the row holds those seven fields and no other, and every task holds it, the same in every field"
            [#{:value :by-act :by-index :who :permission :stamp :time} tasks #{the-row}]
            [(set (keys the-row)) (count by-task) (set (vals by-task))])
-    (check "a select of the place gives that row whatever the partitioning key is: the place's entity, another layer's id, a UUID, a text and a number"
+    (check "a select of the place gives that row whatever the partitioning key is: the place's entity, another lane's id, a UUID, a text and a number"
            (vec (repeat (count other-keys) the-row)) with-other-keys)
     (check "the answer's row is on one task, the task of the base's depot partition; and that task alone keeps a last stamp of the base, which is the stamp of this answer"
            [[base-task] {base-task (:stamp (:answer landed))}]
@@ -2474,20 +2474,20 @@
         act-id (:act-id thing)
         uuid (nth act-id 2)
         ask (fn [routing-id] (rama/foreign-invoke-query (:answer *hand*) routing-id act-id))
-        by-layer (ask :base)
+        by-lane (ask :base)
         by-uuid (ask uuid)
-        by-another-layer (ask :alice)]
-    (check "the row of an act's answer shows in the answers table on the base's task; at that first sight one call of answer-by-act-id, with the act-id's layer as its routing id, gives the answer, with the stamp of that row: the read waits for nothing behind the commit that showed the row"
+        by-another-lane (ask :alice)]
+    (check "the row of an act's answer shows in the answers table on the base's task; at that first sight one call of answer-by-act-id, with the act-id's lane as its routing id, gives the answer, with the stamp of that row: the read waits for nothing behind the commit that showed the row"
            [true :accepted (:stamp row)]
            [(some? row) (:verdict read) (:stamp read)])
     (check "the answer that the read gave then is the answer that it gives when the gate has processed the thing, with the digest of what was sent"
-           [read true read] [(:answer after) (:mine? after) by-layer])
-    (check "the same query, called with the uuid of the act-id as its routing id, gives nothing: the head of the query finds that the routing id is not the act-id's layer and makes no read. `answer-read-by-routing-id`, called by hand with the same two, gives nil; with the layer it gives the depot word and the key of the answer"
+           [read true read] [(:answer after) (:mine? after) by-lane])
+    (check "the same query, called with the uuid of the act-id as its routing id, gives nothing: the head of the query finds that the routing id is not the act-id's lane and makes no read. `answer-read-by-routing-id`, called by hand with the same two, gives nil; with the lane it gives the depot word and the key of the answer"
            [nil nil [:microbatch (str ":base " uuid)]]
            [by-uuid (record/answer-read-by-routing-id uuid act-id) (record/answer-read-by-routing-id :base act-id)])
-    (check "and called with another layer as its routing id it gives nothing either" nil by-another-layer)
+    (check "and called with another lane as its routing id it gives nothing either" nil by-another-lane)
     (shown "an answer of the base is readable when its batch is committed on the base's task: the row showed at select" selects
-           "with stamp" (:stamp row) "| one call of answer-by-act-id with the layer as routing id gave then:" (pr-str read)
+           "with stamp" (:stamp row) "| one call of answer-by-act-id with the lane as routing id gave then:" (pr-str read)
            "| with the uuid as routing id:" (pr-str by-uuid) "(the head makes no read)")))
 
 (deftest refusals-and-repeats-in-the-base
@@ -2521,7 +2521,7 @@
         ;; The walk of one place that the streaming group makes act by act,
         ;; here appended in a row: each act is decided against the rows that
         ;; the acts before it in the line wrote.
-        junk {:act-id (new-act-id :base) :layer :base :junk 1 declaration/time-part (System/currentTimeMillis)}
+        junk {:act-id (new-act-id :base) :lane :base :junk 1 declaration/time-part (System/currentTimeMillis)}
         good-under-junk (assoc (system-act [{:e :walk-doc-0 :k :text}]) :act-id (:act-id junk))
         w0 (system-act [(value-fact :walk-doc :text "the first text")])
         empty-place (system-act [(assoc (value-fact :walk-doc-2 :text "x") :replaces [(:act-id w0) 0])])
@@ -2535,13 +2535,13 @@
         onto-retract (system-act [(value-fact :walk-doc-3 :text "onto a retract, naming nothing")])
         value-to-retract (system-act [(value-fact :walk-doc-4 :text "a value that is retracted")])
         last-retract (system-act [{:e :walk-doc-4 :k :text :replaces [(:act-id value-to-retract) 0]}])
-        on-the-layer (system-act [(value-fact :base :title "a fact of the layer's own entity, under a plain key")])
+        on-the-lane (system-act [(value-fact :base :title "a fact of the lane's own entity, under a plain key")])
         twice-in-one (system-act [{:e :walk-doc-5 :k :text} {:e :walk-doc-5 :k :text}])
         own-base (system-act [])
         own-fact (assoc own-base :facts [{:e :walk-doc-5 :k :text}
                                          {:e :walk-doc-6 :k :text :replaces [(:act-id own-base) 0]}])
         in-the-row [junk good-under-junk w0 empty-place replaced stale-now replaced over retract over-retract retract-on-empty
-                    retract-again onto-retract value-to-retract last-retract on-the-layer twice-in-one own-fact]
+                    retract-again onto-retract value-to-retract last-retract on-the-lane twice-in-one own-fact]
         walked (decide-in-a-row! in-the-row)
         retract-rows (rows-by-task :mb-facts-ps (record/place-key :base :walk-doc-4 :text))
         retract-row (first (vals retract-rows))]
@@ -2571,7 +2571,7 @@
            [true [true false]] [(= (:answer two-a) (:answer two-b)) [(:mine? two-a) (:mine? two-b)]])
     (check "the first thing wrote its fact, on every task, and nothing of the second is written on any"
            [tasks {}] [(count written-a) written-b])
-    (check "eighteen things appended in a row with no wait for the gate, each decided against the rows that the things before it wrote: a thing that is no act uses its act-id, and a good act under it reads that refusal; a fact is written; a replaces on an empty place is stale; the current fact is named and replaced; the replaced fact named again is stale; the accepted replace sent again is still accepted; a fact that names nothing writes over; a retract; a fact that names the retract; a retract on an empty place, twice; a value onto a retract; a value and its retract; a fact on the layer's own entity; a place named twice; and a fact that replaces a fact of its own act"
+    (check "eighteen things appended in a row with no wait for the gate, each decided against the rows that the things before it wrote: a thing that is no act uses its act-id, and a good act under it reads that refusal; a fact is written; a replaces on an empty place is stale; the current fact is named and replaced; the replaced fact named again is stale; the accepted replace sent again is still accepted; a fact that names nothing writes over; a retract; a fact that names the retract; a retract on an empty place, twice; a value onto a retract; a value and its retract; a fact on the lane's own entity; a place named twice; and a fact that replaces a fact of its own act"
            [:unknown-part :unknown-part :accepted :replaced-fact-not-current :accepted :replaced-fact-not-current :accepted :accepted
             :accepted :accepted :accepted :accepted :accepted :accepted :accepted :accepted :place-named-twice :replaces-own-fact]
            (mapv :word walked))
@@ -2720,13 +2720,13 @@
     (check "a permission given beside the giver's own, not beneath it, is refused, and gives nothing"
            [:permission-fact-not-beneath-the-acts-own {}]
            [(:word beside) (rows-by-task :mb-facts-ps (record/place-key :base :frank :softland.store/permission))])
-    (check "in the base a permission that stands is not given again, an end at a place that holds no permission is refused, and the layer's depot takes one write: the depot again, another depot"
+    (check "in the base a permission that stands is not given again, an end at a place that holds no permission is refused, and the lane's depot takes one write: the depot again, another depot"
            [:holder-has-a-permission :no-permission-to-end :store-key-takes-one-write :changing-a-depot-not-decided]
            [(:word give-again) (:word end-nothing) (:word depot-again) (:word depot-other)])
-    (check "a setting key on an entity that is not the layer is refused in the base" :setting-not-on-the-layer (:word setting-elsewhere))
+    (check "a setting key on an entity that is not the lane is refused in the base" :setting-not-on-the-lane (:word setting-elsewhere))
     (check "after those refusals the permission's rows and the depot are as they were"
            [(into {} (map (fn [[task row]] [task (:stamp row)])) permission-rows) :microbatch]
-           [(into {} (map (fn [[task row]] [task (:stamp row)])) permission-rows-after) (depot-of-layer :base)])
+           [(into {} (map (fn [[task row]] [task (:stamp row)])) permission-rows-after) (depot-of-lane :base)])
     (check "a person gives a permission beneath her own, in the same batch as those refusals, and an act under it is accepted"
            [:accepted :accepted] [(:word give-bob) (:word bob-acts)])
     (check "a fact under a key in the store's namespace that the store does not know is refused by the microbatch gate too, and nothing is written"
@@ -2902,7 +2902,7 @@
                   (act-at :time-below-zero -1)
                   (act-at :time-no-integer 1.5)]
         unknown-part (at-time (assoc (system-act [(value-fact :unknown-part :text "x")]) :a-part-that-no-form-names 1) (+ t hour))
-        other-layers-permission (at-time (thing :base :system [:system :alice :alice] [(value-fact :another-fault :text "x")]) (+ t hour))
+        other-lanes-permission (at-time (thing :base :system [:system :alice :alice] [(value-fact :another-fault :text "x")]) (+ t hour))
         ;; What an act carries is no measure of its stamp: a claim far
         ;; ahead, and the greatest stamp there is in `:based-on`.
         fact-id [[:base :microbatch (UUID. 0 1)] 0]
@@ -2914,7 +2914,7 @@
         far-times [[:an-hour-ahead (+ t hour)] [:in-3084 year-3084] [:at-the-greatest Long/MAX_VALUE]]
         far (mapv (fn [[e millis]] (act-at e millis)) far-times)
         written-after (act-at :written-after t)
-        xs (vec (concat same moved no-times [unknown-part other-layers-permission claim carries-the-greatest] far [written-after]))
+        xs (vec (concat same moved no-times [unknown-part other-lanes-permission claim carries-the-greatest] far [written-after]))
         results (decide-in-one-batch! xs)
         words (mapv :word results)
         stamps (mapv (comp :stamp :answer) results)
@@ -2926,12 +2926,12 @@
         names-it (decide-in-base! (at-time (system-act [(assoc (value-fact :written-after :text "the text that replaces it") :replaces fact-after)]
                                                        {:based-on {fact-after (peek stamps)}})
                                            t))
-        ;; Two layers of one task. A layer that starts streaming and whose
+        ;; Two lanes of one task. A lane that starts streaming and whose
         ;; id hashes to the base's task is found without a send: a select
         ;; with it as the partitioning key finds the base's last stamp. Its
         ;; acts on the microbatch depot are refused, each with a stamp.
-        beside (first (filter (fn [layer] (some? (rama/foreign-select-one (path/keypath :last-stamp ":base")
-                                                                          (:mb-task-ps *hand*) {:pkey layer})))
+        beside (first (filter (fn [lane] (some? (rama/foreign-select-one (path/keypath :last-stamp ":base")
+                                                                          (:mb-task-ps *hand*) {:pkey lane})))
                               (map #(keyword (str "beside-the-base-" %)) (range 64))))
         beside-act (fn [] (at-time (assoc (thing beside beside [beside beside beside] [{:e :beside-doc :k :note}])
                                           :act-id [beside :microbatch (UUID/randomUUID)] :depot :microbatch)
@@ -2958,8 +2958,8 @@
            [(subvec words 6 10) (subvec stamps 6 10)
             (mapv (fn [x] (facts-on-every-task (:e (first (:facts x))) :text)) no-times)
             (mapv #(some-> (answer-row %) (contains? :time)) no-times) (subvec times 6 10)])
-    (check "d. a refused thing keeps the time that it carried, as a label, and its stamp holds nothing of it: a thing with a usable time one hour ahead that the declaration refuses for another fault, one with a part that no form names and one whose permission is for another layer, gets the base's last stamp plus one, and its answer holds the time one hour ahead"
-           [[:unknown-part (at 11) (+ t hour)] [:permission-not-in-layer (at 12) (+ t hour)]]
+    (check "d. a refused thing keeps the time that it carried, as a label, and its stamp holds nothing of it: a thing with a usable time one hour ahead that the declaration refuses for another fault, one with a part that no form names and one whose permission is for another lane, gets the base's last stamp plus one, and its answer holds the time one hour ahead"
+           [[:unknown-part (at 11) (+ t hour)] [:permission-not-in-lane (at 12) (+ t hour)]]
            [[(nth words 10) (nth stamps 10) (nth times 10)] [(nth words 11) (nth stamps 11) (nth times 11)]])
     (check "claimed-when far ahead is a claim: the act is accepted, and its stamp does not follow it: it is the base's last stamp plus one"
            [:accepted (at 13)] [(nth words 12) (nth stamps 12)])
@@ -2973,15 +2973,15 @@
            [[:accepted (at 18)] [:accepted (at 19)]
             (on-every-task (nth (:act-id (:thing names-it)) 2) 0 (at 19) "\"the text that replaces it\"")]
            [[(nth words 17) (nth stamps 17)] [(:word names-it) (:stamp (:answer names-it))] (facts-on-every-task :written-after :text)])
-    (check "b. two layers of one task count apart in the microbatch gate too. A layer that starts streaming and whose id hashes to the base's task gets, for its first act on the microbatch depot, with a time of 2023 on it, a refusal whose stamp is 0: its own count, far below the base's last stamp on that task; and its answer keeps the time 2023. An act of the base, appended between, gets the base's last stamp plus one. The layer's second act, refused too, gets 1"
-           [true [:layer-belongs-to-the-other-gate :accepted :layer-belongs-to-the-other-gate] [0 (at 20) 1] [chosen-time chosen-time]]
+    (check "b. two lanes of one task count apart in the microbatch gate too. A lane that starts streaming and whose id hashes to the base's task gets, for its first act on the microbatch depot, with a time of 2023 on it, a refusal whose stamp is 0: its own count, far below the base's last stamp on that task; and its answer keeps the time 2023. An act of the base, appended between, gets the base's last stamp plus one. The lane's second act, refused too, gets 1"
+           [true [:lane-belongs-to-the-other-gate :accepted :lane-belongs-to-the-other-gate] [0 (at 20) 1] [chosen-time chosen-time]]
            [(some? beside) (mapv :word [beside-1 base-between beside-2]) (mapv (comp :stamp :answer) [beside-1 base-between beside-2])
             (mapv (comp :time :answer) [beside-1 beside-2])])
-    (check "b. the base's task keeps a last stamp for each of the two layers, each its own, and no other task keeps one for that layer"
+    (check "b. the base's task keeps a last stamp for each of the two lanes, each its own, and no other task keeps one for that lane"
            [1 (at 20) {(:base-task @kept) 1}]
            lasts-of-the-task)
-    (shown "two layers of one task count apart in the microbatch gate: the layer" beside "on the base's task," (told beside-1) "|" (told beside-2)
-           "| an act of the base between them:" (told base-between) "| the last stamps that the task keeps, of that layer and of the base:"
+    (shown "two lanes of one task count apart in the microbatch gate: the lane" beside "on the base's task," (told beside-1) "|" (told beside-2)
+           "| an act of the base between them:" (told base-between) "| the last stamps that the task keeps, of that lane and of the base:"
            (pr-str (subvec lasts-of-the-task 0 2)))
     (shown "the time on the act is a label beside the stamp, in the microbatch gate, for eighteen things of one batch. The base's last stamp before it" last-before
            "| three acts with the chosen time" t ":" (pr-str (subvec stamps 0 3))
@@ -3036,10 +3036,10 @@
            "| the same replaces again:" (told crossing-again-result)
            "| the base's last stamp before the act of three values" last-stamp-before "after" last-stamp-after)))
 
-(deftest each-gate-tells-the-other-gates-layers
+(deftest each-gate-tells-the-other-gates-lanes
   (let [base-on-streaming (decide! (thing :base :system system-own [{:e :wrong-depot :k :note}]
                                           {:act-id [:base :streaming (UUID/randomUUID)] :depot :streaming}))
-        on-microbatch (fn [x] (assoc x :act-id [(:layer x) :microbatch (UUID/randomUUID)] :depot :microbatch))
+        on-microbatch (fn [x] (assoc x :act-id [(:lane x) :microbatch (UUID/randomUUID)] :depot :microbatch))
         later-own [:made-later :made-later :made-later]
         later-act (fn [] (on-microbatch (thing :made-later :made-later later-own [{:e :wrong-depot :k :note}])))
         [alice-on-microbatch later-before later-making-on-microbatch]
@@ -3047,25 +3047,25 @@
          [(on-microbatch (thing :alice :alice alice-own [{:e :wrong-depot :k :note}]))
           (later-act)
           (on-microbatch (making :made-later :made-later :made-later))])
-        depot-before (depot-of-layer :made-later)
+        depot-before (depot-of-lane :made-later)
         made-by-streaming (decide! (making :made-later :made-later :made-later))
-        depot-after (depot-of-layer :made-later)
+        depot-after (depot-of-lane :made-later)
         later-after (decide-in-base! (later-act))
         strays-before (base-strays)
         last-stamps-before [(base-last-stamp) (base-last-stamp :alice)]
         both (alice [{:e :both-depots :k :text}])
         on-streaming (decide! both)
-        malformed {:act-id [:base :microbatch] :layer :base :marker (UUID/randomUUID)}
+        malformed {:act-id [:base :microbatch] :lane :base :marker (UUID/randomUUID)}
         long-id (keyword (apply str (repeat 300 "a")))
-        too-long {:act-id [long-id :microbatch (UUID/randomUUID)] :layer long-id}
-        other-layer (assoc (system-act [{:e :stray-doc :k :text}]) :layer :team)
-        acks (mapv append-to-base! [both 5 5 malformed too-long other-layer])
+        too-long {:act-id [long-id :microbatch (UUID/randomUUID)] :lane long-id}
+        other-lane (assoc (system-act [{:e :stray-doc :k :text}]) :lane :team)
+        acks (mapv append-to-base! [both 5 5 malformed too-long other-lane])
         _ (wait-until-processed!)
         strays-after (base-strays)
         last-stamps-after [(base-last-stamp) (base-last-stamp :alice)]
         records (vec (stored-in-base))
         base-strays-sent [[both :act-id-of-the-other-gate] [5 :no-act-id] [malformed :act-id-malformed]
-                          [too-long :id-too-long] [other-layer :act-id-of-another-layer]]
+                          [too-long :id-too-long] [other-lane :act-id-of-another-lane]]
         alices-partitions (partitions-of records (:thing alice-on-microbatch))
         alices-answer-tasks (set (keys (rows-by-task :mb-answers-ps
                                                      (record/answer-key :alice (nth (:act-id (:thing alice-on-microbatch)) 2)))))
@@ -3075,41 +3075,41 @@
         three [#"\$\$streaming-" #"currentTimeMillis" #"depot-partition-append!"]
         of-the-walk [#"\(\|[a-z]" #"yield-if-overtime" #":allow-yield\?"]
         a-text "(|hash *k) (yield-if-overtime) (local-select> [ALL] $$streaming-facts {:allow-yield? true}) (depot-partition-append! *d 1)"]
-    (check "an act for the base, a microbatch layer, sent to the streaming depot after the base is made is refused as an act into a layer of the other gate, under its streaming act-id: the word that such an act got before the base was made"
-           [:acked :layer-belongs-to-the-other-gate true] [(:ack base-on-streaming) (:word base-on-streaming) (:mine? base-on-streaming)])
-    (check "an act for a streaming layer that is made, sent to the microbatch depot, is refused the same way, and is read back with its layer as the routing id"
-           [:layer-belongs-to-the-other-gate true] [(:word alice-on-microbatch) (:mine? alice-on-microbatch)])
-    (check "an act for a layer that starts streaming and that no gate has made, sent to the microbatch depot, gets the same word, and so does a making act of that layer: the microbatch gate tells the layer from its id, and does not make it"
-           [:layer-belongs-to-the-other-gate true :layer-belongs-to-the-other-gate nil]
+    (check "an act for the base, a microbatch lane, sent to the streaming depot after the base is made is refused as an act into a lane of the other gate, under its streaming act-id: the word that such an act got before the base was made"
+           [:acked :lane-belongs-to-the-other-gate true] [(:ack base-on-streaming) (:word base-on-streaming) (:mine? base-on-streaming)])
+    (check "an act for a streaming lane that is made, sent to the microbatch depot, is refused the same way, and is read back with its lane as the routing id"
+           [:lane-belongs-to-the-other-gate true] [(:word alice-on-microbatch) (:mine? alice-on-microbatch)])
+    (check "an act for a lane that starts streaming and that no gate has made, sent to the microbatch depot, gets the same word, and so does a making act of that lane: the microbatch gate tells the lane from its id, and does not make it"
+           [:lane-belongs-to-the-other-gate true :lane-belongs-to-the-other-gate nil]
            [(:word later-before) (:mine? later-before) (:word later-making-on-microbatch) depot-before])
-    (check "the streaming gate then makes that layer, and an act for it on the microbatch depot gets the word that it got before the layer was made"
-           [:accepted :streaming :layer-belongs-to-the-other-gate]
+    (check "the streaming gate then makes that lane, and an act for it on the microbatch depot gets the word that it got before the lane was made"
+           [:accepted :streaming :lane-belongs-to-the-other-gate]
            [(:word made-by-streaming) depot-after (:word later-after)])
-    (check "none wrote a fact, in either record: the base's place in the streaming gate's facts holds nothing, and no task of the microbatch gate holds a fact or a depot row of either streaming layer"
+    (check "none wrote a fact, in either record: the base's place in the streaming gate's facts holds nothing, and no task of the microbatch gate holds a fact or a depot row of either streaming lane"
            [nil {} {} {}]
            [(fact-row :base :wrong-depot :note)
             (rows-by-task :mb-facts-ps (record/place-key :alice :wrong-depot :note))
             (rows-by-task :mb-facts-ps (record/place-key :made-later :wrong-depot :note))
             (rows-by-task :mb-facts-ps (record/place-key :made-later :made-later :softland.store/depot))])
-    (check "the refusal of the act for Alice's layer is on one task of the microbatch gate, the partition of her layer on the microbatch depot, and that task keeps the stamp of that refusal as her layer's last stamp there"
+    (check "the refusal of the act for Alice's lane is on one task of the microbatch gate, the partition of her lane on the microbatch depot, and that task keeps the stamp of that refusal as her lane's last stamp there"
            [1 alices-partitions (:stamp (:answer alice-on-microbatch))]
            [(count alices-partitions) alices-answer-tasks (second last-stamps-before)])
     (check "each thing was appended" (vec (repeat 6 :appended)) acks)
     (check "one act-id sent on both depots has one answer, the streaming gate's: the microbatch gate keeps the thing as a stray"
            [:accepted (:answer on-streaming)] [(:word on-streaming) (answer-of (:act-id both))])
     (check "a stray on the microbatch depot is kept under its word, once however often it comes: five different strays, one for each word, one of them sent twice"
-           {:no-act-id 1 :act-id-malformed 1 :id-too-long 1 :act-id-of-the-other-gate 1 :act-id-of-another-layer 1}
+           {:no-act-id 1 :act-id-malformed 1 :id-too-long 1 :act-id-of-the-other-gate 1 :act-id-of-another-lane 1}
            (merge-with - strays-after strays-before))
-    (check "a stray gets no answer and writes no fact: an act-id whose layer is not the thing's layer has none, and its fact is on no task"
-           [nil {}] [(answer-of (:act-id other-layer)) (facts-on-every-task :stray-doc :text)])
-    (check "the digest of each stray is kept on the task of the depot partition where the stray arrived: one partition for each of the five, the base's for the thing whose layer is the base, and the partition of Alice's layer for the thing whose layer is hers"
+    (check "a stray gets no answer and writes no fact: an act-id whose lane is not the thing's lane has none, and its fact is on no task"
+           [nil {}] [(answer-of (:act-id other-lane)) (facts-on-every-task :stray-doc :text)])
+    (check "the digest of each stray is kept on the task of the depot partition where the stray arrived: one partition for each of the five, the base's for the thing whose lane is the base, and the partition of Alice's lane for the thing whose lane is hers"
            [[1 1 1 1 1] true true
             (mapv (fn [[x _]] (first (partitions-of records x))) base-strays-sent)]
            [(mapv (fn [[x _]] (count (partitions-of records x))) base-strays-sent)
             (= #{(:base-task @kept)} (partitions-of records malformed))
             (= alices-partitions (partitions-of records both))
             (mapv (fn [[x word]] (task-of-stray :mb-task-ps word (digest/hex-of x))) base-strays-sent)])
-    (check "a stray gets no stamp: after the six strays the last stamp of the base, and the last stamp that the microbatch gate keeps for Alice's layer, are as they were"
+    (check "a stray gets no stamp: after the six strays the last stamp of the base, and the last stamp that the microbatch gate keeps for Alice's lane, are as they were"
            last-stamps-before last-stamps-after)
     (check "in the code of the store's source, strings and comments left out: the microbatch gate's file and the walk's name no table of the streaming gate, and hold no `currentTimeMillis` and no `depot-partition-append!`; and the walk's file holds no partitioner, no `yield-if-overtime` and no `:allow-yield?`"
            [[0 0 0] [0 0 0] [0 0 0]]
@@ -3123,9 +3123,9 @@
            [(in-file "microbatch_gate.clj" #"\(\|[a-z]")
             (boolean (and gate-code (str/index-of gate-code "(walk/decide") (str/index-of gate-code "(|all)")
                           (< (str/index-of gate-code "(walk/decide") (str/index-of gate-code "(|all)"))))])
-    (shown "rule 7 in both directions: an act for a microbatch layer sent to the streaming depot:" (told base-on-streaming)
-           "| an act for a streaming layer sent to the microbatch depot:" (told alice-on-microbatch)
-           "| for a layer that starts streaming, before it is made:" (:word later-before) "| a making act of it there:" (:word later-making-on-microbatch)
+    (shown "rule 7 in both directions: an act for a microbatch lane sent to the streaming depot:" (told base-on-streaming)
+           "| an act for a streaming lane sent to the microbatch depot:" (told alice-on-microbatch)
+           "| for a lane that starts streaming, before it is made:" (:word later-before) "| a making act of it there:" (:word later-making-on-microbatch)
            "| after the streaming gate made it:" (:word later-after))
     (shown "one act-id on both depots has one answer:" (told on-streaming) "| strays of the microbatch gate, by word:"
            (pr-str (merge-with - strays-after strays-before)) "| the same stray sent twice counts once | each digest is on the task of the partition where its stray arrived:"
@@ -3230,7 +3230,7 @@
                   (system-act [{:e :team :k marks :v #{:tag}}])
                   (write who-may-see :owner)
                   (write builds-on #{:team})
-                  (write builds-on (mapv #(keyword (str "layer-" %)) (range 65)))
+                  (write builds-on (mapv #(keyword (str "lane-" %)) (range 65)))
                   (write marks [:tag])
                   (write marks (set (map #(keyword (str "key-" %)) (range 33))))
                   (write marks #{:softland.store/permission})])
@@ -3255,8 +3255,8 @@
            [(mapv :word named) (mapv values-of after-named)])
     (check "a stale replaces, a retract, another entity and a wrong value are each refused with a recorded word, for each of the three keys"
            (vec (concat (repeat 3 :replaced-fact-not-current) (repeat 3 :store-key-retract-not-built)
-                        (repeat 3 :setting-not-on-the-layer)
-                        [:who-may-see-fact-not-members-or-everyone :builds-on-fact-not-a-list-of-layers :builds-on-too-many-layers
+                        (repeat 3 :setting-not-on-the-lane)
+                        [:who-may-see-fact-not-members-or-everyone :builds-on-fact-not-a-list-of-lanes :builds-on-too-many-lanes
                          :marked-keys-fact-not-a-set-of-keys :too-many-marked-keys :marked-key-in-the-stores-namespace]))
            (mapv :word refused))
     (check "after those fifteen refusals every task holds the rows that the last accepted writes left, with the same stamps"
@@ -3266,11 +3266,11 @@
            [#{{:tag first-marking}} #{{}} #{{:tag second-marking}} true]
            [(set (map record/marked-keys-of (vals (nth after-first 2)))) (set (map record/marked-keys-of (vals (nth after-second 2))))
             (set (map record/marked-keys-of (vals (nth after-named 2)))) (< first-marking second-marking)])
-    (check "who may write the three is the layer's first holder alone: a person with a permission in the base, who may act in it, sets the base to everyone and is refused; every task holds the row that the system left"
+    (check "who may write the three is the lane's first holder alone: a person with a permission in the base, who may act in it, sets the base to everyone and is refused; every task holds the row that the system left"
            [:only-the-first-holder-writes-a-setting tasks #{[:value :members]} #{:system}]
            [(:word by-alice) (count after-alice) (values-of after-alice) (set (map record/who-of (vals after-alice)))])
-    (check "a setting for the base sent to the streaming depot is refused as any act into a layer of the other gate, and the base's rows are as they were"
-           [:layer-belongs-to-the-other-gate (into {} (map (fn [[task row]] [task (:stamp row)])) after-alice)]
+    (check "a setting for the base sent to the streaming depot is refused as any act into a lane of the other gate, and the base's rows are as they were"
+           [:lane-belongs-to-the-other-gate (into {} (map (fn [[task row]] [task (:stamp row)])) after-alice)]
            [(:word on-the-other-depot) (into {} (map (fn [[task row]] [task (:stamp row)])) after-the-other-depot)])
     (shown "the three keys that take a second write, in the base: written, written again, written again naming the fact there:"
            (pr-str (mapv :word firsts)) (pr-str (mapv :word seconds)) (pr-str (mapv :word named))
@@ -3315,7 +3315,7 @@
            [:permission-does-not-allow-acting {} :permission-does-not-allow-acting true {}]
            [(:word gives) (rows-by-task :mb-facts-ps (record/place-key :base :frank :softland.store/permission))
             (:word sends-a-value) (:mine? sends-a-value) (rows-by-task :mb-facts-ps (record/place-key :base :erins-value :text))])
-    (check "a second give to her, of see and act, while her permission stands, is refused: a holder has one permission in a layer, and her row on each task is as it was, in every field"
+    (check "a second give to her, of see and act, while her permission stands, is refused: a holder has one permission in a lane, and her row on each task is as it was, in every field"
            [:holder-has-a-permission tasks permission-rows]
            [(:word raise) (count permission-rows-after) permission-rows-after])
     (check "a permission that says see and act, given in the same batch: its holder acts in a later batch" [:accepted :accepted]
@@ -3380,7 +3380,7 @@
         act-key :softland.store/act-permission
         nias [:nia :base :base system-own :see-and-act [:run :run-b1]]
         in-run (fn [session facts] (thing :base :nia nias facts {:session session}))
-        maker-x {:version 1 :who :nia :layer :base :session :run-b1
+        maker-x {:version 1 :who :nia :lane :base :session :run-b1
                  :facts [(value-fact :base-experiment :dose "5 mg")]}
         [y1 y2] (repeatedly 2 #(UUID/randomUUID))
         yes-of (fn [id] [:nia :base :base system-own :see-and-act [:act id (digest/hex-for-a-yes maker-x)]])
@@ -3413,7 +3413,7 @@
         yb-rows (rows-by-task :mb-facts-ps (record/place-key :base y2 act-key))
         dose-rows (rows-by-task :mb-facts-ps (record/place-key :base :base-experiment :dose))]
     (check "in the base, in one batch and in the order appended: a permission for a run is given; an act in that run is taken, and one in another run refused; a give under it is refused; the run ends its own permission, and its next act is refused; the giver gives it again, and an act in the run is taken"
-           [:accepted :accepted :permission-for-another-run :only-a-permission-for-the-layer-gives
+           [:accepted :accepted :permission-for-another-run :only-a-permission-for-the-lane-gives
             :accepted :permission-ended :accepted :accepted]
            (mapv :word [give-run in-its-run in-another-run gives-under-it own-end after-own-end give-again in-run-again]))
     (check "in the same batch, a yes for one act: given; the act under an act-id of its maker's is taken; another thing under that same act-id, with another value, is not decided, and its sender reads an answer that is not hers; the act again under another act-id is refused, the yes being used up; a second yes for the act is given, another act under it is refused, and the act under it is taken"
@@ -3605,7 +3605,7 @@
   form and what a reader gets from the row of another."
   []
   {:answer (answer-of (:act-id (:thing (:base-landed @kept))))
-   :depot (depot-of-layer :base)
+   :depot (depot-of-lane :base)
    :last-stamp (base-last-stamp)
    :strays (base-strays)
    :permission (into (sorted-map) (map (fn [[task row]] [task (:stamp row)])) (rows-by-task :mb-facts-ps (record/place-key :base :alice :softland.store/permission)))
@@ -3617,18 +3617,18 @@
 (deftest the-module-keeps-no-lock
   (let [u (UUID/randomUUID)
         asked [(table-of-the-module "$$streaming-facts") (table-of-the-module "$$microbatch-facts")
-               (query-of-the-module "depot-of-layer" :alice)
+               (query-of-the-module "depot-of-lane" :alice)
                (query-of-the-module "answer-by-act-id" :alice [:alice :streaming u])
                (table-of-the-module "$$the-modules-proof-names-no-table")
                (query-of-the-module "the-modules-proof-names-no-query" :alice)
                (table-of-the-module "$$streaming-locks") (table-of-the-module "$$microbatch-locks")
                (query-of-the-module "locks-of-request" :alice [:alice :streaming u] 0 255)
                (query-of-the-module "locks-of-request" u [:base :microbatch u] 0 255)]
-        carrying (fn [layer]
+        carrying (fn [lane]
                    [{:e :no-lock-0 :k :softland.store/lock-request :v 2}
                     {:e :no-lock-1 :k :text :sealed (byte-array 40)}
-                    (assoc (value-fact :no-lock-2 :text "a value beside a lock id") :lock-id [(new-act-id layer) 0])
-                    {:e :no-lock-3 :k :text :sealed (byte-array 40) :lock-id [(new-act-id layer) 0]}])
+                    (assoc (value-fact :no-lock-2 :text "a value beside a lock id") :lock-id [(new-act-id lane) 0])
+                    {:e :no-lock-3 :k :text :sealed (byte-array 40) :lock-id [(new-act-id lane) 0]}])
         places [[:no-lock-0 :softland.store/lock-request] [:no-lock-1 :text] [:no-lock-2 :text] [:no-lock-3 :text]]
         expected-words [:store-key-not-known :unknown-part :unknown-part :unknown-part]
         through-streaming (mapv (fn [fact] (decide! (alice [fact]))) (carrying :alice))
@@ -3715,46 +3715,46 @@
         answer-after (answer-of accepted)
         repeat-ack (send! (:thing landed))
         stamp-after-repeat (last-stamp :alice)
-        timed-after (mapv last-stamp (:layers timed))
+        timed-after (mapv last-stamp (:lanes timed))
         row-after (fact-row :canvas :kept :as-given)
         value-after (decide! (alice [(value-fact :note-40 :text "a value after the start")]))
         by-bob (decide! (thing :alice :bob bobs [{:e :bobs-note-4 :k :text}]))
         {:keys [since value run marked kept-value]} (:canvas-before @kept)]
     (check "the answer that was read before is the answer after" (:answer landed) answer-after)
-    (check "what the gates keep for a read is as it was: what a reader gets from a row, the layer's marked keys with their stamps, and the run of a value in the facts by value"
+    (check "what the gates keep for a read is as it was: what a reader gets from a row, the lane's marked keys with their stamps, and the run of a value in the facts by value"
            [kept-value marked run]
            [(record/read-value (fact-row :canvas :kept :map)) (marked-keys :canvas) (entries-of :canvas :on since value)])
     (check "the row of a value from before is the row after, in every field, and holds the text of the value's normal form still"
            [row-before "{:a [1 2] :b 1.5M}"] [row-after (:value row-after)])
-    (check "a repeat after it is answered from the record: the layer's last stamp is the one from before"
+    (check "a repeat after it is answered from the record: the lane's last stamp is the one from before"
            [:acked stamp-before] [repeat-ack stamp-after-repeat])
-    (check "the last stamps of the two layers that are on one task are as they were, each its own: the two differ"
+    (check "the last stamps of the two lanes that are on one task are as they were, each its own: the two differ"
            [(:last-stamps timed) true] [timed-after (apply not= timed-after)])
-    (check "the depot and the strays are as they were" [:streaming strays-before] [(depot-of-layer :alice) (strays :act-id-malformed)])
+    (check "the depot and the strays are as they were" [:streaming strays-before] [(depot-of-lane :alice) (strays :act-id-malformed)])
     (check "an act with a value after the start is accepted, and its row holds the text of the value"
            [:accepted "\"a value after the start\""] [(:word value-after) (:value (fact-row :alice :note-40 :text))])
-    (check "the first stamp after is the layer's last stamp before plus one: the gate counted on from the number that its table kept through the start"
+    (check "the first stamp after is the lane's last stamp before plus one: the gate counted on from the number that its table kept through the start"
            (inc stamp-before) (:stamp (:answer value-after)))
     (check "a permission that was given before stands after" :accepted (:word by-bob))
     (shown "after the module is started again in the cluster, the record is as it was: the same answer, the same row of a value;"
-           "the layer's last stamp before" stamp-before "the first stamp after" (:stamp (:answer value-after))
-           "| the last stamps of two layers of one task, before and after:" (pr-str (:last-stamps timed)) (pr-str timed-after))))
+           "the lane's last stamp before" stamp-before "the first stamp after" (:stamp (:answer value-after))
+           "| the last stamps of two lanes of one task, before and after:" (pr-str (:last-stamps timed)) (pr-str timed-after))))
 
 (deftest the-stamps-and-the-depot
   (let [hands-append (let [ack (client-append (:streaming-depot *hand*) 5)]
                        (swap! things-sent conj 5)
                        ack)
         records (vec (stored))
-        partition-of (into {} (keep (fn [[p r]] (when (and (map? r) (contains? r :layer)) [(:layer r) p]))) records)
+        partition-of (into {} (keep (fn [[p r]] (when (and (map? r) (contains? r :lane)) [(:lane r) p]))) records)
         made [:alice :team :carrier]
         answers @first-answers
-        by-layer (group-by :layer answers)
-        by-partition (group-by #(get partition-of (:layer %)) answers)
+        by-lane (group-by :lane answers)
+        by-partition (group-by #(get partition-of (:lane %)) answers)
         apart-from-the-rule (stamps-apart-from-the-rule answers)
         one-moved (stamps-apart-from-the-rule (update-in answers [1 :stamp] inc))
-        last-stamps-apart (vec (keep (fn [[layer of-the-layer]]
-                                       (when-not (= (:stamp (peek of-the-layer)) (last-stamp layer)) layer))
-                                     by-layer))
+        last-stamps-apart (vec (keep (fn [[lane of-the-lane]]
+                                       (when-not (= (:stamp (peek of-the-lane)) (last-stamp lane)) lane))
+                                     by-lane))
         sent-digests (frequencies (map digest/hex-of @things-sent))
         logged-digests (frequencies (map (fn [[_ r]] (digest/hex-of r)) records))
         sent-times (times-in @things-sent)
@@ -3770,27 +3770,27 @@
         in-the-streaming-gate (fn [pattern] (get (named-in code pattern) "streaming_gate.clj" 0))
         in-the-microbatch-gate (fn [pattern] (get (named-in code pattern) "microbatch_gate.clj" 0))
         two-files ["src-store/softland/store/door.clj" "src-store/softland/store/read_path.clj"]]
-    (check "the stamps of the answers increase strictly in each layer, in the order in which the acts were sent"
-           true (every? (fn [[_ of-the-layer]] (apply < (map :stamp of-the-layer))) by-layer))
-    (check "the order is the layer's and not the task's: on a task that holds more than one layer the stamps do not all go up in the order sent"
+    (check "the stamps of the answers increase strictly in each lane, in the order in which the acts were sent"
+           true (every? (fn [[_ of-the-lane]] (apply < (map :stamp of-the-lane))) by-lane))
+    (check "the order is the lane's and not the task's: on a task that holds more than one lane the stamps do not all go up in the order sent"
            true (boolean (some (fn [[_ on-the-task]] (not (apply < (map :stamp on-the-task)))) by-partition)))
-    (check "each stamp is the number that the gate's rule gives, by the proof's own count: the stamp before it in its layer plus one, or 0 with none before it, for an accepted act and a refused thing alike, whatever the time on the thing and whatever stamps it carries. So the stamps of each layer are 0, 1, 2 and on, with no gap. It is held for each of the more than 150 answers that the hand read, and the answer of each act-id that has one is among them"
+    (check "each stamp is the number that the gate's rule gives, by the proof's own count: the stamp before it in its lane plus one, or 0 with none before it, for an accepted act and a refused thing alike, whatever the time on the thing and whatever stamps it carries. So the stamps of each lane are 0, 1, 2 and on, with no gap. It is held for each of the more than 150 answers that the hand read, and the answer of each act-id that has one is among them"
            [true (count answered) []]
            [(< 150 (count answers)) (count answers) apart-from-the-rule])
-    (check "the check can fail: the same answers with the stamp of the second moved by one give that answer first, and beside it at most the one behind it in its layer, whose stamp before is then another"
+    (check "the check can fail: the same answers with the stamp of the second moved by one give that answer first, and beside it at most the one behind it in its lane, whose stamp before is then another"
            [true (short-id (:act-id (nth answers 1)))]
            [(<= 1 (count one-moved) 2) (first (first one-moved))])
-    (check "the last stamp that the gate keeps for each layer is the stamp of the last answer of that layer"
+    (check "the last stamp that the gate keeps for each lane is the stamp of the last answer of that lane"
            [] last-stamps-apart)
     (check "the depot holds each thing that was sent: accepted, refused, repeated and stray" (count @things-sent) (count records))
-    (check "the layers of the proof are on more than one task" true (< 1 (count (set (vals partition-of)))))
+    (check "the lanes of the proof are on more than one task" true (< 1 (count (set (vals partition-of)))))
     (check "each thing is on the depot as it was sent: the digests that the proof takes of the records read back are the digests of the things sent, each as often"
            [] (counts-apart sent-digests logged-digests #(subs % 0 16)))
     (check "a digest leaves the time on the act out, so the time is held apart: under each act-id the log holds the time that the hand wrote, or none where the hand wrote none, each as often as it was sent"
            [true []] [(< 150 (count sent-times)) (counts-apart sent-times logged-times (fn [[act-id time]] [(short-id act-id) time]))])
     (check "each value is plain on the depot: every value that a fact of a thing sent holds is in the log under its act-id, its entity and its key, as it was given; the hand sent more than 300 of them"
            [true []] [(< 300 (reduce + (vals sent-values))) (counts-apart sent-values logged-values #(subvec % 0 3))])
-    (shown "the stamps of" (count answers) "answers increase strictly in each of" (count by-layer) "layers, and each is the number that the rule gives; answers by partition:"
+    (shown "the stamps of" (count answers) "answers increase strictly in each of" (count by-lane) "lanes, and each is the number that the rule gives; answers by partition:"
            (pr-str (into (sorted-map) (map (fn [[p on-the-task]] [p (count on-the-task)])) by-partition)))
     (check "the module has two depots. Asked of the cluster by name, for the number of its partitions: the two depots of acts are there; a depot of batch clocks, a depot of answers of the microbatch gate, a depot that the module never had and a depot of answers of the streaming gate are not. Asked for a table by name, with a select of one key: the microbatch gate's facts are there, and a table of a batch's clock is not. The same call, made first, appended a thing to the depot of acts"
            [:appended [:there :there :not-there :not-there :not-there :not-there] [:there :not-there]]
@@ -3814,7 +3814,7 @@
             (named-in code #"\(source>\s+\*(streaming|microbatch)-depot\s")
             (mapv #(str/includes? (slurp %) "answer-depot") two-files)
             (mapv #(str/includes? (slurp %) "depot") two-files)])
-    (shown "layers by depot partition:" (pr-str (select-keys partition-of made)) "| the depot holds all" (count records)
+    (shown "lanes by depot partition:" (pr-str (select-keys partition-of made)) "| the depot holds all" (count records)
            "things sent, each as it was sent, with the time that the hand wrote | each of the" (reduce + (vals sent-values))
            "values that the hand sent is plain on it")
     (shown "the depots of the module, asked of the cluster by name: *streaming-depot, *microbatch-depot, *batch-clock-depot,"
@@ -3870,13 +3870,13 @@
 (deftest the-stamps-and-the-depot-of-the-base
   (let [records (vec (stored-in-base))
         decided (decided-on-the-microbatch-depot records)
-        by-layer (group-by :layer decided)
+        by-lane (group-by :lane decided)
         apart-from-the-rule (stamps-apart-from-the-rule decided)
         one-moved (stamps-apart-from-the-rule (update-in decided [1 :stamp] inc))
-        last-stamps-apart (vec (keep (fn [[layer of-the-layer]]
-                                       (when-not (= (:stamp (peek of-the-layer)) (base-last-stamp layer)) layer))
-                                     by-layer))
-        of-the-base? (fn [x] (and (map? x) (= :base (:layer x))))
+        last-stamps-apart (vec (keep (fn [[lane of-the-lane]]
+                                       (when-not (= (:stamp (peek of-the-lane)) (base-last-stamp lane)) lane))
+                                     by-lane))
+        of-the-base? (fn [x] (and (map? x) (= :base (:lane x))))
         sent-hex (mapv digest/hex-of @base-things-sent)
         logged-hex (mapv (fn [[_ r]] (digest/hex-of r)) records)
         sent-digests (frequencies sent-hex)
@@ -3892,21 +3892,21 @@
                                                      (:e (first (:facts r))))))
                              records)
         streaming-records (vec (stored))
-        on-both-depots (let [streaming (partitions-of-layers streaming-records)
-                             microbatch (partitions-of-layers records)]
+        on-both-depots (let [streaming (partitions-of-lanes streaming-records)
+                             microbatch (partitions-of-lanes records)]
                          (into (sorted-map)
-                               (keep (fn [[layer partitions]] (when-let [others (get microbatch layer)] [layer [partitions others]])))
+                               (keep (fn [[lane partitions]] (when-let [others (get microbatch lane)] [lane [partitions others]])))
                                streaming))]
     (check "each thing of the microbatch depot that is no stray has an answer under its act-id: the gate decided more than 600 things, and none is without one"
            [true []] [(< 600 (count decided)) (vec (keep (fn [d] (when (= :nothing-yet (:word d)) (short-id (:act-id d)))) decided))])
-    (check "the stamps of the answers increase strictly in each layer of the microbatch depot, in the depot's order"
-           true (every? (fn [[_ of-the-layer]] (apply < (map :stamp of-the-layer))) by-layer))
-    (check "each stamp is the number that the gate's rule gives, by the proof's own count, as for the streaming gate: the stamp before it in its layer plus one, or 0 with none before it, for an accepted act and a refused thing alike, whatever the time on the thing and whatever stamps it carries. So the stamps of each layer are 0, 1, 2 and on, with no gap. It is held for each thing that the microbatch gate decided, in the depot's order"
+    (check "the stamps of the answers increase strictly in each lane of the microbatch depot, in the depot's order"
+           true (every? (fn [[_ of-the-lane]] (apply < (map :stamp of-the-lane))) by-lane))
+    (check "each stamp is the number that the gate's rule gives, by the proof's own count, as for the streaming gate: the stamp before it in its lane plus one, or 0 with none before it, for an accepted act and a refused thing alike, whatever the time on the thing and whatever stamps it carries. So the stamps of each lane are 0, 1, 2 and on, with no gap. It is held for each thing that the microbatch gate decided, in the depot's order"
            [] apart-from-the-rule)
-    (check "the check can fail: the same answers with the stamp of the second moved by one give that answer first, and beside it at most the one behind it in its layer, whose stamp before is then another"
+    (check "the check can fail: the same answers with the stamp of the second moved by one give that answer first, and beside it at most the one behind it in its lane, whose stamp before is then another"
            [true (short-id (:act-id (nth decided 1)))]
            [(<= 1 (count one-moved) 2) (first (first one-moved))])
-    (check "the last stamp that the gate keeps for each layer, on the layer's task, is the stamp of the last answer of that layer"
+    (check "the last stamp that the gate keeps for each lane, on the lane's task, is the stamp of the last answer of that lane"
            [] last-stamps-apart)
     (check "the microbatch depot holds each thing that was sent to it: accepted, refused, repeated and stray"
            (count @base-things-sent) (count records))
@@ -3916,7 +3916,7 @@
            [1 true true true]
            [(count base-partitions) (< 600 (count base-logged-in-order)) (< 50 (count first-entities))
             (= base-sent-in-order base-logged-in-order)])
-    (check "both depots put a thing on the partition of its layer: on each depot the things of every layer are on one partition, and each layer that has things on both depots is on the partition of one number in both"
+    (check "both depots put a thing on the partition of its lane: on each depot the things of every lane are on one partition, and each lane that has things on both depots is on the partition of one number in both"
            [[] [] true true]
            [(on-more-than-one-partition streaming-records) (on-more-than-one-partition records)
             (< 1 (count on-both-depots)) (every? (fn [[_ [in-streaming in-microbatch]]] (= in-streaming in-microbatch)) on-both-depots)])
@@ -3925,12 +3925,12 @@
     (check "each value is plain on the microbatch depot: every value that a fact of a thing sent holds is in the log under its act-id, its entity and its key, as it was given; the hand sent more than 300 of them"
            [true []] [(< 300 (reduce + (vals sent-values))) (counts-apart sent-values logged-values #(subvec % 0 3))])
     (check-the-copies "the copies, at the end of the run" records)
-    (shown "the stamps of" (count decided) "answers of the microbatch gate, in" (count by-layer)
-           "layers, increase strictly in each layer in the depot's order, and each is the number that the rule gives")
+    (shown "the stamps of" (count decided) "answers of the microbatch gate, in" (count by-lane)
+           "lanes, increase strictly in each lane in the depot's order, and each is the number that the rule gives")
     (shown "the microbatch depot holds all" (count records) "things sent, each as it was sent |" (count base-logged-in-order)
            "things of the base, with" (count first-entities) "different first entities, are on partition" (pr-str base-partitions)
            "in the order appended | each of the" (reduce + (vals sent-values)) "values that the hand sent is plain on it")
-    (shown "layers that have things on both depots, each with its partition on the streaming depot and on the microbatch depot:"
+    (shown "lanes that have things on both depots, each with its partition on the streaming depot and on the microbatch depot:"
            (pr-str on-both-depots))))
 
 ;; ------------------------------------------- a gate that fails and runs again
@@ -4200,7 +4200,7 @@
     {:ack (deref sent 10000 :no-ack-in-time) :answer answer :waited (- (System/currentTimeMillis) began)}))
 
 (deftest an-attempt-of-a-batch-fails-and-runs-again
-  (let [;; What the batch stands on, each decided once: a streaming layer,
+  (let [;; What the batch stands on, each decided once: a streaming lane,
         ;; which the group behind this one acts in; the base, by a making
         ;; act whose two facts are in the other order; and a marked key.
         made-streaming (decide! (making :alice :system :alice))
@@ -4256,7 +4256,7 @@
         handed-result (decide-behind-a-failure! handed-once)
         handed-rows (rows-by-task :mb-facts-ps (left-key (nth (:act-id handed-once) 2)))]
     (swap! attempt-failure assoc :armed? false :run #{})
-    (check "on the second cluster, with the proof's two functions in the vars of the store's `writes` and `stray-reason`: a streaming layer is made; the base is made by a making act whose two facts are in the other order; and a key of the base is marked"
+    (check "on the second cluster, with the proof's two functions in the vars of the store's `writes` and `stray-reason`: a streaming lane is made; the base is made by a making act whose two facts are in the other order; and a key of the base is marked"
            [:accepted :accepted :accepted] [(:word made-streaming) (:word made) (:word marking)])
     (check "the proof's function threw once, at the 21st act of a batch of 40 that was appended while the gate was paused; before the throw it had handed the walk one extra row for each of the 20 acts before it, at a key that no act writes"
            [1 expected-left false]
@@ -4283,7 +4283,7 @@
            (mapv (fn [i] [(facts-on-every-task (place-of i) :on) (times-on-every-task (place-of i) :on)]) last-of-each-place))
     (check "each thing that the microbatch gate decided on this cluster has the stamp that the rule gives, by the proof's own count; and the base's last stamp is the stamp of the last act of the batch"
            [[] (+ last-before n)]
-           [(stamps-apart-from-the-rule decided) (:stamp (peek (filterv #(= :base (:layer %)) decided)))])
+           [(stamps-apart-from-the-rule decided) (:stamp (peek (filterv #(= :base (:lane %)) decided)))])
     (check "the gate goes on behind the retry: the next act of the base is accepted with the next stamp, the last of the batch plus one"
            [:accepted (+ last-before n 1)] [(:word later) (:stamp (:answer later))])
     (check "the check of those rows can fail: one more act, decided with the proof's function armed and no throw, is accepted, and the row that it was handed at such a key is on every task, written by that act. A row that the walk is handed this way is written and copied, so the 20 rows went with the attempt that failed"
@@ -4307,7 +4307,7 @@
         runs-at-first (mapv #(count (calls-for :run (:act-id %))) before-things)
         rows-before (mapv #(fact-row :alice (place %) :text) (range 5))
         last-before (last-stamp :alice)
-        ;; The act that is to fail. Its stamp must be the layer's last
+        ;; The act that is to fail. Its stamp must be the lane's last
         ;; stamp plus one, exactly. Its fact names the fact of the first of
         ;; the five as the one that it replaces, so a run decides it against
         ;; the row at that place.
@@ -4340,32 +4340,32 @@
            [(mapv :word befores) runs-at-first decisions-of-the-befores])
     (check "the stand-in of `writes` was called twice for the act: the first call threw, behind the event's reads and before its first write, and Rama ran the record again. The second run reached `writes` too, so it found no answer under the act-id: the run that threw left none"
            2 (count decisions))
-    (check "the two runs made one decision. Each accepted the act, whose fact names the fact that it replaces: the second run found that place as the first run had found it, so the run that threw left no row there. Each was given the same stamp, the layer's last stamp from before plus one: the second run read the layer's last stamp as it was before the first, and no clock was read between the two"
+    (check "the two runs made one decision. Each accepted the act, whose fact names the fact that it replaces: the second run found that place as the first run had found it, so the run that threw left no row there. Each was given the same stamp, the lane's last stamp from before plus one: the second run read the lane's last stamp as it was before the first, and no clock was read between the two"
            [[nil nil] [(inc last-before) (inc last-before)]]
            [(mapv :refused decisions) (mapv :stamp decisions)])
-    (check "and each run made the same three writes, row for row: a fact, an answer and the layer's last stamp"
+    (check "and each run made the same three writes, row for row: a fact, an answer and the lane's last stamp"
            [true {:fact 1 :answer 1 :last-stamp 1}]
            [(boolean (and first-call second-call (= (:rows first-call) (:rows second-call))))
             (frequencies (map first (:rows second-call)))])
-    (check "the second run is the one that counts: its three writes are what the tables hold, row for row; the read by act-id gives the act as accepted, with the digest of what was sent, the stamp of both runs and the time on the act; the place holds the text of its value, written by it; and the layer's last stamp is that stamp"
+    (check "the second run is the one that counts: its three writes are what the tables hold, row for row; the read by act-id gives the act as accepted, with the digest of what was sent, the stamp of both runs and the time on the act; the place holds the text of its value, written by it; and the lane's last stamp is that stamp"
            [[true true true] :accepted true (inc last-before) (time-on x) ["\"decided by the second run\"" act-uuid] (inc last-before)]
            [as-the-tables-hold (:verdict answer) (digest/is-digest-of? (:digest answer) x) (:stamp answer) (:time answer)
             [(:value the-row) (:by-act the-row)] last-after])
     (check "Rama ran the records before it again too: the event of each of the five acts began at least a second time, after its rows were committed and its append acked. None was decided a second time: a run that finds an answer under the act-id decides nothing. The answer of each is as it was, and so is the row of each of the four whose place the failed act did not replace"
            [true [1 1 1 1 1] (mapv :answer befores) (subvec rows-before 1)]
            [(every? #(<= 2 %) runs-of-the-befores) decisions-of-the-befores answers-of-the-befores (subvec rows-after 1)])
-    (check "the act is decided once: appended a second time by hand, it is acked and reads the same answer; its event ran once more, `writes` has still two calls for it, and the layer's last stamp is the stamp of its answer"
+    (check "the act is decided once: appended a second time by hand, it is acked and reads the same answer; its event ran once more, `writes` has still two calls for it, and the lane's last stamp is the stamp of its answer"
            [:acked [answer (inc last-before) 2 (inc runs-then)]]
            [repeat-ack after-the-repeat])
     (shown "an event of the streaming gate failed before its first write and Rama ran its record again: calls of writes for the act" (count decisions)
            "| the first threw on the thread" (pr-str (:thread first-call)) "| the append gave" (pr-str ack)
-           "| the stamps that the two runs were given:" (pr-str (mapv :stamp decisions)) "| the layer's last stamp before:" last-before
+           "| the stamps that the two runs were given:" (pr-str (mapv :stamp decisions)) "| the lane's last stamp before:" last-before
            "| the second run decided" (when (and first-call second-call) (- (:wall second-call) (:wall first-call))) "ms after the throw"
            "| the writes of each run, by kind:" (pr-str (mapv #(frequencies (map first (:rows %))) decisions))
            "| the answer was read" waited "ms after the append")
     (shown "the records before the throw: runs of the event of each of the five acts" (pr-str runs-of-the-befores)
            "| decisions of each" (pr-str decisions-of-the-befores) "| runs of the failed act's event before the hand's repeat:" runs-then
-           "| after the repeat: runs" (peek after-the-repeat) "| decisions" (nth after-the-repeat 2) "| the layer's last stamp" (nth after-the-repeat 1))))
+           "| after the repeat: runs" (peek after-the-repeat) "| decisions" (nth after-the-repeat 2) "| the lane's last stamp" (nth after-the-repeat 1))))
 
 ;; ----------------------------------------------------------------- the line
 
@@ -4373,51 +4373,51 @@
 
 (defn- line-ps-of
   "The names in the hand of the line, the things and the task table of a
-  layer's gate: the microbatch gate's for the base, else the streaming
+  lane's gate: the microbatch gate's for the base, else the streaming
   gate's."
-  [layer]
-  (if (= :base layer)
+  [lane]
+  (if (= :base lane)
     {:line :mb-line-ps :things :mb-things-ps :task :mb-task-ps}
     {:line :line-ps :things :things-ps :task :task-ps}))
 
 (defn- line-row-of
-  "The line row of a layer at a stamp, selected on the layer's task."
-  [layer stamp]
-  (row (:line (line-ps-of layer)) layer (record/line-key layer stamp)))
+  "The line row of a lane at a stamp, selected on the lane's task."
+  [lane stamp]
+  (row (:line (line-ps-of lane)) lane (record/line-key lane stamp)))
 
 (defn- thing-of
-  "The thing that a gate keeps at a stamp of a layer, selected on the
-  layer's task, or nil."
-  [layer stamp]
-  (row (:things (line-ps-of layer)) layer (record/line-key layer stamp)))
+  "The thing that a gate keeps at a stamp of a lane, selected on the
+  lane's task, or nil."
+  [lane stamp]
+  (row (:things (line-ps-of lane)) lane (record/line-key lane stamp)))
 
 (defn- line-of
-  "The whole line of a layer, as [stamp row] in the order of the stamps:
-  one select of its run on the layer's task."
-  [layer]
-  (let [[from to] (record/line-run layer 0)
+  "The whole line of a lane, as [stamp row] in the order of the stamps:
+  one select of its run on the lane's task."
+  [lane]
+  (let [[from to] (record/line-run lane 0)
         run (rama/foreign-select-one (path/sorted-map-range from to)
-                                     (get *hand* (:line (line-ps-of layer))) {:pkey layer})]
+                                     (get *hand* (:line (line-ps-of lane))) {:pkey lane})]
     (mapv (fn [[k row]] [(record/stamp-of-line-key k) row]) (sort-by key run))))
 
 (defn- by-who-of
-  "One who's rows by who in a layer, as the stamps of her decisions: one
-  select of the run in the gate's task table, on the layer's task."
-  [layer who]
-  (let [[from to] (record/by-who-run layer who 0)]
+  "One who's rows by who in a lane, as the stamps of her decisions: one
+  select of the run in the gate's task table, on the lane's task."
+  [lane who]
+  (let [[from to] (record/by-who-run lane who 0)]
     (vec (vals (into (sorted-map)
                      (rama/foreign-select-one [(path/keypath :by-who) (path/sorted-map-range from to)]
-                                              (get *hand* (:task (line-ps-of layer))) {:pkey layer}))))))
+                                              (get *hand* (:task (line-ps-of lane))) {:pkey lane}))))))
 
 (defn- answer-in-the-line
   "What the line row at a stamp says of its decision, in the form of the
   read by act-id: `softland.store.record.rows/line-answer`."
-  [layer stamp]
-  (record/line-answer stamp (line-row-of layer stamp)))
+  [lane stamp]
+  (record/line-answer stamp (line-row-of lane stamp)))
 
-(def ^:private lena-own "Lena's permission in her layer of the line's checks, its first." [:lena :linebook :linebook])
-(def ^:private noa-in-linebook "Noa's permission in Lena's layer: she may act." [:noa :linebook :linebook lena-own])
-(def ^:private mia-sees "Mia's permission in Lena's layer: she may only see." [:mia :linebook :linebook lena-own :see])
+(def ^:private lena-own "Lena's permission in her lane of the line's checks, its first." [:lena :linebook :linebook])
+(def ^:private noa-in-linebook "Noa's permission in Lena's lane: she may act." [:noa :linebook :linebook lena-own])
+(def ^:private mia-sees "Mia's permission in Lena's lane: she may only see." [:mia :linebook :linebook lena-own :see])
 
 (defn- heavy-facts
   "Five facts of 60,000 letters each, 300 KB of text: an act of them passes
@@ -4432,15 +4432,15 @@
   [decided]
   (get-in decided [:answer :stamp]))
 
-(deftest the-line-of-a-layer
+(deftest the-line-of-a-lane
   (let [made (decide! (making :linebook :lena :lena))
         taken (decide! (thing :linebook :lena lena-own [(value-fact :note :text "first")]))
         refused-raw {:act-id [:linebook :streaming (UUID/randomUUID)] :depot :streaming
-                     declaration/time-part (System/currentTimeMillis) :layer :linebook :who :zed :junk 1}
+                     declaration/time-part (System/currentTimeMillis) :lane :linebook :who :zed :junk 1}
         _ (decide! refused-raw)
         stranger (decide! (thing :linebook :zed [:zed :linebook :linebook lena-own] [(value-fact :n :text "x")]))
         carried-raw {:act-id [:linebook :streaming (UUID/randomUUID)] :depot :streaming
-                     declaration/time-part (System/currentTimeMillis) :layer :linebook :who :zed
+                     declaration/time-part (System/currentTimeMillis) :lane :linebook :who :zed
                      :record (->Carried 1 "two") :bytes (byte-array [1 2 3]) :sorted (sorted-map "b" 2 "a" 1)}
         _ (decide! carried-raw)
         heavy-stranger (decide! (thing :linebook :zed [:zed :linebook :linebook lena-own] (heavy-facts)))
@@ -4469,7 +4469,7 @@
            (let [back (thing-of :linebook (stamp-of carried-raw))]
              [(= (text/text carried-raw) (text/text back)) (digest/is-digest-of? (digest/hex-of carried-raw) back)
               (mapv #(class (get back %)) [:record :bytes :sorted])]))
-    (check "a stranger's thing of 300 KB, refused for its standing, has its line row and its answer and no thing, its row says too heavy and keeps no weight; the thing behind it in its layer is decided and kept"
+    (check "a stranger's thing of 300 KB, refused for its standing, has its line row and its answer and no thing, its row says too heavy and keeps no weight; the thing behind it in its lane is decided and kept"
            [:permission-does-not-stand :too-heavy nil nil :accepted true]
            (let [s (sent-at heavy-stranger) row (line-row-of :linebook s)]
              [(get-in heavy-stranger [:answer :reason]) (:not-kept row) (:weight row) (thing-of :linebook s)
@@ -4484,11 +4484,11 @@
       (send! 7)
       (send! again)
       (send! other)
-      (check "a stray has no line row, and a second thing under a used act-id changes none: the layer's last stamp is as it was, and the thing under the taken act's stamp still carries the first time"
+      (check "a stray has no line row, and a second thing under a used act-id changes none: the lane's last stamp is as it was, and the thing under the taken act's stamp still carries the first time"
              [last (get (:thing taken) declaration/time-part) (count line)]
              [(last-stamp :linebook) (get (thing-of :linebook (sent-at taken)) declaration/time-part)
               (count (line-of :linebook))]))
-    (check "the line rows of a layer hold each stamp from 0 to its last stamp once"
+    (check "the line rows of a lane hold each stamp from 0 to its last stamp once"
            (vec (range (inc last)))
            (mapv first (line-of :linebook)))
     (check "each decision whose thing names a usable who has a row by who, the stranger's refused things among them: Zed's, by stamp"
@@ -4506,11 +4506,11 @@
         no-value (decide! (thing :linebook :lena lena-own [{:e :linebook :k k}]))
         neither (decide! (thing :linebook :lena lena-own [(value-fact :linebook k :visitors)]))
         members (decide! (thing :linebook :lena lena-own [(value-fact :linebook k :members)]))]
-    (check "the first holder writes who may read the layer's acts, and writes it again; a holder of a given permission who may act is refused as for every setting; on another entity, with no value, and with a word that is neither, each is refused"
-           [:accepted :accepted :only-the-first-holder-writes-a-setting :setting-not-on-the-layer
+    (check "the first holder writes who may read the lane's acts, and writes it again; a holder of a given permission who may act is refused as for every setting; on another entity, with no value, and with a word that is neither, each is refused"
+           [:accepted :accepted :only-the-first-holder-writes-a-setting :setting-not-on-the-lane
             :store-key-retract-not-built :who-may-read-acts-fact-not-members-or-everyone :accepted]
            (mapv :word [gave everyone by-noa elsewhere no-value neither members]))
-    (check "the setting's row is at the layer's own entity, in the layer's own rows, and holds the last word written"
+    (check "the setting's row is at the lane's own entity, in the lane's own rows, and holds the last word written"
            ":members"
            (:value (row :facts-ps :linebook (record/place-key :linebook :linebook k))))))
 
@@ -4545,7 +4545,7 @@
   functions as the store defines them."
   []
   (what-rama-carries)
-  (layers-are-made)
+  (lanes-are-made)
   (an-act-lands)
   (refusals-and-repeats)
   (settings-and-permissions)
@@ -4558,7 +4558,7 @@
   (what-a-permission-allows)
   (a-permission-ends)
   (a-permission-for-a-run-and-for-an-act)
-  (the-line-of-a-layer)
+  (the-line-of-a-lane)
   (who-may-read-acts-is-a-setting)
   (what-points-at-a-thing)
   (the-base-is-made)
@@ -4574,7 +4574,7 @@
   (the-copies-of-the-base)
   (the-time-on-the-act-in-the-base)
   (an-act-of-several-facts-in-the-base)
-  (each-gate-tells-the-other-gates-layers)
+  (each-gate-tells-the-other-gates-lanes)
   (what-a-fact-keeps-in-the-base)
   (the-keys-that-take-a-second-write-in-the-base)
   (what-a-permission-allows-in-the-base)

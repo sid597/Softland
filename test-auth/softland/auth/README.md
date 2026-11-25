@@ -94,7 +94,7 @@ What a real module needs of it, and what the run does:
   has written to.
 - A quarter of the histories make 32 agents in a line, then one more under the
   deepest, which is `:too-deep`, and a sign-in for the deepest. Two rules of
-  Sid's calls are met in every run: after an `own-layer-made`, a copy of the
+  Sid's calls are met in every run: after an `own-lane-made`, a copy of the
   person's first enter is sent again, now and then; and after a replacement
   whose new hash is the one before the present one, the replacement before it.
 - A watch that says `:softland.auth.client/not-reached` differs: in a run on one
@@ -207,14 +207,14 @@ PASSED Through the contract alone, the run catches the copy of the rules in whic
 PASSED Through the contract alone, the run catches the copy of the rules in which end-sign-in ends the sign-in and leaves its sessions open: history 24, step 36, a-read-is-not-the-reference's.
 PASSED Through the contract alone, the run catches the copy of the rules in which end-actor ends the agent and the agents that it made itself, and none further down: history 27, step 70, a-read-is-not-the-reference's.
 PASSED Through the contract alone, the run catches the copy of the rules in which a repeat of begin-sign-in makes an ended sign-in live again: history 0, step 26, a-watch-came-to-another-value.
-PASSED Through the contract alone, the run catches the copy of the rules in which an enter that is a copy of one that its link decided gives what that one gave, its :own-layer-made? too: history 0, step 29, a-result-is-not-the-reference's.
+PASSED Through the contract alone, the run catches the copy of the rules in which an enter that is a copy of one that its link decided gives what that one gave, its :own-lane-made? too: history 0, step 29, a-result-is-not-the-reference's.
 PASSED Through the contract alone, the run catches the copy of the rules in which a replacement that arrives after a newer one is taken as a repeat: history 4, step 18, a-result-is-not-the-reference's.
 PASSED Through the contract alone, the run catches the copy of the rules in which a later answer to an ask takes the place of the answer that stands: history 10, step 40, a-result-is-not-the-reference's.
 PASSED Through the contract alone, the run catches the copy of the rules in which an enter of an account that has a link, which proves another invitation that waits, moves the link to that invitation's person: history 2, step 21, a-result-is-not-the-reference's.
 PASSED Through the contract alone, the run catches the copy of the rules in which a label of more than 256 characters fits: history 0, step 13, a-result-is-not-the-reference's.
 PASSED Through the contract alone, the run catches the copy of the rules in which a part that the contract names may be left out, and reads as nil, and a part that it does not name is dropped: history 2, step 13, a-result-is-not-the-reference's.
 PASSED Through the contract alone, the run catches the copy of the rules in which the parts of a no that it does not judge may be anything: history 20, step 85, a-result-is-not-the-reference's.
-PASSED Through the contract alone, the run catches the copy of the rules in which a provider's name of more than 256 characters, and an :own-layer that is no UUID, fit: history 6, step 12, a-result-is-not-the-reference's.
+PASSED Through the contract alone, the run catches the copy of the rules in which a provider's name of more than 256 characters, and an :own-lane that is no UUID, fit: history 6, step 12, a-result-is-not-the-reference's.
 PASSED Through the contract alone, the run catches the copy of the rules in which a write that is refused takes nothing out of what is live: history 0, step 21, a-watch-came-to-another-value.
 PASSED Through the contract alone, the run catches the copy of the rules in which a repeat of begin-sign-in takes its own until and label in place of the first ones: history 0, step 26, a-read-is-not-the-reference's.
 PASSED Through the contract alone, the run catches the copy of the rules in which a repeat of open-session takes its own driven-by: history 43, step 63, a-read-is-not-the-reference's.

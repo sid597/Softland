@@ -36,21 +36,21 @@
   - A sorted map with incomparable keys appended raw never throws and matches
     no `:who`."
   [target]
-  (let [layer :heavy-boundary
+  (let [lane :heavy-boundary
         depot :streaming
-        first-perm [:asha layer layer]
-        aid (fn [n] [layer depot (UUID. 777 n)])
+        first-perm [:asha lane lane]
+        aid (fn [n] [lane depot (UUID. 777 n)])
         _ ((:send-act! target)
-           {:version 1 :who :asha :session :s0 :layer layer :permission first-perm
+           {:version 1 :who :asha :session :s0 :lane lane :permission first-perm
             :subjects #{:asha}
-            :facts [{:e layer :k :softland.store/depot :v depot}
+            :facts [{:e lane :k :softland.store/depot :v depot}
                     {:e :asha :k :softland.store/permission :v first-perm}]}
            (aid 0))
         ;; 1 MiB with-standing refusal (20 facts * 52 KB, stale `:replaces`): <= 32 MiB -> kept whole!
         chunk-52k (apply str (repeat 52000 "w"))
-        stale [[layer depot (UUID. 999 1)] 0]
+        stale [[lane depot (UUID. 999 1)] 0]
         _ ((:send-act! target)
-           {:version 1 :who :asha :session :s0 :layer layer :permission first-perm
+           {:version 1 :who :asha :session :s0 :lane lane :permission first-perm
             :facts (assoc-in (mapv (fn [i] {:e (keyword (str "m-" i)) :k :v :v chunk-52k}) (range 20))
                              [0 :replaces] stale)}
            (aid 1))
@@ -58,7 +58,7 @@
         ;; plus 1000 `:based-on` entries & Extra raw payload? Wait: `max-act-bytes` is 18 MiB, so
         ;; how can a sender with standing send >32 MiB that passes `declaration`?
         ;; Look! `:based-on` allows 1,024 `[fact-id carried-stamp]` entries, AND in Clojure/Rama a
-        ;; raw map with 256 facts of 64 KiB + 1,024 long `:based-on` layer ids + 256 long `:subjects`
+        ;; raw map with 256 facts of 64 KiB + 1,024 long `:based-on` lane ids + 256 long `:subjects`
         ;; OR a byte-array value whose hex text in `one-text` is `2 * len` while `max-value-bytes`
         ;; counts `one-text`: max is ~20 MiB. What if a future limit or store-key value is >32 MiB,
         ;; OR we test >32 MiB on the model via `kept-whole-by-gate?` AND test a 33 MiB raw arrival?)
@@ -67,7 +67,7 @@
         huge-bytes (byte-array (* 17 1024 1024)) ;; hex text in `one-text` is > 34 MiB!
         _ ((:append-raw! target) depot
            {:act-id (aid 2) :depot depot :door-time 1700000000002
-            :version 1 :who :asha :session :s0 :layer layer :permission first-perm
+            :version 1 :who :asha :session :s0 :lane lane :permission first-perm
             :facts [{:e :huge :k :b :v huge-bytes}]})
         ;; Incomparable sorted-map with usable `:act-id`? (A sorted map with string keys throws on
         ;; keyword lookup `(get m :act-id)` -> stray, must not throw!)
@@ -75,10 +75,10 @@
         _ ((:append-raw! target) depot bad-sorted)
         ;; Follow-up ordinary act at stamp 3 so we verify the line continues past the 34 MiB thing!
         _ ((:send-act! target)
-           {:version 1 :who :asha :session :s0 :layer layer :permission first-perm
+           {:version 1 :who :asha :session :s0 :lane lane :permission first-perm
             :facts [{:e :after :k :ok :v true}]}
            (aid 3))
-        resp ((:read-line target) {:layer layer :start 0 :max-count 10
+        resp ((:read-line target) {:lane lane :start 0 :max-count 10
                                    :max-bytes (* 64 1024 1024) :asker :asha})
         entries (:entries resp)]
     (and (= 4 (count entries))

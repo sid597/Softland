@@ -81,6 +81,6 @@
      (fn [gate-depot the-act rows fact]
        (if (and (= :softland.store/act-permission (:k fact))
                 (some? (:v fact))
-                (get rows (record/place-key (:layer the-act) (:e fact) (:k fact))))
+                (get rows (record/place-key (:lane the-act) (:e fact) (:k fact))))
          :a-yes-is-given-once
          (store-key-fault gate-depot the-act rows fact)))}))

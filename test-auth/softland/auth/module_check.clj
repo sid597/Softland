@@ -49,7 +49,7 @@
     one root, one more under the deepest, which is `:too-deep`, and a sign-in
     for the deepest. The histories go on with those agents among the rest.
   - Two rules of Sid's calls of 22 November are met in every run, not only
-    now and then: after an `own-layer-made`, a copy of the person's first
+    now and then: after an `own-lane-made`, a copy of the person's first
     enter is sent again, now and then; and after a replacement whose new hash
     is the one before the present one, the replacement before it
     (`follow-ups`).
@@ -93,7 +93,7 @@
 (def contract-names
   "The eighteen functions of the contract, by their names in
   `softland.auth.client`."
-  '[open close! invite enter own-layer-made begin-sign-in replace-secret end-sign-in make-actor
+  '[open close! invite enter own-lane-made begin-sign-in replace-secret end-sign-in make-actor
     end-actor open-session close-session ask answer-ask who-is ask-of under watch-root])
 
 (defn calls-of
@@ -413,7 +413,7 @@
 (defn- follow-ups
   "Steps that a write calls for next, as the runtime sends them, so that two
   rules of Sid's calls of 22 November are met in every run and not only now
-  and then: after an `own-layer-made` that was taken, half the time a copy of
+  and then: after an `own-lane-made` that was taken, half the time a copy of
   the person's first enter, which must say the flag as it stands; after a
   replacement whose new hash is the hash before the present one, half the
   time the replacement before it sent again, which is taken, since its old
@@ -423,7 +423,7 @@
         taken (:taken w)
         index-of (fn [pred] (first (keep-indexed (fn [j {:keys [call result]}] (when (pred call result) j)) taken)))]
     (case kind
-      :own-layer-made
+      :own-lane-made
       (if-let [j (when (and (= {:made (:person input)} want) (hs/chance? rnd 0.5))
                    (index-of (fn [[k _] result] (and (= k :enter) (= (:person input) (:person result))))))]
         (update w :pending conj {:op :write :call (:call (nth taken j)) :repeat-of j})
@@ -612,8 +612,8 @@
     {:person P :sign-in G
      :invite {:person P :claim {:by :code :hash code-hash} :invited-by :system :at 100}
      :enter {:account [:google (str "close." seed)] :says {} :email nil :code-hash code-hash
-             :own-layer (id) :making {:uuid (id) :session (id)} :at 110}
-     :own-layer-made {:person P :at 120}
+             :own-lane (id) :making {:uuid (id) :session (id)} :at 110}
+     :own-lane-made {:person P :at 120}
      :begin-sign-in {:root P :actor P :sign-in G :kind :browser :hash (hs/h 77) :until 100000 :label nil :at 130}
      :replace-secret {:root P :sign-in G :old-hash (hs/h 77) :new-hash (hs/h 78) :until 200000
                       :previous-until 150000 :at 140}

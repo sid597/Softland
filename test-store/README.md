@@ -80,7 +80,7 @@ holds. And the kept acts of a fixture, fed to a fresh store with 4 tasks and to
 one with 8, give the kept tables. It does not show that those rows are right:
 they are what the store gave that the fixture was made of. The seventh also
 holds a rule that names each act which was decided out of the order of its
-layer's line, and applies it to every partition of both depots of each store
+lane's line, and applies it to every partition of both depots of each store
 that it reads.
 
 The
@@ -89,7 +89,7 @@ is processed, where the second attempt makes each row as the first
 made it; and of an event of
 the streaming gate, before its first write. The sixth shows such an attempt of
 a batch under open reads. The seventh makes a throw in a batch of the base, a
-stall of an event of a streaming layer past Rama's stream timeout, and a throw
+stall of an event of a streaming lane past Rama's stream timeout, and a throw
 in such an event, each with acts behind it, and holds that the store run again
 after them gives the same rows. None shows a cluster of
 several machines, a killed process, a failure of the machine or of Rama in the

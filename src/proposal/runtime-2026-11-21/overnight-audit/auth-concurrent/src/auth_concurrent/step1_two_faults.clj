@@ -17,18 +17,18 @@
 
 (defn two-fault-extra-scenarios
   "Additional compound scenarios specifically targeting two-fault interactions
-  on the revised choose-at-account `enter`, `invite`, `own-layer-made`, and
+  on the revised choose-at-account `enter`, `invite`, `own-lane-made`, and
   `answer-ask` protocols."
   []
   [(let [[p o] (s1/seed-both [[:invite {:person :P1 :claim s1/C1 :invited-by :system :at 10}]])]
-     {:name "TF-01: first-time enter(Acc1, C1) racing own-layer-made(P1) + returning enter(Acc1, older :at)"
+     {:name "TF-01: first-time enter(Acc1, C1) racing own-lane-made(P1) + returning enter(Acc1, older :at)"
       :init-pstates p :init-oracle o
       :entities {:accounts [s1/Acc1] :codes [] :persons [:P1] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account s1/Acc1 :says {"s" "init-200"} :email (:email s1/C1) :code-hash nil
-                                      :own-layer :L1 :making s1/M1 :at 200}]}
-              {:id :c2 :call [:own-layer-made {:person :P1 :at 210}]}
+                                      :own-lane :L1 :making s1/M1 :at 200}]}
+              {:id :c2 :call [:own-lane-made {:person :P1 :at 210}]}
               {:id :c3 :call [:enter {:account s1/Acc1 :says {"s" "older-50"} :email (:email s1/C1) :code-hash nil
-                                      :own-layer :L2 :making s1/M2 :at 50}]
+                                      :own-lane :L2 :making s1/M2 :at 50}]
                :sequential-after [:c2]}]})
 
    (let [[p o] (s1/seed-both [[:invite {:person :P1 :claim s1/C_CODE :invited-by :system :at 10}]
@@ -37,9 +37,9 @@
       :init-pstates p :init-oracle o
       :entities {:accounts [s1/Acc1 s1/Acc2] :codes [] :persons [:P1 :P2] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account s1/Acc1 :says {"s" "acc1-300"} :email (:email s1/C1) :code-hash (:hash s1/C_CODE)
-                                      :own-layer :L1 :making s1/M1 :at 300}]}
+                                      :own-lane :L1 :making s1/M1 :at 300}]}
               {:id :c2 :call [:enter {:account s1/Acc2 :says {"s" "acc2-100"} :email nil :code-hash (:hash s1/C_CODE)
-                                      :own-layer :L2 :making s1/M2 :at 100}]}]})
+                                      :own-lane :L2 :making s1/M2 :at 100}]}]})
 
    (let [[p o] (s1/seed-both [])]
      {:name "TF-03: invite(P1, C1) + invite(P2, C1) + enter(Acc1, C1) under double fault"
@@ -48,9 +48,9 @@
       :calls [{:id :c1 :call [:invite {:person :P1 :claim s1/C1 :invited-by :system :at 100}]}
               {:id :c2 :call [:invite {:person :P2 :claim s1/C1 :invited-by :system :at 110}]}
               {:id :c3 :call [:enter {:account s1/Acc1 :says {"s" "e"} :email (:email s1/C1) :code-hash nil
-                                      :own-layer :L1 :making s1/M1 :at 120}]}]})
+                                      :own-lane :L1 :making s1/M1 :at 120}]}]})
 
-   (let [[p o] (s1/seed-both [[:entered-person {:person :P1 :claim s1/C1 :account s1/Acc1 :own-layer :L1 :making s1/M1 :at 10 :own-layer-made? true}]
+   (let [[p o] (s1/seed-both [[:entered-person {:person :P1 :claim s1/C1 :account s1/Acc1 :own-lane :L1 :making s1/M1 :at 10 :own-lane-made? true}]
                               [:begin-sign-in {:root :P1 :actor :P1 :sign-in :G0 :kind :browser :hash s1/H_ASK :until 1500 :label "web" :at 20}]
                               [:open-session {:root :P1 :sign-in :G0 :session :S0 :until 1500 :driven-by {:kind :person} :at 20}]])]
      {:name "TF-04: ask(U) + refused/early answer-ask(U, at=600) + late answer-ask(U, at=2000) under double fault"

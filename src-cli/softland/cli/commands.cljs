@@ -6,7 +6,7 @@
 
   The context is {:server url :credentials-path path}. The credentials file
   is an EDN map from a server's URL to the credential saved for it,
-  {:token :who :own-layer}. A step reads the file each time it needs the
+  {:token :who :own-lane}. A step reads the file each time it needs the
   credential, so that a sign-in done in another process is seen at once.
 
   An outcome is {:form x :text t :fine? bool}, shown as its text on
@@ -16,7 +16,7 @@
   Data passes through as text. A word carries each argument as the
   person typed it, and a result is shown as the server wrote it; the
   program reads a text only to check that it is one form, or to take out
-  one small thing: the `:layer` of an act, the act-id and the digest of a
+  one small thing: the `:lane` of an act, the act-id and the digest of a
   receipt, whether a result holds `:could-not`. So an integer wider than
   2^53, an exact decimal or a ratio is never turned into a JavaScript
   number on its way.
@@ -24,9 +24,9 @@
   The steps that more than one command takes:
 
     say             a word, with the saved credential -> a response
-    act-outcome     an act -> asks one act-id of its layer, tells it, sends
+    act-outcome     an act -> asks one act-id of its lane, tells it, sends
                     the act under it, reads its answer with a wait
-    write-outcome   a fact -> the act of that fact in her own layer, then
+    write-outcome   a fact -> the act of that fact in her own lane, then
                     as `act-outcome`
     watch-collected a query and a span -> the messages of a watch that came
                     within the span
@@ -62,7 +62,7 @@
 
 (defn saved
   "Takes a context. Gives the credential saved for its server,
-  {:token :who :own-layer}, or nil."
+  {:token :who :own-lane}, or nil."
   [ctx]
   (pure/saved-entry (credentials ctx) (:server ctx)))
 
@@ -113,18 +113,18 @@
   (.then (say ctx word) pure/outcome-of))
 
 (defn act-outcome
-  "Takes a context, an act, the act's layer and a function of one act-id.
+  "Takes a context, an act, the act's lane and a function of one act-id.
   The act is anything that prints as the act's EDN: the person's own text
   (`softland.cli.pure/verbatim`), or a map that holds such texts. Asks the
-  server for one act-id of the layer, hands it to the function before
+  server for one act-id of the lane, hands it to the function before
   anything is sent, so that the person can send again under it when the
   program dies, sends the act under it, and reads its answer with a wait of
   `softland.cli.pure/act-answer-wait-ms`. Gives a promise of the outcome,
   whose text is `{:receipt r :answer a}` with each result's text as the
   server wrote it, fine when each step was; or, when a step failed, what
   that step gave: the result of `:act-ids`, or `{:receipt r}`."
-  [ctx act layer on-act-id]
-  (-> (say ctx {:word :act-ids :layer layer :count 1})
+  [ctx act lane on-act-id]
+  (-> (say ctx {:word :act-ids :lane lane :count 1})
       (.then
        (fn [response]
          (let [ids (pure/outcome-of response)
@@ -163,17 +163,17 @@
   "Takes a context, an entity, a key, a value and a function of one act-id;
   the three are the person's texts (`softland.cli.pure/verbatim`), which
   go into the act as they are. Builds the act of that one fact in her own
-  layer under her first permission, from the saved credential, and does
+  lane under her first permission, from the saved credential, and does
   what `act-outcome` does. Gives a promise of the outcome; a failure, with
-  nothing sent, when no credential is saved or it holds no own layer."
+  nothing sent, when no credential is saved or it holds no own lane."
   [ctx entity k v on-act-id]
   (let [entry (saved ctx)
         act (when entry (pure/write-act entry entity k v))]
     (cond
       (nil? entry) (js/Promise.resolve {:failure (no-credential-text ctx)})
       (nil? act) (js/Promise.resolve {:failure (str "the credential saved for " (:server ctx)
-                                                    " names no own layer: run `softland sign-in` again")})
-      :else (act-outcome ctx act (:layer act) on-act-id))))
+                                                    " names no own lane: run `softland sign-in` again")})
+      :else (act-outcome ctx act (:lane act) on-act-id))))
 
 (defn watch-collected
   "Takes a context, a query (the person's text, or a form) and a span in
@@ -229,8 +229,8 @@
 (defn sign-in
   "Takes a context and the text that says what asks, or nil. Makes a token,
   shows on standard error the link to the page of her yes and the short
-  code, waits for her yes, and saves {:token :who :own-layer} for the
-  server. Gives a promise of the outcome: {:who :own-layer} when she said
+  code, waits for her yes, and saves {:token :who :own-lane} for the
+  server. Gives a promise of the outcome: {:who :own-lane} when she said
   yes, a failure otherwise. A credential that was saved before is replaced
   only when she says yes."
   [ctx what]
@@ -248,10 +248,10 @@
         (.then (fn [[step about]]
                  (case step
                    :yes (let [entry (cond-> {:token token :who (:who about)}
-                                      (:own-layer about) (assoc :own-layer (:own-layer about)))]
+                                      (:own-lane about) (assoc :own-lane (:own-lane about)))]
                           (save! ctx entry)
                           (node/err! (str "Signed in. The credential is saved in " (:credentials-path ctx)))
-                          {:form (select-keys entry [:who :own-layer]) :fine? true})
+                          {:form (select-keys entry [:who :own-lane]) :fine? true})
                    :no {:failure "she said no: the program is not signed in"}
                    :too-late {:failure "no yes came within ten minutes: the program is not signed in"}
                    :try-again {:failure about}
@@ -352,7 +352,7 @@
                      :sign-in (sign-in ctx (:as options))
                      :sign-out (sign-out ctx)
                      :who (say-outcome ctx {:word :who-am-i})
-                     :act-ids (say-outcome ctx {:word :act-ids :layer (:layer read) :count (:count numbers 1)})
+                     :act-ids (say-outcome ctx {:word :act-ids :lane (:lane read) :count (:count numbers 1)})
                      :send (say-outcome ctx (cond-> {:word :send :act (:act read)}
                                               (contains? read :act-id) (assoc :act-id (:act-id read))))
                      :answer (say-outcome ctx (cond-> {:word :answer :act-id (:act-id read)
@@ -360,7 +360,7 @@
                                                                      [o s] (pure/read-edn d)]
                                                                  (if (and (= :ok o) (string? s)) s d))}
                                                 (:wait options) (assoc :wait-ms (:wait options))))
-                     :act (act-outcome ctx (:act read) (when (map? (:act forms)) (:layer (:act forms))) on-act-id)
+                     :act (act-outcome ctx (:act read) (when (map? (:act forms)) (:lane (:act forms))) on-act-id)
                      :write (write-outcome ctx (:entity read) (:key read) (:value read) on-act-id)
                      :read (say-outcome ctx {:word :read :query (:query read)})
                      :say (say-outcome ctx (:word read)))

@@ -17,7 +17,7 @@ path's state is the memory of one process: who looks at what, and the pushes
 that they share.
 
 The store comes out the same when its gates are run again over its two depots:
-a gate reads no clock and no table of the other gate, and the acts of a layer
+a gate reads no clock and no table of the other gate, and the acts of a lane
 are one line in one depot partition. The
 [decisions of 13 October 2026](#decisions-of-13-october-2026--the-store-comes-out-the-same-when-it-is-run-again)
 say why, and the [verification map](../test-store/README.md) names the proof.
@@ -41,7 +41,7 @@ Start with the question you are carrying:
 | What happens to a thing that arrives on the streaming depot, and why is it refused? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstring of [streaming_gate.clj](softland/store/module/streaming_gate.clj) |
 | What happens to a thing that arrives on the microbatch depot, and when is its answer readable? | [store/](softland/store/README.md), "How the parts relate"; then the namespace docstrings of [microbatch_gate.clj](softland/store/module/microbatch_gate.clj) and of the walk that both gates call, [walk.clj](softland/store/module/walk.clj) |
 | How does a maker's act get into the store, and how is its answer read? | The namespace docstring of [door.clj](softland/store/door.clj), then [door/](softland/store/door/README.md) for its choices and its words |
-| How does a fact come back out to a tool, once or kept live, and what is it told of a layer that it may not see? | The namespace docstring of [read_path.clj](softland/store/read_path.clj), then [read_path/](softland/store/read_path/README.md) for its choices and its words |
+| How does a fact come back out to a tool, once or kept live, and what is it told of a lane that it may not see? | The namespace docstring of [read_path.clj](softland/store/read_path.clj), then [read_path/](softland/store/read_path/README.md) for its choices and its words |
 | How are the tables made again, and how do I know that a second run gives the same? | A second module that mirrors the two depots and calls `add-gates-and-reads` of [module.clj](softland/store/module.clj) runs the store's own gates over them from their beginning. The [verification map](../test-store/README.md) names the proof that does it and compares every table |
 | What does the gate not check? Which choices are the builder's, and which words did a session make? | [store/](softland/store/README.md): "What the gate does not check", "Engineering choices", "Words a session made" |
 | What did Sid decide about the form of an act? | [Decisions of 6 October 2026](#decisions-of-6-october-2026), below |

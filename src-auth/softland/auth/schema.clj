@@ -65,14 +65,14 @@
 
 ;; *enters (partitioned by :account-key String)
 (defrecord EnterEvent [op-id account-key provider subject says email code-hash
-                       own-layer making-uuid making-session at])
+                       own-lane making-uuid making-session at])
 
 ;; *asks (partitioned by :code String)
 (defrecord AskEvent [code hash asks ends at] IAskEvent)
 (defrecord AnswerAskEvent [op-id code yes? root actor new-agent-label sign-in until at] IAskEvent)
 
 ;; *root-events (partitioned by :root-id UUID)
-(defrecord OwnLayerMadeEvent [root-id at] IRootEvent)
+(defrecord OwnLaneMadeEvent [root-id at] IRootEvent)
 (defrecord BeginSignInEvent [root-id actor sign-in kind hash until label at] IRootEvent)
 (defrecord ReplaceSecretEvent [root-id sign-in old-hash new-hash until previous-until at] IRootEvent)
 (defrecord EndSignInEvent [root-id sign-in at] IRootEvent)
@@ -89,15 +89,15 @@
 (defrecord RootInvited [claim-key claim-kind claim-val invited-by-kind invited-by-id invited-at]
   IRootDatum)
 (defrecord RootEntered [claim-key claim-kind claim-val invited-by-kind invited-by-id invited-at
-                        linked-provider linked-subject own-layer making-uuid making-session
-                        own-layer-made? next-actor-seq next-sign-in-seq]
+                        linked-provider linked-subject own-lane making-uuid making-session
+                        own-lane-made? next-actor-seq next-sign-in-seq]
   IRootDatum)
 (defrecord ActorRec [actor made-by depth label ended? seq]
   IRootDatum)
 (defrecord ActorOrderRec [actor made-by depth label ended? seq]
   IRootDatum)
 (defrecord SignInRec [sign-in actor kind initial-hash hash until prev-hash prev-until
-                      ended? begun label seq own-layer own-layer-made-at-begin?]
+                      ended? begun label seq own-lane own-lane-made-at-begin?]
   IRootDatum)
 (defrecord SessionRec [session sign-in until closed? driven-by]
   IRootDatum)
@@ -112,16 +112,16 @@
 
 ;; $$live {String -> ILiveEntry} (partitioned by |hash root-UUID)
 (defrecord LiveSignIn [sign-in actor kind initial-hash hash until prev-hash prev-until
-                       begun label seq own-layer own-layer-made-at-begin?]
+                       begun label seq own-lane own-lane-made-at-begin?]
   ILiveEntry)
 (defrecord LiveSession [session sign-in until driven-by]
   ILiveEntry)
 
 ;; $$accounts {String -> IAccountState} (partitioned by |hash account-key)
 (defrecord AccountLinking [op-id account-key provider subject code-claim-key email-claim-key
-                           own-layer making-uuid making-session says at status chosen]
+                           own-lane making-uuid making-session says at status chosen]
   IAccountState)
-(defrecord AccountLinked [person own-layer making-uuid making-session says says-at]
+(defrecord AccountLinked [person own-lane making-uuid making-session says says-at]
   IAccountState)
 
 ;; $$claims {String -> IClaimState} (partitioned by |hash claim-key)
@@ -351,7 +351,7 @@
      (instance? EnterEvent ev)
      (and (uuid? (:op-id ev)) (string? (:account-key ev)) (keyword? (:provider ev)) (string? (:subject ev))
           (said? (:says ev)) (text-or-nil? (:email ev)) (text-or-nil? (:code-hash ev))
-          (uuid? (:own-layer ev)) (uuid? (:making-uuid ev)) (uuid? (:making-session ev)) (long-val? (:at ev)))
+          (uuid? (:own-lane ev)) (uuid? (:making-uuid ev)) (uuid? (:making-session ev)) (long-val? (:at ev)))
 
      (instance? AskEvent ev)
      (and (string? (:code ev)) (string? (:hash ev)) (string? (:asks ev)) (long-val? (:ends ev)) (long-val? (:at ev)))
@@ -360,7 +360,7 @@
      (and (uuid? (:op-id ev)) (string? (:code ev)) (boolean? (:yes? ev)) (uuid? (:root ev)) (uuid? (:actor ev))
           (text-or-nil? (:new-agent-label ev)) (uuid? (:sign-in ev)) (long-val? (:until ev)) (long-val? (:at ev)))
 
-     (instance? OwnLayerMadeEvent ev)
+     (instance? OwnLaneMadeEvent ev)
      (and (uuid? (:root-id ev)) (long-val? (:at ev)))
 
      (instance? BeginSignInEvent ev)
@@ -610,7 +610,7 @@
    :subject (:subject acc)
    :code-claim-key (:code-claim-key acc)
    :email-claim-key (:email-claim-key acc)
-   :own-layer (:own-layer acc)
+   :own-lane (:own-lane acc)
    :making-uuid (:making-uuid acc)
    :making-session (:making-session acc)
    :says (:says acc)
@@ -653,7 +653,7 @@
       (instance? AccountLinked acc)
       (let [prev-at (long (:says-at acc))
             link-info {:linked-person (:person acc)
-                       :linked-layer (:own-layer acc)
+                       :linked-lane (:own-lane acc)
                        :linked-making {:uuid (:making-uuid acc)
                                        :session (:making-session acc)}}]
         (if (> (long (:at ev)) prev-at)
@@ -670,7 +670,7 @@
          :next-step :enter/step-2c-mark-failed-direct
          :next-st {}}
         (let [linking (->AccountLinking self-op ak (:provider ev) (:subject ev)
-                                        cc ec (:own-layer ev) (:making-uuid ev)
+                                        cc ec (:own-lane ev) (:making-uuid ev)
                                         (:making-session ev) (:says ev) (:at ev)
                                         :probing nil)]
           (assoc (enter-route-linking linking)
@@ -692,7 +692,7 @@
 
 (defn enter-step-1c-update-says
   "Pure Step E1c on H(Acc): updates `:says` and `:says-at` iff `(> at says-at)`
-  (Sid's Call 2), then hops to H(P) for `:own-layer-made?`."
+  (Sid's Call 2), then hops to H(P) for `:own-lane-made?`."
   [^EnterEvent ev st acc]
   (let [P (:linked-person st)
         upd? (and (instance? AccountLinked acc)
@@ -702,13 +702,13 @@
                   :write-v (assoc acc :says (:says ev) :says-at (:at ev))))))
 
 (defn enter-step-1b-read-flag
-  "Pure Step E1b on H(P): reads present `:own-layer-made?` and finishes."
+  "Pure Step E1b on H(P): reads present `:own-lane-made?` and finishes."
   [st r]
   {:done? true
    :result {:person (:linked-person st)
-            :own-layer (:linked-layer st)
+            :own-lane (:linked-lane st)
             :making (:linked-making st)
-            :own-layer-made? (boolean (when (instance? RootEntered r) (:own-layer-made? r)))}})
+            :own-lane-made? (boolean (when (instance? RootEntered r) (:own-lane-made? r)))}})
 
 (defn enter-step-2-probe
   "Pure Step E2 on H(curr-claim): strictly read-only probe of `$$claims[C]`
@@ -868,8 +868,8 @@
       reset? (assoc :write-k ak :write-v (assoc acc :status :probing :chosen nil)))))
 
 (defn enter-step-4-root
-  "Pure Step E4 on H(P): ensures `RootEntered` fixing `own-layer` and `making`,
-  reads fixed values and present `:own-layer-made?`, hops to Step E5 on H(Acc)."
+  "Pure Step E4 on H(P): ensures `RootEntered` fixing `own-lane` and `making`,
+  reads fixed values and present `:own-lane-made?`, hops to Step E5 on H(Acc)."
   [^EnterEvent ev st r]
   (let [target (:target st)
         P (:won-person target)
@@ -879,15 +879,15 @@
              (->RootEntered (:claim-key r) (:claim-kind r) (:claim-val r)
                             (:invited-by-kind r) (:invited-by-id r) (:invited-at r)
                             (:provider target) (:subject target)
-                            (:own-layer target) (:making-uuid target) (:making-session target)
+                            (:own-lane target) (:making-uuid target) (:making-session target)
                             false 0 0))]
     (cond-> {:hop-key (:account-key ev)
              :next-step :enter/step-5-link
              :next-st {:target (assoc target
-                                      :fixed-layer (:own-layer r')
+                                      :fixed-lane (:own-lane r')
                                       :fixed-making-uuid (:making-uuid r')
                                       :fixed-making-session (:making-session r')
-                                      :present-flag (boolean (:own-layer-made? r')))}}
+                                      :present-flag (boolean (:own-lane-made? r')))}}
       (not entered-already?)
       (assoc :write-k (k-root P) :write-v r'))))
 
@@ -901,7 +901,7 @@
         self-op (:op-id ev)
         ak (:account-key ev)
         P (:won-person target)
-        fl (:fixed-layer target)
+        fl (:fixed-lane target)
         fmu (:fixed-making-uuid target)
         fms (:fixed-making-session target)
         flag (boolean (:present-flag target))
@@ -920,7 +920,7 @@
       (cond-> {:hop-key self-op
                :next-step :enter/step-1a-check-op-returning
                :next-st {:linked-person P
-                         :linked-layer fl
+                         :linked-lane fl
                          :linked-making {:uuid fmu :session fms}}}
         linking-this? (assoc :write-k ak :write-v linked-base))
 
@@ -928,23 +928,23 @@
       {:write-k ak
        :write-v (assoc linked-base :says (:says ev) :says-at (:at ev))
        :done? true
-       :result {:person P :own-layer fl :making {:uuid fmu :session fms} :own-layer-made? flag}}
+       :result {:person P :own-lane fl :making {:uuid fmu :session fms} :own-lane-made? flag}}
 
       :else
       (cond-> {:done? true
-               :result {:person P :own-layer fl :making {:uuid fmu :session fms} :own-layer-made? flag}}
+               :result {:person P :own-lane fl :making {:uuid fmu :session fms} :own-lane-made? flag}}
         linking-this? (assoc :write-k ak :write-v linked-base)))))
 
-;; --------------------------------------------------- Slice a: own-layer-made
+;; --------------------------------------------------- Slice a: own-lane-made
 
-(defn own-layer-made-step
-  "Pure single-task decision for `own-layer-made` on H(P)."
-  [^OwnLayerMadeEvent ev r]
+(defn own-lane-made-step
+  "Pure single-task decision for `own-lane-made` on H(P)."
+  [^OwnLaneMadeEvent ev r]
   (let [P (:root-id ev)]
     (if (instance? RootEntered r)
       (cond-> {:done? true :result {:made P}}
-        (not (:own-layer-made? r))
-        (assoc :write-k (k-root P) :write-v (assoc r :own-layer-made? true)))
+        (not (:own-lane-made? r))
+        (assoc :write-k (k-root P) :write-v (assoc r :own-lane-made? true)))
       {:done? true :result {:refused :no-such-person}})))
 
 ;; ------------------------------------------- Slice b: root plans & writes
@@ -986,14 +986,14 @@
   [^SignInRec g]
   (->LiveSignIn (:sign-in g) (:actor g) (:kind g) (:initial-hash g) (:hash g)
                 (:until g) (:prev-hash g) (:prev-until g) (:begun g) (:label g)
-                (:seq g) (:own-layer g) (:own-layer-made-at-begin? g)))
+                (:seq g) (:own-lane g) (:own-lane-made-at-begin? g)))
 
 (defn live-signin->ended-rec
   "Builds an ended `SignInRec` directly from a `LiveSignIn` (0 point seeks on `g:`)."
   [^LiveSignIn g]
   (->SignInRec (:sign-in g) (:actor g) (:kind g) (:initial-hash g) (:hash g)
                (:until g) (:prev-hash g) (:prev-until g) true (:begun g)
-               (:label g) (:seq g) (:own-layer g) (:own-layer-made-at-begin? g)))
+               (:label g) (:seq g) (:own-lane g) (:own-lane-made-at-begin? g)))
 
 (defn live-session->closed-rec
   "Builds a closed `SessionRec` directly from a `LiveSession`, preserving `:driven-by`
@@ -1067,9 +1067,9 @@
       :else
       (let [seq-n (long (:next-sign-in-seq r))
             born-ended? (<= until at)
-            own-layer (:own-layer r)
-            made-at-begin? (boolean (:own-layer-made? r))
-            rec (->SignInRec G A kind h h until nil nil born-ended? at lbl seq-n own-layer made-at-begin?)
+            own-lane (:own-lane r)
+            made-at-begin? (boolean (:own-lane-made? r))
+            rec (->SignInRec G A kind h h until nil nil born-ended? at lbl seq-n own-lane made-at-begin?)
             r' (assoc r :next-sign-in-seq (inc seq-n))]
         {:rd-upserts (cond-> [[(k-root P) r']
                               [(k-signin P G) rec]]
@@ -1453,10 +1453,10 @@
           :else
           (let [g-seq (long (:next-sign-in-seq r))
                 born-ended? (<= (long until) (long at))
-                own-layer (:own-layer r)
-                made-at-begin? (boolean (:own-layer-made? r))
+                own-lane (:own-lane r)
+                made-at-begin? (boolean (:own-lane-made? r))
                 srec (->SignInRec sign-in actor :program hash hash until nil nil
-                                  born-ended? at asks g-seq own-layer made-at-begin?)
+                                  born-ended? at asks g-seq own-lane made-at-begin?)
                 out (->AskOutcomeYes root actor sign-in)]
             {:rd-upserts (cond-> [[(k-root root) (assoc r :next-sign-in-seq (inc g-seq))]
                                   [(k-signin root sign-in) srec]
@@ -1475,12 +1475,12 @@
           (let [a-seq (long (:next-actor-seq r))
                 g-seq (long (:next-sign-in-seq r))
                 born-ended? (<= (long until) (long at))
-                own-layer (:own-layer r)
-                made-at-begin? (boolean (:own-layer-made? r))
+                own-lane (:own-lane r)
+                made-at-begin? (boolean (:own-lane-made? r))
                 arec (->ActorRec actor root 1 new-agent-label false a-seq)
                 aorec (->ActorOrderRec actor root 1 new-agent-label false a-seq)
                 srec (->SignInRec sign-in actor :program hash hash until nil nil
-                                  born-ended? at asks g-seq own-layer made-at-begin?)
+                                  born-ended? at asks g-seq own-lane made-at-begin?)
                 out (->AskOutcomeYes root actor sign-in)]
             {:rd-upserts (cond-> [[(k-root root) (assoc r :next-actor-seq (inc a-seq) :next-sign-in-seq (inc g-seq))]
                                   [(k-actor root actor) arec]
@@ -1558,7 +1558,7 @@
 (defn signin-fast-path?
   "Whether `sig` (`SignInRec` or nil) allows `who-is` to skip reading `r`."
   [sig]
-  (boolean (and (instance? SignInRec sig) (:own-layer-made-at-begin? sig))))
+  (boolean (and (instance? SignInRec sig) (:own-lane-made-at-begin? sig))))
 
 (defn root-entered?
   "Whether `r` is a `RootEntered` record."
@@ -1583,9 +1583,9 @@
   (let [fast? (signin-fast-path? sig)
         entered? (or fast? (instance? RootEntered r))]
     (if-not entered?
-      {:sign-in nil :session nil :own-layer nil :own-layer-made? false}
-      (let [own-layer (if fast? (:own-layer sig) (:own-layer r))
-            made? (if fast? true (boolean (:own-layer-made? r)))
+      {:sign-in nil :session nil :own-lane nil :own-lane-made? false}
+      (let [own-lane (if fast? (:own-lane sig) (:own-lane r))
+            made? (if fast? true (boolean (:own-lane-made? r)))
             actor-ended? (if (and (instance? SignInRec sig)
                                   (:ended? sig)
                                   (not= (:actor sig) root))
@@ -1605,8 +1605,8 @@
                      :until (:until sess)
                      :closed? (boolean (:closed? sess))
                      :driven-by (from-driven-by (:driven-by sess))})
-         :own-layer own-layer
-         :own-layer-made? made?}))))
+         :own-lane own-lane
+         :own-lane-made? made?}))))
 
 (defn root-has-actors?
   "Whether `RootEntered` `r` has created at least one agent (`next-actor-seq > 0`)."
@@ -1662,7 +1662,7 @@
 (defn project-live-entry
   "Projects one `ILiveEntry` (`LiveSignIn` or `LiveSession`) into `[section id val]`
   for `watch-root`'s `{:sign-ins {...} :sessions {...}}` map (omitting `:driven-by`,
-  `:begun`, `:label`, `:seq`, `:initial-hash`, `:own-layer`, `:own-layer-made-at-begin?`)."
+  `:begun`, `:label`, `:seq`, `:initial-hash`, `:own-lane`, `:own-lane-made-at-begin?`)."
   [entry]
   (cond
     (instance? LiveSignIn entry)

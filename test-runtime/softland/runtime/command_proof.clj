@@ -109,15 +109,15 @@
       (let [cookie (:cookie (drive/sign-in url first-person))
             signed (sign-in! home url cookie nil)
             who (:who (:out signed))
-            layer (:own-layer (:out signed))
+            lane (:own-lane (:out signed))
             file (io/file home "sign-in.edn")]
         (check "The command line's own classpath holds no Rama: the program that a person runs can open no cluster."
                (let [cmd (into (into ["clojure"] (command-sdeps)) ["-Spath" "-A:command"])
                      path (:lines (ended (.start (ProcessBuilder. ^java.util.List cmd))))]
                  (and (seq path) (not (str/includes? (str/join path) "rama")))))
-        (check "`sign-in` shows a link and a code and waits; after her yes at the page it prints who it is, with its session and her own layer, and ends with 0."
+        (check "`sign-in` shows a link and a code and waits; after her yes at the page it prints who it is, with its session and her own lane, and ends with 0."
                (and (:code signed) (str/includes? (:shown signed) (str url "/yes?code="))
-                    (= 0 (:exit signed)) (uuid? who) (uuid? layer) (uuid? (:session (:out signed))))
+                    (= 0 (:exit signed)) (uuid? who) (uuid? lane) (uuid? (:session (:out signed))))
                (dissoc signed :shown))
         (check "It keeps one file, which its owner alone can read, and the file holds the runtime's address, the credential and the session, and nothing of who she is."
                (and (= "rw-------" (PosixFilePermissions/toString (Files/getPosixFilePermissions (.toPath file) (make-array java.nio.file.LinkOption 0))))
@@ -129,7 +129,7 @@
               wrote-big (soft home "write" ":ledger" ":total" big)
               read-big (soft home "read" ":ledger" ":total")
               word (soft home "write" ":chair-7" ":label" "oak")]
-          (check "`write` sends one fact into her own layer and ends with 0 when a gate accepted it; `read` gives it back."
+          (check "`write` sends one fact into her own lane and ends with 0 when a gate accepted it; `read` gives it back."
                  (and (= 0 (:exit wrote)) (= :accepted (get-in wrote [:out :answer :answer]))
                       (= :green (get-in read [:out :place :value])))
                  [wrote read])
@@ -138,7 +138,7 @@
                  [(:out wrote-big) (:out read-big)])
           (check "A bare word on the command line is a text."
                  (= "oak" (get-in (soft home "read" ":chair-7" ":label") [:out :place :value])) word))
-        (let [refused (soft home "write" ":chair-7" ":colour" ":red" "--permission" (pr-str [who layer layer [who layer layer] :see]))]
+        (let [refused (soft home "write" ":chair-7" ":colour" ":red" "--permission" (pr-str [who lane lane [who lane lane] :see]))]
           (check "An act that a gate refuses ends the command with 3, and the answer says refused: a script can tell it from a command that could not be done."
                  (and (= 3 (:exit refused)) (= :refused (get-in refused [:out :answer :answer])))
                  refused))
@@ -165,11 +165,11 @@
         (let [made (soft home "agent" "new" "importer" "--out" (.getPath (io/file agent-home "sign-in.edn")))
               agent (:made (:out made))
               as-agent (:out (soft agent-home "who"))
-              before (soft agent-home "write" ":crate-1" ":packed" "true" "--layer" (str layer)
-                           "--permission" (pr-str [agent layer layer]))
-              given (pr-str [agent layer layer [who layer layer] :see-and-act])
-              gave (soft home "give" (str agent) (str layer) "act")
-              after (soft agent-home "write" ":crate-1" ":packed" "true" "--layer" (str layer)
+              before (soft agent-home "write" ":crate-1" ":packed" "true" "--lane" (str lane)
+                           "--permission" (pr-str [agent lane lane]))
+              given (pr-str [agent lane lane [who lane lane] :see-and-act])
+              gave (soft home "give" (str agent) (str lane) "act")
+              after (soft agent-home "write" ":crate-1" ":packed" "true" "--lane" (str lane)
                           "--permission" given)]
           (check "`agent new` makes an agent with a who of its own and writes the file that it signs in with; with that file the command line is the agent, beneath her."
                  (and (= 0 (:exit made)) (uuid? agent) (not= who agent)
@@ -185,7 +185,7 @@
                       (= 1 (:exit (soft agent-home "who"))))))
         (let [acts (io/file home "acts.edn")
               _ (spit acts (str/join "\n" (for [n (range 3)]
-                                            (pr-str {:version 1 :layer layer :permission [who layer layer]
+                                            (pr-str {:version 1 :lane lane :permission [who lane lane]
                                                      :facts [{:e :shelf :k (keyword (str "slot-" n)) :v n}]}))))
               first-run (soft home "send" (.getPath acts))
               second-run (soft home "send" (.getPath acts))]

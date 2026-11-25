@@ -167,8 +167,8 @@
             S-end (UUID/randomUUID)
             _ (client/invite c {:person P :claim {:by :email :email "m1@example.com"} :invited-by :system :at 10})
             _ (client/enter c {:account [:google "m1-user"] :says {} :email "m1@example.com"
-                               :code-hash nil :own-layer L :making M :at 20})
-            _ (client/own-layer-made c {:person P :at 25})
+                               :code-hash nil :own-lane L :making M :at 20})
+            _ (client/own-lane-made c {:person P :at 25})
             _ (client/begin-sign-in c {:root P :actor P :sign-in G-live :kind :browser :hash (h-of 1)
                                        :until 1000000 :label "live" :at 30})
             _ (client/open-session c {:root P :sign-in G-live :session S-live :until 1000000
@@ -302,9 +302,9 @@
           _ (do (client/invite c {:person P-w :claim {:by :email :email "writer@example.com"}
                                   :invited-by :system :at 10})
                 (client/enter c {:account [:google "writer"] :says {} :email "writer@example.com"
-                                 :code-hash nil :own-layer (UUID/randomUUID)
+                                 :code-hash nil :own-lane (UUID/randomUUID)
                                  :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
-                (client/own-layer-made c {:person P-w :at 25})
+                (client/own-lane-made c {:person P-w :at 25})
                 (client/begin-sign-in c {:root P-w :actor P-w :sign-in G-w :kind :browser :hash (h-of 8999)
                                          :until 999999999 :label "writer" :at 30}))
           _ (write-cycles c P-w G-w 300)
@@ -353,9 +353,9 @@
               (client/invite c {:person p :claim {:by :email :email (str "w20k-" idx "@example.com")}
                                 :invited-by :system :at 10})
               (client/enter c {:account [:google (str "w20k-" idx)] :says {} :email (str "w20k-" idx "@example.com")
-                               :code-hash nil :own-layer (UUID/randomUUID)
+                               :code-hash nil :own-lane (UUID/randomUUID)
                                :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
-              (client/own-layer-made c {:person p :at 25})
+              (client/own-lane-made c {:person p :at 25})
               (client/begin-sign-in c {:root p :actor p :sign-in g :kind :browser :hash (h-of (+ 9000 idx))
                                        :until 999999 :label "live" :at 30}))
           got-0? (.await first-latch 10 TimeUnit/SECONDS)
@@ -402,9 +402,9 @@
           _ (doseq [[p em sub] [[P-heavy "heavy@example.com" "heavy"] [P-sib "sib@example.com" "sib"]]]
               (client/invite c1 {:person p :claim {:by :email :email em} :invited-by :system :at 10})
               (client/enter c1 {:account [:google sub] :says {} :email em :code-hash nil
-                                :own-layer (UUID/randomUUID)
+                                :own-lane (UUID/randomUUID)
                                 :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
-              (client/own-layer-made c1 {:person p :at 25}))
+              (client/own-lane-made c1 {:person p :at 25}))
           _ (client/begin-sign-in c1 {:root P-sib :actor P-sib :sign-in G-sib :kind :browser
                                       :hash (h-of 777) :until 999999 :label "sib" :at 30})
           _ (client/open-session c1 {:root P-sib :sign-in G-sib :session S-sib :until 999999
@@ -514,9 +514,9 @@
   (let [P (UUID/randomUUID)]
     (client/invite c {:person P :claim {:by :email :email (str tag "@example.com")} :invited-by :system :at 10})
     (client/enter c {:account [:google tag] :says {} :email (str tag "@example.com") :code-hash nil
-                     :own-layer (UUID/randomUUID)
+                     :own-lane (UUID/randomUUID)
                      :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
-    (client/own-layer-made c {:person P :at 25})
+    (client/own-lane-made c {:person P :at 25})
     P))
 
 (defn- make-agents!
@@ -637,8 +637,8 @@
                     em (str "m4-" idx "@example.com")]
                 (client/invite c {:person P :claim {:by :email :email em} :invited-by :system :at 10})
                 (client/enter c {:account [:google (str "m4-" idx)] :says {} :email em :code-hash nil
-                                 :own-layer L :making M :at 20})
-                (client/own-layer-made c {:person P :at 25})
+                                 :own-lane L :making M :at 20})
+                (client/own-lane-made c {:person P :at 25})
                 (client/make-actor c {:root P :actor A :made-by P :label "a" :at 30})
                 (client/begin-sign-in c {:root P :actor A :sign-in G :kind :program :hash (h-of (+ 1 idx))
                                          :until 99999 :label "g" :at 35})

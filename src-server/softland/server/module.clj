@@ -10,7 +10,7 @@
   and not a part of the store's module (`softland.store.module`): a row
   here is found by the hash of a secret, which no reader of the store may
   be served, and the store's two depots of acts stay the store's whole
-  ground. That a session's record lives here, and not as facts in a layer,
+  ground. That a session's record lives here, and not as facts in a lane,
   is a session's choice of 20 November 2026 (call 1 of
   src/proposal/server-2026-11-20/PROPOSAL.md), for Sid to turn.
 

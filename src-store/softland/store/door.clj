@@ -19,9 +19,9 @@
     open         a cluster handle, the module's name, and when the opener
                  wants, a map with the door's one number -> a door, or a
                  word
-    act-id-for   a layer -> an act-id [layer depot uuid], or a word
-    act-ids-for  a layer and a count -> a vector of that many act-ids of
-                 the layer, made with one read, or a word
+    act-id-for   a lane -> an act-id [lane depot uuid], or a word
+    act-ids-for  a lane and a count -> a vector of that many act-ids of
+                 the lane, made with one read, or a word
     send-act     a maker's act, and when the maker asked for one ahead, its
                  act-id -> {:act-id :digest :ack}, or a word
     answer-of    an act-id, the digest that `send-act` gave, and when the
@@ -54,7 +54,7 @@
   The door holds one number, fixed at the opening: how long a wait sleeps
   between two reads (`softland.store.door.wait`). It keeps nothing between
   two calls: no act-id that it gave, no thing that it sent, no digest, no
-  time that it wrote, and no layer's depot.
+  time that it wrote, and no lane's depot.
 
   The clocks. The door reads two clocks of its JVM. For the time on an act
   it reads the clock of the server that runs it, once for each thing that
@@ -70,9 +70,9 @@
   What it requires outside the door's own folder, and why. Each is a pure
   function that holds one rule that the door needs, so that no rule is
   written a second time. `softland.store.gate.first-act/depot-at-making`:
-  the depot that a layer starts with, for a layer that is not made. From
+  the depot that a lane starts with, for a lane that is not made. From
   `softland.store.record.rows`: `routing-id`, the first argument of the
-  query of an answer, which is the act-id's layer for both depots; and
+  query of an answer, which is the act-id's lane for both depots; and
   `depot-read` and `answer-read-by-routing-id`, the tests that the head of
   each query makes of what a caller passes, which a caller that may hold a
   thing that is no id makes itself before it calls.
@@ -104,10 +104,10 @@
   tests what its additions need and nothing else. So each of these is
   appended, is refused by a gate under its own act-id with the gate's word,
   and leaves no fact in the record: an act of an unknown version; an act
-  with no session; an act under a permission of another layer, under one
+  with no session; an act under a permission of another lane, under one
   that does not stand, under one that says see, or under one whose holder
   is not the act's who; an act under a yes for another act, or under one
-  that was used up; an act into a layer that is not made; and an act
+  that was used up; an act into a lane that is not made; and an act
   whose act-id names the other gate's depot. A refused act sent in a loop
   leaves one record on a depot for each try, and one answer for each act-id
   that it is sent under. A value of any size that Rama's client can write is appended
@@ -117,7 +117,7 @@
   Room that the door leaves, each an open row of the queue that this code
   decides nothing of:
 
-    - a layer whose depot changes (?9): the door reads the layer's depot
+    - a lane whose depot changes (?9): the door reads the lane's depot
       for each act-id that it makes and remembers none;
     - sign-in, in front of the door (K7 to K10, Q16): it stands before
       this code runs, and changes none of it;
@@ -224,10 +224,10 @@
 
 (defn- read-answer
   "Reads the answer under an act-id: one round trip, the query
-  `answer-by-act-id`, to one task, the task of the act-id's layer. Takes
+  `answer-by-act-id`, to one task, the task of the act-id's lane. Takes
   the door and an act-id. Gives [:ok the answer or nil] or [:threw info].
   The first argument of the query is the act-id's routing id
-  (`softland.store.record.rows/routing-id`): its layer, for a streaming
+  (`softland.store.record.rows/routing-id`): its lane, for a streaming
   act-id and for a microbatch one.
 
   Before it calls, it makes the test that the head of the query makes
@@ -242,25 +242,25 @@
       [:ok nil])))
 
 (defn- depot-of
-  "Reads the depot of a layer: one round trip, the query `depot-of-layer`,
-  to the layer's task. Takes the door and a layer that passed
+  "Reads the depot of a lane: one round trip, the query `depot-of-lane`,
+  to the lane's task. Takes the door and a lane that passed
   `softland.store.record.rows/depot-read`. Gives [:ok the depot word], or
-  [:word `:read-the-layers-depot`] when the read threw.
+  [:word `:read-the-lanes-depot`] when the read threw.
 
-  When the read gives nil the layer is not made, and the depot is the one
-  that the layer starts with
+  When the read gives nil the lane is not made, and the depot is the one
+  that the lane starts with
   (`softland.store.gate.first-act/depot-at-making`). A read that threw has
   not said \"not made\", so it gives a word and no depot. In this build the
   read and the starting depot always agree, since no act changes a depot;
-  the read is made all the same, and it is what leaves room for a layer
-  whose depot can change (?9, not decided). The door remembers no layer's
+  the read is made all the same, and it is what leaves room for a lane
+  whose depot can change (?9, not decided). The door remembers no lane's
   depot between two calls: that would be a kept copy of what the cluster
   holds."
-  [^Door door layer]
-  (let [[outcome got] (attempt (fn [] (rama/foreign-invoke-query (.-depot-query door) layer)))]
+  [^Door door lane]
+  (let [[outcome got] (attempt (fn [] (rama/foreign-invoke-query (.-depot-query door) lane)))]
     (if (= :threw outcome)
-      [:word (words/word :read-the-layers-depot (assoc got :layer layer))]
-      [:ok (or got (first-act/depot-at-making layer))])))
+      [:word (words/word :read-the-lanes-depot (assoc got :lane lane))]
+      [:ok (or got (first-act/depot-at-making lane))])))
 
 ;; ------------------------------------------------------------------ the clock
 
@@ -365,44 +365,44 @@
              (rama/foreign-depot cluster module-name "*streaming-depot")
              (rama/foreign-depot cluster module-name "*microbatch-depot")
              (rama/foreign-query cluster module-name "answer-by-act-id")
-             (rama/foreign-query cluster module-name "depot-of-layer")
+             (rama/foreign-query cluster module-name "depot-of-lane")
              (wait/numbers numbers))
      (catch Throwable t
        (words/word :find-the-module (assoc (what-threw t) :module module-name))))))
 
 (defn act-id-for
-  "Gives an act-id for a layer, ahead of sending. Takes the door and a
-  layer. Gives [layer depot uuid], or a word.
+  "Gives an act-id for a lane, ahead of sending. Takes the door and a
+  lane. Gives [lane depot uuid], or a word.
 
-  The depot is the layer's depot as the module gives it, or the depot that
-  the layer starts with when the layer is not made (`depot-of`). The uuid
+  The depot is the lane's depot as the module gives it, or the depot that
+  the lane starts with when the lane is not made (`depot-of`). The uuid
   is a random one of the JVM's, made from nothing of the act, the maker, the
   person or the time. The door keeps no id that it gave, so it gives no id
   twice only by the chance of a random uuid being none, and it cannot tell
   an id of its own from another.
 
-  One round trip, to the layer's task; none for a layer that is no id
-  within the limit, which ends in `:make-an-act-id` at `:layer`. A read
-  that threw ends in `:read-the-layers-depot`. A maker that gives the
+  One round trip, to the lane's task; none for a lane that is no id
+  within the limit, which ends in `:make-an-act-id` at `:lane`. A read
+  that threw ends in `:read-the-lanes-depot`. A maker that gives the
   act-id back to `send-act` pays no second read there."
-  [^Door door layer]
-  (if-not (record/depot-read layer)
-    (words/word :make-an-act-id {:at :layer})
-    (let [[outcome got] (depot-of door layer)]
+  [^Door door lane]
+  (if-not (record/depot-read lane)
+    (words/word :make-an-act-id {:at :lane})
+    (let [[outcome got] (depot-of door lane)]
       (if (= :word outcome)
         got
-        [layer got (UUID/randomUUID)]))))
+        [lane got (UUID/randomUUID)]))))
 
 (defn act-ids-for
-  "Gives the act-ids of a series in one layer, before the first of them is
-  sent. Takes the door, a layer, and a count, a fixed-width integer of 1 or
-  more. Gives a vector of that many act-ids of the layer, each with a uuid
+  "Gives the act-ids of a series in one lane, before the first of them is
+  sent. Takes the door, a lane, and a count, a fixed-width integer of 1 or
+  more. Gives a vector of that many act-ids of the lane, each with a uuid
   of its own, or a word.
 
   A maker may use an id of the series in a later act of it before anything
   is sent: as `:because-of`, and as the act-id of a fact id in `:replaces`
-  and `:based-on`. One read of the layer's depot serves the whole series,
-  where `act-id-for` would read once for each id, on the layer's task,
+  and `:based-on`. One read of the lane's depot serves the whole series,
+  where `act-id-for` would read once for each id, on the lane's task,
   whose one thread the streaming gate also needs.
 
   The words are those of `act-id-for`, and `:make-an-act-id` at `:count`
@@ -410,14 +410,14 @@
   has no bound but the memory of the process. The whole vector is made
   before the call returns, so a count that the memory does not hold ends in
   the JVM's own error, which is no word of the door's."
-  [^Door door layer n]
-  (or (when-not (record/depot-read layer)
-        (words/word :make-an-act-id {:at :layer}))
+  [^Door door lane n]
+  (or (when-not (record/depot-read lane)
+        (words/word :make-an-act-id {:at :lane}))
       (additions/series-word n)
-      (let [[outcome got] (depot-of door layer)]
+      (let [[outcome got] (depot-of door lane)]
         (if (= :word outcome)
           got
-          (vec (repeatedly n (fn [] [layer got (UUID/randomUUID)])))))))
+          (vec (repeatedly n (fn [] [lane got (UUID/randomUUID)])))))))
 
 (defn send-act
   "Takes a maker's act into its depot. Takes the door; the act, in the one
@@ -443,9 +443,9 @@
        (`softland.store.door.additions/reading`): `:read-the-act`,
        `:add-its-parts`, `:make-an-act-id`.
     2. The act-id. Given: used as it is, also when its depot slot is not
-       the layer's depot; the thing then goes to the depot that it names
-       and a gate refuses it there. Not given: one read of the layer's
-       depot, and a random uuid: `:read-the-layers-depot`.
+       the lane's depot; the thing then goes to the depot that it names
+       and a gate refuses it there. Not given: one read of the lane's
+       depot, and a random uuid: `:read-the-lanes-depot`.
     3. The door reads the clock of its server, once. The thing is built,
        the maker's map with `:act-id`, `:depot` and `:door-time` added, and
        its digest is taken by a walk that tells a throw
@@ -468,12 +468,12 @@
   the door, in milliseconds since 1970, a fixed-width integer
   (`server-clock`). The door reads it once in a call, at step 3; a call
   that ends in a word before that step reads no clock. It is the one read
-  of a clock on the way of an act through the store, in a streaming layer
+  of a clock on the way of an act through the store, in a streaming lane
   and in the base alike. No gate reads a clock: a gate's decisions are a
   function of its depot's order, so that a run again gives the same
   record. The time is a label. A gate puts it beside the stamp, in the
   answer and in each row of the act's facts, and no rule reads it: the
-  stamp is the layer's count of decisions and holds no time
+  stamp is the lane's count of decisions and holds no time
   (`softland.store.gate.stamp`; Sid's decision of 14 October 2026). Two
   doors on two servers write two clocks, and nothing holds one against
   the other: a wrong clock gives a wrong label, and nothing else.
@@ -493,21 +493,21 @@
   two times one thing.
 
   The door stops no act. An act that a gate will refuse, under a permission
-  that does not stand or into a layer that is not made, goes into its depot
+  that does not stand or into a lane that is not made, goes into its depot
   like any other, and its refusal is recorded under its own act-id.
 
   The order of two sends. When the call returns, its append is over: it was
   acked or it threw. So two sends that one maker makes one after the other
-  reach the depot in that order. A layer is one partition of its depot, in
+  reach the depot in that order. A lane is one partition of its depot, in
   the streaming depot and in the microbatch depot: the base is one line.
-  So in a streaming layer and in the base alike the order of the two sends
+  So in a streaming lane and in the base alike the order of the two sends
   is the order of the two decisions, without a failure, and a maker need
   not read the answer of the first before she sends the second. Each gate's
   namespace says what a failure does
   (`softland.store.module.streaming-gate`,
   `softland.store.module.microbatch-gate`).
 
-  When the answer is there. For a streaming layer, when `send-act` returns
+  When the answer is there. For a streaming lane, when `send-act` returns
   with its ack: the gate has run. For the base, when the batch that decided
   the act is committed on the base's task; the ack says only that the depot
   holds the thing, so a maker of the base reads with a wait
@@ -532,11 +532,11 @@
        reading
        (let [[outcome act-id] (if (some? act-id)
                                 [:ok act-id]
-                                (let [layer (:layer reading)
-                                      [outcome got] (depot-of door layer)]
+                                (let [lane (:lane reading)
+                                      [outcome got] (depot-of door lane)]
                                   (if (= :word outcome)
                                     [:word got]
-                                    [:ok [layer got (UUID/randomUUID)]])))]
+                                    [:ok [lane got (UUID/randomUUID)]])))]
          (if (= :word outcome)
            act-id
            (let [built (additions/thing-to-append reading act-id (server-clock))]
@@ -581,7 +581,7 @@
   is on a depot. It is the answer in states that the door cannot tell
   apart: nothing was ever sent under the act-id; a thing is on its depot
   and not decided; a microbatch act is decided and its batch is not yet
-  committed on the layer's task; the thing is a stray, which the door
+  committed on the lane's task; the thing is a stray, which the door
   itself never sends; the thing given is no act-id, for which the door
   makes no read at all and comes back at once.
 

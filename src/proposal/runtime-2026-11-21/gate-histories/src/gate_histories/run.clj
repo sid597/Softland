@@ -1,8 +1,8 @@
 (ns gate-histories.run
-  "Generated histories of one layer, sent through the store's own door and
+  "Generated histories of one lane, sent through the store's own door and
   gate code and held against the statements.
 
-  A history is a list of things that makers send into one layer: gives,
+  A history is a list of things that makers send into one lane: gives,
   ends, gives after an end, plain facts, settings; a permission for a run
   and acts sent in it; a yes for one act, with an id of its own that its
   giver makes, given, ended by its giver, by the one above the giver or by
@@ -49,18 +49,18 @@
                giver or one above the giver: no row at the yes's place
                among what was written, and the yes's own act, taken before
                the thing, is taken after it
-    stamps     the decisions of the layer have the stamps 0, 1, 2 and on
+    stamps     the decisions of the lane have the stamps 0, 1, 2 and on
     kept       a decision changes no row but its own: what was taken stays,
                and a refusal writes no fact
     see        after each decision, the read path lets an asker see the
-               layer exactly when the statements do: each holder, one who
+               lane exactly when the statements do: each holder, one who
                was never given anything, each in no run and in each run,
                signed in and not
-    unseen     an asker who keeps a read open on a layer that she may not
+    unseen     an asker who keeps a read open on a lane that she may not
                see, before a decision and after it, is told nothing at that
                decision: not even an answer that says what it said, which
-               would tell her that something of the layer was written
-               (`softland.store.read-path.layers/meaning`)
+               would tell her that something of the lane was written
+               (`softland.store.read-path.lanes/meaning`)
     screen     what such an asker was shown, after each decision, is what a
                read asked once gives (`gate-histories.live`)
     run-again  the same things, decided again from nothing, give the same
@@ -93,18 +93,18 @@
             [softland.store.door.digest :as digest]
             [softland.store.gate.chain :as chain]
             [softland.store.gate.decision :as decision]
-            [softland.store.read-path.layers :as layers]
+            [softland.store.read-path.lanes :as lanes]
             [softland.store.record.rows :as record])
   (:import [java.util UUID]))
 
 ;; ------------------------------------------------------------------ the world
 
-(def layer "The one layer of a history." :lab)
-(def holders "Who can be given a permission. The first makes the layer." [:asha :ben :cal :dee :eve])
+(def lane "The one lane of a history." :lab)
+(def holders "Who can be given a permission. The first makes the lane." [:asha :ben :cal :dee :eve])
 (def senders "Who can send: the holders, and one who is never given anything." (conj holders :zed))
 (def runs "The runs that a thing can be sent in." [:run-1 :run-2 :run-3])
-(def root "The holder of the layer's first permission." (first holders))
-(def root-permission "The layer's first permission." [root layer layer])
+(def root "The holder of the lane's first permission." (first holders))
+(def root-permission "The lane's first permission." [root lane lane])
 (def ^:private now "The time on each thing, as the door adds it. No rule reads it." 1700000000000)
 
 (def ^:private yes-high
@@ -128,11 +128,11 @@
   (walk/postwalk (fn [v] (if (bytes? v) (vec v) v)) x))
 
 (defn- act-id-of
-  "The act-id of a history's thing with this number: the layer, its depot,
+  "The act-id of a history's thing with this number: the lane, its depot,
   and the number as the uuid; with `j`, the j-th act-id more of that
   number, for a step that sends more than one thing under a number."
   ([n] (act-id-of n 0))
-  ([n j] [layer :streaming (UUID. (long j) (long n))]))
+  ([n j] [lane :streaming (UUID. (long j) (long n))]))
 
 (defn- yes-id-of
   "The id that a giver makes for a yes, from the number of a step."
@@ -142,7 +142,7 @@
 (defn- maker-act
   "An act as its maker hands it to the door: no act-id, no depot, no time."
   [who session permission facts]
-  (cond-> {:version act/version :who who :layer layer :session session :facts (vec facts)}
+  (cond-> {:version act/version :who who :lane lane :session session :facts (vec facts)}
     permission (assoc :permission permission)))
 
 (defn- thing
@@ -153,13 +153,13 @@
    (gate/through-the-door (maker-act who session permission facts) (act-id-of n j) now)))
 
 (def ^:private making-maker
-  "The act that makes the layer, as its maker hands it to the door."
+  "The act that makes the lane, as its maker hands it to the door."
   (maker-act root (first runs) root-permission
-             [{:e layer :k :softland.store/depot :v :streaming}
+             [{:e lane :k :softland.store/depot :v :streaming}
               {:e root :k :softland.store/permission :v root-permission}]))
 
 (def ^:private making-thing
-  "The act that makes the layer, as it arrives."
+  "The act that makes the lane, as it arrives."
   (gate/through-the-door making-maker (act-id-of 0) now))
 
 (defn- from-the-end
@@ -178,11 +178,11 @@
   which the maker's act does not carry. Takes the act as its maker hands it
   to the door, with a permission or without. `parse` wants a permission,
   and the one form of every other part is the same whichever permission is
-  there: a first permission of the act's who in its layer is put in for the
+  there: a first permission of the act's who in its lane is put in for the
   parse and taken out of the one form after. Throws for an act that the
   form refuses: a history makes a yes only for an act that parses."
   [maker]
-  (let [parsed (act/parse (assoc maker :permission [(:who maker) (:layer maker) (:layer maker)]))]
+  (let [parsed (act/parse (assoc maker :permission [(:who maker) (:lane maker) (:lane maker)]))]
     (if-let [one-form (:ok parsed)]
       (digest/hex-of (dissoc one-form :permission))
       (throw (ex-info "a yes is made only for an act that parses" {:act maker :parse parsed})))))
@@ -201,7 +201,7 @@
 
 (def ^:private gen-permission-choice
   "Which permission a maker names: mostly the one she was last given for the
-  layer; else an older one, her own with what it allows changed, another
+  lane; else an older one, her own with what it allows changed, another
   holder's, the permission of the run that she sends in, of another run, or
   a yes for one act."
   (gen/frequency
@@ -232,7 +232,7 @@
                             (gen/elements [:see :see-and-act :see-and-act])
                             (gen/frequency [[20 (gen/return nil)]
                                             [1 (gen/return :on-the-holder)]
-                                            [1 (gen/return :under-the-layers-key)]])))]
+                                            [1 (gen/return :under-the-lanes-key)]])))]
     [4 (gen/fmap (fn [run] {:f :end-run :run run}) gen-run)]
     [2 (gen/fmap (fn [n] {:f :end-act :n n}) gen/nat)]]))
 
@@ -264,7 +264,7 @@
                             (gen/frequency [[9 (gen/return :its-holder)] [1 (gen/return :another)]])))]
     ;; a yes for one act, made and given, and what its holder sends. Its
     ;; giver is as chosen, or a holder who was given a permission for the
-    ;; layer, so that a giver is often not the first holder and one above
+    ;; lane, so that a giver is often not the first holder and one above
     ;; her can end the yes or give a second one
     [6 (gen/fmap (fn [[[by giver] in choice for for-in fact then]]
                    {:op :yes-for-one-act :by by :giver giver :in in :permission choice
@@ -302,17 +302,17 @@
 ;; ------------------------------------------------ from a step to the things sent
 
 (defn- current-permission
-  "The permission for the layer that a holder was last given, by the gives
+  "The permission for the lane that a holder was last given, by the gives
   that the gate took; a guess beneath the first permission for a holder who
   was given none."
   [pools holder]
-  (or (peek (get-in pools [:layer holder])) [holder layer layer root-permission]))
+  (or (peek (get-in pools [:lane holder])) [holder lane lane root-permission]))
 
 (defn- run-permission
   "The permission that a run was last given, by the gives that the gate
   took; a guess for a run that was given none, with `who` as its holder."
   [pools who run]
-  (or (peek (get-in pools [:run run])) [who layer layer root-permission :see-and-act [:run run]]))
+  (or (peek (get-in pools [:run run])) [who lane lane root-permission :see-and-act [:run run]]))
 
 (defn- raised
   "A holder's permission with what it allows changed: \"see\" becomes \"see
@@ -329,7 +329,7 @@
   "The permission that the maker of a step names. `in` is the run that she
   sends in."
   [pools by in choice]
-  (let [pool (get-in pools [:layer by])
+  (let [pool (get-in pools [:lane by])
         kind (if (keyword? choice) choice (first choice))]
     (case kind
       :current (current-permission pools by)
@@ -347,11 +347,11 @@
   (case f
     :give {:e to
            :k :softland.store/permission
-           :v (cond-> [to layer layer (if beneath (current-permission pools beneath) permission)]
+           :v (cond-> [to lane lane (if beneath (current-permission pools beneath) permission)]
                 allows (conj allows))}
     :give-run {:e (if (= :on-the-holder wrong) to run)
-               :k (if (= :under-the-layers-key wrong) :softland.store/permission :softland.store/run-permission)
-               :v [to layer layer permission allows [:run run]]}
+               :k (if (= :under-the-lanes-key wrong) :softland.store/permission :softland.store/run-permission)
+               :v [to lane lane permission allows [:run run]]}
     :end {:e of :k :softland.store/permission}
     :end-run {:e run :k :softland.store/run-permission}
     :end-act {:e (if-let [entry (from-the-end (:act pools) (:n fact))]
@@ -359,7 +359,7 @@
                    (UUID. yes-high -1))
               :k :softland.store/act-permission}
     :plain {:e e :k k :v (str "said at " n)}
-    :setting {:e layer
+    :setting {:e lane
               :k key
               :v (case key
                    :softland.store/who-may-see word
@@ -385,7 +385,7 @@
   text] the act], for the statements}."
   [yes maker givers]
   (let [text (hex-for-a-yes maker)
-        pa [(:who maker) layer layer givers :see-and-act [:act yes text]]]
+        pa [(:who maker) lane lane givers :see-and-act [:act yes text]]]
     {:entry {:permission pa :maker maker :yes yes}
      :named [[yes text] maker]}))
 
@@ -412,11 +412,11 @@
       (update :facts #(apply list %))))
 
 (defn- one-who-was-given-one
-  "A holder other than the first who was given a permission for the layer
+  "A holder other than the first who was given a permission for the lane
   by a give that the gate took, the last of them in the order of the
   holders; `by` when there is none."
   [pools by]
-  (or (last (filter #(and (not= root %) (seq (get-in pools [:layer %]))) holders)) by))
+  (or (last (filter #(and (not= root %) (seq (get-in pools [:lane %]))) holders)) by))
 
 (defn- yes-for-one-act
   "The things of a yes for one act: the give of a yes, with an id of its
@@ -465,7 +465,7 @@
               :another-run [(give first-yes 0)
                             (permitted entry (act-at 0) #(assoc % :session (first (remove #{for-in} runs))))]
               :written-another-way [(give first-yes 0) (permitted entry (act-at 0) written-another-way)]
-              :under-its-own-id [(give first-yes 0) (permitted entry [layer :streaming yes])]
+              :under-its-own-id [(give first-yes 0) (permitted entry [lane :streaming yes])]
               :twice [(give first-yes 0) (permitted entry (act-at 0)) (permitted entry (act-at 1))]
               :two-yeses [(give first-yes 0) (give second-yes 1)
                           (permitted entry (act-at 0)) (permitted (:entry second-yes) (act-at 1))])}))
@@ -473,10 +473,10 @@
 (defn- on-an-act
   "The thing of a step on a yes that was made: its act sent by its holder
   under a new act-id; an end of the yes, by its giver, by the one above the
-  giver, or by its holder under her permission for the layer; a second yes
+  giver, or by its holder under her permission for the lane; a second yes
   for the same act and holder, with a new id, by its giver, by the one
   above the giver, or by another holder, each beneath her own permission
-  for the layer; or a give at this yes's own place again, of the same yes
+  for the lane; or a give at this yes's own place again, of the same yes
   beneath the giver's own permission or beneath another's. A second yes is
   another entry of the pools."
   [pools n {:keys [what by in]} entry]
@@ -535,9 +535,9 @@
     :under-its-id (if-let [given (pick (or (:given-acts pools) (mapv :permission (:act pools))) step)]
                     (let [yes (second (nth given 5))
                           who (case (:who step)
-                                ;; a holder whose last permission for the layer says see
+                                ;; a holder whose last permission for the lane says see
                                 :one-who-may-only-see
-                                (or (first (filter (fn [h] (= :see (nth (peek (get-in pools [:layer h])) 4 nil)))
+                                (or (first (filter (fn [h] (= :see (nth (peek (get-in pools [:lane h])) 4 nil)))
                                                    (remove #{(first given)} holders)))
                                     by)
                                 :one-who-holds-nothing :zed
@@ -545,7 +545,7 @@
                           own (current-permission pools who)]
                       {:picked given
                        :sends [(gate/through-the-door (maker-act who in own [(fact-of pools n own (:fact step))])
-                                                      [layer :streaming yes] now)]})
+                                                      [lane :streaming yes] now)]})
                     {:sends []})
     :used-act-id (let [earlier (pick things step)
                        who (if (= :same (:as step)) (:who earlier) by)
@@ -584,21 +584,21 @@
         (:facts sent)))
 
 (defn- with-gives
-  "The pools with the gives of a thing that the gate took, for the layer,
+  "The pools with the gives of a thing that the gate took, for the lane,
   for a run, and for one act. A yes for one act goes into the pools' `:act`
   when it is made, whether or not its give is taken; its permission goes
   into `:given-acts` when the gate takes the give."
   [pools sent]
   (reduce (fn [pools [kind permission]]
             (case kind
-              :layer (update-in pools [:layer (first permission)] (fnil conj []) permission)
+              :lane (update-in pools [:lane (first permission)] (fnil conj []) permission)
               :run (update-in pools [:run (second (nth permission 5))] (fnil conj []) permission)
               :act (update pools :given-acts (fnil conj []) permission)))
           pools
           (gives-of sent)))
 
 (defn- covers-word
-  "What a thing's permission covers, in a word: `:layer`, `:run` or `:act`."
+  "What a thing's permission covers, in a word: `:lane`, `:run` or `:act`."
   [sent]
   (first (reference/covers (:permission sent))))
 
@@ -617,7 +617,7 @@
   "The key of the place of a yes in the record: its own id, under the key of
   a yes for one act."
   [yes]
-  (record/place-key layer yes :softland.store/act-permission))
+  (record/place-key lane yes :softland.store/act-permission))
 
 (defn- yeses-of
   "Each yes for one act that the statements took, as [grant number,
@@ -655,24 +655,24 @@
 (defn- rows-at [facts ks] (into {} (map (fn [k] [k (get facts k)])) ks))
 
 (defn- seeing
-  "What the read path says of one asker and the layer, from the record: the
-  layer's own rows, her permission row and the rows above it, and, for a
+  "What the read path says of one asker and the lane, from the record: the
+  lane's own rows, her permission row and the rows above it, and, for a
   read asked in a run, the row of the run's permission and the rows above
-  it (`softland.store.read-path.layers`)."
+  it (`softland.store.read-path.lanes`)."
   [facts who run signed-in?]
   (let [own-rows (into {}
-                       (keep (fn [k] (let [place (record/place-key layer layer k)]
+                       (keep (fn [k] (let [place (record/place-key lane lane k)]
                                        (when-let [row (get facts place)] [place row]))))
                        [:softland.store/depot :softland.store/who-may-see
                         :softland.store/builds-on :softland.store/marked-keys])
         above-of (fn [row] (if-let [held (record/held-permission row)]
-                             (rows-at facts (chain/places-above layer held))
+                             (rows-at facts (chain/places-above lane held))
                              {}))
-        permission-row (get facts (record/place-key layer who :softland.store/permission))
-        run-row (when run (get facts (record/place-key layer run :softland.store/run-permission)))]
-    (layers/standing layer own-rows
-                     (layers/either (layers/permission-state layer permission-row (above-of permission-row))
-                                    (if run (layers/run-permission-state layer who run-row (above-of run-row)) :none))
+        permission-row (get facts (record/place-key lane who :softland.store/permission))
+        run-row (when run (get facts (record/place-key lane run :softland.store/run-permission)))]
+    (lanes/standing lane own-rows
+                     (lanes/either (lanes/permission-state lane permission-row (above-of permission-row))
+                                    (if run (lanes/run-permission-state lane who run-row (above-of run-row)) :none))
                      signed-in?)))
 
 (defn- see-violation
@@ -694,13 +694,13 @@
                  " for " (name who) (when run (str " in " (name run))) (when-not signed-in? ", not signed in"))})))
 
 (defn- open-live
-  "The live reads of a history, opened when the layer is made."
+  "The live reads of a history, opened when the lane is made."
   [state]
   (let [tables (live/tables (:rec state) :streaming)]
     (assoc state :live
            (mapv (fn [[who run]]
                    {:who who :run run
-                    :read (live/open tables (live/check {:asks live-asks :asker who :session run :layers [layer]}))})
+                    :read (live/open tables (live/check {:asks live-asks :asker who :session run :lanes [lane]}))})
                  live-askers))))
 
 (defn- live-step
@@ -724,7 +724,7 @@
                 (when (and unseen? (seq tells))
                   {:statement :unseen
                    :class [:unseen (if (:anew (first tells)) :a-whole-answer :a-changed-place)]
-                   :what (str (name who) ", asking in " (name run) ", may not see the layer before and after, and was told "
+                   :what (str (name who) ", asking in " (name run) ", may not see the lane before and after, and was told "
                               (count tells) " time" (when (< 1 (count tells)) "s") ": " (pr-str (first tells)))})
                 (when (not= truth (:screen read))
                   {:statement :screen
@@ -780,7 +780,7 @@
 (def ^:private probe-act-id
   "The act-id under which T2 asks whether a yes's own act would be taken:
   one that no history uses."
-  [layer :streaming (UUID. -1 -1)])
+  [lane :streaming (UUID. -1 -1)])
 
 (defn- probe-of
   "The act that a yes names, sent by its holder under the yes, through the
@@ -801,7 +801,7 @@
   "True when the statements, in this state, take the thing."
   [ref named t]
   (binding [reference/*act-named* named]
-    (boolean (:accept? (reference/judge ref layer t)))))
+    (boolean (:accept? (reference/judge ref lane t)))))
 
 (defn- outsiders-violation
   "T2 for one decision: nothing that an outsider of a yes for one act sends
@@ -937,7 +937,7 @@
   [state op sent again?]
   (let [{:keys [record outcome]} (gate/decide (:rec state) :streaming sent)
         ruled (binding [reference/*act-named* (:named state)]
-                (reference/judge (:ref state) layer sent))
+                (reference/judge (:ref state) lane sent))
         told (gate/told record sent)
         taken? (= :accepted (:verdict outcome))
         decided? (contains? outcome :stamp)
@@ -972,7 +972,7 @@
                  :what (str "the statements tell its sender " (pr-str (:answer ruled)) ", and the door tells her " (pr-str told))})
               (when (and decided? (not= (:stamp outcome) (:decisions state)))
                 {:statement :stamps :class [:stamps]
-                 :what "a stamp is not the count of the layer's decisions"
+                 :what "a stamp is not the count of the lane's decisions"
                  :stamp (:stamp outcome) :expected (:decisions state)})
               (when decided? (row-violation (:facts (:rec state)) (:facts record) outcome))
               (see-violation (:facts record) (:state ruled))
@@ -995,7 +995,7 @@
       (count! [:deep (count (take-while some? (iterate #(nth % 3 nil) (:permission sent))))])
       (count! [:under (covers-word sent)]))
     (when (and (= (:who sent) (first (:permission sent)))
-               (= :layer (covers-word sent))
+               (= :lane (covers-word sent))
                (reference/looks-intact? (:ref state) (:permission sent))
                (nil? (reference/standing-grant (:ref state) (:who sent) (:permission sent))))
       (count! :looked-intact-but-ended))
@@ -1005,7 +1005,7 @@
               :when kind]
         (count! [(if (nil? v) :ends-taken :gives-taken) kind]))
       (when (some #(reference/ends-as-holder? (:ref state) sent %) (:facts sent))
-        (count! :ends-by-the-holder-under-her-layers)))
+        (count! :ends-by-the-holder-under-her-lanes)))
     (let [line (cond-> line broke (assoc :broke broke))]
       (if out?
         (-> state
@@ -1031,7 +1031,7 @@
   of the things that stayed in the history."
   [ops]
   (loop [state {:rec gate/empty-record :ref reference/start
-                :pools {:layer {root [root-permission]} :run {} :act []}
+                :pools {:lane {root [root-permission]} :run {} :act []}
                 :named {} :first-under {} :tries {} :live []
                 :things [] :steps [] :violations [] :picked [] :decisions 0 :n 0}
          todo (cons {:op :make} ops)]
@@ -1114,7 +1114,7 @@
   (let [kind (reference/permission-keys k)]
     (cond
       (and kind (some? v)) (str "gives " (chain-line v))
-      (= :layer kind) (str "ends " (name e) "'s")
+      (= :lane kind) (str "ends " (name e) "'s")
       (= :run kind) (str "ends the one for " (name e))
       (= :act kind) (str "ends the yes " (yes-line e))
       (= "softland.store" (namespace k)) (str "sets " (name k))
@@ -1159,7 +1159,7 @@
 (defn- covers-phrase
   "What a permission covers, as words."
   [covers]
-  (case covers :layer "a permission for the layer" :run "a permission for one run" :act "a yes for one act"
+  (case covers :lane "a permission for the lane" :run "a permission for one run" :act "a yes for one act"
         (pr-str covers)))
 
 (defn- class-line
@@ -1201,12 +1201,12 @@
                (case (first more) :the-same-thing-again "the same thing sent again" "another thing")
                " was decided, or wrote, under " (covers-phrase (second more)))
     :unseen
-    (str "unseen: an asker who may not see the layer, before a decision and after it, is told "
+    (str "unseen: an asker who may not see the lane, before a decision and after it, is told "
          (case (first more) :a-whole-answer "a whole answer again" "a changed place")
          " at that decision")
     :screen "screen: what a live read shows is not what a read asked once gives"
     :see (str "see: the read path says " (name (first more)) " where the statements say " (name (second more)))
-    :stamps "stamps: a stamp is not the count of the layer's decisions"
+    :stamps "stamps: a stamp is not the count of the lane's decisions"
     :kept (str "kept: " (name (first more)))
     :run-again "run-again: the same things, decided again, give another record"
     (pr-str class)))
@@ -1330,9 +1330,9 @@
   [["S3: a permission stands when its ids are in place, with no look at when each was given"
     #'softland.store.gate.chain/stands?
     (fn [_]
-      (fn [layer permission rows]
+      (fn [lane permission rows]
         (loop [p permission]
-          (cond (not (record/holds-value? (get rows (chain/place layer p)) p)) false
+          (cond (not (record/holds-value? (get rows (chain/place lane p)) p)) false
                 (nil? (chain/above p)) true
                 :else (recur (chain/above p))))))]
    ["S4, S5: whoever may act ends any permission, the first one too"
@@ -1351,11 +1351,11 @@
     #'softland.store.act/allows
     (fn [_] (fn [_permission] :see-and-act))]
    ["S11: a read lets a holder see after her permission ended"
-    #'softland.store.read-path.layers/permission-state
-    (fn [_] (fn [_layer permission-row _chain-rows] (if permission-row :stands :none)))]
-   ["S12: a read lets nobody but members see a layer that is open to everyone"
-    #'softland.store.read-path.layers/who-may-see
-    (fn [_] (fn [_own-rows _layer] :members))]
+    #'softland.store.read-path.lanes/permission-state
+    (fn [_] (fn [_lane permission-row _chain-rows] (if permission-row :stands :none)))]
+   ["S12: a read lets nobody but members see a lane that is open to everyone"
+    #'softland.store.read-path.lanes/who-may-see
+    (fn [_] (fn [_own-rows _lane] :members))]
    ["R1, R9: an act is taken under a run's permission whatever run it is sent in"
     #'softland.store.gate.decision/standing
     (fn [standing]
@@ -1365,10 +1365,10 @@
                     (if (= :run kind) (assoc the-act :session run) the-act)
                     permission-row depot-row chain-rows hex))))]
    ["R8: a read lets an asker see under any run's permission, whoever holds it"
-    #'softland.store.read-path.layers/run-permission-state
+    #'softland.store.read-path.lanes/run-permission-state
     (fn [state]
-      (fn [layer _asker run-row chain-rows]
-        (state layer (first (record/held-permission run-row)) run-row chain-rows)))]
+      (fn [lane _asker run-row chain-rows]
+        (state lane (first (record/held-permission run-row)) run-row chain-rows)))]
    ["R2: any act is taken under a yes for one act, whatever it says"
     #'softland.store.gate.decision/hex-for-its-permission
     (fn [_]
@@ -1453,8 +1453,8 @@
   (doseq [[k n] (counted-under counted :a-give-at-a-yes-place-again)]
     (println (format "  %8d  %s" n (pr-str k))))
   (println "under an act-id that has an answer:" (counted-under counted :act-ids))
-  (println (format "acts under a permission that looked intact by its ids and had ended: %d; ends by a holder under her permission for the layer: %d"
-                   (:looked-intact-but-ended counted 0) (:ends-by-the-holder-under-her-layers counted 0)))
+  (println (format "acts under a permission that looked intact by its ids and had ended: %d; ends by a holder under her permission for the lane: %d"
+                   (:looked-intact-but-ended counted 0) (:ends-by-the-holder-under-her-lanes counted 0)))
   (println "taken, by how deep the act's permission was:" (counted-under counted :deep))
   (println "refused, by the gate's word:")
   (doseq [[word n] (sort-by (comp - val) (counted-under counted :refused))]

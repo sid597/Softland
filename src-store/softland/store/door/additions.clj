@@ -17,15 +17,15 @@
   refusal is in the record. What is tested here is only what the door's own
   additions need:
 
-    - the thing is a plain map whose `:layer` can be read;
+    - the thing is a plain map whose `:lane` can be read;
     - it does not already hold `:act-id`, `:depot` or `:door-time`;
-    - its `:layer` is an id that an act-id can hold, and an act-id that the
-      maker gives back is an act-id of that layer. A thing that passes is no
+    - its `:lane` is an id that an act-id can hold, and an act-id that the
+      maker gives back is an act-id of that lane. A thing that passes is no
       stray on the depot that its act-id names, so a gate answers it. A
       thing that failed would get no answer, ever, and its maker could not
       tell it from an act that is on its way.
 
-  The door reads one part of the thing, `:layer`. It reads no fact, no who
+  The door reads one part of the thing, `:lane`. It reads no fact, no who
   and no permission. Everything that the maker gave is appended as she gave
   it, and a depot keeps it for good: each value, plain; each id; `:facts`
   as the vector, the list or the other thing that it is; a part that the
@@ -45,7 +45,7 @@
 
   Callers. `softland.store.door`, and the pure proof.
 
-  Not here. The making of an act-id, which needs the layer's depot, a read
+  Not here. The making of an act-id, which needs the lane's depot, a read
   of the cluster, and a random UUID: `softland.store.door`. The read of the
   clock: `softland.store.door`. The digest of
   the thing: `softland.store.door.digest`, taken by `softland.store.door`.
@@ -73,16 +73,16 @@
 ;; ------------------------------------------------------------- the reading
 
 (def ^:private parts-read
-  "The parts of a maker's thing that the door reads: one, `:layer`, which an
+  "The parts of a maker's thing that the door reads: one, `:lane`, which an
   act-id of the door's making holds and which names the depot to ask for.
   The door checks nothing of it but that an act-id can hold it."
-  [:layer])
+  [:lane])
 
 (defn- read-parts
   "Takes a thing that is a plain map. Gives a map of the parts of
   `parts-read`, each as the thing holds it, nil for a part that is absent;
   or the word `:read-the-act` at the part whose read threw, which is
-  `:layer`. A sorted map whose keys cannot be compared with a keyword
+  `:lane`. A sorted map whose keys cannot be compared with a keyword
   throws there."
   [thing]
   (reduce (fn [got part]
@@ -111,19 +111,19 @@
     (words/word :add-its-parts {:at part})))
 
 (defn- act-id-word
-  "Takes the thing's `:layer`, and the act-id that the maker gives back, or
-  nil for none. Gives nil when an act-id of the layer can be made, and the
-  one given is one; or the word `:make-an-act-id`, at `:layer` or at
+  "Takes the thing's `:lane`, and the act-id that the maker gives back, or
+  nil for none. Gives nil when an act-id of the lane can be made, and the
+  one given is one; or the word `:make-an-act-id`, at `:lane` or at
   `:act-id`. The two tests are the declaration's, the ones that a read's
-  head makes. An act-id of the layer whose depot slot is a depot word and
-  not the layer's depot passes: the thing then goes to the depot that the
+  head makes. An act-id of the lane whose depot slot is a depot word and
+  not the lane's depot passes: the thing then goes to the depot that the
   act-id names, and a gate refuses it there with a recorded word."
-  [layer act-id]
+  [lane act-id]
   (cond
-    (not (declaration/usable-id? layer))
-    (words/word :make-an-act-id {:at :layer})
+    (not (declaration/usable-id? lane))
+    (words/word :make-an-act-id {:at :lane})
 
-    (and (some? act-id) (not (declaration/act-id-in-layer? layer act-id)))
+    (and (some? act-id) (not (declaration/act-id-in-lane? lane act-id)))
     (words/word :make-an-act-id {:at :act-id})))
 
 (defn- reading*
@@ -136,9 +136,9 @@
     (let [parts (read-parts thing)]
       (or (when (:could-not parts) parts)
           (own-parts-word thing)
-          (act-id-word (:layer parts) act-id)
+          (act-id-word (:lane parts) act-id)
           {:thing thing
-           :layer (:layer parts)}))))
+           :lane (:lane parts)}))))
 
 (defn reading
   "Reads a maker's thing, with no round trip. Takes the thing, which can be
@@ -146,17 +146,17 @@
   none. Gives a reading, or one of the door's own words; with a word,
   nothing is appended.
 
-  A reading is a map: `:thing`, the maker's own map; and `:layer`, as the
+  A reading is a map: `:thing`, the maker's own map; and `:lane`, as the
   thing holds it.
 
   The tests, in their order; the first that fails gives the word:
 
-    1. the thing is a plain map, and its `:layer` can be
+    1. the thing is a plain map, and its `:lane` can be
        read                                               :read-the-act
     2. it holds no `:act-id`, no `:depot` and no
        `:door-time`                                       :add-its-parts
-    3. its `:layer` is an id within the limit, and the
-       act-id given is an act-id of that layer            :make-an-act-id
+    3. its `:lane` is an id within the limit, and the
+       act-id given is an act-id of that lane            :make-an-act-id
 
   It reads no fact, no who and no permission, so it comes back for a thing
   that has no end in one of those. It never throws."
@@ -168,8 +168,8 @@
 
 (defn thing-to-append
   "Builds the thing that the door appends for an act. Takes a reading; the
-  act-id, [layer depot uuid], which the reading's tests passed or the door
-  made for the reading's layer; and the time that the door read from its
+  act-id, [lane depot uuid], which the reading's tests passed or the door
+  made for the reading's lane; and the time that the door read from its
   clock, in milliseconds since 1970. Gives {:thing the thing}.
 
   The thing is the maker's map with three parts added: `:act-id`; `:depot`,

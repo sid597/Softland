@@ -332,7 +332,7 @@
 (defn- under-the-least-yes
   "Takes a maker's act, as she gave it, and the act in its one form
   (`act-for-a-yes`). Gives the thing as the door would append it under the
-  least demanding yes there is: an act-id of the act's layer whose uuid no
+  least demanding yes there is: an act-id of the act's lane whose uuid no
   fact of the act replaces, its depot as the act-id says, the time 0, and
   as its permission a yes for one act of the act's who beneath the first
   permission of `shortest-holder`, whose text is no longer than that of any
@@ -342,14 +342,14 @@
   the limit of an id, is held here at its least. The act's own parts are
   as the maker gave them."
   [x one-form]
-  (let [{:keys [who layer]} one-form
+  (let [{:keys [who lane]} one-form
         taken (replaced-uuids x)
         uuid (first (remove taken (map #(java.util.UUID. 0 (long %)) (range))))]
     (assoc (apply dissoc x no-part-of-the-act-a-yes-names)
-           :act-id [layer :streaming uuid]
+           :act-id [lane :streaming uuid]
            :depot :streaming
            declaration/time-part 0
-           :permission [who layer layer [shortest-holder layer layer] :see-and-act [:act uuid a-digest]])))
+           :permission [who lane lane [shortest-holder lane lane] :see-and-act [:act uuid a-digest]])))
 
 (defn hex-for-a-yes
   "The digest that a yes for one act holds in its sixth slot, for a maker

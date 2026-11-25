@@ -12,7 +12,7 @@
   again. `electric-boot` is the one function that boots it, on both peers.
 
   What it gives. A page: while her standing is being found, \"…\"; when it
-  is live, her id and her own layer's id, a form to write one fact, the
+  is live, her id and her own lane's id, a form to write one fact, the
   list of her acts under way or answered, and a form to watch an entity,
   whose live answer is shown as a table; for any other standing, \"You are
   not signed in.\" and a link to the sign-in page.
@@ -26,11 +26,11 @@
        of the seam, of sign-in and of watching are required on the server
        peer alone, so a call of the seam written on the client does not
        compile. What the client is sent about her is plain data:
-       `seam/about` and her own layer's id. Every call of the seam takes
+       `seam/about` and her own lane's id. Every call of the seam takes
        the server's actor, and every act and query is built on the server
-       from her who and her own layer (`act-of`, `watched`). The client
+       from her who and her own lane (`act-of`, `watched`). The client
        sends only an entity, a key, a value, and an act-id that the server
-       gave it, which the server tests against her own layer before it
+       gave it, which the server tests against her own lane before it
        sends (`sent-and-answered`).
     b. No state that sockets share lives in an atom of the server. This
        namespace defines no state on the server. The state of a socket is
@@ -43,7 +43,7 @@
   a map from a local id to {:entity :key :value}, to which the steps add
   `:act-id`, then `:digest` and `:answer`. For each item, `Act` does the
   next step that the item lacks: on the server it asks one act-id of her
-  own layer, and the client keeps it; then, with that act-id, the server
+  own lane, and the client keeps it; then, with that act-id, the server
   sends the act and reads its answer, waiting up to `answer-wait-ms`, and
   the client keeps both. Electric starts a new server program at each
   opening of the socket, and the client program starts again with it, so
@@ -97,25 +97,25 @@
 
 #?(:clj
    (defn- act-of
-     "Builds the act of one fact in her own layer. Takes the actor, her own
-     layer's id, and an entity, a key and a value. Gives the act in the
+     "Builds the act of one fact in her own lane. Takes the actor, her own
+     lane's id, and an entity, a key and a value. Gives the act in the
      store's form without `:who` and `:session`, which the seam adds. The
      who of the permission is the actor's, never one that the client named."
-     [actor layer entity k v]
+     [actor lane entity k v]
      {:version 1
-      :layer layer
-      :permission [(seam/who-of actor) layer layer]
+      :lane lane
+      :permission [(seam/who-of actor) lane lane]
       :facts [{:e entity :k k :v v}]}))
 
 #?(:clj
    (defn- one-act-id
-     "Asks the seam for one act-id of her own layer. Takes the seam, the
-     actor and her own layer's id. Gives a task of {:act-id id}, or of
+     "Asks the seam for one act-id of her own lane. Takes the seam, the
+     actor and her own lane's id. Gives a task of {:act-id id}, or of
      {:answer word} when the seam gave a word in place of act-ids, so that
      the item is done and shows why."
-     [the-seam actor layer]
+     [the-seam actor lane]
      (m/sp
-      (let [got (m/? (seam/act-ids the-seam actor layer 1))]
+      (let [got (m/? (seam/act-ids the-seam actor lane 1))]
         (if (and (vector? got) (= 1 (count got)))
           {:act-id (first got)}
           {:answer got})))))
@@ -123,21 +123,21 @@
 #?(:clj
    (defn- sent-and-answered
      "Sends one act under an act-id that the client kept, and reads its
-     answer. Takes the seam, the actor, her own layer's id, the act-id that
+     answer. Takes the seam, the actor, her own lane's id, the act-id that
      the client handed back, and the entity, key and value. Gives a task of
      {:digest :answer}, or of {:answer word} when nothing could be sent.
 
      The act-id is tested first: it must have the form of an act-id and
-     name her own layer in its first slot
-     (`softland.store.door.declaration/act-id-in-layer?`). Otherwise
+     name her own lane in its first slot
+     (`softland.store.door.declaration/act-id-in-lane?`). Otherwise
      nothing is sent, and the answer is the server's word `:read-the-word`
      at `:act-id`. A send under the same act-id again is the same act, so
      this task may run again when the socket opens again."
-     [the-seam actor layer act-id entity k v]
+     [the-seam actor lane act-id entity k v]
      (m/sp
-      (if-not (declaration/act-id-in-layer? layer act-id)
-        {:answer (words/could-not :read-the-word {:why :act-id-of-another-layer :at :act-id})}
-        (let [receipt (m/? (seam/send the-seam actor (act-of actor layer entity k v) act-id))]
+      (if-not (declaration/act-id-in-lane? lane act-id)
+        {:answer (words/could-not :read-the-word {:why :act-id-of-another-lane :at :act-id})}
+        (let [receipt (m/? (seam/send the-seam actor (act-of actor lane entity k v) act-id))]
           (if (:could-not receipt)
             {:answer receipt}
             {:digest (:digest receipt)
@@ -156,13 +156,13 @@
 
 #?(:clj
    (defn- watched
-     "Opens a live read of one entity from her own layer. Takes the seam,
-     the actor, her own layer's id and the entity. Gives a continuous flow
+     "Opens a live read of one entity from her own lane. Takes the seam,
+     the actor, her own lane's id and the entity. Gives a continuous flow
      of what is held of the read: {:answer nil} first, then the answer
      after each message, with `:ended` once the read ended. The query is
      built here: the client names only the entity."
-     [the-seam actor layer entity]
-     (->> (seam/watch the-seam actor {:asks [:entity entity] :from-layer layer})
+     [the-seam actor lane entity]
+     (->> (seam/watch the-seam actor {:asks [:entity entity] :from-lane lane})
           (m/reductions held-after {:answer nil})
           (m/relieve {}))))
 
@@ -259,7 +259,7 @@
 
 (e/defn Answer-table
   "Draws what is held of a live read: a table of key -> value (stamp) for
-  each place of the answer, the layers that the read left out, and the
+  each place of the answer, the lanes that the read left out, and the
   read's end when it ended. Takes the entity and what is held, as plain
   data that crossed the wire."
   [entity held]
@@ -280,10 +280,10 @@
 
 (e/defn Watching
   "Draws the form \"Watch entity\" and the live answer of the entity named
-  there, read from her own layer. Takes the seam and the actor, used on the
-  server alone; her own layer's id; and the page's state. A new entity
+  there, read from her own lane. Takes the seam and the actor, used on the
+  server alone; her own lane's id; and the page's state. A new entity
   leaves the read before and opens another."
-  [the-seam actor layer page]
+  [the-seam actor lane page]
   (e/client
     (let [!watching (:watching page)
           watching (e/watch !watching)
@@ -301,12 +301,12 @@
                 nil))
       (when (some? problem) (dom/p (dom/text problem)))
       (when-some [{entity :entity} watching]
-        (let [held (e/server (e/input (watched the-seam actor layer entity)))]
+        (let [held (e/server (e/input (watched the-seam actor lane entity)))]
           (Answer-table entity held))))))
 
 (e/defn Act
   "One act under way: draws it, and does its next step. Takes the seam and
-  the actor, used on the server alone; her own layer's id; the atom of the
+  the actor, used on the server alone; her own lane's id; the atom of the
   acts under way; the item's local id; and the item.
 
   An item without `:act-id` asks one on the server, and the client keeps
@@ -314,7 +314,7 @@
   under that act-id and read its answer; the client keeps the digest and
   the answer. An item with `:answer` does nothing. The client hands the
   server only the act-id, the entity, the key and the value."
-  [the-seam actor layer !acts id item]
+  [the-seam actor lane !acts id item]
   (e/client
     (let [{entity :entity k :key v :value act-id :act-id} item]
       (dom/li (dom/text (pr-str entity) " " (pr-str k) " " (pr-str v) " — " (state-text item)))
@@ -322,20 +322,20 @@
         (contains? item :answer) nil
 
         (nil? act-id)
-        (let [got (e/server (e/Task (one-act-id the-seam actor layer)))]
+        (let [got (e/server (e/Task (one-act-id the-seam actor lane)))]
           (swap! !acts update id merge got)
           nil)
 
         :else
-        (let [done (e/server (e/Task (sent-and-answered the-seam actor layer act-id entity k v)))]
+        (let [done (e/server (e/Task (sent-and-answered the-seam actor lane act-id entity k v)))]
           (swap! !acts update id merge done)
           nil)))))
 
 (e/defn Writing
-  "Draws the form that writes one fact in her own layer, and the list of
+  "Draws the form that writes one fact in her own lane, and the list of
   her acts under way or answered. Takes the seam and the actor, used on the
-  server alone; her own layer's id; and the page's state."
-  [the-seam actor layer page]
+  server alone; her own lane's id; and the page's state."
+  [the-seam actor lane page]
   (e/client
     (let [!acts (:acts page)
           acts (e/watch !acts)
@@ -359,12 +359,12 @@
       (dom/ul
         (dom/props {:id "acts"})
         (e/for [[id item] (e/diff-by key acts)]
-          (Act the-seam actor layer !acts id item))))))
+          (Act the-seam actor lane !acts id item))))))
 
 (e/defn Signed-in
   "Draws the page of somebody whose standing is live. Takes the seam and
   her actor, which stay on the server, and the page's state. Her own
-  layer's id is read once on the server (`sign-in/own-layer-of`); the
+  lane's id is read once on the server (`sign-in/own-lane-of`); the
   client is sent her `seam/about` and that id, and nothing else of her."
   [the-seam actor page]
   (e/server
@@ -373,20 +373,20 @@
     ;; on a value that holds no actor.
     (when (seam/actor? actor)
       (let [about (seam/about actor)
-            layer (e/Task (sign-in/own-layer-of the-seam (seam/who-of actor)) ::finding)]
+            lane (e/Task (sign-in/own-lane-of the-seam (seam/who-of actor)) ::finding)]
         (e/client
           (dom/div
             (dom/p (dom/text "Your id is ") (dom/code (dom/props {:id "who"}) (dom/text (str (:who about)))))
-            (dom/p (dom/text "Your own layer is ")
-                   (dom/code (dom/props {:id "own-layer"})
-                             (dom/text (cond (= ::finding layer) "…"
-                                             (nil? layer) "not found"
-                                             :else (str layer)))))
+            (dom/p (dom/text "Your own lane is ")
+                   (dom/code (dom/props {:id "own-lane"})
+                             (dom/text (cond (= ::finding lane) "…"
+                                             (nil? lane) "not found"
+                                             :else (str lane)))))
             (e/server
-              (when (uuid? layer)
+              (when (uuid? lane)
                 (e/client
-                  (Writing the-seam actor layer page)
-                  (Watching the-seam actor layer page))))))))))
+                  (Writing the-seam actor lane page)
+                  (Watching the-seam actor lane page))))))))))
 
 (e/defn Main
   "The program of one socket. Takes the seam and the token, which are the

@@ -237,7 +237,7 @@
    :close!         close!
    :invite         #(racy-write! %1 :invite %2)
    :enter          #(racy-write! %1 :enter %2)
-   :own-layer-made #(racy-write! %1 :own-layer-made %2)
+   :own-lane-made #(racy-write! %1 :own-lane-made %2)
    :begin-sign-in  #(racy-write! %1 :begin-sign-in %2)
    :replace-secret #(racy-write! %1 :replace-secret %2)
    :end-sign-in    #(racy-write! %1 :end-sign-in %2)

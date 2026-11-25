@@ -202,29 +202,29 @@
         wait-ms
         nil)))
 
-(defn- with-own-layer
+(defn- with-own-lane
   "Takes the seam and what a signed-in credential stands for, {:who
-  :session :until}. Gives it with `:own-layer`, the id of her own layer,
-  when her entity holds one (`softland.server.sign-in/own-layer-of`)."
+  :session :until}. Gives it with `:own-lane`, the id of her own lane,
+  when her entity holds one (`softland.server.sign-in/own-lane-of`)."
   [the-seam about]
-  (let [layer (m/? (sign-in/own-layer-of the-seam (:who about)))]
-    (cond-> about layer (assoc :own-layer layer))))
+  (let [lane (m/? (sign-in/own-lane-of the-seam (:who about)))]
+    (cond-> about lane (assoc :own-lane lane))))
 
 (defn- who-am-i
   "The word `:who-am-i`. Takes the seam, the token or nil, the word, and
   what `softland.server.seam/actor` gave. Gives the result: {:visitor
-  true}, or {:who :session :until :own-layer}; or the seam's word. With a
+  true}, or {:who :session :until :own-lane}; or the seam's word. With a
   wait, for a token that stands for nobody yet, it waits for her yes."
   [the-seam token word actor]
   (cond
     (seam/actor? actor)
     (let [about (seam/about actor)]
-      (if (:who about) (with-own-layer the-seam about) about))
+      (if (:who about) (with-own-lane the-seam about) about))
 
     (and (= :not-known (:why actor)) (pos? (:wait-ms word)))
     (let [standing (standing-within the-seam token (:wait-ms word))]
       (case (:state standing)
-        :live (with-own-layer the-seam (select-keys standing [:who :session :until]))
+        :live (with-own-lane the-seam (select-keys standing [:who :session :until]))
         :not-reached (words/could-not :reach-the-sessions nil)
         nil actor
         (words/could-not :find-her-session {:why (:state standing)})))
@@ -236,7 +236,7 @@
   word in its one form. Gives what the seam's task gave."
   [the-seam actor word]
   (case (:word word)
-    :act-ids  (m/? (seam/act-ids the-seam actor (:layer word) (:count word)))
+    :act-ids  (m/? (seam/act-ids the-seam actor (:lane word) (:count word)))
     :send     (m/? (seam/send the-seam actor (:act word) (:act-id word)))
     :send-all (m/? (seam/send-all the-seam actor (:acts word)))
     :answer   (m/? (seam/answer the-seam actor (:act-id word) (:digest word) (:wait-ms word)))

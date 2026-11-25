@@ -46,7 +46,7 @@
 
   A first sign-in. Google's post proves an account. `softland.runtime.
   sign-in/enter!` finds its person, or takes the person of the invitation
-  that the account proves, and makes her own layer; an account that proves
+  that the account proves, and makes her own lane; an account that proves
   no invitation is turned away. A person who has confirmed no name is sent
   to the box: her provider's name for her, which she confirms or changes
   (Sid, 21 November 2026: \"we can make C default\").
@@ -372,7 +372,7 @@
   "The end of a sign-in at a browser. Takes the options, the request and
   the text of an ID token. It checks the token against the issuer's keys;
   finds her, or takes the person of the invitation that her account
-  proves, and makes her own layer; begins a browser's sign-in; and sends
+  proves, and makes her own lane; begins a browser's sign-in; and sends
   the browser on with the credential in a cookie: to the box for her name
   when she has confirmed none, else to where she was going. A token that
   fails the check, an account that proves no invitation, and a step that
@@ -483,7 +483,7 @@
 
 (defn- name!
   "POST /sign-in/name. Writes the name that she confirms, as her own act in
-  her own layer, in the session derived from the act's UUID, closes that
+  her own lane, in the session derived from the act's UUID, closes that
   session, and sends her on. The post must come from this runtime's own
   page and rest on a cookie that stands for her."
   [{:keys [the-seam] :as options} request]

@@ -44,7 +44,7 @@
 
   The caller. A caller is an object that only this namespace makes. It
   holds the actor's who, the person at the root, the sign-in, the session,
-  the sign-in's kind, the id of the root's own layer, and what the face
+  the sign-in's kind, the id of the root's own lane, and what the face
   said of the request. It prints as the word and nothing else, and it is no
   data: a who that crosses the wire back cannot become a caller.
 
@@ -81,10 +81,10 @@
   so a system that could choose one could become somebody else.
 
   The act-id. A maker makes the random part, a UUID, and sends it with the
-  act. The seam asks the door for an act-id of the act's layer, which reads
-  the layer's depot, and puts the maker's UUID in its place
+  act. The seam asks the door for an act-id of the act's lane, which reads
+  the lane's depot, and puts the maker's UUID in its place
   (`softland.store.door/act-id-for`). The door then takes the act-id as
-  given. So the maker needs no knowledge of a layer's depot, and a repeat
+  given. So the maker needs no knowledge of a lane's depot, and a repeat
   is the same thing.
 
   A caller that stops being live. `standing` listens for the caller's root
@@ -105,7 +105,7 @@
   holds its numbers, an executor of virtual threads and one timer thread.
   It keeps no row, no answer and no caller between two calls.
 
-  Pacing, in this copy's memory (the first layer of `ration`): posts to
+  Pacing, in this copy's memory (the first lane of `ration`): posts to
   `/sign-in/*` by the address that they came from, with a post that proved
   a program's own ask given back (`ration-sign-in!`, `give-back-sign-in!`);
   the polls of one ask (`ration-poll!`); the sessions opened under one
@@ -117,7 +117,7 @@
   `watch` write nothing of a read today.
 
   The system. `softland.runtime.sign-in` sends the acts that only the
-  system sends: the making of a person's own layer, and the first acts of a
+  system sends: the making of a person's own lane, and the first acts of a
   deployment. It calls `send-as-system` here, the one way in, and no face
   can reach that call with a thing that a system sent. Who may act as the
   system is not decided (src-store/README.md, 9 October 2026, K9)."
@@ -202,7 +202,7 @@
 
 ;; ------------------------------------------------------------------ the caller
 
-(deftype Caller [who root sign-in session kind hash until own-layer driven-by from]
+(deftype Caller [who root sign-in session kind hash until own-lane driven-by from]
   Object
   (toString [_] (if (some? who) "#<caller>" "#<visitor>")))
 
@@ -218,7 +218,7 @@
   root; the sign-in's id; the session's id, or nil when the face named and
   asked for none; the sign-in's kind; an atom holding the latest hash of the
   secret for this connection (updated on `:replace-secret`); the time until
-  which that secret stands; the id of the root's own layer; what drives the
+  which that secret stands; the id of the root's own lane; what drives the
   session (`:driven-by` from `who-is`, or nil); and what the face said of
   the request. `caller-now` and `visitor` are the callers. It prints as the
   word \"caller\" or \"visitor\" and nothing else.")
@@ -244,10 +244,10 @@
   [^Caller caller]
   (.-session caller))
 
-(defn own-layer-of
-  "Takes a caller. Gives the id of the root's own layer, or nil."
+(defn own-lane-of
+  "Takes a caller. Gives the id of the root's own lane, or nil."
   [^Caller caller]
-  (.-own-layer caller))
+  (.-own-lane caller))
 
 (defn person?
   "Takes a caller. Gives true when the caller is a person herself: her who
@@ -257,14 +257,14 @@
 
 (defn about
   "Takes a caller. Gives what a face may tell the system that holds the
-  credential: {:who :root :sign-in :session :kind :own-layer :until}, plus
+  credential: {:who :root :sign-in :session :kind :own-lane :until}, plus
   `:driven-by` (from `who-is`, nil when not said) when the caller is in a
   session; or {:visitor true}. It is data, and it is no caller."
   [^Caller caller]
   (if (some? (.-who caller))
     (cond-> {:who (.-who caller) :root (.-root caller) :sign-in (.-sign-in caller)
              :session (.-session caller) :kind (.-kind caller)
-             :own-layer (.-own-layer caller) :until (.-until caller)}
+             :own-lane (.-own-lane caller) :until (.-until caller)}
       (some? (.-session caller)) (assoc :driven-by (.-driven-by caller)))
     {:visitor true}))
 
@@ -469,7 +469,7 @@
               {:keys [actor kind]} (:sign-in got)
               made (fn [session session-driven-by]
                      (->Caller actor root sign-in session kind (atom hash) until-or-why
-                               (:own-layer got) session-driven-by from))]
+                               (:own-lane got) session-driven-by from))]
           (cond
             (= :not verdict) (no-sign-in until-or-why)
             (some? session) (or (session-fault got sign-in (now-ms))
@@ -634,7 +634,7 @@
   nil)
 
 (defn ration-sign-in!
-  "First-layer ration in this copy's memory: paces posts to `/sign-in/*` by
+  "First-lane ration in this copy's memory: paces posts to `/sign-in/*` by
   the address that the face says that they came from, over a sliding window
   (`:sign-in-window-ms`, `:max-sign-in-posts-per-address`), before any call
   to Google or Auth. Takes the seam and the address, a text. Gives nil when
@@ -738,13 +738,13 @@
   nil)
 
 (defn- act-id-of
-  "Completes a maker's act-id. Takes the seam, a layer and the maker's
-  UUID. Gives [layer depot uuid], or one of the door's words. One round
-  trip, to the layer's task: the door reads the layer's depot
+  "Completes a maker's act-id. Takes the seam, a lane and the maker's
+  UUID. Gives [lane depot uuid], or one of the door's words. One round
+  trip, to the lane's task: the door reads the lane's depot
   (`softland.store.door/act-id-for`), and the maker's UUID takes the place
   of the one that the door made."
-  [^Seam seam layer uuid]
-  (let [got (door/act-id-for (.-door seam) layer)]
+  [^Seam seam lane uuid]
+  (let [got (door/act-id-for (.-door seam) lane)]
     (if (:could-not got) got (assoc got 2 uuid))))
 
 (defn- sent
@@ -771,7 +771,7 @@
   [^Seam seam caller {:keys [act act-id wait-ms]}]
   (or (act-fault caller act)
       (ration seam caller :act)
-      (let [full (act-id-of seam (get act :layer) act-id)]
+      (let [full (act-id-of seam (get act :lane) act-id)]
         (if (:could-not full)
           full
           (sent seam act full (ends-after wait-ms))))))
@@ -791,7 +791,7 @@
                  (reduced (conj results (words/could-not :find-her-sign-in {:why :ended})))
                  (let [result (or (act-fault caller act)
                                   (ration seam caller :act)
-                                  (let [full (act-id-of seam (get act :layer) act-id)]
+                                  (let [full (act-id-of seam (get act :lane) act-id)]
                                     (if (:could-not full) full (sent seam act full ends))))]
                    (if (:could-not result)
                      (reduced (conj results result))
@@ -998,12 +998,12 @@
   door's receipt with `:answer`, or one of the door's words.
 
   `softland.runtime.sign-in` is the one caller, for the making of a
-  person's own layer and for a deployment's first acts. No face calls it,
+  person's own lane and for a deployment's first acts. No face calls it,
   and the pure proof reads the source to hold that."
   [^Seam seam act uuid wait-ms]
   (if-not (= first-act/system (get act :who))
     (words/could-not :send-as-another {:at :who})
-    (let [full (act-id-of seam (get act :layer) uuid)]
+    (let [full (act-id-of seam (get act :lane) uuid)]
       (if (:could-not full)
         full
         (sent seam act full (ends-after wait-ms))))))

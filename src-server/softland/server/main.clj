@@ -88,7 +88,7 @@
   not be opened; nothing is then left open.
 
   It runs the setup of sign-in (`softland.server.sign-in/setup`), which
-  writes the layer of the people when it is not made."
+  writes the lane of the people when it is not made."
   [{:keys [cluster origin google stand-in app-path]}]
   (let [the-door (door/open cluster (rama/get-module-name store/Store))
         the-read-path (read-path/open cluster (rama/get-module-name store/Store))

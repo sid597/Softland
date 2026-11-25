@@ -84,8 +84,8 @@
 (def ^:private sign-in-3 (id 23))
 (def ^:private session-1 (id 31))
 (def ^:private session-2 (id 32))
-(def ^:private layer-1 (id 41))
-(def ^:private layer-2 (id 42))
+(def ^:private lane-1 (id 41))
+(def ^:private lane-2 (id 42))
 (def ^:private making-1 {:uuid (id 51) :session (id 52)})
 (def ^:private making-2 {:uuid (id 53) :session (id 54)})
 (def ^:private asha-google [:google "108200000000000000001"])
@@ -116,8 +116,8 @@
   50000, an agent at 130, an ask at 130 that ends at 1000."
   {:invite {:person asha :claim asha-code :invited-by :system :at 100}
    :enter {:account asha-google :says {"name" "Asha"} :email nil :code-hash (h 1)
-           :own-layer layer-1 :making making-1 :at 110}
-   :own-layer-made {:person asha :at 120}
+           :own-lane lane-1 :making making-1 :at 110}
+   :own-lane-made {:person asha :at 120}
    :begin-sign-in {:root asha :actor asha :sign-in sign-in-1 :kind :browser :hash (h 101)
                    :until 100000 :label nil :at 130}
    :replace-secret {:root asha :sign-in sign-in-1 :old-hash (h 101) :new-hash (h 102)
@@ -177,7 +177,7 @@
 (def ^:private asha-in [(c :invite) (c :enter)])
 (def ^:private bo-in
   [(c :invite :person bo :claim bo-email :at 101)
-   (c :enter :account bo-google :email "bo@example.org" :code-hash nil :own-layer layer-2
+   (c :enter :account bo-google :email "bo@example.org" :code-hash nil :own-lane lane-2
       :making making-2 :at 111)])
 (def ^:private signed-in (conj asha-in (c :begin-sign-in)))
 (def ^:private sitting (conj signed-in (c :open-session)))
@@ -188,12 +188,12 @@
 
 (def ^:private write-fns
   "The twelve writes of the client, in the order of the contract."
-  [r/invite r/enter r/own-layer-made r/begin-sign-in r/replace-secret r/end-sign-in r/make-actor
+  [r/invite r/enter r/own-lane-made r/begin-sign-in r/replace-secret r/end-sign-in r/make-actor
    r/end-actor r/open-session r/close-session r/ask r/answer-ask])
 
 (def ^:private contract-names
   "The eighteen functions of the contract."
-  '[open close! invite enter own-layer-made begin-sign-in replace-secret end-sign-in make-actor
+  '[open close! invite enter own-lane-made begin-sign-in replace-secret end-sign-in make-actor
     end-actor open-session close-session ask answer-ask who-is ask-of under watch-root])
 
 (defn- rules-checks
@@ -227,7 +227,7 @@
 
   (let [cases [[[] (c :invite)]
                [asha-waits (c :enter)]
-               [asha-in (c :own-layer-made)]
+               [asha-in (c :own-lane-made)]
                [asha-in (c :begin-sign-in)]
                [signed-in (c :replace-secret)]
                [signed-in (c :end-sign-in)]
@@ -316,11 +316,11 @@
          (every? #(= unfit (last-of (conj asha-waits (c :enter :account %))))
                  [["google" "1082"] [:google] [:google "1082" "more"] (list :google "1082")]))
 
-  (check "A provider is a keyword whose name is at most 256 characters, and :own-layer is a UUID: forms, which Auth checks (Sid's call of 22 November). An enter whose provider's name has 257 characters, its namespace counted, or whose :own-layer is no UUID or nil, does not fit; a provider's name of 256 characters fits."
+  (check "A provider is a keyword whose name is at most 256 characters, and :own-lane is a UUID: forms, which Auth checks (Sid's call of 22 November). An enter whose provider's name has 257 characters, its namespace counted, or whose :own-lane is no UUID or nil, does not fit; a provider's name of 256 characters fits."
          (and (every? #(= unfit (last-of (conj asha-waits %)))
                       [(c :enter :account [(keyword (text-of 257)) "1"])
                        (c :enter :account [(keyword "g" (text-of 255)) "1"])
-                       (c :enter :own-layer "a layer") (c :enter :own-layer (str layer-1)) (c :enter :own-layer nil)])
+                       (c :enter :own-lane "a lane") (c :enter :own-lane (str lane-1)) (c :enter :own-lane nil)])
               (= asha (:person (last-of (conj asha-waits (c :enter :account [(keyword (text-of 256)) "1"])))))))
 
   (check ":making holds two UUIDs, its act's and its session's (QUESTIONS.md, 4, which Sid's call of 22 November let stand): a :making without its session, or whose session is no UUID, does not fit."
@@ -395,7 +395,7 @@
         other (r/open cl "Another")]
     (check "open takes what stands for the cluster and a module's name, and gives a client that a program can write through and read through: clients opened under one name share one Auth, and another name is another Auth. A name that the cluster does not hold, a cluster that holds none, and a thing that stands for no cluster, a client among them, give {:could-not :find-the-module}."
            (and (= {:invited asha} (r/invite a (second (c :invite))))
-                (= layer-1 (:own-layer (r/enter b (second (c :enter)))))
+                (= lane-1 (:own-lane (r/enter b (second (c :enter)))))
                 (= {:refused :not-invited} (r/enter other (second (c :enter))))
                 (= {:could-not :find-the-module} (r/open cl "Auth2"))
                 (= {:could-not :find-the-module} (r/open (r/cluster) auth-name))
@@ -431,9 +431,9 @@
               (unchanged? asha-in (c :invite :at 200) {:invited asha})))
 
   (let [{:keys [state results]} (run (conj asha-waits (c :begin-sign-in) (c :make-actor)))]
-    (check "A person who waits has no sign-in and is no actor yet: a sign-in for her is :no-such-actor, an agent made by her is :no-such-maker, and who-is gives her no own layer."
+    (check "A person who waits has no sign-in and is no actor yet: a sign-in for her is :no-such-actor, an agent made by her is :no-such-maker, and who-is gives her no own lane."
            (and (= [{:refused :no-such-actor} {:refused :no-such-maker}] (take-last 2 results))
-                (= {:sign-in nil :session nil :own-layer nil :own-layer-made? false} (who state sign-in-1)))))
+                (= {:sign-in nil :session nil :own-lane nil :own-lane-made? false} (who state sign-in-1)))))
 
   (let [{:keys [state last]} (run [(c :invite :invited-by agent-3)])]
     (check ":invited-by is kept as given and not checked: an invite by an id that is no actor's is taken, and the state keeps that id."
@@ -448,10 +448,10 @@
 ;; -------------------------------------------------------------------- enter
 
 (defn- enter-checks
-  "The checks of enter and own-layer-made."
+  "The checks of enter and own-lane-made."
   []
-  (check "enter of an account that proves an invitation gives {:person P :own-layer L :making M :own-layer-made? false}, with the own layer and the :making that it offered."
-         (= {:person asha :own-layer layer-1 :making making-1 :own-layer-made? false} (last-of asha-in)))
+  (check "enter of an account that proves an invitation gives {:person P :own-lane L :making M :own-lane-made? false}, with the own lane and the :making that it offered."
+         (= {:person asha :own-lane lane-1 :making making-1 :own-lane-made? false} (last-of asha-in)))
 
   (check "enter of an account that has no link and proves no claim is refused with :not-invited, and nothing of it is kept."
          (unchanged? asha-waits (c :enter :code-hash (h 9) :email "nobody@example.org") {:refused :not-invited}))
@@ -459,7 +459,7 @@
   (let [{:keys [results]} (run (conj asha-in (c :invite :person bo :claim bo-email :at 112)
                                      (c :enter :email "bo@example.org" :code-hash nil :at 120)
                                      (c :enter :account bo-google :email "bo@example.org" :code-hash nil
-                                        :own-layer layer-2 :making making-2 :at 130)))]
+                                        :own-lane lane-2 :making making-2 :at 130)))]
     (check "An account that has a link gives its person, whatever claim came with it: an enter of Asha's account with the email of Bo, who waits, gives Asha, and Bo's claim still waits for Bo."
            (and (= asha (:person (nth results 3))) (= bo (:person (nth results 4))))))
 
@@ -478,9 +478,9 @@
            (and (= asha (:person (nth results 2))) (= {:refused :not-invited} (nth results 3))
                 (= [{:begun sign-in-1} {:made agent-1}] (take-last 2 results)))))
 
-  (check "The first enter that makes her an actor fixes :own-layer and :making; a later enter gives the fixed ones, and its own offer is dropped."
-         (= {:person asha :own-layer layer-1 :making making-1 :own-layer-made? false}
-            (last-of (conj asha-in (c :enter :own-layer layer-2 :making making-2 :at 120)))))
+  (check "The first enter that makes her an actor fixes :own-lane and :making; a later enter gives the fixed ones, and its own offer is dropped."
+         (= {:person asha :own-lane lane-1 :making making-1 :own-lane-made? false}
+            (last-of (conj asha-in (c :enter :own-lane lane-2 :making making-2 :at 120)))))
 
   (let [{:keys [state]} (run (conj asha-in (c :enter :says {"name" "Asha K"} :at 300)
                                    (c :enter :says {"name" "Asha, from a clock behind"} :at 250)
@@ -489,38 +489,38 @@
            (= {:person asha :says {"name" "Asha K"} :said-at 300}
               (select-keys (get-in state [:links asha-google]) [:person :says :said-at]))))
 
-  (check "A copy of an enter, sent again after a later enter of the account, gives its person, own layer and :making, and leaves :says as the later enter left it: nothing changes (Sid's call of 22 November)."
+  (check "A copy of an enter, sent again after a later enter of the account, gives its person, own lane and :making, and leaves :says as the later enter left it: nothing changes (Sid's call of 22 November)."
          (unchanged? (conj asha-in (c :enter :says {"name" "Asha K"} :at 300)) (c :enter)
-                     {:person asha :own-layer layer-1 :making making-1 :own-layer-made? false}))
+                     {:person asha :own-lane lane-1 :making making-1 :own-lane-made? false}))
 
   (let [{:keys [state]} (run (into asha-in (map (fn [i] (c :enter :says {"n" (str i)} :at (+ 200 i)))) (range 100)))]
     (check "The link keeps no memory of each enter: after a hundred enters of one account, its link holds the person, one :says and one :at, and nothing more (Sid's call of 22 November)."
            (= {:person asha :says {"n" "99"} :said-at 299} (get-in state [:links asha-google]))))
 
   (let [{:keys [results]} (run (conj asha-in (c :enter :at 115)))]
-    (check "An enter that is run again after a failure gives the person, the own layer and the :making that it gave, and :own-layer-made? as it stands."
+    (check "An enter that is run again after a failure gives the person, the own lane and the :making that it gave, and :own-lane-made? as it stands."
            (= (nth results 1) (nth results 2))))
 
-  (let [{:keys [results]} (run (conj asha-in (c :enter :at 115) (c :own-layer-made) (c :enter :at 125)))]
-    (check "Until own-layer-made, every enter says :own-layer-made? false; after it, an enter says true (Sid's call of 22 November)."
-           (= [false false true] (map :own-layer-made? [(nth results 1) (nth results 2) (nth results 4)]))))
+  (let [{:keys [results]} (run (conj asha-in (c :enter :at 115) (c :own-lane-made) (c :enter :at 125)))]
+    (check "Until own-lane-made, every enter says :own-lane-made? false; after it, an enter says true (Sid's call of 22 November)."
+           (= [false false true] (map :own-lane-made? [(nth results 1) (nth results 2) (nth results 4)]))))
 
-  (let [{:keys [results]} (run (conj asha-in (c :own-layer-made) (c :enter)))]
-    (check "A copy of the first enter, sent again after own-layer-made, gives the person, the own layer and the :making that the first gave, and :own-layer-made? true: an enter says the flag as it stands at that enter (Sid's call of 22 November)."
-           (and (= {:person asha :own-layer layer-1 :making making-1 :own-layer-made? false} (nth results 1))
-                (= {:person asha :own-layer layer-1 :making making-1 :own-layer-made? true} (nth results 3)))))
+  (let [{:keys [results]} (run (conj asha-in (c :own-lane-made) (c :enter)))]
+    (check "A copy of the first enter, sent again after own-lane-made, gives the person, the own lane and the :making that the first gave, and :own-lane-made? true: an enter says the flag as it stands at that enter (Sid's call of 22 November)."
+           (and (= {:person asha :own-lane lane-1 :making making-1 :own-lane-made? false} (nth results 1))
+                (= {:person asha :own-lane lane-1 :making making-1 :own-lane-made? true} (nth results 3)))))
 
-  (let [{:keys [state last]} (run (conj asha-in (c :own-layer-made)))]
-    (check "own-layer-made of a person who has entered gives {:made P}, and who-is then says :own-layer-made? true, with her own layer."
+  (let [{:keys [state last]} (run (conj asha-in (c :own-lane-made)))]
+    (check "own-lane-made of a person who has entered gives {:made P}, and who-is then says :own-lane-made? true, with her own lane."
            (and (= {:made asha} last)
-                (= {:own-layer layer-1 :own-layer-made? true} (select-keys (who state sign-in-1) [:own-layer :own-layer-made?])))))
+                (= {:own-lane lane-1 :own-lane-made? true} (select-keys (who state sign-in-1) [:own-lane :own-lane-made?])))))
 
-  (check "own-layer-made of a person who waits, or of an id that is no person, is refused with :no-such-person."
+  (check "own-lane-made of a person who waits, or of an id that is no person, is refused with :no-such-person."
          (= [{:refused :no-such-person} {:refused :no-such-person}]
-            [(last-of (conj asha-waits (c :own-layer-made))) (last-of (conj asha-in (c :own-layer-made :person cy)))]))
+            [(last-of (conj asha-waits (c :own-lane-made))) (last-of (conj asha-in (c :own-lane-made :person cy)))]))
 
-  (check "own-layer-made again gives {:made P} and changes nothing."
-         (unchanged? (conj asha-in (c :own-layer-made)) (c :own-layer-made :at 130) {:made asha})))
+  (check "own-lane-made again gives {:made P} and changes nothing."
+         (unchanged? (conj asha-in (c :own-lane-made)) (c :own-lane-made :at 130) {:made asha})))
 
 ;; ------------------------------------------------------------ begin-sign-in
 
@@ -555,7 +555,7 @@
                                               (c :begin-sign-in :actor agent-3 :at 141)
                                               (c :begin-sign-in :actor agent-1 :at 142)))))))
 
-  (check "Auth refuses nothing for a person whose layer is not marked as made: her sign-in begins before own-layer-made."
+  (check "Auth refuses nothing for a person whose lane is not marked as made: her sign-in begins before own-lane-made."
          (= {:begun sign-in-1} (last-of signed-in)))
 
   (check "A repeat of begin-sign-in is known by the hash with which the sign-in began, also after its secret was replaced (QUESTIONS.md, 8)."
@@ -918,8 +918,8 @@
 (defn- read-checks
   "The checks of the reads."
   []
-  (check "who-is of a root that has nothing gives no sign-in, no session, no own layer, and :own-layer-made? false."
-         (= {:sign-in nil :session nil :own-layer nil :own-layer-made? false}
+  (check "who-is of a root that has nothing gives no sign-in, no session, no own lane, and :own-lane-made? false."
+         (= {:sign-in nil :session nil :own-lane nil :own-lane-made? false}
             (r/who-is r/empty-state {:root cy :sign-in sign-in-1 :session session-1})))
 
   (let [state (:state (run asha-in))]
@@ -987,10 +987,10 @@
              (and (:ended? (:sign-in (who later sign-in-1)))
                   (= {:sign-ins {} :sessions {}} (r/live-under later asha))))))
 
-  (check "invite, enter, own-layer-made and ask name no root and take nothing out."
+  (check "invite, enter, own-lane-made and ask name no root and take nothing out."
          (every? (fn [call] (let [state (:state (run (conj sitting call)))]
                               (= [sign-in-1] (keys (:sign-ins (r/live-under state asha))))))
-                 [(c :invite :person bo :claim bo-email :at 999999) (c :enter :at 999999) (c :own-layer-made :at 999999)
+                 [(c :invite :person bo :claim bo-email :at 999999) (c :enter :at 999999) (c :own-lane-made :at 999999)
                   (c :ask :at 999999 :ends 9999999)]))
 
   (let [state (:state (run (conj signed-in (c :replace-secret :until 500 :previous-until 900) (c :make-actor :at 600))))]
@@ -1034,7 +1034,7 @@
 
 (def ^:private client-writes
   "The client's function of each write."
-  {:invite r/invite :enter r/enter :own-layer-made r/own-layer-made :begin-sign-in r/begin-sign-in
+  {:invite r/invite :enter r/enter :own-lane-made r/own-lane-made :begin-sign-in r/begin-sign-in
    :replace-secret r/replace-secret :end-sign-in r/end-sign-in :make-actor r/make-actor
    :end-actor r/end-actor :open-session r/open-session :close-session r/close-session :ask r/ask
    :answer-ask r/answer-ask})
@@ -1057,14 +1057,14 @@
     (r/invite a (second (c :invite)))
     (check "A write returns when its effect can be read by any copy of the runtime: what one client wrote, another over the same atom reads at once."
            (and (= asha (:person (r/enter b (second (c :enter)))))
-                (= layer-1 (:own-layer (r/who-is a {:root asha :sign-in sign-in-1 :session nil}))))))
+                (= lane-1 (:own-lane (r/who-is a {:root asha :sign-in sign-in-1 :session nil}))))))
 
   (let [runs (vec (for [_ (range 100)]
                     (let [[a b] (two-clients)]
                       (r/invite a (second (c :invite)))
                       (at-once [#(r/enter a (second (c :enter)))
-                                #(r/enter b (second (c :enter :own-layer layer-2 :making making-2)))]))))]
-    (check "Two enters of one new account through two copies of the runtime at one moment give one person, one own layer and one :making: so in 100 tries."
+                                #(r/enter b (second (c :enter :own-lane lane-2 :making making-2)))]))))]
+    (check "Two enters of one new account through two copies of the runtime at one moment give one person, one own lane and one :making: so in 100 tries."
            (every? (fn [[x y]] (and (= x y) (= asha (:person x)))) runs)))
 
   (let [runs (vec (for [_ (range 100)]
@@ -1179,7 +1179,7 @@
   the words that its check prints."
   [[:no-throw "no step throws"]
    [:one-person "an account names one person at most, and the same one for good; a claim names one person for good; a person has one claim"]
-   [:repeat "a write that arrives twice gives the result of the first, by the parts that bind, an enter with :own-layer-made? as it stands, and leaves the state as once, but for what its own time takes out, the time that a repeat of open-session moves on, and the :says of an enter whose :at is later than the kept one's; a replacement that arrives after a newer one is no repeat: it is refused when its sign-in is not live or its old hash is not the hash now, and taken when that hash has come back"]
+   [:repeat "a write that arrives twice gives the result of the first, by the parts that bind, an enter with :own-lane-made? as it stands, and leaves the state as once, but for what its own time takes out, the time that a repeat of open-session moves on, and the :says of an enter whose :at is later than the kept one's; a replacement that arrives after a newer one is no repeat: it is refused when its sign-in is not live or its old hash is not the hash now, and taken when that hash has come back"]
    [:refusal "a write that is refused changes nothing but what its time takes out"]
    [:no-revival "an end is never taken back: no later call makes an ended sign-in, a closed session or an ended actor live again"]
    [:time "what is live under a root holds no sign-in and no session whose time is at or before the :at of that root's latest write"]
@@ -1246,13 +1246,13 @@
 
 (defn- bound-parts
   "The parts of a result that a repeat must give again: all of it, but for
-  enter, whose :own-layer-made? says how the flag stands at the repeat."
+  enter, whose :own-lane-made? says how the flag stands at the repeat."
   [kind result]
-  (if (= kind :enter) (select-keys result [:person :own-layer :making]) result))
+  (if (= kind :enter) (select-keys result [:person :own-lane :making]) result))
 
 (defn- repeat-violations
   "Checks a repeat of the taken call `j` of the world: it gives the first
-  result by the parts that bind, an enter with :own-layer-made? as it
+  result by the parts that bind, an enter with :own-lane-made? as it
   stands, and leaves the state as once. A replacement that arrives after a
   newer one is no repeat: it is judged by the present hash and the one
   before it alone, and so refused with :not-live when its sign-in is no
@@ -1281,8 +1281,8 @@
       (cond-> []
         (not= (bound-parts kind first-result) (bound-parts kind result)) (conj [:other-result call first-result result])
         (and (= kind :enter)
-             (not= (:own-layer-made? result)
-                   (:own-layer-made? (r/who-is before {:root (:person result) :sign-in (:person result) :session nil}))))
+             (not= (:own-lane-made? result)
+                   (:own-lane-made? (r/who-is before {:root (:person result) :sign-in (:person result) :session nil}))))
         (conj [:flag-not-as-it-stands call result])
         (not= (expected-after-repeat kind input before) after) (conj [:state-changed call])))))
 

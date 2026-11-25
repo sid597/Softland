@@ -1,7 +1,7 @@
 (ns softland.store.read-path.words
   "Everything that the read path says to a caller in place of an answer,
   declared as data: its own ten words, the six reasons for which a live
-  read ends, and the two words for a layer that gave nothing. Pure code. It
+  read ends, and the two words for a lane that gave nothing. Pure code. It
   needs no cluster, and it requires nothing outside Clojure.
 
   A call of the read path gives its result, or one of the read path's own
@@ -38,7 +38,7 @@
 (def words
   "The read path's own ten words. Each has the calls that can give it and
   what it says. `:keep-the-read-live` is given to an asker's function, under
-  `:ended`, and by no call. The last two are of a read of a layer's acts
+  `:ended`, and by no call. The last two are of a read of a lane's acts
   (`softland.store.read-path.acts`)."
   {:find-the-module
    {:from #{:open}
@@ -62,7 +62,7 @@
 
    :serve-a-read-that-large
    {:from #{:read-once :read-live}
-    :says "a run of a layer that the asker may see holds more places than one read may, or the read needs more checks of nearer layers than one read may"}
+    :says "a run of a lane that the asker may see holds more places than one read may, or the read needs more checks of nearer lanes than one read may"}
 
    :keep-more-reads-live
    {:from #{:read-live}
@@ -74,15 +74,15 @@
 
    :find-the-line-whole
    {:from #{:read-once}
-    :says "a read of a layer's acts found no row of the layer's line at a stamp where one must be: up to the layer's last stamp, at a stamp of the asker's own, or the thing that a row says is kept; the read gave no answer that ends there"}
+    :says "a read of a lane's acts found no row of the lane's line at a stamp where one must be: up to the lane's last stamp, at a stamp of the asker's own, or the thing that a row says is kept; the read gave no answer that ends there"}
 
    :keep-a-read-of-acts-live
    {:from #{:read-live}
-    :says "a read of a layer's acts is asked once and is not kept live; the caller asks again from where the last read ended"}})
+    :says "a read of a lane's acts is asked once and is not kept live; the caller asks again from where the last read ended"}})
 
 (def carried
   "What a word can carry, by name, with what each is. A word carries no row,
-  no value and no place of a layer."
+  no value and no place of a lane."
   {:module    "the name of the module that the read path was to be opened on"
    :why       "the word with which the check of a query turned the thing away, one of `softland.store.read-path.query/reasons`"
    :at        "the part of the query where the check stopped"
@@ -92,7 +92,7 @@
    :what      "what was too many: `:places-of-one-run`, `:checks-of-one-read`, or `:pushes-under-one-routing-id`"
    :most      "the greatest number of them that one read may hold, or for the pushes that the read path may hold"
    :because   "why a live read ended, one of `because`"
-   :stamp     "the first stamp of a layer's line that the read did not find whole"})
+   :stamp     "the first stamp of a lane's line that the read did not find whole"})
 
 (def because
   "The six reasons for which a live read ends, each with what it says. A
@@ -111,22 +111,22 @@
    "the asker's function threw while it was given a change"})
 
 (def left-out-words
-  "The two words for why a layer of a read gave nothing, each with what it
-  says. An answer holds one under `:why`, for each layer that it left out
-  (`softland.store.read-path.layers/left-out`)."
-  {:may-not-see "the layer is made, and the asker may not see it"
-   :not-made    "the layer is not made"})
+  "The two words for why a lane of a read gave nothing, each with what it
+  says. An answer holds one under `:why`, for each lane that it left out
+  (`softland.store.read-path.lanes/left-out`)."
+  {:may-not-see "the lane is made, and the asker may not see it"
+   :not-made    "the lane is not made"})
 
 (defn word
   "Makes one of the read path's own words as a caller gets it. Takes the
   word, one of the ten, and a map of what it carries, or nil. Gives the
   map of what is carried with `:could-not` in it. A part of an answer among
-  what is carried is left out (`:layers`, `:left-out`, `:place`, `:places`,
+  what is carried is left out (`:lanes`, `:left-out`, `:place`, `:places`,
   `:orders`, `:acts`, `:next`, `:last-stamp`), and `:could-not` cannot be
   given: a word is never an answer.
   Gives nil for a word that `words` does not hold, so that no word is made
   that is not declared."
   [the-word carries]
   (when (contains? words the-word)
-    (assoc (dissoc (or carries {}) :layers :left-out :place :places :orders :acts :next :last-stamp)
+    (assoc (dissoc (or carries {}) :lanes :left-out :place :places :orders :acts :next :last-stamp)
            :could-not the-word)))

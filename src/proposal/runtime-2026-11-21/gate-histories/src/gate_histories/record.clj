@@ -18,7 +18,7 @@
 
   The form that it sends is a bet, made to get an answer, and no decision:
 
-  - one layer, `:record`. Sid holds its first permission and gives the
+  - one lane, `:record`. Sid holds its first permission and gives the
     importer one that allows acting;
   - the who of every act is the importer. Who said the thing is a fact of
     the act: Sid's own case of the importer and Alice
@@ -46,11 +46,11 @@
             [softland.store.door.declaration :as declaration])
   (:import [java.nio.charset StandardCharsets]))
 
-(def ^:private layer :record)
+(def ^:private lane :record)
 (def ^:private owner :sid)
 (def ^:private importer :importer)
-(def ^:private owner-permission [owner layer layer])
-(def ^:private importer-permission [importer layer layer owner-permission :see-and-act])
+(def ^:private owner-permission [owner lane lane])
+(def ^:private importer-permission [importer lane lane owner-permission :see-and-act])
 
 (def part-bytes
   "The most bytes of text in one part of a thing that is cut. Under the
@@ -61,12 +61,12 @@
 (defn- thing
   "A thing as it arrives on the streaming depot."
   [n who permission facts extra]
-  (merge {:act-id [layer :streaming (java.util.UUID. 1 (long n))]
+  (merge {:act-id [lane :streaming (java.util.UUID. 1 (long n))]
           :depot :streaming
           declaration/time-part 1795000000000
           :version act/version
           :who who
-          :layer layer
+          :lane lane
           :permission permission
           :session :import-1
           :facts (vec facts)}
@@ -116,7 +116,7 @@
   [path]
   (let [started (System/nanoTime)
         making (thing 0 owner owner-permission
-                      [{:e layer :k :softland.store/depot :v :streaming}
+                      [{:e lane :k :softland.store/depot :v :streaming}
                        {:e owner :k :softland.store/permission :v owner-permission}]
                       nil)
         give (thing 1 owner owner-permission
@@ -153,7 +153,7 @@
                          (/ (:bytes result) 1e6) (:over-the-bound result) declaration/max-value-bytes
                          (:cut result) (:most-facts result)))
         (println (format "the record after: %d rows of facts, %d answers, last stamp %d"
-                         (count (:facts rec)) (count (:answers rec)) (get (:last-stamp rec) layer)))
+                         (count (:facts rec)) (count (:answers rec)) (get (:last-stamp rec) lane)))
         (println "rows of a kind that the walk does not know, kept aside, by kind:"
                  (let [aside (frequencies (map first (:aside rec)))] (if (empty? aside) "none" aside)))
         (println (format "%.1f seconds, %.0f acts a second, one thread, in memory"

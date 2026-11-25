@@ -12,7 +12,7 @@
                      | [:entity entity]         an entity: every place of it
                      | [:run first-end last-end] any run of neighbouring places
                      | [:points-at key thing]   what points at a thing
-                     | [:acts start most]       a layer's decisions by stamp,
+                     | [:acts start most]       a lane's decisions by stamp,
                                                   from a stamp on, `most` at
                                                   most
      :asker            id                       who asks: exactly one of
@@ -22,10 +22,10 @@
                                                   its `:session`; with an
                                                   asker only; left out: the
                                                   read is asked in no run
-     :layers           [layer ...]              through which layers, nearest
-     :from-layer       layer                      first: exactly one of these
+     :lanes           [lane ...]              through which lanes, nearest
+     :from-lane       lane                      first: exactly one of these
                                                   two. The second takes the
-                                                  list from the layer
+                                                  list from the lane
      :with             #{:writer :permission    which parts of a row she asks
                          :time}                   for; left out: none
      :stores-own-facts true}                    left out: the store's own
@@ -35,12 +35,12 @@
   (`softland.store.read-path/read-once`, `read-live`), so one query can be
   asked both ways and two askers of one thing hold equal data.
 
-  A run is every place of one layer from one end to the other, both ends in
+  A run is every place of one lane from one end to the other, both ends in
   the run, in the order in which the table keeps its keys: the printed text
   of the entity, then the printed text of the key. An end is `[entity]`,
-  `[entity key]`, `:first` (only as the first end: from the layer's first
-  place) or `:last` (only as the last end: to the layer's last place). The
-  same two ends are read in each layer of the list. A tool chose none of
+  `[entity key]`, `:first` (only as the first end: from the lane's first
+  place) or `:last` (only as the last end: to the lane's last place). The
+  same two ends are read in each lane of the list. A tool chose none of
   these orders: two entities are neighbours only if their ids print as
   neighbours.
 
@@ -59,12 +59,12 @@
 
   A new word of facts is added once, in code, in three maps that are keyed by the
   word: `words` here, `softland.store.read-path.sources/of-word` (what it
-  reads in one layer) and `softland.store.read-path.answer/of-word` (how its
+  reads in one lane) and `softland.store.read-path.answer/of-word` (how its
   rows are put together). The read path's pure proof holds that the three
   have the same keys, but for the one word that reads no facts: `:acts`, a
-  layer's line, which `softland.store.read-path.acts` reads and puts
-  together. A query of `:acts` names its one layer by `:from-layer` or as the
-  one layer of `:layers`, and is read once: its `:with` and its
+  lane's line, which `softland.store.read-path.acts` reads and puts
+  together. A query of `:acts` names its one lane by `:from-lane` or as the
+  one lane of `:lanes`, and is read once: its `:with` and its
   `:stores-own-facts` say what of a fact's row a read gives, and it gives
   none.
 
@@ -94,8 +94,8 @@
 
 ;; ------------------------------------------------------------- the numbers
 
-(def max-layers-of-one-read
-  "How many layers one read can go through: the start layer and the layers
+(def max-lanes-of-one-read
+  "How many lanes one read can go through: the start lane and the lanes
   that a builds-on fact can name
   (`softland.store.door.declaration/max-builds-on`). A number of the build,
   kept and not decided."
@@ -110,14 +110,14 @@
                                      takes. One act holds 256 facts at most,
                                      so an entity that one act wrote is
                                      whole in one call
-    :max-places-of-one-run   20,000  the places of one run in one layer, on
+    :max-places-of-one-run   20,000  the places of one run in one lane, on
                                      one task, that a read holds. The
                                      largest run that the push probe opened
                                      as one push
-    :max-checks-of-one-read  40,000  the checks of nearer layers that one
+    :max-checks-of-one-read  40,000  the checks of nearer lanes that one
                                      read of what points at a thing may
                                      need when it is asked once: places
-                                     times nearer layers. Each check is
+                                     times nearer lanes. Each check is
                                      one row of one call
     :max-checks-of-one-live-read
                              250     the same for a read that is kept
@@ -125,17 +125,17 @@
                                      Far fewer, since Rama bounds the
                                      pushes on one table on one task (the
                                      next number): three such reads through
-                                     one layer are open under that number
+                                     one lane are open under that number
     :max-pushes-under-one-routing-id
                              900     the pushes that the read path holds at
                                      one time on one table under one routing
                                      id. A read kept live that would take it
                                      past this is turned away before it
                                      opens one of those pushes. In a
-                                     streaming layer the routing id is the
-                                     layer, so it bounds every push of every
-                                     asker through one layer. In a
-                                     microbatch layer, the base, the routing
+                                     streaming lane the routing id is the
+                                     lane, so it bounds every push of every
+                                     asker through one lane. In a
+                                     microbatch lane, the base, the routing
                                      id is the home of the read, so it
                                      bounds the pushes on the base of the
                                      askers of one home. It stands
@@ -150,12 +150,12 @@
                                      for Rama, in all, before it gives a
                                      word
     :max-acts-of-one-read    1,000   the decisions that one read of a
-                                     layer's acts gives at most: the `most`
+                                     lane's acts gives at most: the `most`
                                      of a query is cut to it. A page of
                                      1,000 line rows is about 250 KB
     :max-thing-weight-of-one-read
                          33,554,432  the weight of the things that one read
-                                     of a layer's acts fetches and gives,
+                                     of a lane's acts fetches and gives,
                                      in all: 32 MiB, the heaviest thing that
                                      a gate keeps, so that each kept thing
                                      can be read. A thing that alone weighs
@@ -204,10 +204,10 @@
     :run        a run of neighbouring places, from one end to the other
     :points-at  what points at a thing: the places under one key whose
                 value is the thing
-    :acts       one layer's decisions by stamp: from a stamp on, a whole
+    :acts       one lane's decisions by stamp: from a stamp on, a whole
                 number from 0, and at most a count of 1 or more
                 (`softland.store.read-path.acts`). The one word that reads
-                a layer's line and no facts, and is read once
+                a lane's line and no facts, and is read once
 
   A word that does not exist yet, such as finding by text or looking back,
   would be one entry here and one in each of the two maps `of-word`."
@@ -237,8 +237,8 @@
                    [:asker            :id             {:optional true :reason :asker-is-no-id}]
                    [:not-signed-in    [:enum true]    {:optional true :reason :no-one-asker}]
                    [:session          :id             {:optional true :reason :session-is-no-id}]
-                   [:layers           [:seq-of :id]   {:optional true :reason :layers-not-a-list-of-layers}]
-                   [:from-layer       :id             {:optional true :reason :from-layer-is-no-layer}]
+                   [:lanes           [:seq-of :id]   {:optional true :reason :lanes-not-a-list-of-lanes}]
+                   [:from-lane       :id             {:optional true :reason :from-lane-is-no-lane}]
                    [:with             [:set-of [:enum :writer :permission :time] {:max 3}]
                     {:optional true :default #{} :reason :part-of-a-row-not-known}]
                    [:stores-own-facts [:enum true false] {:optional true :default false}]]
@@ -249,17 +249,17 @@
   of its word, must also keep, with the reason for each, in the order in
   which they are examined. `rule-checks` holds the code of each.
 
-    :layers-within-the-limit    a list holds `max-layers-of-one-read` layers
+    :lanes-within-the-limit    a list holds `max-lanes-of-one-read` lanes
                                 at most
     :names-one-asker            exactly one of `:asker` and `:not-signed-in`
     :a-run-has-an-asker         a `:session` only with an `:asker`: a run is
                                 somebody's
-    :names-its-layers-one-way   exactly one of `:layers` and `:from-layer`;
-                                a list holds one layer at least
-    :acts-of-one-layer          a read of `:acts` names one layer: a list of
+    :names-its-lanes-one-way   exactly one of `:lanes` and `:from-lane`;
+                                a list holds one lane at least
+    :acts-of-one-lane          a read of `:acts` names one lane: a list of
                                 it holds one; two lines have no order between
                                 them
-    :ids-within-the-limit       the asker, the session, each layer and each entity are
+    :ids-within-the-limit       the asker, the session, each lane and each entity are
                                 ids within the limit of a key's text; each
                                 key is a readable keyword within it
     :run-ends-in-order          `:last` is no first end and `:first` no last
@@ -277,15 +277,15 @@
     :store-key-is-asked-for     a `:place` under one of the store's own keys
                                 needs `:stores-own-facts true`; a
                                 `:points-at` under one is turned away either
-                                way, since no layer can mark it
+                                way, since no lane can mark it
 
   The first is examined before the shape, on the thing as it was given
   (`rules-before-the-shape`)."
-  [[:layers-within-the-limit  :too-many-layers]
+  [[:lanes-within-the-limit  :too-many-lanes]
    [:names-one-asker          :no-one-asker]
    [:a-run-has-an-asker       :run-with-no-asker]
-   [:names-its-layers-one-way :layers-not-named-one-way]
-   [:acts-of-one-layer        :acts-not-of-one-layer]
+   [:names-its-lanes-one-way :lanes-not-named-one-way]
+   [:acts-of-one-lane        :acts-not-of-one-lane]
    [:ids-within-the-limit     :id-over-the-limit]
    [:run-ends-in-order        :run-ends-out-of-order]
    [:run-ends-are-ordered     :run-end-not-ordered]
@@ -294,9 +294,9 @@
 
 (def rules-before-the-shape
   "The rules that `check` examines before the engine reads the thing: the
-  engine walks a whole list, so a list of ten thousand layers is counted
-  with a bound, and turned away, before any layer of it is read."
-  #{:layers-within-the-limit})
+  engine walks a whole list, so a list of ten thousand lanes is counted
+  with a bound, and turned away, before any lane of it is read."
+  #{:lanes-within-the-limit})
 
 (def reasons
   "The words with which `check` turns a thing away, read from the three
@@ -353,14 +353,14 @@
   "The code of each rule of `rules`. Each takes a query and gives nil when
   the query keeps the rule, or the part of the query at which it is broken.
   Each takes the query in its one form, with `:asks` in the shape of its
-  word, and may rest on the rules before it; but `:layers-within-the-limit`,
-  which takes the thing as it was given and reads no layer of it."
-  {:layers-within-the-limit
+  word, and may rest on the rules before it; but `:lanes-within-the-limit`,
+  which takes the thing as it was given and reads no lane of it."
+  {:lanes-within-the-limit
    (fn [thing]
-     (let [layers (get thing :layers)]
-       (when (and (sequential? layers)
-                  (< max-layers-of-one-read (bounded-count (inc max-layers-of-one-read) layers)))
-         :layers)))
+     (let [lanes (get thing :lanes)]
+       (when (and (sequential? lanes)
+                  (< max-lanes-of-one-read (bounded-count (inc max-lanes-of-one-read) lanes)))
+         :lanes)))
 
    :names-one-asker
    (fn [q] (when (= (some? (:asker q)) (some? (:not-signed-in q))) :asker))
@@ -368,35 +368,35 @@
    :a-run-has-an-asker
    (fn [q] (when (and (some? (:session q)) (nil? (:asker q))) :session))
 
-   :names-its-layers-one-way
-   (fn [q] (when (or (= (some? (:layers q)) (some? (:from-layer q)))
-                     (and (some? (:layers q)) (empty? (:layers q))))
-             :layers))
+   :names-its-lanes-one-way
+   (fn [q] (when (or (= (some? (:lanes q)) (some? (:from-lane q)))
+                     (and (some? (:lanes q)) (empty? (:lanes q))))
+             :lanes))
 
-   :acts-of-one-layer
-   (fn [q] (when (and (= :acts (first (:asks q))) (some? (:layers q)) (not= 1 (count (:layers q))))
-             :layers))
+   :acts-of-one-lane
+   (fn [q] (when (and (= :acts (first (:asks q))) (some? (:lanes q)) (not= 1 (count (:lanes q))))
+             :lanes))
 
    :ids-within-the-limit
    (fn [q]
      (cond
        (and (some? (:asker q)) (not (declaration/usable-id? (:asker q)))) :asker
        (and (some? (:session q)) (not (declaration/usable-id? (:session q)))) :session
-       (not-every? declaration/usable-id? (:layers q)) :layers
-       (and (some? (:from-layer q)) (not (declaration/usable-id? (:from-layer q)))) :from-layer
+       (not-every? declaration/usable-id? (:lanes q)) :lanes
+       (and (some? (:from-lane q)) (not (declaration/usable-id? (:from-lane q)))) :from-lane
        (not (asks-usable? (:asks q))) :asks
        :else nil))
 
-   ;; The order of the two ends is the same in every layer, since each text
-   ;; begins with the layer's own; so it is asked with one layer id, which
-   ;; names no layer of the store.
+   ;; The order of the two ends is the same in every lane, since each text
+   ;; begins with the lane's own; so it is asked with one lane id, which
+   ;; names no lane of the store.
    :run-ends-in-order
    (fn [q]
      (let [[word first-end last-end] (:asks q)]
        (when (and (= :run word)
                   (or (= :last first-end)
                       (= :first last-end)
-                      (nil? (rows/run-of-ends :any-layer first-end last-end))))
+                      (nil? (rows/run-of-ends :any-lane first-end last-end))))
          :asks)))
 
    :run-ends-are-ordered
@@ -479,8 +479,8 @@
   the part of the thing at which the check stopped (nil for a thing that is
   no map). It never throws: each throw becomes `:not-a-query`.
 
-  In order. The thing must be a plain map. A list of layers is counted with
-  a bound before any layer of it is read. Then the shape `:query`: the
+  In order. The thing must be a plain map. A list of lanes is counted with
+  a bound before any lane of it is read. Then the shape `:query`: the
   first part that is wrong, in the declared order, gives its reason. Then
   the word of `:asks`: a first slot that `words` does not hold gives
   `:asks-no-word-known`, and a thing that does not fit its word's shape
@@ -490,7 +490,7 @@
   of its word, its thing in its one normal form. `:asker` is nil for a
   person who is not signed in, and `:not-signed-in` is then true.
   `:session` is nil for a read that is asked in no run. One of
-  `:layers`, a plain vector, and `:from-layer` is nil. `:with` is a set.
+  `:lanes`, a plain vector, and `:from-lane` is nil. `:with` is a set.
   `:stores-own-facts` is true or false.
 
   It is the test that must come before any key is made
@@ -498,11 +498,11 @@
   after it, each id that a caller gave is an id within the limit, each key a
   readable keyword within it, and the thing of a `:points-at` is a value.
 
-  Limits. A part that has no end, other than `:layers`, does not come back.
+  Limits. A part that has no end, other than `:lanes`, does not come back.
   A thing of a `:points-at` that lies inside as many collections as a value
   can is turned away as `:asks-no-word-known`, since `:asks` as a whole is
-  then no value. It reads no table: whether a layer is made, and whether the
-  asker may see it, are `softland.store.read-path.layers`'s."
+  then no value. It reads no table: whether a lane is made, and whether the
+  asker may see it, are `softland.store.read-path.lanes`'s."
   [thing]
   (try (check* thing)
        (catch Throwable _ {:refuse :not-a-query :at nil})))

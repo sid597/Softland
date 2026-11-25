@@ -58,8 +58,8 @@
                     hello (:hello held)
                     who (:who hello)
                     session (:session hello)
-                    layer (:own-layer hello)
-                    own [who layer layer]]
+                    lane (:own-lane hello)
+                    own [who lane lane]]
                 (reset! closed-before-renew {:session session :root (:root hello) :closed-now? false})
                 ;; Wait for the half-span check (~5.05 s) to trigger renewal.
                 (h/wait-for (fn [] (:closed-now? @closed-before-renew)) 8000)
@@ -69,7 +69,7 @@
                                                  1800)
                       act-after (h/say held {:word :send
                                              :act {:version 1 :who who :session session
-                                                   :layer layer :permission own
+                                                   :lane lane :permission own
                                                    :facts [{:e :after-close :k :v :v :took}]}
                                              :act-id (UUID/randomUUID)}
                                        3000)

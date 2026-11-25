@@ -35,8 +35,8 @@
                                                     caller's root
 
   There is no word for a feature of the product. A new thing that a system
-  can do is a new key in a layer, written with `:send` and read with
-  `:read`. `:read` and `:watch` name no layer themselves: they carry a
+  can do is a new key in a lane, written with `:send` and read with
+  `:read`. `:read` and `:watch` name no lane themselves: they carry a
   query, and what a query can ask grows with the read path. That is how a
   session's trail will be read by the same two words (the runtime's page,
   entry 5).
@@ -48,7 +48,7 @@
   `:not-signed-in true`. The runtime holds those parts against the caller
   and refuses a difference (`softland.runtime.seam`); it strips nothing and
   writes nothing into them. The act-id is the maker's too: a random UUID,
-  which the runtime completes with the layer and its depot. A maker that
+  which the runtime completes with the lane and its depot. A maker that
   sends the same act under the same UUID a second time, after a break,
   sends the same thing, and a gate takes it once.
 
@@ -124,7 +124,7 @@
   store's (nil for none), and who may say it: `:anybody`, a visitor too;
   `:an-actor`, whoever is signed in; `:a-person`, a person herself and no
   agent."
-  {:who-am-i       {:says "who the connection is: her who, her root, her session, her own layer; or that it stands for nobody"
+  {:who-am-i       {:says "who the connection is: her who, her root, her session, her own lane; or that it stands for nobody"
                     :carries nil :who :anybody}
    :send           {:says "one act into its depot, and its answer: the door's receipt with the answer that a gate gave, or `:nothing-yet` when the wait passed"
                     :carries :act :who :an-actor}

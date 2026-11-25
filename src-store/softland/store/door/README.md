@@ -50,9 +50,9 @@ the count of a string's bytes.
 [additions.clj](additions.clj) requires the declaration, for what an act-id can
 hold and for the name of the time's part, and the words.
 [door.clj](../door.clj) requires these three and the
-digest; outside this folder it requires two pure rules, the depot that a layer
+digest; outside this folder it requires two pure rules, the depot that a lane
 starts with ([first_act.clj](../gate/first_act.clj)) and the routing id of an
-act-id, which is its layer, with the tests of what a caller passes to a read
+act-id, which is its lane, with the tests of what a caller passes to a read
 ([rows.clj](../record/rows.clj)).
 
 ## The time on the act
@@ -113,7 +113,7 @@ four, of 9 October, by row:
 |---|---|---|
 | ?4 A | A person's id is a UUID that says nothing; her sign-in accounts are joined to it by links | The door makes no person and no id for one. It carries `:who` as given. An act-id's uuid is random, made from nothing of the person |
 | H1 A | One lock seals one value | Nowhere: entry 2 of 12 October sets it aside, and the source entry says where the code of the locks is |
-| K3 A | The system can hold many layers | The door treats `:system` as a who like any other and checks nothing about it |
+| K3 A | The system can hold many lanes | The door treats `:system` as a who like any other and checks nothing about it |
 | K4 B | The store's own keys carry the namespace `softland.store` | The door reads no key of a fact: it appends a fact under a store key as it appends any other. The table of the store keys is `store-keys` in [declaration.clj](declaration.clj), which a gate's check reads, and which also says which of them take a second write |
 
 Before real data is kept (12 October), the entries that the door carries:
@@ -128,8 +128,8 @@ decisions that the door carries:
 
 | Decision | What Sid said | Where it shows in the door |
 |---|---|---|
-| 1 | "The clock comes before the depot. The door writes the time on the act. No gate reads a clock." | `send-act` in [door.clj](../door.clj) reads the clock once for a thing, and `thing-to-append` in [additions.clj](additions.clj) adds the time. It is the one read of a clock on the way of an act, in a streaming layer and in the base alike. The gates are [module/](../module/README.md)'s, which says what each of them reads |
-| 3 | "Every act is placed by its layer key, the base too. A layer is one line." | The door reads an answer on the task of the act-id's layer, for both depots: the routing id of an act-id is its layer. Two sends that one maker makes one after the other are decided in that order, in the base as in a streaming layer (`send-act` in [door.clj](../door.clj)) |
+| 1 | "The clock comes before the depot. The door writes the time on the act. No gate reads a clock." | `send-act` in [door.clj](../door.clj) reads the clock once for a thing, and `thing-to-append` in [additions.clj](additions.clj) adds the time. It is the one read of a clock on the way of an act, in a streaming lane and in the base alike. The gates are [module/](../module/README.md)'s, which says what each of them reads |
+| 3 | "Every act is placed by its lane key, the base too. A lane is one line." | The door reads an answer on the task of the act-id's lane, for both depots: the routing id of an act-id is its lane. Two sends that one maker makes one after the other are decided in that order, in the base as in a streaming lane (`send-act` in [door.clj](../door.clj)) |
 | 5 | "The two depots that hold the answers go, and the rebuild with them. The depot of batch clocks goes. Two depots stay." | The door opens the module's two depots and its two queries, and the module has no other depot. The door reads an answer from the record, by the query |
 | 8 | "The clock the door carries is the clock of the server that runs the door. What the door does with a thing it cannot label stays as built." | The clock is the JVM's `currentTimeMillis` of the process that runs the door. For a thing that it cannot take, the door has its three tests and its seven words; the test of the parts that it adds holds `:door-time` too |
 
@@ -146,11 +146,11 @@ words. So the pure parts are three namespaces here, and the alias `:store`
 stays the guard that they need nothing but Clojure.
 
 **One call that the contract does not name.** It gives the act-ids of a series
-with one read of the layer's depot, where one call for each id would read once
-for each, on the layer's task.
+with one read of the lane's depot, where one call for each id would read once
+for each, on the lane's task.
 
-**The read of a layer's depot.** The door reads the layer's depot for each
-act-id that it makes: one round trip and one read on the layer's task, for a
+**The read of a lane's depot.** The door reads the lane's depot for each
+act-id that it makes: one round trip and one read on the lane's task, for a
 row that no act of this build changes. It keeps no copy of it between two
 calls. A maker that gives its act-id back, or takes the ids of a series in one
 call, pays the read once.
@@ -158,7 +158,7 @@ call, pays the read once.
 **The order of the steps of a send** ([door.clj](../door.clj)). Four steps.
 The reading: the three tests, which need no cluster and come before the first
 round trip. The act-id: the one that the maker gives back, or one made with one
-read of the layer's depot. The thing to append, built with one read of the
+read of the lane's depot. The thing to append, built with one read of the
 server's clock, and its digest. One append. So one send is one append, and one
 read of the cluster when no act-id was given back; no send waits for another
 send.
@@ -185,9 +185,9 @@ the microbatch depot says only that the depot holds the thing: a maker of the
 base reads her answer when the batch that decided her act is committed on the
 base's task, so she reads with a wait.
 
-**The order of two sends.** A layer is one partition of its depot, in both
+**The order of two sends.** A lane is one partition of its depot, in both
 depots: the base is one line. So two sends that one maker makes one after the
-other are decided in that order, in a streaming layer and in the base alike,
+other are decided in that order, in a streaming lane and in the base alike,
 without a failure, and she need not read the first answer before she sends the
 second. `send-act` in [door.clj](../door.clj) says it, and each gate's
 namespace says what a failure does.
@@ -219,9 +219,9 @@ made from nothing of the time. No read of this build ranges over act uuids.
 contract's.
 
 1. The door checks nothing of the act's form. What it tests is what its three
-   additions need: a plain map whose `:layer` can be read, no `:act-id`, no
-   `:depot` and no `:door-time` already there, and a layer that an act-id can
-   hold, with an act-id given back that is of that layer. Its words name what
+   additions need: a plain map whose `:lane` can be read, no `:act-id`, no
+   `:depot` and no `:door-time` already there, and a lane that an act-id can
+   hold, with an act-id given back that is of that lane. Its words name what
    the door could not do.
 2. An act-id carries a random uuid, and the door keeps no id that it gave.
 3. The contract's rule is of a request for locks. The door sends no act of its
@@ -262,7 +262,7 @@ maker's wait for an answer. `softland.store.door.words`, and the door's proof,
 | Word | What it is |
 |---|---|
 | `open` | Opens the door on a cluster handle and the module's name |
-| `act-ids-for` | The act-ids of a series in one layer, with one read |
+| `act-ids-for` | The act-ids of a series in one lane, with one read |
 | `send-act` | Takes a maker's act into its depot |
 | `readable-hex-of`, in [digest.clj](digest.clj) | The digest of a thing as hex, or nil for a thing that throws while it is read. The door takes its digest with it, so that such a thing ends in `:read-the-act` with nothing appended |
 
@@ -282,13 +282,13 @@ maker's wait for an answer. `softland.store.door.words`, and the door's proof,
 | `:could-not` | The name under which a result holds one of the door's own words |
 | `:appended`, with `:nothing` and `:not-known` | Whether nothing was appended for the act, or the door does not know whether the depot holds it |
 | `:at` | The place in the maker's thing where the door stopped, by the name of a part of the act; `:count` for the count of a series |
-| `:module`, `:layer` | Names that a word carries: the module that the door was to be opened on, and the layer whose depot it could not read. `:append-cleanly` carries the act-id and the digest too |
+| `:module`, `:lane` | Names that a word carries: the module that the door was to be opened on, and the lane whose depot it could not read. `:append-cleanly` carries the act-id and the digest too |
 | `:threw`, `:said` | The class of what Rama's client threw, and its message |
 
 **The door's seven words.** Each reads after "the door could not":
-`:find-the-module`, `:make-an-act-id`, `:read-the-layers-depot`, `:read-the-act`,
+`:find-the-module`, `:make-an-act-id`, `:read-the-lanes-depot`, `:read-the-act`,
 `:add-its-parts`, `:append-cleanly`, `:read-the-answer`.
 [words.clj](words.clj) says what each is, with `:from` and `:says`.
 
-**A reading**, with `:thing` and `:layer`: what the door read of a maker's thing
-before any round trip, which is the thing and its layer.
+**A reading**, with `:thing` and `:lane`: what the door read of a maker's thing
+before any round trip, which is the thing and its lane.

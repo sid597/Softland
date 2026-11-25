@@ -46,7 +46,7 @@
   (case kind
     :invite         ((:invite api) client arg)
     :enter          ((:enter api) client arg)
-    :own-layer-made ((:own-layer-made api) client arg)
+    :own-lane-made ((:own-lane-made api) client arg)
     :begin-sign-in  ((:begin-sign-in api) client arg)
     :replace-secret ((:replace-secret api) client arg)
     :end-sign-in    ((:end-sign-in api) client arg)
@@ -195,7 +195,7 @@
                    [[:invite {:person P1 :claim C2 :invited-by :system :at 110}]]
                    [[:invite {:person P2 :claim C1 :invited-by :system :at 120}]]
                    [[:enter {:account Acc1 :says {"k" "1"} :email "alice@example.com"
-                             :code-hash nil :own-layer L1 :making M1 :at 130}]]]
+                             :code-hash nil :own-lane L1 :making M1 :at 130}]]]
       :query-targets {:who-is [{:root P1 :sign-in G1 :session nil}
                                {:root P2 :sign-in G1 :session nil}]
                       :ask-of []
@@ -207,28 +207,28 @@
               [:invite {:person P2 :claim C2 :invited-by :system :at 10}]]
       :watched-roots []
       :thread-ops [[[:enter {:account Acc1 :says {"src" "t200"} :email "alice@example.com"
-                             :code-hash nil :own-layer L1 :making M1 :at 200}]]
+                             :code-hash nil :own-lane L1 :making M1 :at 200}]]
                    [[:enter {:account Acc1 :says {"src" "t100"} :email "bob@example.com"
-                             :code-hash nil :own-layer L2 :making M2 :at 100}]]
+                             :code-hash nil :own-lane L2 :making M2 :at 100}]]
                    [[:who-is {:root P1 :sign-in G1 :session nil}]]]
       :query-targets {:who-is [{:root P1 :sign-in G1 :session nil}
                                {:root P2 :sign-in G1 :session nil}]
                       :ask-of []
                       :under [P1 P2]}}
 
-     ;; 2b. Returning enters of one account racing own-layer-made (5 threads)
-     {:name "2b. returning-enters-vs-own-layer-made (5 threads)"
+     ;; 2b. Returning enters of one account racing own-lane-made (5 threads)
+     {:name "2b. returning-enters-vs-own-lane-made (5 threads)"
       :seeds [[:invite {:person P1 :claim C1 :invited-by :system :at 10}]
               [:enter {:account Acc1 :says {"init" "1"} :email "alice@example.com"
-                       :code-hash nil :own-layer L1 :making M1 :at 20}]]
+                       :code-hash nil :own-lane L1 :making M1 :at 20}]]
       :watched-roots []
       :thread-ops [[[:enter {:account Acc1 :says {"s" "t300"} :email nil :code-hash nil
-                             :own-layer L2 :making M2 :at 300}]]
+                             :own-lane L2 :making M2 :at 300}]]
                    [[:enter {:account Acc1 :says {"s" "t150"} :email nil :code-hash nil
-                             :own-layer L3 :making M3 :at 150}]]
-                   [[:own-layer-made {:person P1 :at 250}]]
+                             :own-lane L3 :making M3 :at 150}]]
+                   [[:own-lane-made {:person P1 :at 250}]]
                    [[:enter {:account Acc1 :says {"s" "t400"} :email nil :code-hash nil
-                             :own-layer L4 :making M1 :at 400}]]
+                             :own-lane L4 :making M1 :at 400}]]
                    [[:who-is {:root P1 :sign-in G1 :session nil}]]]
       :query-targets {:who-is [{:root P1 :sign-in G1 :session nil}]
                       :ask-of []
@@ -240,11 +240,11 @@
               [:invite {:person P2 :claim C2 :invited-by :system :at 10}]]
       :watched-roots []
       :thread-ops [[[:enter {:account Acc1 :says {"a" "1"} :email nil :code-hash (:hash C3)
-                             :own-layer L1 :making M1 :at 100}]]
+                             :own-lane L1 :making M1 :at 100}]]
                    [[:enter {:account Acc2 :says {"a" "2"} :email "bob@example.com" :code-hash (:hash C3)
-                             :own-layer L2 :making M2 :at 110}]]
+                             :own-lane L2 :making M2 :at 110}]]
                    [[:enter {:account Acc3 :says {"a" "3"} :email nil :code-hash (:hash C3)
-                             :own-layer L3 :making M3 :at 120}]]
+                             :own-lane L3 :making M3 :at 120}]]
                    [[:who-is {:root P1 :sign-in G1 :session nil}]]]
       :query-targets {:who-is [{:root P1 :sign-in G1 :session nil}
                                {:root P2 :sign-in G1 :session nil}]
@@ -255,12 +255,12 @@
      {:name "4. two-answers-to-one-ask (6 threads)"
       :seeds [[:invite {:person P1 :claim C1 :invited-by :system :at 10}]
               [:enter {:account Acc1 :says {} :email "alice@example.com" :code-hash nil
-                       :own-layer L1 :making M1 :at 20}]
-              [:own-layer-made {:person P1 :at 25}]
+                       :own-lane L1 :making M1 :at 20}]
+              [:own-lane-made {:person P1 :at 25}]
               [:invite {:person P2 :claim C2 :invited-by :system :at 10}]
               [:enter {:account Acc2 :says {} :email "bob@example.com" :code-hash nil
-                       :own-layer L2 :making M2 :at 20}]
-              [:own-layer-made {:person P2 :at 25}]
+                       :own-lane L2 :making M2 :at 20}]
+              [:own-lane-made {:person P2 :at 25}]
               [:begin-sign-in {:root P1 :actor P1 :sign-in G3 :kind :browser :hash H1
                                :until 1500 :label "expiring" :at 30}]
               [:ask {:code U1 :hash H2 :asks "cli-tool" :ends 5000 :at 40}]]
@@ -284,8 +284,8 @@
      {:name "5. replace-secret-vs-end-sign-in (6 threads)"
       :seeds [[:invite {:person P1 :claim C1 :invited-by :system :at 10}]
               [:enter {:account Acc1 :says {} :email "alice@example.com" :code-hash nil
-                       :own-layer L1 :making M1 :at 20}]
-              [:own-layer-made {:person P1 :at 25}]
+                       :own-lane L1 :making M1 :at 20}]
+              [:own-lane-made {:person P1 :at 25}]
               [:begin-sign-in {:root P1 :actor P1 :sign-in G1 :kind :browser :hash H1
                                :until 5000 :label "browser" :at 30}]
               [:open-session {:root P1 :sign-in G1 :session S1 :until 4000
@@ -309,8 +309,8 @@
      {:name "6. end-actor-vs-open-session-and-make-actor (7 threads)"
       :seeds [[:invite {:person P1 :claim C1 :invited-by :system :at 10}]
               [:enter {:account Acc1 :says {} :email "alice@example.com" :code-hash nil
-                       :own-layer L1 :making M1 :at 20}]
-              [:own-layer-made {:person P1 :at 25}]
+                       :own-lane L1 :making M1 :at 20}]
+              [:own-lane-made {:person P1 :at 25}]
               [:make-actor {:root P1 :actor A1 :made-by P1 :label "parent-agent" :at 30}]
               [:make-actor {:root P1 :actor A2 :made-by A1 :label "child-agent" :at 35}]
               [:begin-sign-in {:root P1 :actor A2 :sign-in G1 :kind :program :hash H1
@@ -336,8 +336,8 @@
      {:name "7. full-8-thread-mixed-contention (8 threads)"
       :seeds [[:invite {:person P1 :claim C1 :invited-by :system :at 10}]
               [:enter {:account Acc1 :says {} :email "alice@example.com" :code-hash nil
-                       :own-layer L1 :making M1 :at 20}]
-              [:own-layer-made {:person P1 :at 25}]
+                       :own-lane L1 :making M1 :at 20}]
+              [:own-lane-made {:person P1 :at 25}]
               [:make-actor {:root P1 :actor A1 :made-by P1 :label "ag-1" :at 30}]
               [:begin-sign-in {:root P1 :actor A1 :sign-in G1 :kind :program :hash H1
                                :until 6000 :label "g1" :at 35}]
@@ -354,7 +354,7 @@
                                   :new-agent nil :sign-in G3 :until 9000 :at 120}]]
                    [[:invite {:person P3 :claim C2 :invited-by A1 :at 125}]]
                    [[:enter {:account Acc4 :says {"k" "v"} :email "bob@example.com"
-                             :code-hash nil :own-layer L3 :making M3 :at 130}]]
+                             :code-hash nil :own-lane L3 :making M3 :at 130}]]
                    [[:who-is {:root P1 :sign-in G1 :session S1}]]]
       :query-targets {:who-is [{:root P1 :sign-in G1 :session S1}
                                {:root P1 :sign-in G2 :session nil}
@@ -409,7 +409,7 @@
             :watched-roots []
             :thread-ops [[[:invite {:person P1 :claim C1 :invited-by :system :at 100}]]
                          [[:enter {:account Acc1 :says {} :email "ambig@example.com"
-                                   :code-hash nil :own-layer L1 :making M1 :at 110}]]]
+                                   :code-hash nil :own-lane L1 :making M1 :at 110}]]]
             :query-targets {:who-is [{:root P1 :sign-in (UUID/randomUUID) :session nil}]
                             :ask-of []
                             :under [P1]}}

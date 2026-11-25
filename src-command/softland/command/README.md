@@ -16,7 +16,7 @@ Each is a session's, kept and not decided.
 - **One sitting is one session.** The commands of one sign-in share a session
   until `new-session`.
 - **It keeps the credential and the session's id, and nothing else.** Who it is
-  and where the person's own layer is come from the runtime's hello each time.
+  and where the person's own lane is come from the runtime's hello each time.
   Beside the file it keeps an empty `sign-in.edn.lock`, which a command holds
   while it changes the file, so that two commands at once change it one after
   the other.

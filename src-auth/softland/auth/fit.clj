@@ -182,8 +182,8 @@
   "Required parts and predicates for each of the 12 write operations."
   {:invite         {:person id? :claim claim? :invited-by invited-by? :at time-val?}
    :enter          {:account account? :says says? :email (or-nil email?) :code-hash (or-nil hash-str?)
-                    :own-layer id? :making making? :at time-val?}
-   :own-layer-made {:person id? :at time-val?}
+                    :own-lane id? :making making? :at time-val?}
+   :own-lane-made {:person id? :at time-val?}
    :begin-sign-in  {:root id? :actor id? :sign-in id? :kind kind? :hash hash-str? :until time-val?
                     :label (or-nil text?) :at time-val?}
    :replace-secret {:root id? :sign-in id? :old-hash hash-str? :new-hash hash-str? :until time-val?

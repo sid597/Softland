@@ -6,7 +6,7 @@
     2. A repeat's result comes from what stands, never from a memory of calls.
        Once an ask has an answer, every answer that fits gives what stands,
        before any refusal. An enter of an account that has a link gives its
-       person, the fixed own layer and making, and `:own-layer-made?` as it
+       person, the fixed own lane and making, and `:own-lane-made?` as it
        stands then. `:says` is kept from the enter with the latest `:at`.
 
   Used in Step 1 to verify whether every concurrent / retried / re-run history
@@ -92,7 +92,7 @@
                {:invited person}]))
 
     :enter
-    (let [{:keys [account says email code-hash own-layer making at]} input
+    (let [{:keys [account says email code-hash own-lane making at]} input
           link (get-in st [:links account])
           waits (fn [c]
                   (when-let [P (get-in st [:claims c])]
@@ -111,26 +111,26 @@
                     (update-in st [:links account] assoc :says says :said-at at)
                     st)]
           [st' {:person P
-                :own-layer (:own-layer p)
+                :own-lane (:own-lane p)
                 :making (:making p)
-                :own-layer-made? (boolean (:own-layer-made? p))}])
+                :own-lane-made? (boolean (:own-lane-made? p))}])
 
         proven
         (let [st' (-> st
                       (assoc-in [:links account] {:person proven :says says :said-at at})
                       (update-in [:persons proven] assoc
-                                 :account account :own-layer own-layer
-                                 :making making :own-layer-made? false :entered-at at)
+                                 :account account :own-lane own-lane
+                                 :making making :own-lane-made? false :entered-at at)
                       (update-in [:roots proven] #(or % empty-root)))]
-          [st' {:person proven :own-layer own-layer :making making :own-layer-made? false}])
+          [st' {:person proven :own-lane own-lane :making making :own-lane-made? false}])
 
         :else
         [st {:refused :not-invited}]))
 
-    :own-layer-made
+    :own-lane-made
     (let [{:keys [person]} input]
       (if (entered? st person)
-        [(assoc-in st [:persons person :own-layer-made?] true) {:made person}]
+        [(assoc-in st [:persons person :own-lane-made?] true) {:made person}]
         [st {:refused :no-such-person}]))
 
     :ask
@@ -282,8 +282,8 @@
      :session (when s
                 {:sign-in (:sign-in s) :until (:until s) :closed? (boolean (:closed? s))
                  :driven-by (:driven-by s)})
-     :own-layer (:own-layer p)
-     :own-layer-made? (boolean (:own-layer-made? p))}))
+     :own-lane (:own-lane p)
+     :own-lane-made? (boolean (:own-lane-made? p))}))
 
 (defn oracle-ask-of [st code]
   (when-let [k (get-in st [:asks code])]

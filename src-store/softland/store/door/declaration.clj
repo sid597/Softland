@@ -3,7 +3,7 @@
   check of it. Pure code. It needs no cluster.
 
   What arrives on a depot is the maker's act (`softland.store.act`) with the
-  three parts that the door adds: an act-id, the layer's depot, and the time
+  three parts that the door adds: an act-id, the lane's depot, and the time
   of the door's clock (`time-part`). Each value is plain, as its maker gave
   it. Anything can append to a depot without the door, so a gate checks each
   thing that arrives against this declaration, and the gate is the
@@ -39,7 +39,7 @@
     usable-id?    anything -> true for an id within the limit
     usable-who    anything -> the who that a thing names, when it is an id
                   within the limit, or nil
-    act-id-in-layer?  a layer id, and anything -> true for an act-id of it
+    act-id-in-lane?  a lane id, and anything -> true for an act-id of it
 
   The store's namespace, the store keys, the limits, the name and the bound
   of the time on the act, and the words of a stray are declared here too,
@@ -122,9 +122,9 @@
   256)
 
 (def max-builds-on
-  "How many layers the fact under `:softland.store/builds-on` can name. A
+  "How many lanes the fact under `:softland.store/builds-on` can name. A
   number of the build, kept and not decided. Sid, 9 October 2026: \"if
-  someone is building like 50 layers\". With each id at its limit the row of
+  someone is building like 50 lanes\". With each id at its limit the row of
   that fact is about 16.5 KB."
   64)
 
@@ -190,7 +190,7 @@
   limit. It gives the who also for a thing that `check` refuses for another
   fault: the who is what the thing names, whatever else is wrong with it.
   No gate holds it against a sender: it is what the sending program wrote.
-  A gate keeps it in the layer's line (`softland.store.gate.decision/line-writes`),
+  A gate keeps it in the lane's line (`softland.store.gate.decision/line-writes`),
   so that a read gives a thing whole to the who that it names. It never
   throws: a thing that throws when the part is read names no usable who."
   [thing]
@@ -215,29 +215,29 @@
   its fact sits on; whether it is a setting; and whether its fact can be
   written again. A fact under one of them keeps its value in the one form on
   arrival, beside the value's text, for the rules and a gate's checks to
-  read. A setting is a key whose fact a gate takes only on the layer's own
+  read. A setting is a key whose fact a gate takes only on the lane's own
   entity. A key that is `:written-again` takes a second write on its place,
-  and a third, by the layer's first holder alone
-  (`softland.store.gate.decision/who-may-write-fault`). A layer's depot
+  and a third, by the lane's first holder alone
+  (`softland.store.gate.decision/who-may-write-fault`). A lane's depot
   takes one write. A permission's place takes a give when it is empty,
   when it holds an end, and when the permission that it holds no longer
   stands; a fact with no value there is the end of the permission that the
   place holds (`softland.store.gate.decision`, `end-fault` and
   `give-over-fault`). A retract under any of the other five is refused.
 
-  Who may see a layer, what it builds on and the keys that it marks are of
+  Who may see a lane, what it builds on and the keys that it marks are of
   the read build (src-store/README.md, decisions of 11 and 12 October 2026,
-  entries 1, 2 and 6). Who may see a layer:
+  entries 1, 2 and 6). Who may see a lane:
   `:members`, which is whoever holds a permission in it, or `:everyone`.
-  What a layer builds on: the layers that a read looks through after it, in
+  What a lane builds on: the lanes that a read looks through after it, in
   the writer's order; an empty vector says \"nothing\". The keys that a
-  layer marks: for each of them a gate keeps every fact in one more order,
+  lane marks: for each of them a gate keeps every fact in one more order,
   by value; the empty set says \"none\", and a mark is taken off by writing
-  the set again without it. Who may read the layer's acts whole: `:members`,
+  the set again without it. Who may read the lane's acts whole: `:members`,
   its holders and the who that a thing names, or `:everyone`, whoever may
-  see the layer (`softland.store.read-path.acts`). Sid, the runtime's page,
-  entry 9: a visitor of a layer that everyone may see reads no act whole
-  \"unless the layer turns it on\"; that the layer turns it on by this key is
+  see the lane (`softland.store.read-path.acts`). Sid, the runtime's page,
+  entry 9: a visitor of a lane that everyone may see reads no act whole
+  \"unless the layer turns it on\"; that the lane turns it on by this key is
   a session's form. What each reads as when no fact says it is
   `softland.store.gate.first-act/starts-with`. The four words of the keys
   are a session's, and Sid's to change.
@@ -245,7 +245,7 @@
   Each is in the namespace `softland.store` (`store-namespace`). Sid decided
   on 9 October 2026 that the store's keys carry a namespace
   (src-store/README.md, K4 B), and gave the words: `softland.store` before
-  the slash, and \"depot\" for the kind of a layer, streaming or microbatch.
+  the slash, and \"depot\" for the kind of a lane, streaming or microbatch.
   So a bare word is no store key. A fact of a tool under `:depot` or
   `:permission` is a fact under a plain key, and the store reads nothing
   from it.
@@ -255,7 +255,7 @@
   the gate's check of a setting hold what it says.
 
   A permission sits on what it covers, under a key of its own for each
-  kind (`softland.store.act/covers`): one that covers the layer on its
+  kind (`softland.store.act/covers`): one that covers the lane on its
   holder, under `:softland.store/permission`; one for a run on the run's
   session, under `:softland.store/run-permission`; a yes for one act on the
   yes's own id, the uuid that its giver made, under
@@ -263,23 +263,23 @@
   session and a yes are each named by an id of one kind, so under one key a
   give for a run whose session has the id of a holder would land on that
   holder's place. So a holder can have, beside her permission for the
-  layer, one for each of any number of runs, and any number of yeses for
+  lane, one for each of any number of runs, and any number of yeses for
   acts (Sid, 21 November 2026, src-store/README.md, entry 6 of 20 and 21
   November); the two keys' words are a session's. The gate finds the
   permission that an act names with one read, on the place that the
   permission's own form names (`softland.store.gate.chain/place`). A yes's
   place takes one give (`softland.store.gate.decision`, `store-key-fault`).
 
-  A holder has one permission for the layer at a time: she cannot hold
+  A holder has one permission for the lane at a time: she cannot hold
   \"see\" from one giver and \"see and act\" from another. That is not
   decided, and is kept as built; the rule
   `:permission-fact-sits-on-its-holder` and
   `softland.store.gate.decision/permission-place` are where the other answer
   would be made."
   {:softland.store/depot
-   {:why           "a gate must read which gate a layer belongs to"
+   {:why           "a gate must read which gate a lane belongs to"
     :value         :depot-word
-    :sits-on       :the-layer
+    :sits-on       :the-lane
     :setting       true
     :written-again false}
    :softland.store/permission
@@ -301,33 +301,33 @@
     :setting       false
     :written-again false}
    :softland.store/who-may-see
-   {:why           "a read must find who may see a layer"
+   {:why           "a read must find who may see a lane"
     :value         :who-may-see-word
-    :sits-on       :the-layer
+    :sits-on       :the-lane
     :setting       true
     :written-again true}
    :softland.store/who-may-read-acts
-   {:why           "a read must find who may read a layer's acts whole"
+   {:why           "a read must find who may read a lane's acts whole"
     :value         :who-may-read-acts-word
-    :sits-on       :the-layer
+    :sits-on       :the-lane
     :setting       true
     :written-again true}
    :softland.store/builds-on
-   {:why           "a read must find the layers that a layer builds on, in order"
-    :value         :layer-list
-    :sits-on       :the-layer
+   {:why           "a read must find the lanes that a lane builds on, in order"
+    :value         :lane-list
+    :sits-on       :the-lane
     :setting       true
     :written-again true}
    :softland.store/marked-keys
    {:why           "a gate must read for which keys it keeps the facts by value"
     :value         :key-set
-    :sits-on       :the-layer
+    :sits-on       :the-lane
     :setting       true
     :written-again true}})
 
 (def permission-keys
   "The three store keys under which a permission is given and ended, one for
-  each thing that a permission covers: the layer, one run, one act."
+  each thing that a permission covers: the lane, one run, one act."
   #{:softland.store/permission :softland.store/run-permission :softland.store/act-permission})
 
 (def setting-keys
@@ -336,7 +336,7 @@
 
 (def second-write-keys
   "The store keys whose fact can be written again on its place, read from
-  `store-keys`: who may see a layer, what it builds on, and its marked
+  `store-keys`: who may see a lane, what it builds on, and its marked
   keys. A gate asks who may write each of them at one place
   (`softland.store.gate.decision/who-may-write-fault`)."
   (into #{} (keep (fn [[k entry]] (when (:written-again entry) k))) store-keys))
@@ -363,7 +363,7 @@
   "The door's map of shapes: each entry of `softland.store.act/shapes`, as
   `act.clj` declares it, and six more, in the same language.
 
-    :arrived-act   an act as it arrives on a depot: the act-id, the layer's
+    :arrived-act   an act as it arrives on a depot: the act-id, the lane's
                    depot under `:depot`, the time on the act under
                    `time-part`, then the ten parts of the maker's `:act`,
                    read from `act.clj`'s map in its order and with its
@@ -371,11 +371,11 @@
                    as a fact is `act.clj`'s `:fact`
     :depot-word    one of the two depot words, `:streaming` and
                    `:microbatch`
-    :who-may-see-word  one of the two words for who may see a layer,
+    :who-may-see-word  one of the two words for who may see a lane,
                    `:members` and `:everyone`
     :who-may-read-acts-word  one of the two words for who may read a
-                   layer's acts whole, `:members` and `:everyone`
-    :layer-list    layer ids in an order. A value is never a list, so what
+                   lane's acts whole, `:members` and `:everyone`
+    :lane-list    lane ids in an order. A value is never a list, so what
                    fits is a vector
     :key-set       a set of keys
 
@@ -405,7 +405,7 @@
          :depot-word   [:enum :streaming :microbatch]
          :who-may-see-word [:enum :members :everyone]
          :who-may-read-acts-word [:enum :members :everyone]
-         :layer-list   [:seq-of :id]
+         :lane-list   [:seq-of :id]
          :key-set      [:set-of :key]))
 
 (def rules
@@ -421,11 +421,11 @@
 
   The seven rules of the four keys that take a second write stand after the
   rules of a permission fact: the value under each has its shape; a
-  builds-on fact names `max-builds-on` layers at most and a marked-keys
+  builds-on fact names `max-builds-on` lanes at most and a marked-keys
   fact holds `max-marked-keys` keys at most; and no marked key is in the
   store's namespace, so the store's own facts are never kept by value. Each
   keeps a fact with no value, as the rules beside them do; a gate refuses
-  the retract. The rule of who may read a layer's acts stands right behind
+  the retract. The rule of who may read a lane's acts stands right behind
   the rule of who may see it. So of a thing that was refused
   `:store-key-not-known` for a fact under that key before the key was
   known, and has another fault that a later rule names, the word is now the
@@ -452,8 +452,8 @@
          [:permission-fact-sits-on-what-it-covers :permission-fact-not-on-what-it-covers]
          [:who-may-see-fact-holds-its-word     :who-may-see-fact-not-members-or-everyone]
          [:who-may-read-acts-fact-holds-its-word :who-may-read-acts-fact-not-members-or-everyone]
-         [:builds-on-fact-holds-layers         :builds-on-fact-not-a-list-of-layers]
-         [:builds-on-within-the-limit          :builds-on-too-many-layers]
+         [:builds-on-fact-holds-lanes         :builds-on-fact-not-a-list-of-lanes]
+         [:builds-on-within-the-limit          :builds-on-too-many-lanes]
          [:marked-keys-fact-holds-keys         :marked-keys-fact-not-a-set-of-keys]
          [:marked-keys-within-the-limit        :too-many-marked-keys]
          [:marked-keys-are-plain-keys          :marked-key-in-the-stores-namespace]
@@ -470,7 +470,7 @@
    :act-id-malformed
    :id-too-long
    :act-id-of-the-other-gate
-   :act-id-of-another-layer])
+   :act-id-of-another-lane])
 
 (def reasons
   "The words with which `check` refuses. Read from the two declarations:
@@ -511,13 +511,13 @@
   (boolean (and (or (act/readable-keyword? x) (uuid? x))
                 (id-within-the-limit? x))))
 
-(defn act-id-in-layer?
-  "Takes a layer id and anything. Gives true when the thing has the shape of
-  an act-id, [layer depot uuid], and its layer slot is the layer given. A
+(defn act-id-in-lane?
+  "Takes a lane id and anything. Gives true when the thing has the shape of
+  an act-id, [lane depot uuid], and its lane slot is the lane given. A
   read tests what a caller gave it with this. It never throws."
-  [layer x]
+  [lane x]
   (try (and (= :ok (first (act/as-shape shapes :act-id x)))
-            (= layer (nth x 0)))
+            (= lane (nth x 0)))
        (catch Throwable _ false)))
 
 ;; ------------------------------------------------------ the code of the rules
@@ -560,7 +560,7 @@
 
 (defn- permission-ids
   "Takes a permission id in its one form. Gives each id that it holds: who,
-  layer and granted-in, and the session of a permission for a run, of itself
+  lane and granted-in, and the session of a permission for a run, of itself
   and of each permission above it. The
   permission above is the fourth slot of both given forms, with or without
   the slot that says what the permission allows."
@@ -572,24 +572,24 @@
 
 (defn- ids-of
   "Takes an act in the one form that the engine gave. Gives each id that it
-  holds, wherever it sits, and each fact's key: who, the layer, the
+  holds, wherever it sits, and each fact's key: who, the lane, the
   session, each subject, each fact's entity, each id inside an act-id, a
-  fact id or a permission id, each layer that a builds-on fact names, and
+  fact id or a permission id, each lane that a builds-on fact names, and
   each key that a marked-keys fact holds. A key of a row is built from each
   of the last two kinds, so they are held to the limit with the rest. The
   uuid of an act-id is not among them: it prints to 36 characters. What
   must hold: the rules of the store keys' values passed."
   [act]
-  (let [layer-of (fn [act-id] (when act-id [(nth act-id 0)]))]
-    (concat [(:who act) (:layer act) (:session act)]
+  (let [lane-of (fn [act-id] (when act-id [(nth act-id 0)]))]
+    (concat [(:who act) (:lane act) (:session act)]
             (:subjects act)
             (permission-ids (:permission act))
-            (layer-of (:act-id act))
-            (layer-of (:because-of act))
-            (mapcat (fn [[act-id _]] (layer-of act-id)) (keys (:based-on act)))
+            (lane-of (:act-id act))
+            (lane-of (:because-of act))
+            (mapcat (fn [[act-id _]] (lane-of act-id)) (keys (:based-on act)))
             (mapcat (fn [fact]
                       (concat [(:e fact) (:k fact)]
-                              (layer-of (first (:replaces fact)))
+                              (lane-of (first (:replaces fact)))
                               (when (contains? permission-keys (:k fact))
                                 (permission-ids (:v fact)))
                               (when (contains? #{:softland.store/builds-on :softland.store/marked-keys}
@@ -606,8 +606,8 @@
   The maker's rule is written here a second time, one line: its code is
   private to `act.clj`. Its name and its word are read from
   `softland.store.act/rules`."
-  {:permission-is-in-the-acts-layer
-   (fn [act] (= (:layer act) (nth (:permission act) 1)))
+  {:permission-is-in-the-acts-lane
+   (fn [act] (= (:lane act) (nth (:permission act) 1)))
 
    :depot-is-the-act-ids-depot
    (fn [act] (= (:depot act) (nth (:act-id act) 1)))
@@ -632,7 +632,7 @@
    (fn [act] (every? (fn [k] (value-fits-its-key? k act)) permission-keys))
 
    ;; Under each of the three keys, the kind of permission that the key is
-   ;; for: one that covers the layer, one run, or one act.
+   ;; for: one that covers the lane, one run, or one act.
    :permission-fact-is-of-its-key
    (fn [act] (each-fact? (fn [fact]
                            (or (not (contains? permission-keys (:k fact)))
@@ -668,7 +668,7 @@
    :who-may-read-acts-fact-holds-its-word
    (fn [act] (value-fits-its-key? :softland.store/who-may-read-acts act))
 
-   :builds-on-fact-holds-layers
+   :builds-on-fact-holds-lanes
    (fn [act] (value-fits-its-key? :softland.store/builds-on act))
 
    :builds-on-within-the-limit
@@ -707,18 +707,18 @@
   stray, one of `stray-reasons`. In order:
 
     :no-act-id                 the thing is no plain map, or holds no act-id
-    :act-id-malformed          its act-id is not [layer depot uuid]
-    :id-too-long               the layer slot of its act-id prints to more
+    :act-id-malformed          its act-id is not [lane depot uuid]
+    :id-too-long               the lane slot of its act-id prints to more
                                than `max-id-text` characters. An answer's
-                               key holds that layer, so such a thing can
+                               key holds that lane, so such a thing can
                                have no answer
     :act-id-of-the-other-gate  the depot slot is not the gate's depot
-    :act-id-of-another-layer   the layer slot is not the thing's `:layer`.
-                               This covers a thing with no `:layer`
+    :act-id-of-another-lane   the lane slot is not the thing's `:lane`.
+                               This covers a thing with no `:lane`
 
-  A thing that passes names one layer in its act-id and in its `:layer`, of
+  A thing that passes names one lane in its act-id and in its `:lane`, of
   `max-id-text` characters at most. On either depot, when a client
-  appended it, it is on the task of that layer, which is where its gate
+  appended it, it is on the task of that lane, which is where its gate
   writes its answer and where a read by its act-id looks.
 
   It reads no time. A thing with a usable act-id and no usable time is no
@@ -733,7 +733,7 @@
         (not= :ok (first (act/as-shape shapes :act-id act-id))) :act-id-malformed
         (not (id-within-the-limit? (nth act-id 0))) :id-too-long
         (not= gate-depot (nth act-id 1)) :act-id-of-the-other-gate
-        (not= (nth act-id 0) (get thing :layer)) :act-id-of-another-layer
+        (not= (nth act-id 0) (get thing :lane)) :act-id-of-another-lane
         :else nil))
     (catch Throwable _ :no-act-id)))
 

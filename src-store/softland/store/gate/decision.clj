@@ -23,18 +23,18 @@
     early      the declaration's own word
                (`softland.store.door.declaration/check`), which the walk
                takes as it is. Nothing of the record is read.
-    standing   `standing`: the layer's depot is this gate's (c); the layer
+    standing   `standing`: the lane's depot is this gate's (c); the lane
                is made, or the act is a right making act; the act's
                permission is held by its `:who` and covers the act: the
-               layer, the run that the act names as its `:session`, or
+               lane, the run that the act names as its `:session`, or
                this one act, by its digest (`softland.store.act/covers`),
                and a yes for one act that is not used up; it stands (d),
                and each permission above it stands; and it allows acting:
                an act needs \"act\".
     places     `places`: each replaced fact is the current fact of its
-               place (e); no setting key on an entity other than the layer
+               place (e); no setting key on an entity other than the lane
                (f); a permission fact writes a permission straight beneath
-               the act's own, and the act's own covers the layer: a
+               the act's own, and the act's own covers the lane: a
                permission for a run or for an act gives nothing (g); who
                may write a key that takes a second
                write (`who-may-write-fault`); who may end a permission, and
@@ -49,12 +49,12 @@
   the decision writes in the record: for an act taken under a yes for one
   act, the yes's use among them, an end at the yes's place
   (`use-of-its-yes`). `line-writes` gives the rows that it writes in the
-  layer's line, for the read by stamp: the line row, the thing again when
+  lane's line, for the read by stamp: the line row, the thing again when
   it weighs no more than `kept-bound` allows, and the row by who. The walk
   weighs the thing up to `weighing-bound`, in the walk of its digest.
 
   What an accept reads after the last check, for the order by value. No
-  check reads a layer's marked keys, so a refused act pays nothing for them.
+  check reads a lane's marked keys, so a refused act pays nothing for them.
   `reads-marked-keys?` says whether an accepted act needs the row at
   `marked-keys-place`; `since-by-place` gives, from that row, the places of
   the act whose key is marked, each with the key's stamp; and
@@ -66,12 +66,12 @@
   How two of the checks rest on how a row can come to be, and read less
   than their words name.
 
-  (c) costs no read for a layer that is made here. A gate's record holds
-  rows only for layers of its depot: a row is written only by an accept; an
-  accept happens in a layer that is made here, or makes it; a making act is
-  right only for the gate of the depot that the layer starts with; and no
+  (c) costs no read for a lane that is made here. A gate's record holds
+  rows only for lanes of its depot: a row is written only by an accept; an
+  accept happens in a lane that is made here, or makes it; a making act is
+  right only for the gate of the depot that the lane starts with; and no
   act of this build changes a depot. So a row at the permission's place, or
-  at the layer's depot place, says that the layer is this gate's.
+  at the lane's depot place, says that the lane is this gate's.
 
   (d) is one read for each permission of the act's chain. A permission
   fact sits on what it covers, its holder, a run, or for a yes for one act
@@ -96,10 +96,10 @@
   stray: the gate makes them before any of these. The bound on one value
   and the bound on an act: they are the last step of the declaration's
   check, and come to the walk as its word. The other gate's record:
-  no check takes a row of it, and whether a layer is the other gate's is
-  asked of the layer id alone
+  no check takes a row of it, and whether a lane is the other gate's is
+  asked of the lane id alone
   (`softland.store.gate.first-act/starts-with-the-other-gates-depot?`).
-  The stamp of the decision: the walk makes it of the layer's last stamp
+  The stamp of the decision: the walk makes it of the lane's last stamp
   (`softland.store.gate.stamp/next-stamp`), and it reads nothing of the
   act. No check here reads the time on the act or a stamp that the act
   carries."
@@ -131,15 +131,15 @@
 
 (defn permission-place
   "Takes an act. Gives the key of the place where the permission that the
-  act names sits in the act's layer, read from the permission's own form
+  act names sits in the act's lane, read from the permission's own form
   (`softland.store.gate.chain/place`): on its holder for one that covers the
-  layer, on the act's run or on the act itself for one that covers a run or
+  lane, on the act's run or on the act itself for one that covers a run or
   an act. The first row that a gate reads for the standing of an act. One
-  place for a holder's permission for the layer: that is kept as built and
+  place for a holder's permission for the lane: that is kept as built and
   not decided, and this key is one of the two places where the other answer
   would be made (`softland.store.door.declaration/store-keys`)."
   [act]
-  (chain/place (:layer act) (:permission act)))
+  (chain/place (:lane act) (:permission act)))
 
 (defn hex-for-its-permission
   "Takes a thing as it arrived on a depot, and the act that the
@@ -164,7 +164,7 @@
   Gives true when the row is the yes's use: an end that an act taken under
   that very yes wrote, which names the yes as the permission that its act
   named (`use-of-its-yes`). An end that the yes's giver, one above the
-  giver, or its holder under her permission for the layer wrote names
+  giver, or its holder under her permission for the lane wrote names
   another permission, and is an end and no use. An act taken under a yes
   that is the yes's own end is its use too."
   [row permission]
@@ -181,7 +181,7 @@
   permission of its was ended. False for a permission that is no yes, for
   the use of the yes named (`used-up?`), and for an end that the yes's
   giver, one above the giver or its holder wrote, which names a
-  permission for the layer: that end does not say which yes it ended. It
+  permission for the lane: that end does not say which yes it ended. It
   reads the text of the row's permission only for such a row."
   [row permission]
   (let [[kind yes] (act/covers permission)]
@@ -192,29 +192,29 @@
                     (and (= :act named-kind) (= yes named-yes)))))))
 
 (defn depot-place
-  "Takes an act. Gives the key of the place of its layer's depot: the layer
+  "Takes an act. Gives the key of the place of its lane's depot: the lane
   as entity, under `:softland.store/depot`. A gate reads it only when the
   place of the permission is empty."
   [act]
-  (record/place-key (:layer act) (:layer act) :softland.store/depot))
+  (record/place-key (:lane act) (:lane act) :softland.store/depot))
 
-(defn- layer-is-the-other-gates?
-  "Takes the gate's depot and an act. Gives true when the act's layer is the
+(defn- lane-is-the-other-gates?
+  "Takes the gate's depot and an act. Gives true when the act's lane is the
   other gate's: it starts with the other gate's depot
   (`softland.store.gate.first-act/starts-with-the-other-gates-depot?`). It
-  reads the layer id of the act and nothing else, so it gives the same
-  whether or not the other gate has made the layer. For the streaming gate
-  such a layer is the base; for the microbatch gate it is every other
-  layer."
+  reads the lane id of the act and nothing else, so it gives the same
+  whether or not the other gate has made the lane. For the streaming gate
+  such a lane is the base; for the microbatch gate it is every other
+  lane."
   [gate-depot act]
-  (first-act/starts-with-the-other-gates-depot? gate-depot (:layer act)))
+  (first-act/starts-with-the-other-gates-depot? gate-depot (:lane act)))
 
-(defn makes-the-layer?
+(defn makes-the-lane?
   "Takes the gate's depot, an act, the row at the place of the permission
   that the act names (`permission-place`), and the row at the place of the
-  layer's depot. Gives true
-  when the act is the first act of its layer: both rows are nil, the layer
-  is not the other gate's (`layer-is-the-other-gates?`), and the act has
+  lane's depot. Gives true
+  when the act is the first act of its lane: both rows are nil, the lane
+  is not the other gate's (`lane-is-the-other-gates?`), and the act has
   the form of a making act for this gate. `standing` gives nil for such an
   act and for an act whose permission stands; this tells the two apart.
   What must hold: when the permission's row is nil, the depot's row was
@@ -222,7 +222,7 @@
   [gate-depot act permission-row depot-row]
   (boolean (and (nil? permission-row)
                 (nil? depot-row)
-                (not (layer-is-the-other-gates? gate-depot act))
+                (not (lane-is-the-other-gates? gate-depot act))
                 (first-act/making-act? gate-depot act))))
 
 (defn chain-needed
@@ -236,30 +236,30 @@
   above it."
   [act permission-row]
   (if (record/holds-value? permission-row (:permission act))
-    (chain/places-above (:layer act) (:permission act))
+    (chain/places-above (:lane act) (:permission act))
     []))
 
 (defn standing
   "The standing of an act: checks (c) and (d), what the act's permission
-  allows and covers, and the first act of a layer. Takes the gate's depot;
+  allows and covers, and the first act of a lane. Takes the gate's depot;
   an act; the row at the place of the permission that the act names
-  (`permission-place`); the row at the place of the layer's depot, which is
+  (`permission-place`); the row at the place of the lane's depot, which is
   read only when the first is nil; the rows of the places that
   `chain-needed` named, as a map from key to row, nil or absent for an empty
   place; and what `hex-for-its-permission` gave for the thing. Gives nil
   when the act's permission stands, covers the act and allows acting, or
-  when the act is a right making act for a layer that is not made
-  (`makes-the-layer?` tells the two apart). Else a word, the first that
+  when the act is a right making act for a lane that is not made
+  (`makes-the-lane?` tells the two apart). Else a word, the first that
   holds in this order:
 
-    :layer-belongs-to-the-other-gate  the record holds nothing for the
-                                      layer, and the layer is the other
+    :lane-belongs-to-the-other-gate  the record holds nothing for the
+                                      lane, and the lane is the other
                                       gate's
-    :layer-not-made                   the record holds nothing for the
-                                      layer, the layer is not the other
+    :lane-not-made                   the record holds nothing for the
+                                      lane, the lane is not the other
                                       gate's, and the act is no right
                                       making act
-    :who-not-the-permissions-holder   the layer is made here, and the holder
+    :who-not-the-permissions-holder   the lane is made here, and the holder
                                       that the act's permission names is not
                                       the act's `:who`
     :permission-for-another-run       the act's permission covers one run,
@@ -308,7 +308,7 @@
   An act that was taken under a permission stays taken when the permission
   ends: the rows of its facts stay, and the log holds the act. An act that
   is decided after the end is refused, the holder's own and that of each
-  holder beneath her. The end has a stamp in the layer's one order, so
+  holder beneath her. The end has a stamp in the lane's one order, so
   which acts came before it is the same at each run of the gates.
 
   The last word costs no read: what a permission allows is a slot of the
@@ -337,20 +337,20 @@
   its own id, and each is used once. The session and the who are what the
   sending program said: a gate checks no sender.
 
-  Whether the layer is the other gate's is worked out here, from the gate's
-  depot and the act's layer (`layer-is-the-other-gates?`), and counts only
+  Whether the lane is the other gate's is worked out here, from the gate's
+  depot and the act's lane (`lane-is-the-other-gates?`), and counts only
   when both rows are nil. No table of the other gate is read for it, in
-  either gate. So an act on one depot for a layer that starts with the
+  either gate. So an act on one depot for a lane that starts with the
   other depot, of which this gate's record holds nothing, gets
-  `:layer-belongs-to-the-other-gate` whether or not the other gate has made
-  the layer, and never `:layer-not-made`. The word of an act for a layer of
+  `:lane-belongs-to-the-other-gate` whether or not the other gate has made
+  the lane, and never `:lane-not-made`. The word of an act for a lane of
   the other gate comes from the act alone: a session's rule, 14 October
   2026, and no decision of Sid's. One half of the rule is forced by his
   line that the store comes out the same when it is run again: the word
   cannot follow the other gate's record, since a word that followed what
   the other gate had made by then would follow an order across two depots,
   which no second run gives again. The other half is the session's choice:
-  which of the two words is then given. `:layer-not-made` for every such
+  which of the two words is then given. `:lane-not-made` for every such
   act would hold his line as well."
   [gate-depot act permission-row depot-row chain-rows hex-of-the-act]
   (let [permission (:permission act)
@@ -358,9 +358,9 @@
     (cond
       (not (or permission-row depot-row))
       (cond
-        (layer-is-the-other-gates? gate-depot act) :layer-belongs-to-the-other-gate
+        (lane-is-the-other-gates? gate-depot act) :lane-belongs-to-the-other-gate
         (first-act/making-act? gate-depot act) nil
-        :else :layer-not-made)
+        :else :lane-not-made)
 
       (not= (:who act) (nth permission 0))
       :who-not-the-permissions-holder
@@ -373,8 +373,8 @@
 
       (record/holds-value? permission-row permission)
       (cond
-        (not (chain/stands? (:layer act) permission
-                            (assoc chain-rows (chain/place (:layer act) permission) permission-row)))
+        (not (chain/stands? (:lane act) permission
+                            (assoc chain-rows (chain/place (:lane act) permission) permission-row)))
         :permission-above-ended
 
         (= :see (act/allows permission))
@@ -394,19 +394,19 @@
 (defn- place-of
   "Takes an act and one of its facts. Gives the key of the fact's place."
   [act fact]
-  (record/place-key (:layer act) (:e fact) (:k fact)))
+  (record/place-key (:lane act) (:e fact) (:k fact)))
 
 (defn places-needed
-  "Takes an act, and whether it makes its layer. Gives the keys of the places
+  "Takes an act, and whether it makes its lane. Gives the keys of the places
   whose rows `places` needs, each once: the place of each fact that names
   something to replace, and of each fact under one of the three keys of a
   permission (`softland.store.door.declaration/permission-keys`).
-  None for an act that makes its layer: the record holds nothing of a layer
+  None for an act that makes its lane: the record holds nothing of a lane
   that is not made, and the two facts of a making act are not held to the
   checks that read a place. A fact that names nothing to replace needs no
   row, and so can never be stale."
-  [act makes-the-layer?]
-  (if makes-the-layer?
+  [act makes-the-lane?]
+  (if makes-the-lane?
     []
     (into []
           (comp (filter (fn [fact] (or (:replaces fact) (contains? declaration/permission-keys (:k fact)))))
@@ -416,34 +416,34 @@
 (defn- replaced-fact-fault
   "Check (e) for one fact. Gives the word when the fact names something to
   replace and that is not the current fact of its place: the place is empty,
-  another fact wrote its row, or the fact named is of another layer or
+  another fact wrote its row, or the fact named is of another lane or
   depot."
   [gate-depot act rows fact]
   (when-let [replaces (:replaces fact)]
-    (when-not (record/written-by? gate-depot (:layer act) (get rows (place-of act fact)) replaces)
+    (when-not (record/written-by? gate-depot (:lane act) (get rows (place-of act fact)) replaces)
       :replaced-fact-not-current)))
 
 (defn- setting-fault
   "Check (f) for one fact. Gives the word when the fact is under a setting
-  key on an entity that is not the act's layer."
+  key on an entity that is not the act's lane."
   [act fact]
   (when (and (contains? declaration/setting-keys (:k fact))
-             (not= (:e fact) (:layer act)))
-    :setting-not-on-the-layer))
+             (not= (:e fact) (:lane act)))
+    :setting-not-on-the-lane))
 
 (defn- permission-fact-fault
   "Check (g) for one fact. Gives a word when the fact is under one of the
   three keys of a permission, has a value, and is no give that the act's own
   permission can make: the act's own permission covers a run or an act, and
-  such a permission gives nothing; the given permission's layer slot is not
-  the act's layer; its granted-in slot is not the act's layer; or the
+  such a permission gives nothing; the given permission's lane slot is not
+  the act's lane; its granted-in slot is not the act's lane; or the
   permission above it is not exactly the one that the act acts under. A
   permission with nothing above it earns the last word.
 
   Why a permission for a run or for an act gives nothing. What is given
   beneath a permission must cover no more than it does: else the holder of a
-  permission for one run gives herself one for the layer beneath it, and a
-  yes for one run is a yes for every run. Neither a layer nor a second run
+  permission for one run gives herself one for the lane beneath it, and a
+  yes for one run is a yes for every run. Neither a lane nor a second run
   fits inside one run. A session's rule of 21 November 2026
   (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md, R10); the other
   way, a run that may give, would be one more word in the sixth slot."
@@ -451,40 +451,40 @@
   (let [given (:v fact)]
     (when (and (contains? declaration/permission-keys (:k fact)) (some? given))
       (cond
-        (some? (act/covers (:permission act))) :only-a-permission-for-the-layer-gives
-        (not= (:layer act) (nth given 1)) :permission-fact-for-another-layer
-        (not= (:layer act) (nth given 2)) :permission-fact-granted-in-another-layer
+        (some? (act/covers (:permission act))) :only-a-permission-for-the-lane-gives
+        (not= (:lane act) (nth given 1)) :permission-fact-for-another-lane
+        (not= (:lane act) (nth given 2)) :permission-fact-granted-in-another-lane
         (not= (:permission act) (nth given 3 nil)) :permission-fact-not-beneath-the-acts-own
         :else nil))))
 
 (defn who-may-write-fault
-  "Who may write a layer's setting, the list of what it builds on, and its
+  "Who may write a lane's setting, the list of what it builds on, and its
   marked keys: the check, for one fact under one of
   `softland.store.door.declaration/second-write-keys`. Takes the act and the
-  fact. Gives nil when the act is under the layer's first permission, and
+  fact. Gives nil when the act is under the lane's first permission, and
   `:only-the-first-holder-writes-a-setting` under any other: a given
   permission, whatever it allows.
 
-  The first holder is the holder of the layer's first permission, the one
-  with nothing above it that the layer's making act wrote
+  The first holder is the holder of the lane's first permission, the one
+  with nothing above it that the lane's making act wrote
   (`softland.store.gate.first-act/making-act?`): the person of a personal
-  layer, whoever made a group's layer, the system for the base. The check
+  lane, whoever made a group's lane, the system for the base. The check
   reads no row: an act's permission has passed its standing, and a
   permission with three slots is a first permission
-  (`softland.store.act`). A layer has one, and it does not end
+  (`softland.store.act`). A lane has one, and it does not end
   (`end-fault`).
 
-  Sid decided on 20 November 2026 that only the layer's root holder writes
+  Sid decided on 20 November 2026 that only the lane's root holder writes
   its settings (src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6). His
-  earlier word for her is \"the owner\"; no layer names an owner as a
+  earlier word for her is \"the owner\"; no lane names an owner as a
   fact, and that the first holder is the one is a session's reading. Not
-  built, and not asked: a layer that is handed to another holder."
+  built, and not asked: a lane that is handed to another holder."
   [act _fact]
   (when-not (= 3 (count (:permission act)))
     :only-the-first-holder-writes-a-setting))
 
 (defn chains-needed
-  "Takes an act; whether it makes its layer; the rows of the places that
+  "Takes an act; whether it makes its lane; the rows of the places that
   `places-needed` named, as a map from key to row; and the rows that are in
   hand already, as a map in which a key that was read is there also when
   its place is empty. Gives the keys of the places that `places` needs
@@ -494,26 +494,26 @@
   (`softland.store.gate.chain/places-above`), without the keys that are in
   hand. `give-over-fault` needs them to say whether the permission at the
   place stands. An empty vector for an act with no such fact, and for an
-  act that makes its layer. A give at a place that is empty or holds an end
+  act that makes its lane. A give at a place that is empty or holds an end
   needs none, and neither does an end, nor a give of a yes for one act: a
   yes's place takes one give, so whatever it holds is not read further
   (`store-key-fault`)."
-  [act makes-the-layer? place-rows in-hand]
-  (if makes-the-layer?
+  [act makes-the-lane? place-rows in-hand]
+  (if makes-the-lane?
     []
     (into []
           (comp (filter (fn [fact] (and (contains? declaration/permission-keys (:k fact))
                                         (not= :softland.store/act-permission (:k fact))
                                         (some? (:v fact)))))
                 (keep (fn [fact] (record/held-permission (get place-rows (place-of act fact)))))
-                (mapcat (fn [held] (chain/places-above (:layer act) held)))
+                (mapcat (fn [held] (chain/places-above (:lane act) held)))
                 (remove (fn [k] (or (contains? in-hand k) (contains? place-rows k))))
                 (distinct))
           (:facts act))))
 
 (defn- end-fault
   "The end of a permission, for one fact with no value under one of the three
-  keys of a permission: the end of a holder's permission for the layer, of
+  keys of a permission: the end of a holder's permission for the lane, of
   a run's, or of an act's, each on its own place. Takes the act and the row at the fact's place. Gives nil
   when the end is taken, or a word:
 
@@ -522,21 +522,21 @@
                                      act that was used up is one: its use
                                      is an end, and nothing is left of it
                                      to end
-    :first-permission-does-not-end   the place holds the layer's first
+    :first-permission-does-not-end   the place holds the lane's first
                                      permission. Nobody is above it, so
                                      nobody could give it again, and no act
-                                     could be taken in the layer or write
+                                     could be taken in the lane or write
                                      its settings ever after
     :not-above-the-permission        the act's permission is not the one at
                                      the place, is not in the chain above
                                      it (`softland.store.gate.chain/above?`),
                                      and is not the permission for the
-                                     layer of the holder of the one at the
+                                     lane of the holder of the one at the
                                      place
 
   So a permission is ended by its giver, by anyone above the giver up to
   the first holder, and by its own holder. Its holder ends it by an act
-  under that permission itself, or under her permission for the layer:
+  under that permission itself, or under her permission for the lane:
   never under her permission for another run or act, so a run ends nothing
   of hers but its own. A yes for one act takes no act but its one act
   (`standing`), so it ends itself only when that act is its end. The act's own permission has
@@ -565,13 +565,13 @@
 
 (defn- give-over-fault
   "A give at a place that holds a row, for one fact with a value under the
-  key of a permission for the layer or for a run; a yes's place takes one
+  key of a permission for the lane or for a run; a yes's place takes one
   give, and never comes here (`store-key-fault`). Takes the act, the row at
   the fact's place, and the rows in hand as a map from key to row. Gives nil
   when the place holds an end, or a permission that does not stand
   (`softland.store.gate.chain/stands?`): the give is taken and its row
   takes the place. Gives `:holder-has-a-permission` when the permission at
-  the place stands: a holder has one permission for the layer, and a run
+  the place stands: a holder has one permission for the lane, and a run
   one, and one that stands is ended before another is given there.
 
   So a holder is given a permission again after an end, and each holder
@@ -582,9 +582,9 @@
   What must hold: `rows` holds the row of each place of `chains-needed`."
   [act row rows]
   (let [held (record/held-permission row)
-        layer (:layer act)]
+        lane (:lane act)]
     (when (and held
-               (chain/stands? layer held (assoc rows (chain/place layer held) row)))
+               (chain/stands? lane held (assoc rows (chain/place lane held) row)))
       :holder-has-a-permission)))
 
 (defn- store-key-fault
@@ -597,17 +597,17 @@
   one yes for good, and a yes that was ended or used is never given again;
   another yes for the same act is given under an id of its own. Another
   give at a place that holds a row is a give over what is there, and
-  `give-over-fault` has the word. A layer's depot takes one write. The three keys of
-  `softland.store.door.declaration/second-write-keys`, who may see a layer,
+  `give-over-fault` has the word. A lane's depot takes one write. The three keys of
+  `softland.store.door.declaration/second-write-keys`, who may see a lane,
   what it builds on and its marked keys, take a second write and any later
   one: such a fact earns no word here, with `:replaces` or without. A
   retract under a store key other than the permission is refused. Gives a
   word for: an end or a give that its own check refuses; a fact with no
-  value under any other store key; a depot fact in a layer that is made,
+  value under any other store key; a depot fact in a lane that is made,
   with the other depot (a change of depot is not decided) or with the
-  layer's own (its place holds one). A fact under any other key earns none.
+  lane's own (its place holds one). A fact under any other key earns none.
   Whether a fact has a value is asked of a fact under a store key alone,
-  whose `:v` the act's one form keeps. What must hold: the layer is made by
+  whose `:v` the act's one form keeps. What must hold: the lane is made by
   this gate, so its depot is the gate's."
   [gate-depot act rows fact]
   (let [k (:k fact)
@@ -624,16 +624,16 @@
 
 (defn places
   "The checks of the places. Takes the gate's depot; an act; whether it makes
-  its layer; and the rows in hand, as a map from key to row, nil or absent
+  its lane; and the rows in hand, as a map from key to row, nil or absent
   for an empty place: the rows of the places that `places-needed` and
   `chains-needed` named. Gives nil, or the word of the first check that
   fails, in this order:
 
     (e)  :replaced-fact-not-current
-    (f)  :setting-not-on-the-layer
-    (g)  :only-a-permission-for-the-layer-gives,
-         :permission-fact-for-another-layer,
-         :permission-fact-granted-in-another-layer,
+    (f)  :setting-not-on-the-lane
+    (g)  :only-a-permission-for-the-lane-gives,
+         :permission-fact-for-another-lane,
+         :permission-fact-granted-in-another-lane,
          :permission-fact-not-beneath-the-acts-own
     then :only-the-first-holder-writes-a-setting, for a fact under a key
          that takes a second write (`who-may-write-fault`)
@@ -644,32 +644,32 @@
          :a-yes-is-given-once (`store-key-fault`);
          :holder-has-a-permission (`give-over-fault`)
 
-  An act that makes its layer is held to (e) and (f) as any act is, with no
-  rows: nothing is current in a layer that is not made. It is not held to
+  An act that makes its lane is held to (e) and (f) as any act is, with no
+  rows: nothing is current in a lane that is not made. It is not held to
   (g) or to the last step: the permission that it writes is its own and not
-  one beneath its own, and its depot fact is the layer's first.
+  one beneath its own, and its depot fact is the lane's first.
 
   What must hold: `standing` gave nil for the act."
-  [gate-depot act makes-the-layer? rows]
+  [gate-depot act makes-the-lane? rows]
   (let [facts (:facts act)]
     (or (some #(replaced-fact-fault gate-depot act rows %) facts)
         (some #(setting-fault act %) facts)
-        (when-not makes-the-layer?
+        (when-not makes-the-lane?
           (or (some #(permission-fact-fault act %) facts)
               (some #(when (contains? declaration/second-write-keys (:k %))
                        (who-may-write-fault act %))
                     facts)
               (some #(store-key-fault gate-depot act rows %) facts))))))
 
-;; ---------------------------------------------- the marked keys of the layer
+;; ---------------------------------------------- the marked keys of the lane
 
 (defn marked-keys-place
-  "Takes an act. Gives the key of the place of its layer's marked keys: the
-  layer as entity, under `:softland.store/marked-keys`. Its row says which
-  keys the layer marks, and since which stamp each
+  "Takes an act. Gives the key of the place of its lane's marked keys: the
+  lane as entity, under `:softland.store/marked-keys`. Its row says which
+  keys the lane marks, and since which stamp each
   (`softland.store.record.rows/marked-keys-of`)."
   [act]
-  (record/place-key (:layer act) (:layer act) :softland.store/marked-keys))
+  (record/place-key (:lane act) (:lane act) :softland.store/marked-keys))
 
 (defn reads-marked-keys?
   "Takes an act, or nil. Gives true when a gate that accepts the act needs
@@ -684,10 +684,10 @@
                  (:facts act))))
 
 (defn since-by-place
-  "Takes an act and the row at its layer's marked-keys place, or nil. Gives a
-  map from the key of each place of the act whose key the layer marks to
+  "Takes an act and the row at its lane's marked-keys place, or nil. Gives a
+  map from the key of each place of the act whose key the lane marks to
   that key's stamp: the stamp since which the order of the key is level.
-  Empty when the layer marks no key of the act. A retract is in it too: it
+  Empty when the lane marks no key of the act. A retract is in it too: it
   takes the entry of the value before out. The act is decided with the
   marks as they were before it, so a fact of the act that writes the mark
   of its own key is not in it."
@@ -715,7 +715,7 @@
 ;; --------------------------------------------------------------- the writes
 
 (defn- level-since-after
-  "The stamps of a layer's marked keys after a write of the marks. Takes the
+  "The stamps of a lane's marked keys after a write of the marks. Takes the
   row at the marked-keys place as it was before the write, or nil; the set
   of keys that the new fact marks; and the stamp that a newly marked key
   gets. Gives a map from each key of the new set to its stamp: the stamp
@@ -755,7 +755,7 @@
         before (record/plain-bytes-of row-before)
         digest-before (when (and before (< (long since) (long (:stamp row-before))))
                         (record/value-digest before))
-        key-of (fn [digest] (record/by-value-key (:layer act) (:k fact) since digest (:e fact)))]
+        key-of (fn [digest] (record/by-value-key (:lane act) (:k fact) since digest (:e fact)))]
     (cond-> []
       (and digest-before (not= digest-before digest-now))
       (conj [:by-value (key-of digest-before) nil])
@@ -811,14 +811,14 @@
   The text of a value is not made here: each fact holds its own, from the
   declaration's check. `in-hand` is what `writes` takes."
   [act act-uuid stamp time-millis {:keys [since-by-place place-rows level-from]}]
-  (let [layer (:layer act)
+  (let [lane (:lane act)
         who-text (text/text (:who act))
         permission-text (text/text (:permission act))]
     (into (into []
                 (comp
                  (map-indexed
                   (fn [index fact]
-                    (let [place (record/place-key layer (:e fact) (:k fact))
+                    (let [place (record/place-key lane (:e fact) (:k fact))
                           row (cond-> (record/fact-row fact act-uuid index stamp time-millis who-text permission-text)
                                 (and (= :softland.store/marked-keys (:k fact)) (some? (:v fact)))
                                 (record/with-level-since
@@ -842,7 +842,7 @@
   and what the walk has in hand for an accept, a map that is not read for a
   refusal:
 
-    :since-by-place  for each place of the act whose key the layer marks,
+    :since-by-place  for each place of the act whose key the lane marks,
                      the key's stamp (`since-by-place`); empty or absent
                      when none is
     :place-rows      the rows of the act's places that were read, a map
@@ -851,7 +851,7 @@
                      the act writes it
     :level-from      the stamp that a newly marked key gets: the stamp of
                      the act, in both gates. So a mark holds from the next
-                     act of the layer
+                     act of the lane
 
   Gives a vector of [which key row]:
 
@@ -864,7 +864,7 @@
     [:answer key row]      the answer under the act-id
     [:last-stamp nil n]    the last stamp to keep, which is the stamp of
                            the decision. It names no key: the walk writes
-                           it for the act's layer, in the table that the
+                           it for the act's lane, in the table that the
                            gate keeps for a task
 
   A refusal writes the answer and the last stamp, and nothing else. An
@@ -887,9 +887,9 @@
   check gave it, `:place-rows` holds what the list above says, and the
   time is there: the declaration refuses a thing with none."
   [act-id act refused stamp time-millis digest in-hand]
-  (let [[layer _ act-uuid] act-id]
+  (let [[lane _ act-uuid] act-id]
     (conj (if refused [] (accept-writes act act-uuid stamp time-millis in-hand))
-          [:answer (record/answer-key layer act-uuid) (record/answer-row refused stamp time-millis digest)]
+          [:answer (record/answer-key lane act-uuid) (record/answer-row refused stamp time-millis digest)]
           [:last-stamp nil (long stamp)])))
 
 ;; ----------------------------------------------------------------- the line
@@ -906,8 +906,8 @@
 
 (def max-kept-weight-with-no-standing
   "The heaviest thing that a gate keeps a second time when its sender has no
-  standing in the layer, or the declaration refused it: 262,144, 256 KiB.
-  Sid's call of 22 November 2026. So a sender whom the layer let in nobody
+  standing in the lane, or the declaration refused it: 262,144, 256 KiB.
+  Sid's call of 22 November 2026. So a sender whom the lane let in nobody
   makes the task write and hold the bytes of a large thing twice. A number
   of the build, kept and not decided."
   262144)
@@ -939,7 +939,7 @@
     max-kept-weight-with-no-standing))
 
 (defn line-writes
-  "The rows that one decision writes into the layer's line, as data. Takes
+  "The rows that one decision writes into the lane's line, as data. Takes
   the act-id under which the thing arrived; the thing as it arrived; the
   word of the refusal, or nil for an accept; the stamp; the time on the
   thing (`time-on`), or nil; the digest of the thing, 32 bytes; its weight,
@@ -965,11 +965,11 @@
   tasks. What must hold: the thing is no stray, and no answer was under its
   act-id: the walk calls this behind check (a), as it calls `writes`."
   [act-id thing refused stamp time-millis digest weight bound]
-  (let [[layer _ act-uuid] act-id
+  (let [[lane _ act-uuid] act-id
         who (declaration/usable-who thing)
         kept? (and (int? weight) (<= (long weight) (long bound)))
         not-kept (cond kept? nil (= :not-weighed weight) :not-weighed :else :too-heavy)
-        k (record/line-key layer stamp)]
+        k (record/line-key lane stamp)]
     (cond-> [[:line k (record/line-row act-uuid refused time-millis digest who (when kept? weight) not-kept)]]
       kept? (conj [:thing k thing])
-      (some? who) (conj [:by-who (record/by-who-key layer who stamp) (long stamp)]))))
+      (some? who) (conj [:by-who (record/by-who-key lane who stamp) (long stamp)]))))

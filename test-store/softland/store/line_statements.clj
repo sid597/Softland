@@ -1,5 +1,5 @@
 (ns softland.store.line-statements
-  "The statements of a layer's line and of the read by stamp, run over the
+  "The statements of a lane's line and of the read by stamp, run over the
   store: the judge that another session wrote from piece 3's spec alone
   (`src/proposal/runtime-2026-11-21/store-piece-3/statements/`), with the
   store's door, its gates on an in-process cluster and its read path as the
@@ -33,12 +33,12 @@
                   level :ack to the streaming depot, which waits for the
                   gate; with :append-ack to the microbatch depot, and then
                   the same wait. A thing that Rama's client cannot append
-                  (a sorted map whose keys do not compare with `:layer`
+                  (a sorted map whose keys do not compare with `:lane`
                   throws in the depot's partitioner, on the client) is not
                   appended, and the call gives a word
     :answer-of    `softland.store.door/answer-of`
     :read-line    `softland.store.read-path/read-once` of the query
-                  `{:asks [:acts start most] :from-layer layer}` with the
+                  `{:asks [:acts start most] :from-lane lane}` with the
                   asker, or `:not-signed-in`, and the session; read by a
                   read path whose bound on the weight of one read's things
                   is the judge's `:max-bytes`. The answer is put in the
@@ -53,7 +53,7 @@
                   (`softland.store.door.digest/hex-for-a-yes`)
 
   A fresh store for each history. A history begins with nothing made, and
-  every history of the judge uses the layers `:lab` and `:base`. So each is
+  every history of the judge uses the lanes `:lab` and `:base`. So each is
   played on a module of its own, launched under a name of its own in one
   in-process cluster with four tasks, and destroyed after. The module is
   the store's, by `softland.store.module/add-gates-and-reads` behind its two
@@ -90,17 +90,17 @@
   and `softland.store.module/add-gates-and-reads`, as `Store` has them."
   [module-name]
   (rama/module {:module-name module-name} [setup topologies]
-    (rama/declare-depot setup *streaming-depot (rama/hash-by :layer))
-    (rama/declare-depot setup *microbatch-depot (rama/hash-by :layer))
+    (rama/declare-depot setup *streaming-depot (rama/hash-by :lane))
+    (rama/declare-depot setup *microbatch-depot (rama/hash-by :lane))
     (module/add-gates-and-reads topologies)))
 
 (defn- query-of
-  "Takes a read of the judge's: {:layer :start :max-count :asker
+  "Takes a read of the judge's: {:lane :start :max-count :asker
   :not-signed-in :session}. Gives the query of the read by stamp. What the
   judge gave is passed as it is, so that a read that is wrong is turned
   away by the read path's own check."
-  [{:keys [layer start max-count asker not-signed-in session]}]
-  (cond-> {:asks [:acts start max-count] :from-layer layer}
+  [{:keys [lane start max-count asker not-signed-in session]}]
+  (cond-> {:asks [:acts start max-count] :from-lane lane}
     (some? asker) (assoc :asker asker)
     (some? not-signed-in) (assoc :not-signed-in not-signed-in)
     (some? session) (assoc :session session)))
@@ -146,7 +146,7 @@
         processed! (fn []
                      (rtest/wait-for-microbatch-processed-count ipc module-name "microbatch-gate" @appended))]
     {:act-id-for
-     (fn [layer] (door/act-id-for the-door layer))
+     (fn [lane] (door/act-id-for the-door lane))
 
      :send-act!
      (fn [maker-act act-id]
@@ -176,10 +176,10 @@
        (in-the-judges-form (read-path/read-once (read-path-for (:max-bytes req)) (query-of req))))
 
      :make-act-permission-fact
-     (fn [{:keys [layer holder parent target-uuid planned-act]}]
+     (fn [{:keys [lane holder parent target-uuid planned-act]}]
        {:e target-uuid
         :k :softland.store/act-permission
-        :v [holder layer layer parent :see-and-act [:act target-uuid (digest/hex-for-a-yes planned-act)]]})}))
+        :v [holder lane lane parent :see-and-act [:act target-uuid (digest/hex-for-a-yes planned-act)]]})}))
 
 (defn- on-a-module
   "Launches a module of its own in the cluster, gives `f` the target over
@@ -217,16 +217,16 @@
                                          (on-a-module ipc (str "LineStatementsHistory" i)
                                                       (fn [target]
                                                         (when-let [err (judge/run-history! target h)]
-                                                          (assoc err :history-index i :layer (:layer h)))))
+                                                          (assoc err :history-index i :lane (:lane h)))))
                                          (catch Throwable t
-                                           {:statement :the-run-threw :history-index i :layer (:layer h)
+                                           {:statement :the-run-threw :history-index i :lane (:lane h)
                                             :detail (str (.getName (class t)) ": " (.getMessage t))})))))
                           (range) histories)
             breaks (into [] (keep #(.get ^java.util.concurrent.Future %)) futures)]
         (.shutdown pool)
         (.awaitTermination pool 1 TimeUnit/MINUTES)
         (doseq [b breaks]
-          (println "BROKEN" (:statement b) "at history" (:history-index b) (:layer b) "step" (:step-index b)
+          (println "BROKEN" (:statement b) "at history" (:history-index b) (:lane b) "step" (:step-index b)
                    (pr-str (:step b)))
           (println "       " (subs (str (:detail b)) 0 (min 600 (count (str (:detail b)))))))
         (println (format "%s the judge's statements over the store: %d histories (seeds %s, %d each), %d broke a statement, in %d s"

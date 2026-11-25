@@ -33,20 +33,25 @@ make-fixture".
 
 ## How it was made, and how it is made
 
-This fixture was made on 22 November 2026. It is the eighth making; the first
+This fixture was made on 25 November 2026. It is the ninth making. It replaced
+the eighth for the name of the store's unit, which became `lane` on purpose, at
+Sid's word of 25 November 2026: an act's digest and its weight hold the key's
+name, so every answer changed. Fed the eighth making's records, the renamed store
+gave the eighth's tables but for the digests, the weights, and what follows from a
+yes that names an old digest. The first
 three were made on 14 October 2026, the fourth and the fifth on 21 November,
 and the sixth, the seventh and the eighth on 22 November. The
 first two were made by the build "run again", in which both depots came to
-place an act by its layer and the base's gate came to decide each act on the
-layer's task in the depot's order: the first after the build's part B, the
+place an act by its lane and the base's gate came to decide each act on the
+lane's task in the depot's order: the first after the build's part B, the
 second at the build's end, for two rules changed after the build's review
 (`src/proposal/backend-on-rama-2026-10-02/run-again/RECEIPT.md`). The third
 replaced the second for the rules that Sid's decisions of 14 October 2026
 changed on purpose: order and time are kept apart, and order never uses the
 time.
 
-- the stamp of a decision, an accept or a refusal, is its layer's count of
-  decisions: the layer's last stamp plus one, or 0. It holds no time, and an
+- the stamp of a decision, an accept or a refusal, is its lane's count of
+  decisions: the lane's last stamp plus one, or 0. It holds no time, and an
   act's stamp is not raised above the stamps that the act carries;
 - the time on a thing is a label beside the stamp: the answer holds it when
   the thing held a usable one, a refused thing too, and each row of a fact and
@@ -67,10 +72,10 @@ follows is derived from the rules and the second making's `tables.edn`, not
 run. Fed the second making's records, the store would give another value in
 463 of its 475 rows: every answer (its stamp, or a `:time` that it did not
 hold), every row of a fact and of the facts by value (`:time`, and the stamps
-in it), and the last stamp of each layer but two. A key of the facts by value
+in it), and the last stamp of each lane but two. A key of the facts by value
 holds the stamp of its key's marking, so none of those keys would be found.
 Twelve rows would keep their value: the ten rows of strays, whose digests do
-not hold a stamp, and the last stamps of the two layers whose only decisions
+not hold a stamp, and the last stamps of the two lanes whose only decisions
 are two refusals (`:base` in the streaming gate, `:alice` in the microbatch
 gate), which a refusal already counted 0 and 1. The second making's act that
 carried a stamp an hour ahead of its time was refused; it would be accepted,
@@ -96,7 +101,7 @@ and 21 November 2026 (`src/proposal/runtime-2026-11-21/PROPOSAL.md`, entry 6):
   an act is refused when a permission above its own no longer stands;
 - a holder is given a permission again after an end, where a permission's
   place took one write;
-- only the layer's first holder writes its setting, its list and its marks,
+- only the lane's first holder writes its setting, its list and its marks,
   where any holder who may act did.
 
 The hand changed with the rules: in each gate it now sends a line of thirteen
@@ -119,7 +124,7 @@ The fifth making ran on 21 November 2026 at 23:13 IST, and replaced the
 fourth for the rules of what a permission covers, which were added on purpose,
 on Sid's decisions of 21 November 2026 that an act is the smallest thing a
 permission covers and that a holder can hold more than one permission in a
-layer (`src/proposal/runtime-2026-11-21/PROPOSAL.md`, entry 6;
+lane (`src/proposal/runtime-2026-11-21/PROPOSAL.md`, entry 6;
 `src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md`):
 
 - a permission says what it covers in a sixth slot of its id, one run or one
@@ -186,12 +191,12 @@ The seventh making ran on 22 November 2026 at 15:07 IST, and replaced the
 sixth for two changes made on purpose, in piece 3 of the store's line
 (`src/proposal/runtime-2026-11-21/store-piece-3/SPEC.md`):
 
-- each gate keeps each layer's line: for each decision a line row under its
+- each gate keeps each lane's line: for each decision a line row under its
   stamp, the thing again under the same key when it weighs no more than its
   bound, and a row by the who that the thing names, in what the gate keeps
   for a task. Three tables more, of which the sixth making holds none;
-- who may read a layer's acts whole is the eighth store key,
-  `:softland.store/who-may-read-acts`, a setting that the layer's first
+- who may read a lane's acts whole is the eighth store key,
+  `:softland.store/who-may-read-acts`, a setting that the lane's first
   holder writes, where the store refused the key as an unknown store key.
 
 The hand changed with the second: in each gate it now sends a line of seven

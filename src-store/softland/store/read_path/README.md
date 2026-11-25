@@ -5,7 +5,7 @@
 The read path is [read_path.clj](../read_path.clj), one folder up, beside
 [door.clj](../door.clj) and [module.clj](../module.clj): the one piece of code by
 which a fact comes back out of the store to a caller in the runtime's process,
-once or kept live, and by which a layer's acts come back out by stamp, once. It is the only file of the read path that requires Rama, and
+once or kept live, and by which a lane's acts come back out by stamp, once. It is the only file of the read path that requires Rama, and
 the only file of this tree that opens a table to read a fact. This folder holds
 the rules that it stands on.
 
@@ -14,25 +14,25 @@ All of this folder is pure code and loads with Clojure alone.
 | File | Responsibility | State and lifetime |
 |---|---|---|
 | [query.clj](query.clj) | A query written as data: its one form, declared as shapes and rules in `act.clj`'s language; the five words that can be asked; the check; the read path's numbers. | None. |
-| [layers.clj](layers.clj) | The layers of a read: which layers, in what order, and which of them is the read's home; whether a layer is made; whether an asker may see it; what a read says of a layer that it left out; what a layer's own rows mean for one query. | None. |
-| [sources.clj](sources.clj) | The sources of a read, as data: each row or run that the read path asks of Rama, with its table and its routing id, which says on which task a layer is read; which of them a read wants next; the calls of one round; the size rules of a run; which keys and places a change names. | None. |
-| [answer.clj](answer.clj) | What a read gives: the layers put together, the nearest that holds a fact first; a place-answer; and what a change tells a live asker. | None. |
-| [acts.clj](acts.clj) | The read of a layer's acts by stamp: which sources it wants next, round by round; the one rule of who reads a decision whole; the page within its two bounds; and the answer. | None. |
-| [words.clj](words.clj) | Everything that the read path says in place of an answer, as data: its own ten words, why a live read ended, why a layer gave nothing. | None. |
+| [lanes.clj](lanes.clj) | The lanes of a read: which lanes, in what order, and which of them is the read's home; whether a lane is made; whether an asker may see it; what a read says of a lane that it left out; what a lane's own rows mean for one query. | None. |
+| [sources.clj](sources.clj) | The sources of a read, as data: each row or run that the read path asks of Rama, with its table and its routing id, which says on which task a lane is read; which of them a read wants next; the calls of one round; the size rules of a run; which keys and places a change names. | None. |
+| [answer.clj](answer.clj) | What a read gives: the lanes put together, the nearest that holds a fact first; a place-answer; and what a change tells a live asker. | None. |
+| [acts.clj](acts.clj) | The read of a lane's acts by stamp: which sources it wants next, round by round; the one rule of who reads a decision whole; the page within its two bounds; and the answer. | None. |
+| [words.clj](words.clj) | Everything that the read path says in place of an answer, as data: its own ten words, why a live read ended, why a lane gave nothing. | None. |
 
 ## How the files relate
 
-[words.clj](words.clj) requires nothing. [layers.clj](layers.clj) reads rows of
+[words.clj](words.clj) requires nothing. [lanes.clj](lanes.clj) reads rows of
 the facts table with [rows.clj](../record/rows.clj), and asks
-[first_act.clj](../gate/first_act.clj) what a layer starts with.
-[sources.clj](sources.clj) requires the layers, and takes every text of a key
+[first_act.clj](../gate/first_act.clj) what a lane starts with.
+[sources.clj](sources.clj) requires the lanes, and takes every text of a key
 from [rows.clj](../record/rows.clj): no key is made in this folder.
 [query.clj](query.clj) requires [the act](../act.clj), for the engine that reads
 a shape; the door's [declaration](../door/declaration.clj), for the tests of an
 id and the store keys; [rows.clj](../record/rows.clj), for the order of a run's
 two ends; and the sources, for the one test of a letter that a range of Rama's
-does not order as the table does. [answer.clj](answer.clj) requires the layers
-and the sources. [acts.clj](acts.clj) requires the layers and the sources, for
+does not order as the table does. [answer.clj](answer.clj) requires the lanes
+and the sources. [acts.clj](acts.clj) requires the lanes and the sources, for
 the rights, which it reads as a read of facts reads them; it takes the keys of
 the line from [rows.clj](../record/rows.clj), and the act-id's depot from
 [first_act.clj](../gate/first_act.clj).
@@ -46,9 +46,9 @@ can play those two functions in every order of the callbacks, with no cluster.
 
 A word of a query that reads facts is declared in three maps that are keyed by
 the word: what it is and its shape, in [query.clj](query.clj); what it reads in
-one layer, in [sources.clj](sources.clj); how its rows are put together, in
+one lane, in [sources.clj](sources.clj); how its rows are put together, in
 [answer.clj](answer.clj). A word that does not exist yet is one entry in each.
-The word of a layer's acts, `:acts`, reads a layer's line and no facts: it is in
+The word of a lane's acts, `:acts`, reads a lane's line and no facts: it is in
 [query.clj](query.clj), and [acts.clj](acts.clj) says what it reads and puts it
 together.
 
@@ -71,18 +71,18 @@ words. The read path stands on the section of 11 and 12 October 2026, by entry:
 
 | Entry | Decision | Where it shows in the read path |
 |---|---|---|
-| 1 | A layer has a setting, "members" or "everyone"; a permission says what it allows | The standing of an asker in a layer, in [layers.clj](layers.clj). Any permission that stands allows seeing; what it allows beyond that is not read here. Whether it stands is the gates' own rule, read from the same rows ([chain.clj](../gate/chain.clj)) |
-| 2 | A layer says which layers it builds on; a view may give another list; the nearest layer that holds a fact wins, also with "nothing here" | The order of the layers, in [layers.clj](layers.clj); the walk of a place, in [answer.clj](answer.clj) |
+| 1 | A lane has a setting, "members" or "everyone"; a permission says what it allows | The standing of an asker in a lane, in [lanes.clj](lanes.clj). Any permission that stands allows seeing; what it allows beyond that is not read here. Whether it stands is the gates' own rule, read from the same rows ([chain.clj](../gate/chain.clj)) |
+| 2 | A lane says which lanes it builds on; a view may give another list; the nearest lane that holds a fact wins, also with "nothing here" | The order of the lanes, in [lanes.clj](lanes.clj); the walk of a place, in [answer.clj](answer.clj) |
 | 3 | A read is done in the runtime, straight from the tables, with Rama's push, and the pushed value is no cache | [read_path.clj](../read_path.clj): it reads the gates' tables with a select or a push, shares one push among those who look at the same thing, and holds no value of its own |
 | 4 | Only programs on machines that Sid runs may reach Rama's ports | The read path is trusted with the whole store: Rama sends it whole rows, and it hands a caller only what she may see and asked for |
 | 5 | The tables keep a value plain | The read path reads a value from its row, and calls no query of the door's |
-| 6 | A query is written as data and made of a few words; one more order for the keys that a layer marks | The words, in [query.clj](query.clj); "what points at a thing" reads the facts by value, in [sources.clj](sources.clj) |
+| 6 | A query is written as data and made of a few words; one more order for the keys that a lane marks | The words, in [query.clj](query.clj); "what points at a thing" reads the facts by value, in [sources.clj](sources.clj) |
 | 7 | From a fact, a read can get who wrote it, and under which permission | A place-answer holds either only when the query asked, in [answer.clj](answer.clj) |
-| 8 | The base's second is fine | A row of the base is read straight, as a row of a streaming layer is |
+| 8 | The base's second is fine | A row of the base is read straight, as a row of a streaming lane is |
 | 9 | The other sheet comes after this build | The read path keeps no record of who read what, and nothing of a read |
 
 The rest by pointer: the store's keys and their namespace (8 and 9 October),
-the depot that a layer starts with (7 October), and the form of an id and of a
+the depot that a lane starts with (7 October), and the form of an id and of a
 value (6 October) are read through the functions that the files above require.
 
 One decision of 13 October 2026, entry 4 of that day in the store source
@@ -90,9 +90,9 @@ entry, says where the base is read. In Sid's words: "4. The base's rows: a copy
 on every task. One task decides, in the line's order." The reason that he was
 given for the copy: everyone reads the base, and with all its rows on one task
 every read of the base would run on one thread and share Rama's bound on the
-pushes of one table on one task. So the read path reads a microbatch layer on
+pushes of one table on one task. So the read path reads a microbatch lane on
 the task of the read's home, and [sources.clj](sources.clj) is where that
-shows: "Where a microbatch layer is read", below.
+shows: "Where a microbatch lane is read", below.
 
 ## Engineering choices
 
@@ -109,36 +109,36 @@ both ways, and two askers of one thing hold equal data.
 
 **A source is what is shared.** One row, or one run of neighbouring rows, of one
 table on one task, as a map. Two reads share a push when their sources are
-equal. So two askers whose lists differ share the push of each streaming layer
-that both lists hold, and of a microbatch layer when their reads have the same
+equal. So two askers whose lists differ share the push of each streaming lane
+that both lists hold, and of a microbatch lane when their reads have the same
 home; and askers who asked for different parts of a row share too. A place is
 not served from an open run that holds it: they are two sources.
 
 **One call for each table under each routing id, asked once.** Every missing
-source of one table under one routing id goes in one call. A layer's rights and
-its fact are one round trip; a place through three layers is three calls in one
+source of one table under one routing id goes in one call. A lane's rights and
+its fact are one round trip; a place through three lanes is three calls in one
 round, and one round more when a permission of the asker's there was given her,
 for the rows above it. What a read reads of the base is one call more, to the
 task of the read's home.
 
 **A read settles in a bounded number of rounds.** Each source is wanted on the
-values of the sources before it: a layer's own rows, then her permissions, then
-the rows above them, then its facts, then the checks; and the layers of a start
-layer's list only after the start layer. So a read asked once settles within 6
+values of the sources before it: a lane's own rows, then her permissions, then
+the rows above them, then its facts, then the checks; and the lanes of a start
+lane's list only after the start lane. So a read asked once settles within 6
 rounds, whatever is written meanwhile, and a live read opens within 8 on tables
 that do not change. [sources.clj](sources.clj) derives the numbers, and each
 loop's bound is set from them. A step of an open read that still wants more
 at the live bound ends the read, with a reason of its own, and does not wait
 on sources that it never joined.
 
-**A read asked once reads a layer's fact with its rights.** So the runtime can
-read one row, or the first places of a run, of a layer that the asker may then
+**A read asked once reads a lane's fact with its rights.** So the runtime can
+read one row, or the first places of a run, of a lane that the asker may then
 not see. They are dropped and never handed over. It halves the round trips of
 the commonest read. One predicate in [sources.clj](sources.clj) holds the
 choice; the other answer is that predicate giving false.
 
-**A layer's own rows are one run.** Its depot, who may see it, what it builds on
-and its marked keys sit on the layer's own entity under the store's namespace,
+**A lane's own rows are one run.** Its depot, who may see it, what it builds on
+and its marked keys sit on the lane's own entity under the store's namespace,
 so one read, or one push, gives the four.
 
 **Her permission is followed only under "members".** Under "everyone" it shapes
@@ -149,7 +149,7 @@ permission is opened then.
 while each permission above it stands, and the end of one above her is written
 nowhere but at its own place ([chain.clj](../gate/chain.clj)). So a read holds
 the row of each holder above her, one push for each, which her own row names all
-at once: none when she is the layer's first holder, one when she is straight
+at once: none when she is the lane's first holder, one when she is straight
 beneath her. Each row above is read after her own row, under a source that
 names her row's stamp: Rama tells each push by itself, so a read that took a
 row above from a push opened before her row was written could pair her new
@@ -159,24 +159,24 @@ shows its place as it was at her row's stamp or later, so a permission that
 the rows say stands, stood then. Askers so share the push on a row above
 only when their own rows were written by one decision.
 A read that names its run holds the row of that run's permission too, on the
-session, and the rows above it: she sees the layer when either stands, and a
+session, and the rows above it: she sees the lane when either stands, and a
 run's permission lets her see only when it names her as its holder.
-When her permission ends, or one above it, her read leaves the layer's facts at
-once and her answer says that the layer is left out, as when a setting goes to
+When her permission ends, or one above it, her read leaves the lane's facts at
+once and her answer says that the lane is left out, as when a setting goes to
 "members" for an asker with no permission. The read keeps her row and the rows
-above it: they are what could let the layer in again.
+above it: they are what could let the lane in again.
 
-**A layer's acts are read by stamp, once, in their own rounds.** The last stamp
+**A lane's acts are read by stamp, once, in their own rounds.** The last stamp
 first, then her rights, then the line, then the things; and for an asker who may
-not see the layer, her rows by who and her line rows in the place of the line.
+not see the lane, her rows by who and her line rows in the place of the line.
 Only decisions up to that last stamp are given, so the rights that judge them
 were read after each of them was decided, and a row that is not there up to it
-is a fault and no race. An asker outside reads no row of the layer that is not
+is a fault and no race. An asker outside reads no row of the lane that is not
 hers, and a holder's page of kept things is one window. A taken act is held to
 the same rule as a refused one. The read is not kept live: whether it should be
 is Sid's. [acts.clj](acts.clj) says each round and why.
 
-**The three steps of a run.** The first places in the layer's own call; when
+**The three steps of a run.** The first places in the lane's own call; when
 that walk is full, the size by a bounded walk on the task; then the run whole. A
 run that holds more places than one read may ends in a word. No walk on a task
 is longer than the build's number of places, whatever a tool asks.
@@ -200,7 +200,7 @@ misses such a key goes through the run. Each key of such a run is held to the
 run's two ends before it is given. And a run between two ends that a caller
 names is turned away when an end holds such a letter. A window of a read of
 acts whose end holds such a letter is a walk of its count from its first end,
-with no cut, and each key of it is held to the two ends: a layer and a who are
+with no cut, and each key of it is held to the two ends: a lane and a who are
 each such an id. An entity whose id holds
 such a letter is read as an entity, whose run cannot lose a place of its own.
 [sources.clj](sources.clj) holds the test and its three uses; the rule of the
@@ -216,29 +216,29 @@ of its own rests on what a row holds: a push on rows that hold a byte array was
 sent the whole value anew about once a second, so a fact's row holds its value
 as a String ([tables.clj](../record/tables.clj) says what was run).
 
-**No value is kept between two changes; of what was told, each layer's
+**No value is kept between two changes; of what was told, each lane's
 standing.** At a change the read path works out what the asker is told from the
 values that the pushes hold at that moment. It compares no place with what she
 was told before. Three tests let a step say nothing of a place: the row is the
-same; a layer's own rows mean the same for this query; a nearer layer that she
+same; a lane's own rows mean the same for this query; a nearer lane that she
 may see holds a row at the place, in a source that the read still holds.
 Everything else is told, so a place can be told a second time with the answer
 that it already had. A read holds one mark: true while the whole answer is owed;
-else what the last whole answer said of each layer, seen or left out and why,
-and the layers that wait. It is no value of the tables. It is there for the
-promise that an asker who may not see a layer is told nothing of it, not even
-an answer that says what it said: a change of her rights in a layer that she
+else what the last whole answer said of each lane, seen or left out and why,
+and the lanes that wait. It is no value of the tables. It is there for the
+promise that an asker who may not see a lane is told nothing of it, not even
+an answer that says what it said: a change of her rights in a lane that she
 was told she may not see, and may not see after it, tells her nothing, and one
 that leaves her standing not known waits for the rows that say it. Without the
-mark a step cannot tell such a change from one that took the layer from her:
+mark a step cannot tell such a change from one that took the lane from her:
 two changes that are taken before either is handled each read the other's new
 value. The argument, and the orders of callbacks that were played for it with
 no cluster, are in the namespace docstring of [answer.clj](answer.clj) and in
-the proofs' map. Keeping each layer's standing is a session's choice of 22
+the proofs' map. Keeping each lane's standing is a session's choice of 22
 November 2026, for Sid to turn.
 
 **The whole answer anew when what shapes a read changes.** A setting, a
-permission, the list of the start layer or a mark that changes gives the asker
+permission, the list of the start lane or a mark that changes gives the asker
 a whole new answer, and not the places one by one. Such changes are rare, and
 one form fewer reaches a caller.
 
@@ -249,17 +249,17 @@ holds back the reads of others; this was run for the plan's check, and the
 namespace docstring of [read_path.clj](../read_path.clj) says what was seen. A
 read asked from inside a function is turned away with a word of its own.
 
-**Where a microbatch layer is read.** A streaming layer has every row on its
-own task. A microbatch layer, which today is the base, has every row of its
+**Where a microbatch lane is read.** A streaming lane has every row on its
+own task. A microbatch lane, which today is the base, has every row of its
 facts and of its facts by value on every task, the same rows everywhere: its
-gate decides an act on the layer's task and writes the rows of an accept on
+gate decides an act on the lane's task and writes the rows of an accept on
 each task. So a read of it needs one task, and any one will do. The read path
-takes the task of the read's home: the layer that the read starts from, which
-is `:from-layer`, or the first layer of `:layers`. Every source of a microbatch
-layer in a read has the home as its routing id: the layer's own rows, a
+takes the task of the read's home: the lane that the read starts from, which
+is `:from-lane`, or the first lane of `:lanes`. Every source of a microbatch
+lane in a read has the home as its routing id: the lane's own rows, a
 permission, a place, a check of it, a run of one entity or across entities, and
 a run of the facts by value. Each is one source, and a run comes whole from the
-one task. So an asker reads the base where her own layer lives, and a read that
+one task. So an asker reads the base where her own lane lives, and a read that
 starts from the base reads it on the base's own task.
 
 What follows from it. Two askers whose reads have the same home share their
@@ -267,7 +267,7 @@ pushes on the base; two with two homes do not, and each holds a push of its
 own on the task of its home. The tasks show one batch of the base at instants
 that differ, by Rama's own page on microbatch topologies; so two askers with
 two homes can be told of one act at two instants, and a read asked once through
-her own layer, straight after the maker of an act of the base has its answer,
+her own lane, straight after the maker of an act of the base has its answer,
 can still give the base as it was before that act. That is read in Rama's
 page; the read path's proof on the cluster counts how often it sees it, and
 holds nothing to the count. The read path does not test, at a read, that the
@@ -275,9 +275,9 @@ task of the home holds the rows: it rests on the gate's copy.
 
 **The numbers.** Seven that an opener can give, and two more, each kept and not
 decided: 256 places in the first read of a run; 20,000 places in one run; 40,000
-checks of nearer layers in one read that is asked once, and 250 in one that is
+checks of nearer lanes in one read that is asked once, and 250 in one that is
 kept live; 900 pushes held on one table under one routing id; 2,000 paths in one
-call; a wait of 10 seconds; 65 layers in one read; and the rounds before a read
+call; a wait of 10 seconds; 65 lanes in one read; and the rounds before a read
 that does not settle ends in a word: 6 for a read asked once, which the chains
 of its sources give, and 16 for a live read, the 8 that they give and 8 more for
 writes while it opens. None bounds the bytes of a run.
@@ -289,11 +289,11 @@ after seconds. So the read path counts the pushes that it holds on each table
 under each routing id, and turns a live read away at once, before it opens one
 of the pushes that would pass 900, with a word of its own; an open read that
 comes to need such a push ends. And one live read of what points at a thing may
-need 250 checks of nearer layers, each of them a push. A read asked once opens
+need 250 checks of nearer lanes, each of them a push. A read asked once opens
 no push and is held to neither. The count is by routing id and not by task,
 because Rama's client does not say which task a routing id is on; and it is of
-one process. In a streaming layer the routing id is the layer, so one count
-holds every push of every asker through that layer. In the base the routing id
+one process. In a streaming lane the routing id is the lane, so one count
+holds every push of every asker through that lane. In the base the routing id
 is the home of the read, so one count holds the pushes on the base of the
 askers of one home, and the 900 bounds those: it does not bound what all the
 homes of one task hold on the base together, which is what Rama's own bound
@@ -320,12 +320,12 @@ answer is a small change.
 
 | The thing | Built as | Where the other answer would be made |
 |---|---|---|
-| What a read says of a layer that it left out | The layer, and one of two words for why: she may not see it, or it is not made | One function of [layers.clj](layers.clj) |
-| How far a read walks from a layer | The one list: the start layer, then the layers of its own fact, and no further. A start layer that she may not see gives itself alone | One function of [layers.clj](layers.clj) |
-| The store's own facts in a tool's read | Left out unless the query asks for them; any asker who may see the layer may ask | One function of [answer.clj](answer.clj) |
-| "What points at a thing" through a list of layers | At a place that an order by value gives, the nearest layer that holds a row wins, and the place is given when the winner's value is the thing. A place is found only through an order | One function of [sources.clj](sources.clj): left out, the runs are joined |
-| One moment for all the layers of one read | None: the layers are read at moments that differ | Nowhere here: it would be a query of the store |
-| What a layer starts with | A layer with no setting fact reads as [first_act.clj](../gate/first_act.clj) says | That function; one function of [layers.clj](layers.clj) is its one caller here |
+| What a read says of a lane that it left out | The lane, and one of two words for why: she may not see it, or it is not made | One function of [lanes.clj](lanes.clj) |
+| How far a read walks from a lane | The one list: the start lane, then the lanes of its own fact, and no further. A start lane that she may not see gives itself alone | One function of [lanes.clj](lanes.clj) |
+| The store's own facts in a tool's read | Left out unless the query asks for them; any asker who may see the lane may ask | One function of [answer.clj](answer.clj) |
+| "What points at a thing" through a list of lanes | At a place that an order by value gives, the nearest lane that holds a row wins, and the place is given when the winner's value is the thing. A place is found only through an order | One function of [sources.clj](sources.clj): left out, the runs are joined |
+| One moment for all the lanes of one read | None: the lanes are read at moments that differ | Nowhere here: it would be a query of the store |
+| What a lane starts with | A lane with no setting fact reads as [first_act.clj](../gate/first_act.clj) says | That function; one function of [lanes.clj](lanes.clj) is its one caller here |
 | One permission for each holder; who may write a setting, a list or a mark | No code here: the read path reads whether the permission at her place stands, and what it allows is no part of that | — |
 | Who asks | What the caller says | The check of a query; sign-in would stand in front of the read path |
 
@@ -335,7 +335,7 @@ Each says what the thing is. None is from the rig's code, the server's or
 Inland's. "The read path", "asker" and "caller" are the build contract's words;
 they are a session's too.
 
-**Namespaces.** `softland.store.read-path`, and under it `query`, `layers`,
+**Namespaces.** `softland.store.read-path`, and under it `query`, `lanes`,
 `sources`, `answer`, `acts` and `words`; the two proofs,
 `softland.store.read-path-pure-proof` and `softland.store.read-path-proof`; the
 measures, `softland.store.read-measures`; and the run of piece 3's statements
@@ -356,10 +356,10 @@ over the store, `softland.store.line-statements`.
 | Word | What it is |
 |---|---|
 | `:asks`, with `:place`, `:entity`, `:run`, `:points-at`, `:acts` | What is asked, and its five words |
-| `:first`, `:last` | The two ends of a layer, as ends of a run |
+| `:first`, `:last` | The two ends of a lane, as ends of a run |
 | `:asker`, `:not-signed-in` | Who asks |
-| `:session` | The run that the read is asked in, as an act names its `:session`. With an asker only. The asker then sees a layer that is open to its members under her permission for the layer, or under that run's when it names her as its holder; another holder's permission for a run of that id gives her nothing, and the read reads nothing above it |
-| `:layers`, `:from-layer` | Through which layers; the layer to take the list from |
+| `:session` | The run that the read is asked in, as an act names its `:session`. With an asker only. The asker then sees a lane that is open to its members under her permission for the lane, or under that run's when it names her as its holder; another holder's permission for a run of that id gives her nothing, and the read reads nothing above it |
+| `:lanes`, `:from-lane` | Through which lanes; the lane to take the list from |
 | `:with`, with `:writer`, `:permission` and `:time` | The parts of a row that are asked for |
 | `:stores-own-facts` | Whether the store's own facts are asked for |
 
@@ -368,8 +368,8 @@ wrong: `:not-a-query`, `:part-not-known`, `:asks-no-word-known`,
 `:place-not-named`, `:entity-not-named`, `:run-not-named`,
 `:points-at-not-named`, `:asker-is-no-id`, `:no-one-asker`,
 `:session-is-no-id`, `:run-with-no-asker`,
-`:layers-not-a-list-of-layers`, `:from-layer-is-no-layer`,
-`:layers-not-named-one-way`, `:too-many-layers`, `:part-of-a-row-not-known`,
+`:lanes-not-a-list-of-lanes`, `:from-lane-is-no-lane`,
+`:lanes-not-named-one-way`, `:too-many-lanes`, `:part-of-a-row-not-known`,
 `:id-over-the-limit`, `:run-ends-out-of-order`, `:run-end-not-ordered`,
 `:store-key-not-asked-for`. The eight rule names are in
 [query.clj](query.clj).
@@ -381,9 +381,9 @@ wrong: `:not-a-query`, `:part-not-known`, `:asks-no-word-known`,
 | `:now`, `:leave-with` | What `read-live` gives: the answer now, and the handle |
 | `:anew`, `:changed`, `:ended` | What the asker's function is given: a whole answer, the changed places, the end of the read |
 | `:left`, `:not-open` | What `leave` gives |
-| `:layers`, `:left-out`, with `:layer`, `:why`, `:may-not-see`, `:not-made` | The layers of an answer, and what it says of a layer that gave nothing |
+| `:lanes`, `:left-out`, with `:lane`, `:why`, `:may-not-see`, `:not-made` | The lanes of an answer, and what it says of a lane that gave nothing |
 | `:place`, `:places`, `:orders`, with `:level-since` and `:not-marked` | The parts of an answer |
-| `:holds`, `:value`, `:layer`, `:fact`, `:stamp`, `:writer`, `:permission` | The parts of a place-answer. `:no-fact`, `:nothing-here`, `:value` and `:not-a-value` under `:holds` are the record's own |
+| `:holds`, `:value`, `:lane`, `:fact`, `:stamp`, `:writer`, `:permission` | The parts of a place-answer. `:no-fact`, `:nothing-here`, `:value` and `:not-a-value` under `:holds` are the record's own |
 | `:could-not` | The name under which a result holds one of the read path's own words |
 
 **The read path's ten words.** Each reads after "the read path could not":
@@ -406,20 +406,20 @@ door's word for its own opening and is the read path's own.
 
 | Word | What it is |
 |---|---|
-| a source, with `:gate`, `:table`, `:layer`, `:routing-id`, `:path` | One value that Rama gives and can push, as data. `:facts` and `:facts-by-value` name the table; `:row`, `:own-rows` and `:run` the kind of path |
+| a source, with `:gate`, `:table`, `:lane`, `:routing-id`, `:path` | One value that Rama gives and can push, as data. `:facts` and `:facts-by-value` name the table; `:row`, `:own-rows` and `:run` the kind of path |
 | a routing id | What Rama's client is given as its partitioning key. The record's own word, so that "key" stays a fact's key |
-| the home of a read | The layer that a read starts from: `:from-layer`, or the first layer of `:layers`. It is the routing id of each source of a microbatch layer in that read |
-| the layer's own rows | The rows of a layer's own entity under the store's keys: its depot, who may see it, what it builds on, its marked keys |
-| standing, with `:yes`, `:not-known-yet`, `:may-not-see`, `:not-made` | Whether an asker may see a layer, as the read path knows it now. The gates use the same word for a permission that stands; whether it stays here is Sid's |
-| a check | The read of a nearer layer's row at a place that a farther layer's order by value gives |
+| the home of a read | The lane that a read starts from: `:from-lane`, or the first lane of `:lanes`. It is the routing id of each source of a microbatch lane in that read |
+| the lane's own rows | The rows of a lane's own entity under the store's keys: its depot, who may see it, what it builds on, its marked keys |
+| standing, with `:yes`, `:not-known-yet`, `:may-not-see`, `:not-made` | Whether an asker may see a lane, as the read path knows it now. The gates use the same word for a permission that stands; whether it stays here is Sid's |
+| a check | The read of a nearer lane's row at a place that a farther lane's order by value gives |
 | the first read of a run; the size of a run | The two bounded reads that come before a run is read whole |
 | rank; round | The order in which sources can be wanted; one turn of fetching what is missing |
 | the read's turn | What lets one call of an asker's function run at a time for one read. Never called a lock: a lock is an encryption key in this tree |
-| a read's mark | What a live read holds between two changes: that the whole answer is owed; or what its asker was last told of each layer, and which layers wait |
-| a layer that waits | One that she was told she may not see, whose standing a change of her rights has left not known yet, until its rows are given |
+| a read's mark | What a live read holds between two changes: that the whole answer is owed; or what its asker was last told of each lane, and which lanes wait |
+| a lane that waits | One that she was told she may not see, whose standing a change of her rights has left not known yet, until its rows are given |
 | `:run-start-places`, `:max-places-of-one-run`, `:max-checks-of-one-read`, `:max-checks-of-one-live-read`, `:max-pushes-under-one-routing-id`, `:max-paths-in-one-call`, `:wait-ms`, `:max-acts-of-one-read`, `:max-thing-weight-of-one-read` | The nine numbers that an opener can give |
 | `:acts`, `:next`, `:last-stamp`, `:thing`, `:no-thing` with `:heavier-than-the-read`; `:stamp`, `:act-id`, `:answer` | The parts of an answer of a read of acts, and of a decision given; `:too-heavy` and `:not-weighed` under `:no-thing` are the gate's |
-| a holder, a visitor, outside | What an asker is in a layer, for a read of its acts: her permission there stands; she may see the layer, which is open to everyone, and is no holder; she may not see it, or it is not made |
+| a holder, a visitor, outside | What an asker is in a lane, for a read of its acts: her permission there stands; she may see the lane, which is open to everyone, and is no holder; she may not see it, or it is not made |
 | withheld | A decision given as its stamp alone |
 
 **Words inside the code**, which no caller is handed. Each is a session's, as the
@@ -428,13 +428,13 @@ others are.
 | Word | What it is |
 |---|---|
 | `:once`, `:live` | How a read is asked, as the code that fetches tells the code that says what is wanted |
-| `:layers`, `:list-known?`, `:standing`, `:by-layer`, `:wanted`, `:missing`, `:too-large`, `:digest` | What "what a read wants now" gives: the layers; whether the list of a start layer can be said yet; each layer's standing; what is read in each layer; every source that is wanted; those that are not read yet; whether the checks are more than one read may have; the digest of the thing asked about |
-| `:own`, `:permission`, `:run-permission`, `:chain`, `:facts`, `:since`, `:checks` | What is read in one layer: the source of its own rows, of the asker's permission, of the permission of the run that she asks in, of the row of each permission above those two, its fact sources, the stamp of the asked key's mark, and the check wanted at each place |
+| `:lanes`, `:list-known?`, `:standing`, `:by-lane`, `:wanted`, `:missing`, `:too-large`, `:digest` | What "what a read wants now" gives: the lanes; whether the list of a start lane can be said yet; each lane's standing; what is read in each lane; every source that is wanted; those that are not read yet; whether the checks are more than one read may have; the digest of the thing asked about |
+| `:own`, `:permission`, `:run-permission`, `:chain`, `:facts`, `:since`, `:checks` | What is read in one lane: the source of its own rows, of the asker's permission, of the permission of the run that she asks in, of the row of each permission above those two, its fact sources, the stamp of the asked key's mark, and the check wanted at each place |
 | `:join`, `:leave`; `:joined`, `:left` | The sources that a live read is to hold and to let go; and those that one step did |
 | `:tell`, `:owed?` | What a step gives back: what to hand the asker's function, and the read's mark after it |
-| `:told`, `:waiting` | The two parts of a read's mark when the whole answer is not owed: each layer's standing as the last whole answer said it, and the layers that wait |
+| `:told`, `:waiting` | The two parts of a read's mark when the whole answer is not owed: each lane's standing as the last whole answer said it, and the lanes that wait |
 | `:walk`, `:places`, `:holds?`, `:gives`; `:given`, `:none`, `:waits` | How the rows of one word of a query are put together; and the three outcomes of the walk of one place |
-| `:made?`, `:who-may-see`, `:permission` with `:stands`, `:none`, `:not-known-yet`, `:builds-on`, `:marked-since` | What a layer's own rows, an asker's permission row and the rows above it mean for one query |
+| `:made?`, `:who-may-see`, `:permission` with `:stands`, `:none`, `:not-known-yet`, `:builds-on`, `:marked-since` | What a lane's own rows, an asker's permission row and the rows above it mean for one query |
 | `:pushes`, with `:opening`, `:readers`, `:called` | What the read path holds for each push: the one call that opens it, the live reads that hold it, and a mark that its first callback came |
 | `:counts` | How many pushes the read path holds on each table under each routing id: what its own bound is held to |
 | `:joined`, `:past-the-bound` | What the joining of sources gives: the read holds them; or they would take a count past the read path's bound, and it holds none of them |
@@ -444,7 +444,7 @@ others are.
 | `:put`, `:out`, `:all` | What a diff names: a key that was put, a key that went out, or no key |
 | `:own-close`, `:ended-by-the-store`, `:anew`, `:change` | The kind of a diff: the last call of a push that the read path closed; Rama ending a push; a whole value sent anew; a change |
 | `:push`, `:word`; `:late`, `:no-path`; `:returned`, `:threw` | What an opening ended in; two outcomes of a wait and of a call that was not made; and whether an asker's function returned or threw |
-| `:layers-within-the-limit`, `:names-one-asker`, `:names-its-layers-one-way`, `:ids-within-the-limit`, `:run-ends-in-order`, `:run-ends-are-ordered`, `:points-at-names-a-thing`, `:store-key-is-asked-for` | The eight rules of a query, each named for what it holds |
+| `:lanes-within-the-limit`, `:names-one-asker`, `:names-its-lanes-one-way`, `:ids-within-the-limit`, `:run-ends-in-order`, `:run-ends-are-ordered`, `:points-at-names-a-thing`, `:store-key-is-asked-for` | The eight rules of a query, each named for what it holds |
 | `:run-end` | The shape of one end of a run, in the query's map of shapes |
 | `:from`, with `:open`, `:read-once`, `:read-live`, `:the-askers-function`; `:says` | In the table of the ten words: which call gives a word, and what it says |
 | `:shape`, beside `:reason` | In the table of the five words of a query: the shape that `:asks` must have under that word, and the word when it does not fit |
@@ -452,6 +452,6 @@ others are.
 | `:holder`, `:visitor`, `:outside` | The kinds of an asker in a read of acts (`asker-kind`) |
 | `:take`, `:bridge`, `:break` | What a stamp is to a run of neighbouring stamps that one window reads: a row to read, a stamp with no row that a run may go across, and one whose row must not be read |
 | `:fetch?`, `:whole?`, `:fault` | Inside a read of acts: a thing to fetch; a decision given whole; the first stamp at which the line is not whole |
-| `:too-many` | What the checks of nearer layers give in the place of the checks, past the build's number |
+| `:too-many` | What the checks of nearer lanes give in the place of the checks, past the build's number |
 | `:known`, `:reading` | "Known": each source that is read, with its value. "Reading": what a read wants now. Also two names in a small map inside the opening of a live read |
-| `:any-layer` | A layer id that names no layer, with which the order of a run's two ends is asked: the order is the same in every layer |
+| `:any-lane` | A lane id that names no lane, with which the order of a run's two ends is asked: the order is the same in every lane |

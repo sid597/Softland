@@ -1,7 +1,7 @@
 (ns softland.store.pure-proof
   "The proof of the gates' pure namespaces: the one text and the digest, the
   door's declaration, the time on the act, the stamp, the first act of a
-  layer, the record's rows, and the checks of the decision, each alone and
+  lane, the record's rows, and the checks of the decision, each alone and
   as the walk of one thing calls them, one thing after the other. And of
   the door's pure namespaces: its words, what it makes of one act, and the
   numbers of a maker's wait. And of the source under `src-store/`: that no
@@ -36,8 +36,8 @@
   time that they are handed and test nothing of it; that the time is a
   label, which a decision writes beside the stamp in the answer and in each
   row that an accept writes, and which no check reads; and that the stamp
-  is the layer's count of decisions, which neither the time on the thing
-  nor a stamp that the act carries moves, in a layer of either gate. The
+  is the lane's count of decisions, which neither the time on the thing
+  nor a stamp that the act carries moves, in a lane of either gate. The
   name of the part is
   written out as a literal in three places, each held against the
   declaration's: the second writing of the shape, the text of the door's
@@ -45,12 +45,12 @@
   server's clock there, and that no gate reads a clock, need a cluster and
   are not reached here.
 
-  A layer of the other gate. The cases of the standing call
-  `softland.store.gate.decision/standing` and `makes-the-layer?` with the
+  A lane of the other gate. The cases of the standing call
+  `softland.store.gate.decision/standing` and `makes-the-lane?` with the
   gate's depot, the act and two rows, for each gate's depot word. They hold
-  that an act for a layer that starts with the other gate's depot, of which
-  the gate's record holds nothing, gets the word of such a layer from the
-  act alone: the base on the streaming depot, and any other layer on the
+  that an act for a lane that starts with the other gate's depot, of which
+  the gate's record holds nothing, gets the word of such a lane from the
+  act alone: the base on the streaming depot, and any other lane on the
   microbatch depot, also when the act has the form of a making act of the
   other gate.
 
@@ -64,10 +64,10 @@
   wrote, and holds the word of each answer, the rows, the stamps and the
   strays. It holds that a second run of a decision from the same record
   gives the same writes, and that a run on the record that the first left
-  finds the answer and writes nothing; that the stamps of a layer are 0, 1,
+  finds the answer and writes nothing; that the stamps of a lane are 0, 1,
   2 and on with no gap, for an accept and for a refusal, whatever the times
   on its acts and the stamps that they carry; and that a mark of a key
-  holds from the next act, in a layer of each gate. What this shows is what the pure
+  holds from the next act, in a lane of each gate. What this shows is what the pure
   functions give when they are called in that order. That the walk on a
   cluster calls them so, that a gate hands it the things of a partition in
   the depot's order, and that the microbatch gate copies the rows of an
@@ -231,11 +231,11 @@
   no stamp."
   (bit-shift-left 1 50))
 
-(def ^:private alice-own "Alice's permission in her own layer." [:alice :alice :alice])
-(def ^:private bobs "Bob's permission in Alice's layer, beneath hers." [:bob :alice :alice alice-own])
+(def ^:private alice-own "Alice's permission in her own lane." [:alice :alice :alice])
+(def ^:private bobs "Bob's permission in Alice's lane, beneath hers." [:bob :alice :alice alice-own])
 
 (defn- act-id
-  "A streaming act-id in Alice's layer, with a fixed UUID."
+  "A streaming act-id in Alice's lane, with a fixed UUID."
   [n]
   [:alice :streaming (uuid n)])
 
@@ -251,25 +251,25 @@
   (apply str (repeat (- n 2) "a")))
 
 (defn- deep-permission
-  "A permission id of a layer that holds n permission ids, itself counted.
-  Each of them is held by `holder` in that layer, the first one too."
-  [holder layer n]
-  (reduce (fn [parent _] [holder layer layer parent]) [holder layer layer] (range (dec n))))
+  "A permission id of a lane that holds n permission ids, itself counted.
+  Each of them is held by `holder` in that lane, the first one too."
+  [holder lane n]
+  (reduce (fn [parent _] [holder lane lane parent]) [holder lane lane] (range (dec n))))
 
 (defn- arrived
-  "Alice's act into her own layer as it arrives on the streaming depot, under
+  "Alice's act into her own lane as it arrives on the streaming depot, under
   the act-id `(act-id n)`, with the time `now` on it, these facts and no
   optional part."
   [n & facts]
   {:act-id (act-id n) :depot :streaming declaration/time-part now
-   :version 1 :who :alice :layer :alice :permission alice-own :session :alice-s1
+   :version 1 :who :alice :lane :alice :permission alice-own :session :alice-s1
    :facts (vec facts)})
 
 (defn- one-form
   "The one form on arrival of `arrived` for facts that are in their one form."
   [n & facts]
   {:act-id (act-id n) :depot :streaming declaration/time-part now
-   :version 1 :who :alice :layer :alice :permission alice-own :session :alice-s1
+   :version 1 :who :alice :lane :alice :permission alice-own :session :alice-s1
    :based-on {} :because-of nil :claimed-when nil :subjects #{}
    :facts (vec facts)})
 
@@ -515,7 +515,7 @@
     [:door-time [:int {:min 0}] {:reason :no-door-time}]
     [:version [:enum 1] {:reason :unknown-version}]
     [:who :id]
-    [:layer :id]
+    [:lane :id]
     [:permission :permission-id {:absent :no-permission}]
     [:session :id {:absent :no-session}]
     [:based-on [:map-of :fact-id :carried-stamp] {:optional true :default {}}]
@@ -526,12 +526,12 @@
    :depot-word [:enum :streaming :microbatch]
    :who-may-see-word [:enum :members :everyone]
    :who-may-read-acts-word [:enum :members :everyone]
-   :layer-list [:seq-of :id]
+   :lane-list [:seq-of :id]
    :key-set [:set-of :key]})
 
 (def ^:private declared-rules
   "The rules of the declaration, written out here a second time."
-  [[:permission-is-in-the-acts-layer :permission-not-in-layer]
+  [[:permission-is-in-the-acts-lane :permission-not-in-lane]
    [:depot-is-the-act-ids-depot :depot-not-the-act-ids-depot]
    [:facts-within-the-limit :too-many-facts]
    [:based-on-within-the-limit :too-many-based-on]
@@ -543,8 +543,8 @@
    [:permission-fact-sits-on-what-it-covers :permission-fact-not-on-what-it-covers]
    [:who-may-see-fact-holds-its-word :who-may-see-fact-not-members-or-everyone]
    [:who-may-read-acts-fact-holds-its-word :who-may-read-acts-fact-not-members-or-everyone]
-   [:builds-on-fact-holds-layers :builds-on-fact-not-a-list-of-layers]
-   [:builds-on-within-the-limit :builds-on-too-many-layers]
+   [:builds-on-fact-holds-lanes :builds-on-fact-not-a-list-of-lanes]
+   [:builds-on-within-the-limit :builds-on-too-many-lanes]
    [:marked-keys-fact-holds-keys :marked-keys-fact-not-a-set-of-keys]
    [:marked-keys-within-the-limit :too-many-marked-keys]
    [:marked-keys-are-plain-keys :marked-key-in-the-stores-namespace]
@@ -557,15 +557,15 @@
   twenty, the word of the time's part and the two of the last step among
   them."
   #{:malformed :unknown-part :unknown-version :no-permission :no-session :empty-act
-    :permission-not-in-layer
+    :permission-not-in-lane
     :depot-not-the-act-ids-depot :no-door-time :too-many-facts :too-many-based-on
     :store-key-not-known
     :depot-fact-not-a-depot-word :permission-fact-not-a-permission
     :permission-fact-not-on-its-holder
     :permission-fact-under-another-key :permission-fact-not-on-what-it-covers
     :who-may-see-fact-not-members-or-everyone :who-may-read-acts-fact-not-members-or-everyone
-    :builds-on-fact-not-a-list-of-layers
-    :builds-on-too-many-layers :marked-keys-fact-not-a-set-of-keys :too-many-marked-keys
+    :builds-on-fact-not-a-list-of-lanes
+    :builds-on-too-many-lanes :marked-keys-fact-not-a-set-of-keys :too-many-marked-keys
     :marked-key-in-the-stores-namespace
     :place-named-twice :replaces-own-fact :id-too-long
     :value-too-large :act-too-large})
@@ -583,7 +583,7 @@
     (fn [] (let [[part shape] (nth (:arrived-act declaration/shapes) 3)]
              [declaration/time-part (= part declaration/time-part) shape]))
     [:door-time true [:int {:min 0}]]]
-   ["the twenty rules, the maker's first, each with its reason; the seven of the keys that take a second write stand after the four rules of a permission fact, who may read a layer's acts right behind who may see it"
+   ["the twenty rules, the maker's first, each with its reason; the seven of the keys that take a second write stand after the four rules of a permission fact, who may read a lane's acts right behind who may see it"
     (fn [] declaration/rules)
     declared-rules]
    ["the words with which the check refuses, read from the two declarations, the word of the time's part among them, and the two of its last step"
@@ -591,8 +591,8 @@
     [declared-reasons true]]
    ["the five words of a stray, in the order tested"
     (fn [] declaration/stray-reasons)
-    [:no-act-id :act-id-malformed :id-too-long :act-id-of-the-other-gate :act-id-of-another-layer]]
-   ["the seven limits: facts, entries of based-on, the bytes of one value's text, the bytes of text that one act writes into the rows of its facts, the text of an id, the layers that a layer builds on, the keys that a layer marks"
+    [:no-act-id :act-id-malformed :id-too-long :act-id-of-the-other-gate :act-id-of-another-lane]]
+   ["the seven limits: facts, entries of based-on, the bytes of one value's text, the bytes of text that one act writes into the rows of its facts, the text of an id, the lanes that a lane builds on, the keys that a lane marks"
     (fn [] [declaration/max-facts declaration/max-based-on declaration/max-value-bytes
             declaration/max-act-bytes declaration/max-id-text
             declaration/max-builds-on declaration/max-marked-keys])
@@ -616,7 +616,7 @@
     [{:softland.store/depot :depot-word :softland.store/permission :permission-id
       :softland.store/run-permission :permission-id :softland.store/act-permission :permission-id
       :softland.store/who-may-see :who-may-see-word :softland.store/who-may-read-acts :who-may-read-acts-word
-      :softland.store/builds-on :layer-list :softland.store/marked-keys :key-set}
+      :softland.store/builds-on :lane-list :softland.store/marked-keys :key-set}
      #{:softland.store/depot :softland.store/who-may-see :softland.store/who-may-read-acts
        :softland.store/builds-on :softland.store/marked-keys}
      #{:softland.store/who-may-see :softland.store/who-may-read-acts :softland.store/builds-on :softland.store/marked-keys}
@@ -639,19 +639,19 @@
    ["an act-id of four slots" (assoc good :act-id [:alice :streaming (uuid 1) 0]) :act-id-malformed]
    ["an act-id with a depot word that is none" (assoc good :act-id [:alice :stream (uuid 1)]) :act-id-malformed]
    ["an act-id whose last slot is no UUID" (assoc good :act-id [:alice :streaming "u"]) :act-id-malformed]
-   ["an act-id whose layer is a string" (assoc good :act-id ["alice" :streaming (uuid 1)]) :act-id-malformed]
+   ["an act-id whose lane is a string" (assoc good :act-id ["alice" :streaming (uuid 1)]) :act-id-malformed]
    ["an act-id that is a list" (assoc good :act-id (list :alice :streaming (uuid 1))) :act-id-malformed]
-   ["an act-id whose layer prints to 257 characters"
-    (assoc good :act-id [(long-id 257) :streaming (uuid 1)] :layer (long-id 257)) :id-too-long]
+   ["an act-id whose lane prints to 257 characters"
+    (assoc good :act-id [(long-id 257) :streaming (uuid 1)] :lane (long-id 257)) :id-too-long]
    ["an act-id of the depot microbatch" (assoc good :act-id [:alice :microbatch (uuid 1)]) :act-id-of-the-other-gate]
-   ["an act-id of another layer" (assoc good :act-id [:bob :streaming (uuid 1)]) :act-id-of-another-layer]
-   ["a thing with an act-id and no layer" (dissoc good :layer) :act-id-of-another-layer]
-   ["an act-id of the depot microbatch and of another layer: the depot is told first"
+   ["an act-id of another lane" (assoc good :act-id [:bob :streaming (uuid 1)]) :act-id-of-another-lane]
+   ["a thing with an act-id and no lane" (dissoc good :lane) :act-id-of-another-lane]
+   ["an act-id of the depot microbatch and of another lane: the depot is told first"
     (assoc good :act-id [:bob :microbatch (uuid 1)]) :act-id-of-the-other-gate]
    ["a good act" good nil]
-   ["a thing that is no act, with a usable act-id" {:act-id (act-id 1) :layer :alice :junk 1} nil]
-   ["an act-id whose layer prints to 256 characters"
-    (assoc good :act-id [(long-id 256) :streaming (uuid 1)] :layer (long-id 256)) nil]])
+   ["a thing that is no act, with a usable act-id" {:act-id (act-id 1) :lane :alice :junk 1} nil]
+   ["an act-id whose lane prints to 256 characters"
+    (assoc good :act-id [(long-id 256) :streaming (uuid 1)] :lane (long-id 256)) nil]])
 
 (def ^:private stray-cases
   "The cases of the test for a stray: one for each row of `stray-rows`, the
@@ -687,7 +687,7 @@
    :depot :streaming
    declaration/time-part (int 1700001)
    :version (int 1)
-   :who :alice :layer :alice
+   :who :alice :lane :alice
    :permission (subvec [:x :alice :alice :alice] 1)
    :session :alice-s1
    :based-on {[(act-id 2) (int 0)] (int 41)}
@@ -702,7 +702,7 @@
 (def ^:private whole-form
   "The one form on arrival of `whole`."
   {:act-id (act-id 9) :depot :streaming declaration/time-part 1700001
-   :version 1 :who :alice :layer :alice :permission alice-own :session :alice-s1
+   :version 1 :who :alice :lane :alice :permission alice-own :session :alice-s1
    :based-on {[(act-id 2) 0] 41} :because-of (act-id 2) :claimed-when 1700000
    :subjects #{:alice :bob}
    :facts [{:e :note-1 :k :text :v nil :replaces [(act-id 2) 0] :text "{:a [1 2] :b 1.5M}"}
@@ -781,7 +781,7 @@
    ["the text of a set under a store key is sorted: the marked keys, with the set beside it"
     (fn [] ((juxt :v :text) (first (:facts (act-of (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on :tool/parent :b :a}}))))))
     [#{:on :tool/parent :b :a} "#{:a :b :on :tool/parent}"]]
-   ["the values that the three keys of a second write take: each word of who may see; a list of layers that is empty, names the layer itself, names a layer twice or names a layer that nobody made; a set of keys that is empty"
+   ["the values that the three keys of a second write take: each word of who may see; a list of lanes that is empty, names the lane itself, names a lane twice or names a lane that nobody made; a set of keys that is empty"
     (fn [] (mapv (fn [[k v]] (verdict (declaration/check (arrived 1 {:e :alice :k k :v v}))))
                  [[:softland.store/who-may-see :members] [:softland.store/who-may-see :everyone]
                   [:softland.store/builds-on []] [:softland.store/builds-on [:alice]]
@@ -817,7 +817,7 @@
   "One thing for each word of act.clj: the least thing with one fault of the
   maker's form."
   [["a part that neither the maker nor the door names" (assoc good :owner :alice) :unknown-part]
-   ["a fact with a part that the form does not name" (arrived 1 (assoc (value-at :note-1 :text) :layer :bob)) :unknown-part]
+   ["a fact with a part that the form does not name" (arrived 1 (assoc (value-at :note-1 :text) :lane :bob)) :unknown-part]
    ["a fact with a value that carries :sealed: a fact has no such part" (arrived 1 (assoc (value-at :note-1 :text) :sealed (bytes-of 3))) :unknown-part]
    ["a fact with a value that carries :lock-id" (arrived 1 (assoc (value-at :note-1 :text) :lock-id [(act-id 50) 0])) :unknown-part]
    ["a fact with no value that carries :sealed and :lock-id" (arrived 1 {:e :note-1 :k :text :sealed (bytes-of 3) :lock-id [(act-id 50) 0]}) :unknown-part]
@@ -826,7 +826,7 @@
    ["no permission" (dissoc good :permission) :no-permission]
    ["no session" (dissoc good :session) :no-session]
    ["no fact" (assoc good :facts []) :empty-act]
-   ["a permission for another layer" (assoc good :permission [:alice :bob :bob]) :permission-not-in-layer]
+   ["a permission for another lane" (assoc good :permission [:alice :bob :bob]) :permission-not-in-lane]
    ["a who that is a string" (assoc good :who "alice") :malformed]
    ["a permission 33 deep" (assoc good :permission (deep-permission :alice :alice 33)) :malformed]
    ["a value that is no value of the form: a ratio" (arrived 1 (value-at :note-1 :text 1/3)) :malformed]
@@ -871,9 +871,9 @@
    ["a depot fact whose value is no depot word" (arrived 1 {:e :alice :k :softland.store/depot :v :fast}) :depot-fact-not-a-depot-word]
    ["a permission fact whose value is no permission" (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice]}) :permission-fact-not-a-permission]
    ["a permission fact that does not sit on its holder" (arrived 1 {:e :carol :k :softland.store/permission :v bobs}) :permission-fact-not-on-its-holder]
-   ["a permission for a run under the key of a permission for the layer" (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice :alice alice-own :see-and-act [:run :run-7]]})
+   ["a permission for a run under the key of a permission for the lane" (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice :alice alice-own :see-and-act [:run :run-7]]})
     :permission-fact-under-another-key]
-   ["a permission for the layer under the key of a permission for a run" (arrived 1 {:e :run-7 :k :softland.store/run-permission :v bobs}) :permission-fact-under-another-key]
+   ["a permission for the lane under the key of a permission for a run" (arrived 1 {:e :run-7 :k :softland.store/run-permission :v bobs}) :permission-fact-under-another-key]
    ["a permission for an act under the key of a permission for a run"
     (arrived 1 {:e (uuid 9) :k :softland.store/run-permission :v [:bob :alice :alice alice-own :see-and-act [:act (uuid 9) (apply str (repeat 64 "a"))]]})
     :permission-fact-under-another-key]
@@ -888,19 +888,19 @@
    ["a permission for an act whose digest is no text of 64 hex characters"
     (arrived 1 {:e (uuid 9) :k :softland.store/act-permission :v [:bob :alice :alice alice-own :see-and-act [:act (uuid 9) "abc"]]})
     :permission-fact-not-a-permission]
-   ["who may see a layer, with a word that is neither" (arrived 1 {:e :alice :k :softland.store/who-may-see :v :owner}) :who-may-see-fact-not-members-or-everyone]
-   ["who may see a layer, as a string" (arrived 1 {:e :alice :k :softland.store/who-may-see :v "everyone"}) :who-may-see-fact-not-members-or-everyone]
-   ["who may see a layer, as a set of people" (arrived 1 {:e :alice :k :softland.store/who-may-see :v #{:bob}}) :who-may-see-fact-not-members-or-everyone]
-   ["who may read a layer's acts, with a word that is neither" (arrived 1 {:e :alice :k :softland.store/who-may-read-acts :v :visitors}) :who-may-read-acts-fact-not-members-or-everyone]
-   ["who may read a layer's acts, as a string" (arrived 1 {:e :alice :k :softland.store/who-may-read-acts :v "everyone"}) :who-may-read-acts-fact-not-members-or-everyone]
-   ["what a layer builds on, as one layer and no list" (arrived 1 {:e :alice :k :softland.store/builds-on :v :base}) :builds-on-fact-not-a-list-of-layers]
-   ["what a layer builds on, as a set: a set has no order" (arrived 1 {:e :alice :k :softland.store/builds-on :v #{:base}}) :builds-on-fact-not-a-list-of-layers]
-   ["what a layer builds on, with a string in it" (arrived 1 {:e :alice :k :softland.store/builds-on :v [:base "team"]}) :builds-on-fact-not-a-list-of-layers]
-   ["what a layer builds on, 65 layers" (arrived 1 {:e :alice :k :softland.store/builds-on :v (mapv #(keyword (str "layer-" %)) (range 65))}) :builds-on-too-many-layers]
-   ["the marked keys of a layer, as a vector" (arrived 1 {:e :alice :k :softland.store/marked-keys :v [:on]}) :marked-keys-fact-not-a-set-of-keys]
-   ["the marked keys of a layer, as one key" (arrived 1 {:e :alice :k :softland.store/marked-keys :v :on}) :marked-keys-fact-not-a-set-of-keys]
-   ["the marked keys of a layer, with a UUID in the set: a key is a keyword" (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on (uuid 3)}}) :marked-keys-fact-not-a-set-of-keys]
-   ["the marked keys of a layer, 33 keys" (arrived 1 {:e :alice :k :softland.store/marked-keys :v (set (map #(keyword (str "key-" %)) (range 33)))}) :too-many-marked-keys]
+   ["who may see a lane, with a word that is neither" (arrived 1 {:e :alice :k :softland.store/who-may-see :v :owner}) :who-may-see-fact-not-members-or-everyone]
+   ["who may see a lane, as a string" (arrived 1 {:e :alice :k :softland.store/who-may-see :v "everyone"}) :who-may-see-fact-not-members-or-everyone]
+   ["who may see a lane, as a set of people" (arrived 1 {:e :alice :k :softland.store/who-may-see :v #{:bob}}) :who-may-see-fact-not-members-or-everyone]
+   ["who may read a lane's acts, with a word that is neither" (arrived 1 {:e :alice :k :softland.store/who-may-read-acts :v :visitors}) :who-may-read-acts-fact-not-members-or-everyone]
+   ["who may read a lane's acts, as a string" (arrived 1 {:e :alice :k :softland.store/who-may-read-acts :v "everyone"}) :who-may-read-acts-fact-not-members-or-everyone]
+   ["what a lane builds on, as one lane and no list" (arrived 1 {:e :alice :k :softland.store/builds-on :v :base}) :builds-on-fact-not-a-list-of-lanes]
+   ["what a lane builds on, as a set: a set has no order" (arrived 1 {:e :alice :k :softland.store/builds-on :v #{:base}}) :builds-on-fact-not-a-list-of-lanes]
+   ["what a lane builds on, with a string in it" (arrived 1 {:e :alice :k :softland.store/builds-on :v [:base "team"]}) :builds-on-fact-not-a-list-of-lanes]
+   ["what a lane builds on, 65 lanes" (arrived 1 {:e :alice :k :softland.store/builds-on :v (mapv #(keyword (str "lane-" %)) (range 65))}) :builds-on-too-many-lanes]
+   ["the marked keys of a lane, as a vector" (arrived 1 {:e :alice :k :softland.store/marked-keys :v [:on]}) :marked-keys-fact-not-a-set-of-keys]
+   ["the marked keys of a lane, as one key" (arrived 1 {:e :alice :k :softland.store/marked-keys :v :on}) :marked-keys-fact-not-a-set-of-keys]
+   ["the marked keys of a lane, with a UUID in the set: a key is a keyword" (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on (uuid 3)}}) :marked-keys-fact-not-a-set-of-keys]
+   ["the marked keys of a lane, 33 keys" (arrived 1 {:e :alice :k :softland.store/marked-keys :v (set (map #(keyword (str "key-" %)) (range 33)))}) :too-many-marked-keys]
    ["a mark of a key of the store's own namespace" (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on :softland.store/permission}}) :marked-key-in-the-stores-namespace]
    ["a mark of a key in the store's namespace that the store does not know" (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:softland.store/owner}}) :marked-key-in-the-stores-namespace]
    ["two facts on one place" (arrived 1 (value-at :note-1 :text "a") (value-at :note-1 :text "b")) :place-named-twice]
@@ -919,15 +919,15 @@
      ["a fact's key" (arrived 1 (value-at :note-1 long))]
      ["who and the holder of the act's permission" (assoc good :who long :permission [long :alice :alice])]
      ["granted-in, in the act's permission" (assoc good :permission [:alice :alice long])]
-     ["the layer of the act-id in because-of" (assoc good :because-of [long :streaming (uuid 2)])]
-     ["the layer of a fact id in based-on" (assoc good :based-on {[[long :streaming (uuid 2)] 0] 1})]
-     ["the layer of a replaced fact" (arrived 1 (assoc (value-at :note-1 :text) :replaces [[long :streaming (uuid 2)] 0]))]
+     ["the lane of the act-id in because-of" (assoc good :because-of [long :streaming (uuid 2)])]
+     ["the lane of a fact id in based-on" (assoc good :based-on {[[long :streaming (uuid 2)] 0] 1})]
+     ["the lane of a replaced fact" (arrived 1 (assoc (value-at :note-1 :text) :replaces [[long :streaming (uuid 2)] 0]))]
      ["the holder in a permission that is given" (arrived 1 {:e long :k :softland.store/permission :v [long :alice :alice alice-own]})]
      ["granted-in, in a permission that is given" (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice long alice-own]})]
      ["who, in the permission above one that is given with the slot that says what it allows"
       (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice :alice [long :alice :alice] :see]})]
-     ["a layer in the list that a layer builds on" (arrived 1 {:e :alice :k :softland.store/builds-on :v [:base long]})]
-     ["a key in the set that a layer marks" (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on long}})]]))
+     ["a lane in the list that a lane builds on" (arrived 1 {:e :alice :k :softland.store/builds-on :v [:base long]})]
+     ["a key in the set that a lane marks" (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on long}})]]))
 
 (def ^:private time-cases
   "The cases of the time on the act as the declaration reads it: what
@@ -980,7 +980,7 @@
 (defn- full-act
   "An act whose accept would write 18,874,368 + `more` bytes of text into the
   rows of its facts, so with 0 it is at the bound on an act. Its who, its
-  layer and each id of its permission print to 256 characters, and the
+  lane and each id of its permission print to 256 characters, and the
   permission is 32 deep: 256 + 24,735 bytes of who and permission for each
   fact. It has 256 facts. The value of each is a string of 48,735 letters,
   48,737 bytes of text, and the last has `more` letters more. No value is
@@ -989,7 +989,7 @@
   (let [id (long-id 256)
         value (apply str (repeat 48735 "a"))]
     {:act-id [id :streaming (uuid 1)] :depot :streaming declaration/time-part now
-     :version 1 :who id :layer id :permission (deep-permission id id 32) :session :alice-s1
+     :version 1 :who id :lane id :permission (deep-permission id id 32) :session :alice-s1
      :facts (mapv (fn [i] {:e (keyword (str "note-" i)) :k :text
                            :v (if (= i 255) (str value (apply str (repeat more "a"))) value)})
                   (range 256))}))
@@ -1060,7 +1060,7 @@
    ["no time, and no fact" (assoc (without-time good) :facts []) :no-door-time]
    ["no time, and facts that throw when they are read" (assoc (without-time good) :facts (throwing)) :no-door-time]
    ["no time, and a fact with a part that the form does not name: that fault is inside a part of the maker's"
-    (without-time (arrived 1 (assoc (value-at :note-1 :text) :layer :bob))) :no-door-time]
+    (without-time (arrived 1 (assoc (value-at :note-1 :text) :lane :bob))) :no-door-time]
    ["no time, and a depot word that is not the act-id's: the shape comes before a rule" (assoc (without-time good) :depot :microbatch) :no-door-time]
    ["a time of -1, and a value over the bound: the shape comes before the last step"
     (assoc (arrived 1 (value-at :note-1 :text over-the-bound)) declaration/time-part -1) :no-door-time]   ["a wrong version, and facts that are no sequence" (assoc good :version 2 :facts 5) :unknown-version]
@@ -1072,7 +1072,7 @@
     (assoc good :facts [5 (assoc (value-at :note-1 :text) :sealed (bytes-of 3))]) :malformed]
    ["the same two, the other way round"
     (assoc good :facts [(assoc (value-at :note-1 :text) :sealed (bytes-of 3)) 5]) :unknown-part]
-   ["a permission for another layer, and a depot that is not the act-id's" (assoc good :permission [:alice :bob :bob] :depot :microbatch) :permission-not-in-layer]
+   ["a permission for another lane, and a depot that is not the act-id's" (assoc good :permission [:alice :bob :bob] :depot :microbatch) :permission-not-in-lane]
    ["257 facts, each with a value over the bound: the limit of the facts, before one text is made"
     (apply arrived 1 (map (fn [i] (value-at (keyword (str "note-" i)) :text over-the-bound)) (range 257))) :too-many-facts]
    ["a depot fact whose value is no depot word, and a key in the store's namespace that the store does not know: the key gives the word"
@@ -1081,16 +1081,16 @@
     (arrived 1 {:e :alice :k :softland.store/who-may-see :v :owner} {:e :carol :k :softland.store/permission :v bobs}) :permission-fact-not-on-its-holder]
    ["a wrong word of who may see, and a list that is no list: the rules of the three keys in their order"
     (arrived 1 {:e :alice :k :softland.store/builds-on :v :base} {:e :alice :k :softland.store/who-may-see :v :owner}) :who-may-see-fact-not-members-or-everyone]
-   ["65 layers, and marked keys that are no set: the limit of the list before the shape of the marks"
+   ["65 lanes, and marked keys that are no set: the limit of the list before the shape of the marks"
     (arrived 1 {:e :alice :k :softland.store/marked-keys :v [:on]}
-             {:e :alice :k :softland.store/builds-on :v (mapv #(keyword (str "layer-" %)) (range 65))}) :builds-on-too-many-layers]
+             {:e :alice :k :softland.store/builds-on :v (mapv #(keyword (str "lane-" %)) (range 65))}) :builds-on-too-many-lanes]
    ["33 marked keys with one of the store's namespace among them: the limit first"
     (arrived 1 {:e :alice :k :softland.store/marked-keys :v (conj (set (map #(keyword (str "key-" %)) (range 32))) :softland.store/depot)}) :too-many-marked-keys]
    ["a mark of a key of the store's namespace, and a value over the bound under a plain key: a rule comes before the last step"
     (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:softland.store/depot}} (value-at :note-1 :text over-the-bound)) :marked-key-in-the-stores-namespace]
    ["a value over the bound, and two facts on one place: the rule's word"
     (arrived 1 (value-at :note-1 :text over-the-bound) (value-at :note-1 :text "b")) :place-named-twice]
-   ["a list of layers with a long id in it, and two facts on one place: the long id is the last rule"
+   ["a list of lanes with a long id in it, and two facts on one place: the long id is the last rule"
     (arrived 1 {:e :alice :k :softland.store/builds-on :v [(long-id 257)]} (value-at :note-1 :text "a") (value-at :note-1 :text "b")) :place-named-twice]
    ["a value over the bound on an entity whose id is too long: the last rule comes before the last step"
     (arrived 1 (value-at (long-id 257) :text over-the-bound)) :id-too-long]
@@ -1121,11 +1121,11 @@
    ["the same act with one byte more in one value" (full-act 1) :act-too-large]
    ["an entity of 256 characters" (arrived 1 (value-at (long-id 256) :text)) :ok]
    ["an entity of 257 characters" (arrived 1 (value-at (long-id 257) :text)) :id-too-long]
-   ["what a layer builds on, 64 layers" (arrived 1 {:e :alice :k :softland.store/builds-on :v (mapv #(keyword (str "layer-" %)) (range 64))}) :ok]
-   ["what a layer builds on, 65 layers" (arrived 1 {:e :alice :k :softland.store/builds-on :v (mapv #(keyword (str "layer-" %)) (range 65))}) :builds-on-too-many-layers]
+   ["what a lane builds on, 64 lanes" (arrived 1 {:e :alice :k :softland.store/builds-on :v (mapv #(keyword (str "lane-" %)) (range 64))}) :ok]
+   ["what a lane builds on, 65 lanes" (arrived 1 {:e :alice :k :softland.store/builds-on :v (mapv #(keyword (str "lane-" %)) (range 65))}) :builds-on-too-many-lanes]
    ["32 marked keys" (arrived 1 {:e :alice :k :softland.store/marked-keys :v (set (map #(keyword (str "key-" %)) (range 32)))}) :ok]
    ["33 marked keys" (arrived 1 {:e :alice :k :softland.store/marked-keys :v (set (map #(keyword (str "key-" %)) (range 33)))}) :too-many-marked-keys]
-   ["a layer of 256 characters in the list that a layer builds on, and a marked key of 256" (arrived 1 {:e :alice :k :softland.store/builds-on :v [(long-id 256)]} {:e :alice :k :softland.store/marked-keys :v #{(long-id 256)}}) :ok]
+   ["a lane of 256 characters in the list that a lane builds on, and a marked key of 256" (arrived 1 {:e :alice :k :softland.store/builds-on :v [(long-id 256)]} {:e :alice :k :softland.store/marked-keys :v #{(long-id 256)}}) :ok]
    ["an act under its own permission five deep" (assoc good :permission (deep-permission :alice :alice 5)) :ok]
    ["an act under its own permission 32 deep" (assoc good :permission (deep-permission :alice :alice 32)) :ok]
    ["an act under its own permission 32 deep that says what it allows"
@@ -1137,10 +1137,10 @@
     (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice :alice (deep-permission :bob :alice 31) :see]}) :ok]
    ["a permission fact whose value is 33 deep: it is no value of the form, so the shape's word and not the rule's"
     (arrived 1 {:e :bob :k :softland.store/permission :v (deep-permission :bob :alice 33)}) :malformed]
-   ["ids that are UUIDs: who, the layer, an entity"
-    (let [who (uuid 31) layer (uuid 32)]
-      {:act-id [layer :streaming (uuid 1)] :depot :streaming declaration/time-part now :version 1 :who who :layer layer
-       :permission [who layer layer] :session (uuid 33)
+   ["ids that are UUIDs: who, the lane, an entity"
+    (let [who (uuid 31) lane (uuid 32)]
+      {:act-id [lane :streaming (uuid 1)] :depot :streaming declaration/time-part now :version 1 :who who :lane lane
+       :permission [who lane lane] :session (uuid 33)
        :facts [{:e (uuid 34) :k :text :v "a text"}]})
     :ok]])
 
@@ -1157,12 +1157,12 @@
 
 (def ^:private read-predicate-cases
   "The two tests of what a caller gave a read: an id, and an act-id of a
-  layer."
+  lane."
   [["an id that a key can be made of: a keyword, a UUID; not a string, nil, a long keyword, a keyword that does not read back"
     (fn [] (mapv declaration/usable-id? [:alice (uuid 1) "alice" nil (long-id 257) (keyword "a b") (long-id 256)]))
     [true true false false false false true]]
-   ["an act-id of a layer: its shape and its layer slot; anything else is none, and nothing throws"
-    (fn [] (mapv #(declaration/act-id-in-layer? :alice %)
+   ["an act-id of a lane: its shape and its lane slot; anything else is none, and nothing throws"
+    (fn [] (mapv #(declaration/act-id-in-lane? :alice %)
                  [(act-id 1) [:alice :microbatch (uuid 1)] [:bob :streaming (uuid 1)] [:alice :streaming]
                   nil 5 (throwing)]))
     [true true false false false false false]]])
@@ -1170,23 +1170,23 @@
 ;; ------------------------------------------------------------------ the stamp
 
 (def ^:private stamp-cases
-  "The cases of the stamp: the first stamp of a layer, the next one, a run
+  "The cases of the stamp: the first stamp of a lane, the next one, a run
   of them, the class of a stamp, its limit, and what the function takes. A
   stamp holds no time: what a stamp is not made of is held where a decision
   is made, in `writes-cases` and `stamp-line-cases`."
-  [["the first decision in a layer, with no last stamp: the stamp is 0, a long"
+  [["the first decision in a lane, with no last stamp: the stamp is 0, a long"
     (fn [] (let [first-stamp (stamp/next-stamp nil)] [first-stamp (.getSimpleName (class first-stamp))]))
     [0 "Long"]]
    ["a decision after a last stamp: that stamp plus one, a long also when the last stamp is given as an Integer"
     (fn [] (mapv (fn [last-stamp] (let [s (stamp/next-stamp last-stamp)] [s (.getSimpleName (class s))])) [0 41 (int 41)]))
     [[1 "Long"] [42 "Long"] [42 "Long"]]]
-   ["1,000 decisions in a row in one layer: the stamps are 0, 1, 2 and on to 999, with no gap"
+   ["1,000 decisions in a row in one lane: the stamps are 0, 1, 2 and on to 999, with no gap"
     (fn [] (= (range 1000) (take 1000 (iterate stamp/next-stamp (stamp/next-stamp nil)))))
     true]
    ["the limit: after the greatest long the next stamp wraps to the least, and nothing throws"
     (fn [] (stamp/next-stamp Long/MAX_VALUE))
     Long/MIN_VALUE]
-   ["the stamp's namespace gives one function, and it takes the layer's last stamp alone: no time, and nothing of the act, goes into a stamp"
+   ["the stamp's namespace gives one function, and it takes the lane's last stamp alone: no time, and nothing of the act, goes into a stamp"
     (fn [] [(vec (sort (map name (keys (ns-publics 'softland.store.gate.stamp)))))
             (:arglists (meta #'stamp/next-stamp))])
     [["next-stamp"] '([last-stamp])]]])
@@ -1194,45 +1194,45 @@
 ;; -------------------------------------------------------------- the first act
 
 (defn- making
-  "A making act in its one form on arrival: for a layer, by `who`, naming a
-  first permission held by `holder`, with the depot that the layer starts
+  "A making act in its one form on arrival: for a lane, by `who`, naming a
+  first permission held by `holder`, with the depot that the lane starts
   with. `first-act-cases` holds it against what the declaration's check
   gives for the same act as its maker sends it."
-  [layer who holder]
-  (let [permission [holder layer layer]
-        depot (first-act/depot-at-making layer)]
-    {:act-id [layer depot (uuid 1)] :depot depot declaration/time-part now :version 1 :who who :layer layer
+  [lane who holder]
+  (let [permission [holder lane lane]
+        depot (first-act/depot-at-making lane)]
+    {:act-id [lane depot (uuid 1)] :depot depot declaration/time-part now :version 1 :who who :lane lane
      :permission permission :session :s1 :based-on {} :because-of nil :claimed-when nil :subjects #{}
-     :facts [(arrived-fact layer :softland.store/depot depot)
+     :facts [(arrived-fact lane :softland.store/depot depot)
              (arrived-fact holder :softland.store/permission permission)]}))
 
 (def ^:private first-act-rows
-  "Acts into a layer that is not made. For each: the gate's depot, the act,
+  "Acts into a lane that is not made. For each: the gate's depot, the act,
   and whether it has the form of a making act."
   (let [personal (making :alice :system :alice)
         group (making :team :alice :alice)
         base (making :base :system :system)
         fact (fn [act i] (get-in act [:facts i]))]
-    [["a personal layer, made by the system for its person" :streaming personal true]
-     ["a group's layer, made by the person who creates it" :streaming group true]
+    [["a personal lane, made by the system for its person" :streaming personal true]
+     ["a group's lane, made by the person who creates it" :streaming group true]
      ["the two facts in the other order" :streaming (update group :facts (comp vec reverse)) true]
-     ["a layer whose first holder is the system" :streaming (making :tools :system :system) true]
+     ["a lane whose first holder is the system" :streaming (making :tools :system :system) true]
      ["the base, made by the system" :microbatch base true]
      ["the base" :streaming base false]
      ["the base by a who that is not the system" :microbatch (assoc base :who :alice) false]
      ["the base with a first permission that is not the system's" :microbatch (making :base :system :alice) false]
-     ["the base, made by a person who holds its first permission herself: she is the holder, as for a group's layer, and for the base the holder is the system"
+     ["the base, made by a person who holds its first permission herself: she is the holder, as for a group's lane, and for the base the holder is the system"
       :microbatch (making :base :alice :alice) false]
-     ["a layer that is not the base" :microbatch group false]
+     ["a lane that is not the base" :microbatch group false]
      ["a who that is neither the holder nor the system" :streaming (assoc group :who :bob) false]
      ["no depot fact" :streaming (assoc group :facts [(fact group 1) (arrived-fact :note :text)]) false]
      ["no permission fact" :streaming (assoc group :facts [(fact group 0) (arrived-fact :note :text)]) false]
      ["one fact only" :streaming (assoc group :facts [(fact group 0)]) false]
      ["a third fact beside the two" :streaming (update group :facts conj (arrived-fact :note :text)) false]
-     ["a third fact that says who may see the layer: nothing is written at the making but the depot and the first permission"
+     ["a third fact that says who may see the lane: nothing is written at the making but the depot and the first permission"
       :streaming (update group :facts conj (arrived-fact :team :softland.store/who-may-see :everyone)) false]
-     ["the depot microbatch for a layer that is not the base" :streaming (assoc-in group [:facts 0 :v] :microbatch) false]
-     ["a depot fact on an entity that is not the layer" :streaming (assoc-in group [:facts 0 :e] :other) false]
+     ["the depot microbatch for a lane that is not the base" :streaming (assoc-in group [:facts 0 :v] :microbatch) false]
+     ["a depot fact on an entity that is not the lane" :streaming (assoc-in group [:facts 0 :e] :other) false]
      ["a permission fact that is not the permission that the act names"
       :streaming (-> group (assoc-in [:facts 1 :v] [:bob :team :team]) (assoc-in [:facts 1 :e] :bob)) false]
      ["a first permission with a permission above it"
@@ -1240,7 +1240,7 @@
                      (assoc :permission [:alice :team :team [:x :team :team]])
                      (assoc-in [:facts 1 :v] [:alice :team :team [:x :team :team]]))
       false]
-     ["a first permission granted in another layer"
+     ["a first permission granted in another lane"
       :streaming (-> group (assoc :permission [:alice :team :elsewhere]) (assoc-in [:facts 1 :v] [:alice :team :elsewhere]))
       false]
      ["a permission that says what it allows, see and act: it has a permission above it and a slot, so it is no first permission"
@@ -1250,21 +1250,21 @@
       false]]))
 
 (def ^:private first-act-cases
-  "The cases of the first act: the depot that a layer starts with, whether a
-  layer starts with the other gate's depot, and one case for each row of
+  "The cases of the first act: the depot that a lane starts with, whether a
+  lane starts with the other gate's depot, and one case for each row of
   `first-act-rows`."
   (concat
-   [["the depot that a layer starts with: microbatch for the base, streaming for any other"
+   [["the depot that a lane starts with: microbatch for the base, streaming for any other"
      (fn [] (mapv first-act/depot-at-making [:base :alice :team (uuid 1)]))
      [:microbatch :streaming :streaming :streaming]]
-    ["a layer that starts with the other gate's depot: at the streaming gate's depot the base, and no other layer, a keyword or a UUID; at the microbatch gate's depot each layer but the base"
+    ["a lane that starts with the other gate's depot: at the streaming gate's depot the base, and no other lane, a keyword or a UUID; at the microbatch gate's depot each lane but the base"
      (fn [] [(mapv #(first-act/starts-with-the-other-gates-depot? :streaming %) [:base :alice :team (uuid 1)])
              (mapv #(first-act/starts-with-the-other-gates-depot? :microbatch %) [:base :alice :team (uuid 1)])])
      [[true false false false] [false true true true]]]
-    ["no act that has the form of a making act for a gate is for a layer that starts with the other gate's depot: each of the five such rows below, at its gate; and the base's making act at the streaming gate's depot is for such a layer"
-     (fn [] [(mapv (fn [[_ gate-depot act _]] (first-act/starts-with-the-other-gates-depot? gate-depot (:layer act)))
+    ["no act that has the form of a making act for a gate is for a lane that starts with the other gate's depot: each of the five such rows below, at its gate; and the base's making act at the streaming gate's depot is for such a lane"
+     (fn [] [(mapv (fn [[_ gate-depot act _]] (first-act/starts-with-the-other-gates-depot? gate-depot (:lane act)))
                    (filter (fn [[_ _ _ making?]] making?) first-act-rows))
-             (first-act/starts-with-the-other-gates-depot? :streaming (:layer (making :base :system :system)))])
+             (first-act/starts-with-the-other-gates-depot? :streaming (:lane (making :base :system :system)))])
      [[false false false false false] true]]
     ["the two ids that the form knows"
      (fn [] [first-act/system first-act/base])
@@ -1275,7 +1275,7 @@
                                                  (update :facts (fn [facts] (mapv #(select-keys % [:e :k :v]) facts)))))))
                   [(making :alice :system :alice) (making :team :alice :alice) (making :base :system :system)]))
      [true true true]]
-    ["what a layer starts with, where no fact says it: the base is seen by everyone and any other layer by its members; a layer builds on nothing; no key is marked; nothing for any other key"
+    ["what a lane starts with, where no fact says it: the base is seen by everyone and any other lane by its members; a lane builds on nothing; no key is marked; nothing for any other key"
      (fn [] [(mapv #(first-act/starts-with % :softland.store/who-may-see) [:base :alice :team (uuid 1)])
              (mapv #(first-act/starts-with % :softland.store/builds-on) [:base :alice])
              (mapv #(first-act/starts-with % :softland.store/marked-keys) [:base :alice])
@@ -1356,7 +1356,7 @@
                 (count (record/by-value-key id id Long/MAX_VALUE (record/value-digest (byte-array 0)) id))]))
       [293 770 855]]
      ["an accepted answer's row has no :refused; a refused one has its word; each holds the time on the thing beside the stamp; each field of its declared class"
-      (fn [] [(classes (record/answer-row nil (int 900) (int 1700001) digest)) (classes (record/answer-row :layer-not-made 900 now digest))])
+      (fn [] [(classes (record/answer-row nil (int 900) (int 1700001) digest)) (classes (record/answer-row :lane-not-made 900 now digest))])
       [{:stamp "Long" :time "Long" :digest "byte[]"} {:stamp "Long" :time "Long" :digest "byte[]" :refused "Keyword"}]]
      ["the time in an answer's row is the time given, as it is: a time of 0 and a time far ahead of every clock; a thing with no usable time gives a row with no :time, refused or accepted"
       (fn [] [(:time (record/answer-row nil 900 0 digest)) (:time (record/answer-row nil 900 far-ahead digest))
@@ -1364,11 +1364,11 @@
       [0 far-ahead {:refused :no-door-time :stamp 900 :digest digest} false]]
      ["an answer as a caller gets it, accepted and refused, with the time on the thing; a nil time for a row with none; no row is nothing yet"
       (fn [] [(record/answer-of (record/answer-row nil 900 now digest))
-              (record/answer-of (record/answer-row :layer-not-made 901 now digest))
+              (record/answer-of (record/answer-row :lane-not-made 901 now digest))
               (record/answer-of (record/answer-row :no-door-time 902 nil digest))
               (record/answer-of nil)])
       [{:verdict :accepted :reason nil :stamp 900 :time now :digest (text/hex digest)}
-       {:verdict :refused :reason :layer-not-made :stamp 901 :time now :digest (text/hex digest)}
+       {:verdict :refused :reason :lane-not-made :stamp 901 :time now :digest (text/hex digest)}
        {:verdict :refused :reason :no-door-time :stamp 902 :time nil :digest (text/hex digest)}
        nil]]
      ["the row of a fact with a value under a plain key: its value is the fact's text as it is, a String, and the row gives the UTF-8 of it back; the fact that wrote it, the stamp, the time on the act, who wrote it and the permission that the act named; each field of its declared class, and none a byte array"
@@ -1402,7 +1402,7 @@
        "#uuid \"00000000-0000-0000-0000-00000000004d\"" (uuid 77) [(uuid 77) :alice :alice alice-own :see-and-act]
        :see-and-act
        nil nil nil nil nil nil nil nil nil]]
-     ["which fact wrote a row: the one named; not another index, uuid, layer or depot; not an empty place"
+     ["which fact wrote a row: the one named; not another index, uuid, lane or depot; not an empty place"
       (fn [] (mapv #(record/written-by? :streaming :alice value-row %)
                    [[[:alice :streaming u] 2] [[:alice :streaming u] 1] [[:alice :streaming (uuid 6)] 2]
                     [[:bob :streaming u] 2] [[:alice :microbatch u] 2]]))
@@ -1443,7 +1443,7 @@
               (record/same-row? (row-holding no-text) (row-holding (str no-text "!")))
               (record/holds-this-value? (row-holding ":c1") :c1) (record/holds-value? (row-holding ":c1") :c1)])
       [[:not-a-value] false false true false true true]]
-     ["the row at a layer's marked-keys place holds, beside the set that a maker wrote, the stamp of each marked key as one text; it reads back as a map; nothing is marked for no row, for a row without the field and for a text that is no such map"
+     ["the row at a lane's marked-keys place holds, beside the set that a maker wrote, the stamp of each marked key as one text; it reads back as a map; nothing is marked for no row, for a row without the field and for a text that is no such map"
       (fn [] [(:level-since marks-row) (classes marks-row) (record/marked-keys-of marks-row) (record/value-of marks-row)
               (record/marked-keys-of nil) (record/marked-keys-of plain-row)
               (record/marked-keys-of {:level-since "(((("}) (record/marked-keys-of {:level-since "[:on 100]"})
@@ -1459,7 +1459,7 @@
       [d-c1 64
        d-c1 (digest-of-text "#uuid \"00000000-0000-0000-0000-000000000009\"") (digest-of-text "\"a string with spaces\"")
        (digest-of-text "42") (digest-of-text "{:a [2 3] :b 1}") (digest-of-text "42")]]
-     ["a key of the facts by value: layer, key, the stamp since which the key is marked, the value digest, then the entity; its row is the fact's row without its value, with the two texts and the time as they were given"
+     ["a key of the facts by value: lane, key, the stamp since which the key is marked, the value digest, then the entity; its row is the fact's row without its value, with the two texts and the time as they were given"
       (fn [] (let [row (by-value-row writer u (int 2) (int 900) (int 1700001))]
                [(record/by-value-key :alice :on 100 d-c1 :b1)
                 (record/by-value-key (uuid 1) :tool/on 140 d-c1 (uuid 2))
@@ -1477,10 +1477,10 @@
                 (mapv #(in? (record/by-value-key :alice :on 100 d-c1 %)) [:b1 :zzzz (uuid 0) (UUID. -1 -1) (long-id 256)])]))
       [(str ":alice :on 100 " d-c1 " ") (str ":alice :on 100 " d-c1 "!")
        [true true true true true]]]
-     ["no run holds a row of another value, layer, key or stamp: for a keyword, a UUID, a string with spaces, a number, a map and a value whose text is 65,536 bytes, the keys of the five others, and of the same value in another layer, under another key and under another stamp, are outside its run"
+     ["no run holds a row of another value, lane, key or stamp: for a keyword, a UUID, a string with spaces, a number, a map and a value whose text is 65,536 bytes, the keys of the five others, and of the same value in another lane, under another key and under another stamp, are outside its run"
       (fn [] (let [values [:c1 (uuid 9) "a string with spaces" 42 {:a 1} (text-of-bytes 65536)]
                    in-run? (fn [[from to] k] (and (<= (compare from k) 0) (neg? (compare k to))))
-                   key-of (fn [layer k since v] (record/by-value-key layer k since (record/value-digest-of v) :b1))]
+                   key-of (fn [lane k since v] (record/by-value-key lane k since (record/value-digest-of v) :b1))]
                [(mapv (fn [v] (alength ^bytes (utf8 (pr-str v)))) [(last values)])
                 (vec (for [v values]
                        (let [run (record/by-value-run :alice :on 100 v)]
@@ -1500,7 +1500,7 @@
               (= (record/value-digest-of (uuid 9)) (digest-of-text "#uuid \"00000000-0000-0000-0000-000000000009\""))
               (= (record/by-value-run :alice :on 100 1) (record/by-value-run :alice :on 100 1.0))])
       [false true false]]
-     ["a key back to its parts: a printed id to the id, a place's key to layer, entity and key, a key of the facts by value to its entity; nothing for a text that is none"
+     ["a key back to its parts: a printed id to the id, a place's key to lane, entity and key, a key of the facts by value to its entity; nothing for a text that is none"
       (fn [] [(mapv record/id-of-text [":alice" ":tool/on" "00000000-0000-0000-0000-000000000005" "alice" ":a b" ":" "" "5-5-5-5-5" nil 7])
               (record/place-of-key (record/place-key :alice (uuid 2) :tool/text))
               (record/place-of-key (record/place-key :base :base :softland.store/marked-keys))
@@ -1514,7 +1514,7 @@
        [nil nil nil nil nil]
        (uuid 2) :b1
        [nil nil nil]]]
-     ["the head of the read by act-id: the depot and the key; nothing for what is no act-id of the layer"
+     ["the head of the read by act-id: the depot and the key; nothing for what is no act-id of the lane"
       (fn [] [(record/answer-read :alice [:alice :streaming u]) (record/answer-read :alice [:alice :microbatch u])
               (record/answer-read :bob [:alice :streaming u]) (record/answer-read :alice [:alice :streaming])
               (record/answer-read nil nil) (record/answer-read (long-id 257) [(long-id 257) :streaming u])
@@ -1522,7 +1522,7 @@
       [[:streaming ":alice 00000000-0000-0000-0000-000000000005"]
        [:microbatch ":alice 00000000-0000-0000-0000-000000000005"]
        nil nil nil nil nil]]
-     ["the routing id of an act-id is its layer, for an act-id of each depot: a streaming one and a microbatch one, of a layer that is a keyword and of one that is a UUID. The uuid plays no part: two act-ids of one layer have one routing id"
+     ["the routing id of an act-id is its lane, for an act-id of each depot: a streaming one and a microbatch one, of a lane that is a keyword and of one that is a UUID. The uuid plays no part: two act-ids of one lane have one routing id"
       (fn [] [(record/routing-id [:alice :streaming u]) (record/routing-id [:base :microbatch u])
               (record/routing-id [(uuid 3) :streaming u]) (record/routing-id [(uuid 3) :microbatch u])
               (record/routing-id [:alice :microbatch u])
@@ -1532,7 +1532,7 @@
       (fn [] (mapv record/routing-id [[:base :microbatch] [:base :microbatch u u] [:base :fast u] [:base :microbatch (str u)]
                                       (list :base :microbatch u) 5 "an act-id" nil (throwing)]))
       (vec (repeat 9 nil))]
-     ["the head of the read by act-id, with the routing id: with the act-id's layer it gives the depot and the key, which is what `answer-read` gives, for an act-id of each depot; the routing id of an act-id is the one that its own read takes"
+     ["the head of the read by act-id, with the routing id: with the act-id's lane it gives the depot and the key, which is what `answer-read` gives, for an act-id of each depot; the routing id of an act-id is the one that its own read takes"
       (fn [] (let [of-alice [:alice :streaming u]
                    of-the-base [:base :microbatch u]]
                [(record/answer-read-by-routing-id :alice of-alice)
@@ -1542,7 +1542,7 @@
       [[:streaming ":alice 00000000-0000-0000-0000-000000000005"]
        [:microbatch ":base 00000000-0000-0000-0000-000000000005"]
        [true true]]]
-     ["nothing for another routing id: the act-id's uuid, another layer, nothing; nothing for a thing that is no act-id; nothing for a layer over the limit, whose act-id has a routing id all the same"
+     ["nothing for another routing id: the act-id's uuid, another lane, nothing; nothing for a thing that is no act-id; nothing for a lane over the limit, whose act-id has a routing id all the same"
       (fn [] [(record/answer-read-by-routing-id u [:base :microbatch u])
               (record/answer-read-by-routing-id u [:alice :streaming u])
               (record/answer-read-by-routing-id :alice [:base :microbatch u])
@@ -1552,22 +1552,22 @@
               (record/answer-read-by-routing-id (long-id 257) [(long-id 257) :streaming u])
               (= (long-id 257) (record/routing-id [(long-id 257) :streaming u]))])
       [nil nil nil nil nil nil nil true]]
-     ["the two parts of an answer's key, for a reader of the answers' keys: the text of the layer and the uuid; the text gives the layer back, a keyword, a keyword with a namespace, a UUID"
-      (fn [] (mapv (fn [layer] (let [[layer-text act-uuid] (record/answer-key-parts (record/answer-key layer u))]
-                                 [layer-text act-uuid (= layer (record/id-of-text layer-text))]))
-                   [:alice :tool/layer (uuid 3)]))
-      [[":alice" u true] [":tool/layer" u true] ["00000000-0000-0000-0000-000000000003" u true]]]
-     ["a layer whose text is 256 characters comes back from its key too"
-      (fn [] (let [layer (long-id 256)
-                   [layer-text act-uuid] (record/answer-key-parts (record/answer-key layer u))]
-               [(count layer-text) act-uuid (= layer (record/id-of-text layer-text))]))
+     ["the two parts of an answer's key, for a reader of the answers' keys: the text of the lane and the uuid; the text gives the lane back, a keyword, a keyword with a namespace, a UUID"
+      (fn [] (mapv (fn [lane] (let [[lane-text act-uuid] (record/answer-key-parts (record/answer-key lane u))]
+                                 [lane-text act-uuid (= lane (record/id-of-text lane-text))]))
+                   [:alice :tool/lane (uuid 3)]))
+      [[":alice" u true] [":tool/lane" u true] ["00000000-0000-0000-0000-000000000003" u true]]]
+     ["a lane whose text is 256 characters comes back from its key too"
+      (fn [] (let [lane (long-id 256)
+                   [lane-text act-uuid] (record/answer-key-parts (record/answer-key lane u))]
+               [(count lane-text) act-uuid (= lane (record/id-of-text lane-text))]))
       [256 u true]]
-     ["nothing for a text that is no answer's key: a place's key of three parts, one part, a layer with no text, a uuid that is not written as a UUID prints, a uuid in capitals, no character, nothing, a number, a thing that throws; and nothing throws"
+     ["nothing for a text that is no answer's key: a place's key of three parts, one part, a lane with no text, a uuid that is not written as a UUID prints, a uuid in capitals, no character, nothing, a number, a thing that throws; and nothing throws"
       (fn [] (mapv record/answer-key-parts
                    [":alice :note-1 :text" ":alice" (str " " u) ":alice 5-5-5-5-5" (str ":alice " (str/upper-case (str (UUID. -1 -1))))
                     "" nil 5 (throwing)]))
       (vec (repeat 9 nil))]
-     ["the head of the read of a depot: the layer's depot place; nothing for what is no id"
+     ["the head of the read of a depot: the lane's depot place; nothing for what is no id"
       (fn [] [(record/depot-read :alice) (record/depot-read "alice") (record/depot-read nil)
               (record/depot-read (long-id 257)) (record/depot-read [:alice])])
       [":alice :alice :softland.store/depot" nil nil nil nil]]]))
@@ -1576,7 +1576,7 @@
 
 (defn- permission-row
   "The row of a permission fact, as an accept writes it: by the making act
-  of Alice's layer, with the time `now`, and with the stamp 0 or the stamp
+  of Alice's lane, with the time `now`, and with the stamp 0 or the stamp
   given. A permission stands only when its row is younger than the row of
   the one above it, so a case gives the row of a given permission a stamp
   after that of its giver."
@@ -1592,7 +1592,7 @@
   (fact-row writer (arrived-fact holder :softland.store/permission) (uuid 91) 0 stamp now))
 
 (def ^:private alices-place
-  "The key of the place of Alice's permission in her own layer."
+  "The key of the place of Alice's permission in her own lane."
   ":alice :alice :softland.store/permission")
 
 (def ^:private alices-chain
@@ -1602,15 +1602,15 @@
   {alices-place (permission-row alice-own)})
 
 (def ^:private depot-row
-  "The row of the depot fact of Alice's layer."
+  "The row of the depot fact of Alice's lane."
   (fact-row writer (arrived-fact :alice :softland.store/depot :streaming) (uuid 90) 0 0 now))
 
 (def ^:private bobs-see
-  "Bob's permission in Alice's layer, beneath hers, that says see."
+  "Bob's permission in Alice's lane, beneath hers, that says see."
   [:bob :alice :alice alice-own :see])
 
 (def ^:private bobs-see-and-act
-  "Bob's permission in Alice's layer, beneath hers, that says see and act."
+  "Bob's permission in Alice's lane, beneath hers, that says see and act."
   [:bob :alice :alice alice-own :see-and-act])
 
 (def ^:private base-on-the-streaming-depot
@@ -1618,15 +1618,15 @@
   under its own permission in the base, with one fact that has a value. It
   is no stray on that depot, and the declaration's check takes it."
   {:act-id [:base :streaming (uuid 1)] :depot :streaming declaration/time-part now
-   :version 1 :who :system :layer :base :permission [:system :base :base] :session :s1
+   :version 1 :who :system :lane :base :permission [:system :base :base] :session :s1
    :facts [(value-at :doc-1 :note)]})
 
 (def ^:private standing-rows
   "For each: the act, the row at the place of who's permission, and the row
-  at the layer's depot place; then the word of `standing`, and whether the
-  act makes the layer. Each row is held at the streaming gate's depot. No
-  row says whether the layer is the other gate's: `standing` works that out
-  from the gate's depot and the act's layer. Two rows hand a row of the base
+  at the lane's depot place; then the word of `standing`, and whether the
+  act makes the lane. Each row is held at the streaming gate's depot. No
+  row says whether the lane is the other gate's: `standing` works that out
+  from the gate's depot and the act's lane. Two rows hand a row of the base
   with an act into the base. No gate writes such a row into the streaming
   gate's record; they hold what `standing` reads first. `base-standing-rows`
   holds the standing at the microbatch gate's depot."
@@ -1645,24 +1645,24 @@
      ["an act under a permission given beneath another, at its holder's place" bobs-act (permission-row bobs 1) nil nil false]
      ["the place holds another permission of the same holder" (assoc alices :permission [:alice :alice :alice [:x :alice :alice]])
       (permission-row alice-own) nil :permission-does-not-stand false]
-     ["the place is empty and the layer is made: the record does not hold the permission" bobs-act nil depot-row
+     ["the place is empty and the lane is made: the record does not hold the permission" bobs-act nil depot-row
       :permission-does-not-stand false]
-     ["an act under Alice's permission by a who that is not Alice, in a layer that is made"
+     ["an act under Alice's permission by a who that is not Alice, in a lane that is made"
       (assoc alices :who :mallory) nil depot-row :who-not-the-permissions-holder false]
-     ["the system acts again in a personal layer that it made" personal nil depot-row
+     ["the system acts again in a personal lane that it made" personal nil depot-row
       :who-not-the-permissions-holder false]
-     ["a making act by the holder for a layer that is made: its permission stands, and it makes nothing"
+     ["a making act by the holder for a lane that is made: its permission stands, and it makes nothing"
       (making :alice :alice :alice) (permission-row alice-own) nil nil false]
-     ["an act into a layer that is not made" alices nil nil :layer-not-made false]
-     ["a right making act of a personal layer, into a layer that is not made" personal nil nil nil true]
-     ["a right making act of a group's layer" group nil nil nil true]
-     ["an act into the base, a layer of the other gate, of which this gate's record holds nothing" into-base nil nil
-      :layer-belongs-to-the-other-gate false]
-     ["the base's making act, which has the form of a making act for the other gate and not for this one: it makes nothing here, and the word is that of a layer of the other gate, not that of a layer that is not made"
-      base-making nil nil :layer-belongs-to-the-other-gate false]
-     ["that a layer is the other gate's counts only when both rows are nil: an act into the base with the row of its permission there stands"
+     ["an act into a lane that is not made" alices nil nil :lane-not-made false]
+     ["a right making act of a personal lane, into a lane that is not made" personal nil nil nil true]
+     ["a right making act of a group's lane" group nil nil nil true]
+     ["an act into the base, a lane of the other gate, of which this gate's record holds nothing" into-base nil nil
+      :lane-belongs-to-the-other-gate false]
+     ["the base's making act, which has the form of a making act for the other gate and not for this one: it makes nothing here, and the word is that of a lane of the other gate, not that of a lane that is not made"
+      base-making nil nil :lane-belongs-to-the-other-gate false]
+     ["that a lane is the other gate's counts only when both rows are nil: an act into the base with the row of its permission there stands"
       into-base a-permission-row-of-the-base nil nil false]
-     ["and with a row at the base's depot place there, the layer reads as made here: the word of a permission that the record does not hold"
+     ["and with a row at the base's depot place there, the lane reads as made here: the word of a permission that the record does not hold"
       into-base nil a-depot-row-of-the-base :permission-does-not-stand false]
      ["a holder of see who names her permission as the row has it: an act needs act"
       (assoc alices :who :bob :permission bobs-see) (permission-row bobs-see 1) nil :permission-does-not-allow-acting false]
@@ -1678,19 +1678,19 @@
       (assoc alices :who :bob :permission bobs-see) (permission-row bobs-see-and-act 1) nil :permission-does-not-stand false]
      ["a holder of see whose act is by another who: the word of the holder comes first"
       (assoc alices :who :mallory :permission bobs-see) nil depot-row :who-not-the-permissions-holder false]
-     ["a making act whose permission has the slot, into a layer that is not made: it is no making act"
+     ["a making act whose permission has the slot, into a lane that is not made: it is no making act"
       (-> group
           (assoc :permission [:alice :team :team [:x :team :team] :see-and-act])
           (assoc-in [:facts 1 :v] [:alice :team :team [:x :team :team] :see-and-act]))
-      nil nil :layer-not-made false]]))
+      nil nil :lane-not-made false]]))
 
 (def ^:private standing-cases
   "The cases of the standing at the streaming gate's depot: the two places
   that are read, an act into the base as it arrives on that depot, what a
   permission allows, and one case for each row of `standing-rows`.
-  `other-gate-cases` holds a layer of the other gate for both gates."
+  `other-gate-cases` holds a lane of the other gate for both gates."
   (concat
-   [["the places that the standing reads: who's permission, then the layer's depot"
+   [["the places that the standing reads: who's permission, then the lane's depot"
      (fn [] [(decision/permission-place (act-of good)) (decision/depot-place (act-of good))])
      [":alice :alice :softland.store/permission" ":alice :alice :softland.store/depot"]]
     ["an act into the base on the streaming depot is no stray there, and the declaration's check, the one check before the standing, takes it: it is the standing that has the word"
@@ -1703,7 +1703,7 @@
    (map (fn [[what act p-row c-row word makes?]]
           [(str "standing: " what)
            (fn [] [(decision/standing :streaming act p-row c-row alices-chain nil)
-                   (decision/makes-the-layer? :streaming act p-row c-row)])
+                   (decision/makes-the-lane? :streaming act p-row c-row)])
            [word makes?]])
         standing-rows)))
 
@@ -1712,7 +1712,7 @@
   (`softland.store.gate.chain`), which rows the standing of an act reads
   beside the first two, and the word of an act whose permission, or one
   above it, has ended. Carol's permission is beneath Bob's, and Bob's
-  beneath Alice's, the first of the layer."
+  beneath Alice's, the first of the lane."
   (let [carols-here [:carol :alice :alice bobs]
         bobs-place ":alice :bob :softland.store/permission"
         carols-place ":alice :carol :softland.store/permission"
@@ -1819,7 +1819,7 @@
 
 (defn- setting-row
   "The row that the fact 0 of the act `(act-id n)` wrote under a store key on
-  Alice's layer, with the stamp and the time of `row-by`."
+  Alice's lane, with the stamp and the time of `row-by`."
   [n k v]
   (fact-row writer (arrived-fact :alice k v) (uuid n) 0 200 now))
 
@@ -1838,17 +1838,17 @@
      ["a value that replaces an earlier fact of the place" [(replacing [(act-id 6) 0])] {[:note-1 :text] (row-by 7 0)} :replaced-fact-not-current]
      ["a value that replaces another index of the same act" [(replacing [(act-id 7) 1])] {[:note-1 :text] (row-by 7 0)} :replaced-fact-not-current]
      ["a value that replaces something on an empty place" [(replacing [(act-id 7) 0])] {} :replaced-fact-not-current]
-     ["a value that replaces a fact of another layer" [(replacing [[:bob :streaming (uuid 7)] 0])] {[:note-1 :text] (row-by 7 0)} :replaced-fact-not-current]
+     ["a value that replaces a fact of another lane" [(replacing [[:bob :streaming (uuid 7)] 0])] {[:note-1 :text] (row-by 7 0)} :replaced-fact-not-current]
      ["a value that replaces a fact of the other depot" [(replacing [[:alice :microbatch (uuid 7)] 0])] {[:note-1 :text] (row-by 7 0)} :replaced-fact-not-current]
-     ["a depot fact on an entity that is not the layer" [{:e :bob :k :softland.store/depot :v :streaming}] {} :setting-not-on-the-layer]
-     ["a depot retract on an entity that is not the layer" [{:e :bob :k :softland.store/depot}] {} :setting-not-on-the-layer]
+     ["a depot fact on an entity that is not the lane" [{:e :bob :k :softland.store/depot :v :streaming}] {} :setting-not-on-the-lane]
+     ["a depot retract on an entity that is not the lane" [{:e :bob :k :softland.store/depot}] {} :setting-not-on-the-lane]
      ["a permission given straight beneath the act's own, on an empty place" [{:e :bob :k :softland.store/permission :v bobs}] {} nil]
      ["a holder gives itself a second permission beneath its own: its place holds one"
       [{:e :alice :k :softland.store/permission :v [:alice :alice :alice alice-own]}] {[:alice :softland.store/permission] (permission-row alice-own)}
       :holder-has-a-permission]
-     ["a permission given for another layer" [{:e :bob :k :softland.store/permission :v [:bob :team :alice alice-own]}] {} :permission-fact-for-another-layer]
-     ["a permission given with a granted-in that is not the act's layer" [{:e :bob :k :softland.store/permission :v [:bob :alice :team alice-own]}] {} :permission-fact-granted-in-another-layer]
-     ["a permission given with nothing above it, in a layer that is made" [{:e :bob :k :softland.store/permission :v [:bob :alice :alice]}] {} :permission-fact-not-beneath-the-acts-own]
+     ["a permission given for another lane" [{:e :bob :k :softland.store/permission :v [:bob :team :alice alice-own]}] {} :permission-fact-for-another-lane]
+     ["a permission given with a granted-in that is not the act's lane" [{:e :bob :k :softland.store/permission :v [:bob :alice :team alice-own]}] {} :permission-fact-granted-in-another-lane]
+     ["a permission given with nothing above it, in a lane that is made" [{:e :bob :k :softland.store/permission :v [:bob :alice :alice]}] {} :permission-fact-not-beneath-the-acts-own]
      ["a permission given beneath a permission that is not the act's own" [{:e :bob :k :softland.store/permission :v [:bob :alice :alice [:carol :alice :alice alice-own]]}] {}
       :permission-fact-not-beneath-the-acts-own]
      ["the same permission given a second time, to a holder whose permission stands"
@@ -1863,7 +1863,7 @@
       {[:bob :softland.store/permission] (permission-row bobs 1)} :replaced-fact-not-current]
      ["an end at an empty place" [{:e :bob :k :softland.store/permission}] {} :no-permission-to-end]
      ["an end at a place that holds an end" [{:e :bob :k :softland.store/permission}] {[:bob :softland.store/permission] (end-row :bob 3)} :no-permission-to-end]
-     ["an end of the layer's first permission, by its own holder: it does not end"
+     ["an end of the lane's first permission, by its own holder: it does not end"
       [{:e :alice :k :softland.store/permission}] {[:alice :softland.store/permission] (permission-row alice-own)} :first-permission-does-not-end]
      ["an end of a permission two beneath the act's own: anyone above ends it"
       [{:e :carol :k :softland.store/permission}] {[:carol :softland.store/permission] (permission-row [:carol :alice :alice bobs] 2)} nil]
@@ -1876,54 +1876,54 @@
       {[:carol :softland.store/permission] (permission-row [:carol :alice :alice bobs] 2) [:bob :softland.store/permission] (end-row :bob 3)
        [:alice :softland.store/permission] (permission-row alice-own)}
       nil]
-     ["a give at a place whose permission stands beneath another holder: a holder has one permission in a layer"
+     ["a give at a place whose permission stands beneath another holder: a holder has one permission in a lane"
       [{:e :carol :k :softland.store/permission :v [:carol :alice :alice alice-own]}]
       {[:carol :softland.store/permission] (permission-row [:carol :alice :alice bobs] 2) [:bob :softland.store/permission] (permission-row bobs 1)
        [:alice :softland.store/permission] (permission-row alice-own)}
       :holder-has-a-permission]
-     ["a retract of the layer's depot" [{:e :alice :k :softland.store/depot}] {} :store-key-retract-not-built]
-     ["the other depot for a layer that is made" [{:e :alice :k :softland.store/depot :v :microbatch}] {} :changing-a-depot-not-decided]
-     ["the layer's own depot a second time" [{:e :alice :k :softland.store/depot :v :streaming}] {} :store-key-takes-one-write]
+     ["a retract of the lane's depot" [{:e :alice :k :softland.store/depot}] {} :store-key-retract-not-built]
+     ["the other depot for a lane that is made" [{:e :alice :k :softland.store/depot :v :microbatch}] {} :changing-a-depot-not-decided]
+     ["the lane's own depot a second time" [{:e :alice :k :softland.store/depot :v :streaming}] {} :store-key-takes-one-write]
      ["a stale fact and a depot fact on another entity: the stale fact gives the word"
       [(replacing [(act-id 6) 0]) {:e :bob :k :softland.store/depot :v :streaming}] {[:note-1 :text] (row-by 7 0)} :replaced-fact-not-current]
-     ["a depot fact on another entity before a permission for another layer: the setting gives the word"
-      [{:e :bob :k :softland.store/permission :v [:bob :team :alice alice-own]} {:e :carol :k :softland.store/depot :v :streaming}] {} :setting-not-on-the-layer]
-     ["who may see the layer, on an empty place" [{:e :alice :k see :v :everyone}] {} nil]
-     ["what the layer builds on, on an empty place" [{:e :alice :k on :v [:base]}] {} nil]
-     ["the layer's marked keys, on an empty place" [{:e :alice :k marks :v #{:on}}] {} nil]
-     ["who may see the layer, written a second time on a place that holds one, naming nothing: a second write is taken"
+     ["a depot fact on another entity before a permission for another lane: the setting gives the word"
+      [{:e :bob :k :softland.store/permission :v [:bob :team :alice alice-own]} {:e :carol :k :softland.store/depot :v :streaming}] {} :setting-not-on-the-lane]
+     ["who may see the lane, on an empty place" [{:e :alice :k see :v :everyone}] {} nil]
+     ["what the lane builds on, on an empty place" [{:e :alice :k on :v [:base]}] {} nil]
+     ["the lane's marked keys, on an empty place" [{:e :alice :k marks :v #{:on}}] {} nil]
+     ["who may see the lane, written a second time on a place that holds one, naming nothing: a second write is taken"
       [{:e :alice :k see :v :members}] {[:alice see] (setting-row 7 see :everyone)} nil]
-     ["what the layer builds on, written a second time, naming nothing" [{:e :alice :k on :v []}] {[:alice on] (setting-row 7 on [:base])} nil]
-     ["the layer's marked keys, written a second time, naming nothing" [{:e :alice :k marks :v #{}}] {[:alice marks] (setting-row 7 marks #{:on})} nil]
-     ["who may see the layer, written again naming the fact that is there" [{:e :alice :k see :v :members :replaces [(act-id 7) 0]}]
+     ["what the lane builds on, written a second time, naming nothing" [{:e :alice :k on :v []}] {[:alice on] (setting-row 7 on [:base])} nil]
+     ["the lane's marked keys, written a second time, naming nothing" [{:e :alice :k marks :v #{}}] {[:alice marks] (setting-row 7 marks #{:on})} nil]
+     ["who may see the lane, written again naming the fact that is there" [{:e :alice :k see :v :members :replaces [(act-id 7) 0]}]
       {[:alice see] (setting-row 7 see :everyone)} nil]
-     ["who may see the layer, written again naming a fact that is no longer there: a writer who must not lose a write names what she replaces"
+     ["who may see the lane, written again naming a fact that is no longer there: a writer who must not lose a write names what she replaces"
       [{:e :alice :k see :v :members :replaces [(act-id 6) 0]}] {[:alice see] (setting-row 7 see :everyone)} :replaced-fact-not-current]
-     ["what the layer builds on, written again naming a stale fact" [{:e :alice :k on :v [:base] :replaces [(act-id 6) 0]}]
+     ["what the lane builds on, written again naming a stale fact" [{:e :alice :k on :v [:base] :replaces [(act-id 6) 0]}]
       {[:alice on] (setting-row 7 on [])} :replaced-fact-not-current]
-     ["the layer's marked keys, written again naming a stale fact" [{:e :alice :k marks :v #{:on} :replaces [(act-id 6) 0]}]
+     ["the lane's marked keys, written again naming a stale fact" [{:e :alice :k marks :v #{:on} :replaces [(act-id 6) 0]}]
       {[:alice marks] (setting-row 7 marks #{})} :replaced-fact-not-current]
-     ["a retract of who may see the layer" [{:e :alice :k see}] {[:alice see] (setting-row 7 see :everyone)} :store-key-retract-not-built]
-     ["a retract of what the layer builds on: a list is emptied by a second write of []" [{:e :alice :k on}] {} :store-key-retract-not-built]
-     ["a retract of the layer's marked keys: a mark is taken off by a second write of the set without it" [{:e :alice :k marks}] {} :store-key-retract-not-built]
-     ["who may see, on an entity that is not the layer" [{:e :bob :k see :v :everyone}] {} :setting-not-on-the-layer]
-     ["what a layer builds on, on an entity that is not the layer" [{:e :bob :k on :v [:base]}] {} :setting-not-on-the-layer]
-     ["marked keys, on an entity that is not the layer" [{:e :bob :k marks :v #{:on}}] {} :setting-not-on-the-layer]
-     ["a retract of who may see on an entity that is not the layer: the setting gives the word" [{:e :bob :k see}] {} :setting-not-on-the-layer]
+     ["a retract of who may see the lane" [{:e :alice :k see}] {[:alice see] (setting-row 7 see :everyone)} :store-key-retract-not-built]
+     ["a retract of what the lane builds on: a list is emptied by a second write of []" [{:e :alice :k on}] {} :store-key-retract-not-built]
+     ["a retract of the lane's marked keys: a mark is taken off by a second write of the set without it" [{:e :alice :k marks}] {} :store-key-retract-not-built]
+     ["who may see, on an entity that is not the lane" [{:e :bob :k see :v :everyone}] {} :setting-not-on-the-lane]
+     ["what a lane builds on, on an entity that is not the lane" [{:e :bob :k on :v [:base]}] {} :setting-not-on-the-lane]
+     ["marked keys, on an entity that is not the lane" [{:e :bob :k marks :v #{:on}}] {} :setting-not-on-the-lane]
+     ["a retract of who may see on an entity that is not the lane: the setting gives the word" [{:e :bob :k see}] {} :setting-not-on-the-lane]
      ["a second give to a holder of see whose permission stands, of see and act: see becomes see and act by an end and a give after it"
       [{:e :bob :k :softland.store/permission :v bobs-see-and-act}]
       {[:bob :softland.store/permission] (permission-row bobs-see 1) [:alice :softland.store/permission] (permission-row alice-own)} :holder-has-a-permission]
      ["a permission given with the slot, straight beneath the act's own, on an empty place" [{:e :bob :k :softland.store/permission :v bobs-see}] {} nil]
      ["a permission given with the slot beneath a permission that is not the act's own"
       [{:e :bob :k :softland.store/permission :v [:bob :alice :alice [:carol :alice :alice alice-own] :see]}] {} :permission-fact-not-beneath-the-acts-own]
-     ["a tool's own fact under the bare word :class, on an entity that is not the layer: no setting" [(value-at :bob :class)] {} nil]
+     ["a tool's own fact under the bare word :class, on an entity that is not the lane: no setting" [(value-at :bob :class)] {} nil]
      ["a tool's own fact under the bare word :permission, on an entity that holds a permission: no permission fact"
       [(value-at :bob :permission)] {[:bob :softland.store/permission] (permission-row bobs)} nil]
      ["a fact copied from the log into another act, on the place where it is the current fact: a value like any other, so it is taken"
       [(value-at :note-1 :text "a text before")] {[:note-1 :text] (row-by 7 0)} nil]]))
 
 (defn- keyed
-  "Rows by [entity key], as rows by the key of the place in Alice's layer."
+  "Rows by [entity key], as rows by the key of the place in Alice's lane."
   [rows]
   (into {} (map (fn [[[e k] row]] [(record/place-key :alice e k) row])) rows))
 
@@ -1951,7 +1951,7 @@
                               {:e :alice :k :softland.store/marked-keys :v #{:on}}))
              false))
      [":alice :alice :softland.store/builds-on"]]
-    ["who may write the setting, the list and the marks: the holder of the layer's first permission, and no holder of a given one, whatever it allows"
+    ["who may write the setting, the list and the marks: the holder of the lane's first permission, and no holder of a given one, whatever it allows"
      (fn [] (let [act (act-of (arrived 1 {:e :alice :k :softland.store/who-may-see :v :everyone}))]
               [(decision/who-may-write-fault act (first (:facts act)))
                (decision/who-may-write-fault (assoc act :who :bob :permission bobs) (first (:facts act)))
@@ -1964,7 +1964,7 @@
                    {:e :alice :k :softland.store/marked-keys :v #{:on}}
                    (value-at :note-1 :text)]))
      [:only-the-first-holder-writes-a-setting :only-the-first-holder-writes-a-setting :only-the-first-holder-writes-a-setting nil]]
-    ["who ends a permission, when the act is Bob's, under his given permission: his own; one that he gave; not one beside his, not the one above his, not the layer's first"
+    ["who ends a permission, when the act is Bob's, under his given permission: his own; one that he gave; not one beside his, not the one above his, not the lane's first"
      (fn [] (let [carols-here [:carol :alice :alice bobs]
                   daves [:dave :alice :alice alice-own]
                   ends (fn [holder held]
@@ -1995,7 +1995,7 @@
               [(decision/places-needed act true) (decision/places :streaming act true {})
                (decision/places :streaming act false {})]))
      [[] nil :permission-fact-not-beneath-the-acts-own]]
-    ["a making act that names something to replace is stale: nothing is current in a layer that is not made"
+    ["a making act that names something to replace is stale: nothing is current in a lane that is not made"
      (fn [] (decision/places :streaming (assoc-in (making :team :alice :alice) [:facts 0 :replaces] [[:team :streaming (uuid 7)] 0]) true {}))
      :replaced-fact-not-current]]))
 
@@ -2054,7 +2054,7 @@
      ["a time far ahead of every clock is written as it is and changes nothing else: an accept, and a refusal, with the time 2^50 ms give the rows that they give with the time `now`, but for :time; the stamp is the one given"
       (fn [] (let [without-the-time (fn [writes] (mapv (fn [[which k row]] [which k (if (map? row) (dissoc row :time) row)]) writes))
                    accept-at (fn [t] (decision/writes (act-id 1) value-act nil stamp t digest in-hand))
-                   refusal-at (fn [t] (decision/writes (act-id 1) value-act :layer-not-made stamp t digest {}))]
+                   refusal-at (fn [t] (decision/writes (act-id 1) value-act :lane-not-made stamp t digest {}))]
                [(= (comparable (without-the-time (accept-at far-ahead))) (comparable (without-the-time (accept-at now))))
                 (= (comparable (without-the-time (refusal-at far-ahead))) (comparable (without-the-time (refusal-at now))))
                 (vec (keep (fn [[_ _ row]] (when (map? row) (:time row))) (accept-at far-ahead)))
@@ -2072,7 +2072,7 @@
                (mapv (fn [[_ _ row]] (select-keys row [:who :permission]))
                      (take 2 (decision/writes (act-id 1) act nil stamp now digest {})))))
       (vec (repeat 2 {:who uuid-who :permission (str "[" uuid-who " :alice :alice [:alice :alice :alice] :see-and-act]")}))]
-     ["an accept of a making act writes the depot, the first permission, the answer, the last stamp; each row holds who made the layer, the permission that the act named and the time on the act"
+     ["an accept of a making act writes the depot, the first permission, the answer, the last stamp; each row holds who made the lane, the permission that the act named and the time on the act"
       (fn [] (decision/writes [:team :streaming (uuid 1)] (making :team :alice :alice) nil stamp now digest {}))
       [[:fact ":team :team :softland.store/depot"
         {:value ":streaming" :by-act (uuid 1) :by-index 0 :stamp stamp :time now :who ":alice" :permission "[:alice :team :team]"}]
@@ -2080,7 +2080,7 @@
         {:value "[:alice :team :team]" :by-act (uuid 1) :by-index 1 :stamp stamp :time now :who ":alice" :permission "[:alice :team :team]"}]
        [:answer (record/answer-key :team (uuid 1)) {:stamp stamp :time now :digest digest}]
        [:last-stamp nil stamp]]]
-     ["the system makes a personal layer for its person: the rows hold the system as who, and the person's permission"
+     ["the system makes a personal lane for its person: the rows hold the system as who, and the person's permission"
       (fn [] (mapv (fn [[_ _ row]] (select-keys row [:who :permission]))
                    (take 2 (decision/writes [:alice :streaming (uuid 1)] (making :alice :system :alice) nil stamp now digest {}))))
       [{:who ":system" :permission "[:alice :alice :alice]"} {:who ":system" :permission "[:alice :alice :alice]"}]]
@@ -2111,7 +2111,7 @@
                                                            {:place-rows {marks-place nil} :level-from 500})]
                [which k (:value row) (record/read-value row) (record/marked-keys-of row) (mapv first more)]))
       [:fact marks-place "#{:on :tool/parent}" [:value #{:on :tool/parent}] {:on 500 :tool/parent 500} [:answer :last-stamp]]]
-     ["what the walk hands under :level-from is the act's own stamp, for an act of either gate: a write of the marks in a streaming layer, and one in the base under a microbatch act-id, each give the newly marked key the stamp that the row of the marks itself holds"
+     ["what the walk hands under :level-from is the act's own stamp, for an act of either gate: a write of the marks in a streaming lane, and one in the base under a microbatch act-id, each give the newly marked key the stamp that the row of the marks itself holds"
       (fn [] (mapv (fn [thing]
                      (let [act (act-of thing)
                            place (decision/marked-keys-place act)
@@ -2140,9 +2140,9 @@
 ;; --------------------------------------- the facts by value, one act at a time
 
 (defn- streaming-step
-  "Decides one accepted act of Alice's in her streaming layer against a
+  "Decides one accepted act of Alice's in her streaming lane against a
   record in memory, as steps 6 and 7 of the walk of one thing do: the row at
-  the layer's marked-keys place when the act needs it, the stamp of each of
+  the lane's marked-keys place when the act needs it, the stamp of each of
   its places under a marked key, the row before of each such place, then
   `softland.store.gate.decision/writes` with the act's stamp as the stamp of
   a newly marked key. Takes the record, {:facts :by-value}, each a map from
@@ -2173,12 +2173,12 @@
            :writes (vec writes))))
 
 (defn- on-fact
-  "A fact of Alice's layer under the key :on, with a value."
+  "A fact of Alice's lane under the key :on, with a value."
   [e v]
   (value-at e :on v))
 
 (defn- entry-key
-  "The key in the facts by value of the place `e` :on of Alice's layer, for a
+  "The key in the facts by value of the place `e` :on of Alice's lane, for a
   value, under a stamp of the key."
   [since v e]
   (record/by-value-key :alice :on since (record/value-digest-of v) e))
@@ -2287,11 +2287,11 @@
                [(run-of record 100 :canvas-1) (run-of record 100 :canvas-2) (run-of record 100 :canvas-3)]))
       [[(entry-key 100 :canvas-1 (uuid 4)) (entry-key 100 :canvas-1 :b1) (entry-key 100 :canvas-1 :b2)]
        [(entry-key 100 :canvas-2 :b3)] []]]
-     ["a fact under a key that the layer does not mark, beside a marked one, and a fact under a store key: no row in the order"
+     ["a fact under a key that the lane does not mark, beside a marked one, and a fact under a store key: no row in the order"
       (fn [] (let [record (streaming-step m 231 110 (value-at :b1 :text :c1) {:e :bob :k :softland.store/permission :v bobs})]
                [(which-keys record) (keys-of record)]))
       [[[:fact ":alice :b1 :text" true] [:fact ":alice :bob :softland.store/permission" true]] #{}]]
-     ["which acts read the layer's marked keys: one with a fact under a plain key, or under the marked keys; not a give, a setting or a list; and the rows before that are still to be read"
+     ["which acts read the lane's marked keys: one with a fact under a plain key, or under the marked keys; not a give, a setting or a list; and the rows before that are still to be read"
       (fn [] [(mapv (fn [facts] (decision/reads-marked-keys? (act-of (apply arrived 1 facts))))
                     [[(on-fact :b1 :c1)] [{:e :b1 :k :on}] [{:e :alice :k :softland.store/marked-keys :v #{:on}}]
                      [{:e :bob :k :softland.store/permission :v bobs}]
@@ -2330,7 +2330,7 @@
   it and these facts."
   [n who permission & facts]
   {:act-id (base-id n) :depot :microbatch declaration/time-part now
-   :version 1 :who who :layer :base :permission permission :session :s1
+   :version 1 :who who :lane :base :permission permission :session :s1
    :facts (vec facts)})
 
 (def ^:private base-writer
@@ -2392,7 +2392,7 @@
   "For each: an act into the base as it arrives on the microbatch depot, the
   row at the place of its who's permission, and the row at the base's depot
   place; then the word of `standing` at the microbatch gate's depot, and
-  whether the act makes the layer. An act is decided against the record as
+  whether the act makes the lane. An act is decided against the record as
   the acts before it left it, so an empty place of a permission in a base
   that is made is a permission that the record does not hold."
   (let [act (act-of (base-thing 1 :carol carols {:e :doc-1 :k :note}))
@@ -2412,9 +2412,9 @@
       :permission-does-not-stand false]
      ["the place is empty, and the holder is not the who" by-another nil base-depot-row
       :who-not-the-permissions-holder false]
-     ["the record holds nothing of the base, and the act is no making act: the base is this gate's layer, so the word is that of a layer that is not made"
-      act nil nil :layer-not-made false]
-     ["the base's making act, with nothing in the record: it makes the layer" base-making nil nil nil true]
+     ["the record holds nothing of the base, and the act is no making act: the base is this gate's lane, so the word is that of a lane that is not made"
+      act nil nil :lane-not-made false]
+     ["the base's making act, with nothing in the record: it makes the lane" base-making nil nil nil true]
      ["the base's making act for a base that is made: its permission stands, and it makes nothing"
       base-making (base-permission-row system-own) nil nil false]]))
 
@@ -2425,11 +2425,11 @@
          [(str "standing at the microbatch gate's depot: " what)
           (fn [] [(decision/standing :microbatch act p-row c-row
                                      {":base :system :softland.store/permission" (base-permission-row system-own)} nil)
-                  (decision/makes-the-layer? :microbatch act p-row c-row)])
+                  (decision/makes-the-lane? :microbatch act p-row c-row)])
           [word makes?]])
        base-standing-rows))
 
-;; --------------------------------------------- a layer of the other gate
+;; --------------------------------------------- a lane of the other gate
 
 (defn- as-sent
   "Takes an act in its one form on arrival, as `making` gives it, and a
@@ -2437,7 +2437,7 @@
   maker: the depot word in the depot slot of its act-id and under `:depot`,
   each fact as its maker gives it, and without the parts that the form
   fills in. Its facts are as they were, so a making act still names the
-  depot that its layer starts with."
+  depot that its lane starts with."
   [form depot]
   (-> form
       (dissoc :based-on :because-of :claimed-when :subjects)
@@ -2446,47 +2446,47 @@
 
 (def ^:private other-gate-rows
   "Things as they arrive on a gate's depot. For each: the gate's depot; the
-  thing; whether its layer starts with the other gate's depot; whether the
+  thing; whether its lane starts with the other gate's depot; whether the
   act has the form of a making act for this gate, and for the other gate;
-  then the word of `standing` with no row of the layer, and whether the act
-  makes the layer. The first six are for a layer of the other gate. The
+  then the word of `standing` with no row of the lane, and whether the act
+  makes the lane. The first six are for a lane of the other gate. The
   last four are the same kinds of act on their own gate's depot."
   (let [base-making (making :base :system :system)
         personal (making :alice :system :alice)
         group (making :team :alice :alice)
         of-a-uuid (making (uuid 7) :system (uuid 8))
-        word :layer-belongs-to-the-other-gate]
+        word :lane-belongs-to-the-other-gate]
     [["an act into the base, on the streaming depot" :streaming base-on-the-streaming-depot true false false word false]
      ["the base's making act, on the streaming depot" :streaming (as-sent base-making :streaming) true false true word false]
-     ["an act into a personal layer, on the microbatch depot"
+     ["an act into a personal lane, on the microbatch depot"
       :microbatch (assoc good :act-id [:alice :microbatch (uuid 1)] :depot :microbatch) true false false word false]
-     ["the making act of a personal layer, on the microbatch depot" :microbatch (as-sent personal :microbatch) true false true word false]
-     ["the making act of a group's layer, on the microbatch depot" :microbatch (as-sent group :microbatch) true false true word false]
-     ["the making act of a layer whose id is a UUID, on the microbatch depot" :microbatch (as-sent of-a-uuid :microbatch) true false true word false]
-     ["an act into a personal layer that is not made, on the streaming depot, its own" :streaming good false false false :layer-not-made false]
-     ["the making act of a group's layer, on the streaming depot, its own: it is taken" :streaming (as-sent group :streaming) false true false nil true]
+     ["the making act of a personal lane, on the microbatch depot" :microbatch (as-sent personal :microbatch) true false true word false]
+     ["the making act of a group's lane, on the microbatch depot" :microbatch (as-sent group :microbatch) true false true word false]
+     ["the making act of a lane whose id is a UUID, on the microbatch depot" :microbatch (as-sent of-a-uuid :microbatch) true false true word false]
+     ["an act into a personal lane that is not made, on the streaming depot, its own" :streaming good false false false :lane-not-made false]
+     ["the making act of a group's lane, on the streaming depot, its own: it is taken" :streaming (as-sent group :streaming) false true false nil true]
      ["an act into a base that is not made, on the microbatch depot, its own"
-      :microbatch (base-thing 1 :system system-own {:e :doc-1 :k :note}) false false false :layer-not-made false]
+      :microbatch (base-thing 1 :system system-own {:e :doc-1 :k :note}) false false false :lane-not-made false]
      ["the base's making act, on the microbatch depot, its own: it is taken" :microbatch (as-sent base-making :microbatch) false true false nil true]]))
 
 (def ^:private other-gate-cases
-  "The cases of a layer of the other gate, for both gates: one for each row
+  "The cases of a lane of the other gate, for both gates: one for each row
   of `other-gate-rows`. Each thing is no stray on its depot and the
-  declaration's check takes it, so the standing has the word. `standing` and `makes-the-layer?` are handed nil
+  declaration's check takes it, so the standing has the word. `standing` and `makes-the-lane?` are handed nil
   for both rows: the word comes from the gate's depot and the act alone.
   They take no row of the other gate's record, so whether the other gate
-  has made the layer cannot change it."
+  has made the lane cannot change it."
   (map (fn [[what gate thing other? form-here? form-there? word makes?]]
-         [(str "a layer of the other gate, from the act alone: " what)
+         [(str "a lane of the other gate, from the act alone: " what)
           (fn [] (let [act (act-of thing)
                        other-gate (if (= :streaming gate) :microbatch :streaming)]
                    [(declaration/stray-reason gate thing)
                     (verdict (declaration/check thing))
-                    (first-act/starts-with-the-other-gates-depot? gate (:layer act))
+                    (first-act/starts-with-the-other-gates-depot? gate (:lane act))
                     (first-act/making-act? gate act)
                     (first-act/making-act? other-gate act)
                     (decision/standing gate act nil nil {} nil)
-                    (decision/makes-the-layer? gate act nil nil)]))
+                    (decision/makes-the-lane? gate act nil nil)]))
           [nil :ok other? form-here? form-there? word makes?]])
        other-gate-rows))
 
@@ -2496,14 +2496,14 @@
   "What one gate holds on one task, in memory, with nothing in it: the
   answers, the facts and the facts by value, each a map from key to row;
   the two parts of what a gate keeps for a task: the last stamps, a map
-  from the text of a layer id to a number, and the strays, a map from a
-  reason word to a set of digests as hex text; and the layer's line: its
+  from the text of a lane id to a number, and the strays, a map from a
+  reason word to a set of digests as hex text; and the lane's line: its
   rows, its things and its rows by who, each a map from key to row."
   {:answers {} :facts {} :by-value {} :last-stamp {} :strays {} :line {} :things {} :by-who {}})
 
 (defn- task-with
   "Takes rows, each [table key row], and the last stamps, a map from the text
-  of a layer id to a number. Gives a record in the form of `empty-task`
+  of a lane id to a number. Gives a record in the form of `empty-task`
   that holds them."
   [rows last-stamps]
   (reduce (fn [record [table k row]] (assoc-in record [table k] row))
@@ -2530,21 +2530,21 @@
   record after, with `:wrote`: the writes that
   `softland.store.gate.decision/writes` gave for the thing, or an empty
   vector for a stray and for a thing under an act-id that has an answer;
-  and with `:wrote-line`, the writes of the layer's line that
+  and with `:wrote-line`, the writes of the lane's line that
   `softland.store.gate.decision/line-writes` gave, or an empty vector.
 
   The steps. A stray's digest goes to the set of its word. A thing under an
   act-id that has an answer changes nothing. Else: the declaration's check,
   whose word the walk takes as it is, and the time on the thing; the row of
-  who's permission, the row of the layer's depot only when the first is
+  who's permission, the row of the lane's depot only when the first is
   nil, and the rows that `chain-needed` names; the rows that
   `places-needed` names, and then those that `chains-needed` names; for an act that no check
   refused and that reads the marked keys, the marks row and the rows before
-  that are still to be read; the layer's last stamp, the stamp
+  that are still to be read; the lane's last stamp, the stamp
   (`softland.store.gate.stamp/next-stamp` of that last stamp alone), and
   the writes, with the time on the thing and with the act's own stamp as
   the stamp of a newly marked key. The last stamp is kept under the text
-  of the thing's layer. The digest and the weight are one walk
+  of the thing's lane. The digest and the weight are one walk
   (`softland.store.door.digest/weighed`), up to the bound that the
   declaration's word gives, as the walk takes them; the line's writes keep
   the thing up to the bound that the standing gives.
@@ -2558,8 +2558,8 @@
     (-> record
         (update-in [:strays stray] (fnil conj #{}) (digest/hex-of thing))
         (assoc :wrote [] :wrote-line []))
-    (let [[layer _ act-uuid :as act-id] (:act-id thing)]
-      (if (get-in record [:answers (record/answer-key layer act-uuid)])
+    (let [[lane _ act-uuid :as act-id] (:act-id thing)]
+      (if (get-in record [:answers (record/answer-key lane act-uuid)])
         (assoc record :wrote [] :wrote-line [])
         (let [facts (:facts record)
               rows-at (fn [ks] (into {} (map (fn [k] [k (get facts k)])) ks))
@@ -2572,7 +2572,7 @@
               chain-rows (if early {} (rows-at (decision/chain-needed act permission-row)))
               no-standing (or early (decision/standing gate act permission-row depot-row chain-rows
                                                        (decision/hex-for-its-permission thing act)))
-              makes? (and (not early) (decision/makes-the-layer? gate act permission-row depot-row))
+              makes? (and (not early) (decision/makes-the-lane? gate act permission-row depot-row))
               standing-rows (if early {} (assoc chain-rows (decision/permission-place act) permission-row))
               first-place-rows (if no-standing {} (rows-at (decision/places-needed act makes?)))
               place-rows (if no-standing
@@ -2590,8 +2590,8 @@
                              (assoc (merge place-rows (rows-at (decision/rows-before-needed since place-rows)))
                                     marks-key marks-row)
                              place-rows)
-              layer-text (declaration/id-text layer)
-              stamp (stamp/next-stamp (get-in record [:last-stamp layer-text]))
+              lane-text (declaration/id-text lane)
+              stamp (stamp/next-stamp (get-in record [:last-stamp lane-text]))
               writes (decision/writes act-id act refused stamp time-millis (:digest weighed)
                                       (if refused {} {:since-by-place since :place-rows rows-in-hand :level-from stamp}))
               line-writes (decision/line-writes act-id thing refused stamp time-millis (:digest weighed) (:weight weighed)
@@ -2601,7 +2601,7 @@
                              :fact (assoc-in record [:facts k] row)
                              :by-value (if row (assoc-in record [:by-value k] row) (update record :by-value dissoc k))
                              :answer (assoc-in record [:answers k] row)
-                             :last-stamp (assoc-in record [:last-stamp layer-text] row)
+                             :last-stamp (assoc-in record [:last-stamp lane-text] row)
                              :line (assoc-in record [:line k] row)
                              :thing (assoc-in record [:things k] row)
                              :by-who (assoc-in record [:by-who k] row)
@@ -2636,17 +2636,17 @@
 (def ^:private covers-cases
   "The cases of what a permission covers: one run (`softland.store.act/covers`);
   a yes for one act has its own cases (`yes-cases`). The first cases hold
-  the forms and the places. The line is a layer's acts walked in memory,
+  the forms and the places. The line is a lane's acts walked in memory,
   each against the rows that the acts before it wrote, so every stamp in it
-  is the walk's own: Alice is the layer's first holder, and gives
-  permissions for runs, and for the layer, to Bob, Carol, Dave and Frank;
+  is the walk's own: Alice is the lane's first holder, and gives
+  permissions for runs, and for the lane, to Bob, Carol, Dave and Frank;
   Dave gives one to Erin."
   (let [run-key :softland.store/run-permission
         act-key :softland.store/act-permission
         holder-key :softland.store/permission
         thing (fn [n who permission session & facts]
                 {:act-id (act-id n) :depot :streaming declaration/time-part now
-                 :version 1 :who who :layer :alice :permission permission :session session
+                 :version 1 :who who :lane :alice :permission permission :session session
                  :facts (vec facts)})
         note (fn [n] {:e (keyword (str "covered-" n)) :k :text :v (str "act " n)})
         for-run (fn [who session allows] [who :alice :alice alice-own allows [:run session]])
@@ -2699,14 +2699,14 @@
     [["what a permission covers is its sixth slot, and what it allows its fifth: none for a permission with fewer slots; a run"
       (fn [] [(mapv act/covers [alice-own bobs bobs-see r7]) (mapv act/allows [r7 rf])])
       [[nil nil nil [:run :run-7]] [:see-and-act :see]]]
-     ["a permission sits on what it covers, under a key of its own for each kind: the layer's on its holder, a run's on the session"
+     ["a permission sits on what it covers, under a key of its own for each kind: the lane's on its holder, a run's on the session"
       (fn [] (mapv #(chain/place :alice %) [bobs r7]))
       [":alice :bob :softland.store/permission" ":alice :run-7 :softland.store/run-permission"]]
-     ["a line of a layer's acts: a permission for a run covers the acts of that run by its holder, and no other run or who; it gives nothing, so its holder cannot give herself one for the layer beneath it; it writes no setting; it stands beside her permission for the layer; a run ends its own permission and no other of hers; an end of one leaves the others; a run is given one again. A holder ends a run's permission of hers under her permission for the layer. What was given beneath a permission for the layer, a run's too, ends with it. A run has one permission that stands"
+     ["a line of a lane's acts: a permission for a run covers the acts of that run by its holder, and no other run or who; it gives nothing, so its holder cannot give herself one for the lane beneath it; it writes no setting; it stands beside her permission for the lane; a run ends its own permission and no other of hers; an end of one leaves the others; a run is given one again. A holder ends a run's permission of hers under her permission for the lane. What was given beneath a permission for the lane, a run's too, ends with it. A run has one permission that stands"
       (fn [] (words-by-number after))
       {1 :accepted
        2 :accepted 3 :accepted 4 :permission-for-another-run 5 :who-not-the-permissions-holder
-       6 :only-a-permission-for-the-layer-gives 7 :only-the-first-holder-writes-a-setting
+       6 :only-a-permission-for-the-lane-gives 7 :only-the-first-holder-writes-a-setting
        8 :accepted 9 :permission-does-not-allow-acting 10 :accepted
        11 :accepted 12 :not-above-the-permission 13 :accepted 14 :permission-ended 15 :accepted
        16 :accepted 17 :accepted 18 :accepted 19 :permission-ended
@@ -2714,7 +2714,7 @@
        44 :accepted 45 :accepted 46 :accepted 47 :accepted 48 :permission-above-ended
        49 :holder-has-a-permission
        50 :accepted 51 :permission-does-not-allow-acting}]
-     ["after that line a holder has a permission for the layer and one for each of two runs, each on its own place: Bob's for the layer and for the run :run-7 stand, and his for :run-8 is an end"
+     ["after that line a holder has a permission for the lane and one for each of two runs, each on its own place: Bob's for the lane and for the run :run-7 stand, and his for :run-8 is an end"
       (fn [] (let [facts (:facts after)]
                [(record/held-permission (get facts (chain/place :alice bobs-standing-see)))
                 (record/held-permission (get facts (chain/place :alice r7)))
@@ -2725,12 +2725,12 @@
 
 (def ^:private yes-cases
   "The cases of a yes for one act, in the form of 22 November 2026
-  (`softland.store.act`): `[who layer granted-in above :see-and-act [:act
+  (`softland.store.act`): `[who lane granted-in above :see-and-act [:act
   yes digest]]`, on the yes's own id, naming the act as its maker made it
   (`softland.store.door.digest/hex-for-a-yes`), used once. The first cases
-  hold the digest; then a line of a layer's acts walked in memory, each
-  against the rows that the acts before it wrote. Alice is the layer's first
-  holder; she gives Bob and Erin a permission for the layer, and Bob gives
+  hold the digest; then a line of a lane's acts walked in memory, each
+  against the rows that the acts before it wrote. Alice is the lane's first
+  holder; she gives Bob and Erin a permission for the lane, and Bob gives
   Dan one beneath his. Each yes is for Erin: for her act X, a fact of one
   value under a plain key in her run :run-x, unless a case says other. A
   number is the uuid of an act-id, and of a yes's id from 201 on."
@@ -2738,9 +2738,9 @@
         holder-key :softland.store/permission
         thing (fn [n who permission session & facts]
                 {:act-id (act-id n) :depot :streaming declaration/time-part now
-                 :version 1 :who who :layer :alice :permission permission :session session
+                 :version 1 :who who :lane :alice :permission permission :session session
                  :facts (vec facts)})
-        maker (fn [who session & facts] {:version 1 :who who :layer :alice :session session :facts (vec facts)})
+        maker (fn [who session & facts] {:version 1 :who who :lane :alice :session session :facts (vec facts)})
         under (fn [n permission maker-act]
                 (merge maker-act {:act-id (act-id n) :depot :streaming declaration/time-part now :permission permission}))
         yes (fn [n holder above maker-act]
@@ -2754,7 +2754,7 @@
         erins [:erin :alice :alice alice-own]
         dans [:dan :alice :alice bobs]
         x (maker :erin :run-x {:e :experiment-3 :k :dose :v 5})
-        x-another-way {:version 1 :who :erin :layer :alice :session :run-x :subjects #{} :based-on {}
+        x-another-way {:version 1 :who :erin :lane :alice :session :run-x :subjects #{} :based-on {}
                        :because-of nil :claimed-when nil :facts (list {:e :experiment-3 :k :dose :v 5N :replaces nil})}
         x-changed (maker :erin :run-x {:e :experiment-3 :k :dose :v 50})
         x-in-another-run (maker :erin :run-y {:e :experiment-3 :k :dose :v 5})
@@ -2834,9 +2834,9 @@
       (fn [] [(= (digest/act-for-a-yes x) (dissoc (:ok (act/parse (assoc x :permission ya))) :permission))
               (= (digest/act-for-a-yes x-another-way) (digest/act-for-a-yes x))])
       [true true]]
-     ["another act has another digest: another value, another who, another session, another layer, a time that its maker claims, an act that it is because of, a subject"
+     ["another act has another digest: another value, another who, another session, another lane, a time that its maker claims, an act that it is because of, a subject"
       (fn [] (mapv #(= hex (digest/hex-for-a-yes %))
-                   [x-changed (assoc x :who :bob) x-in-another-run (assoc x :layer :other) (assoc x :claimed-when 5)
+                   [x-changed (assoc x :who :bob) x-in-another-run (assoc x :lane :other) (assoc x :claimed-when 5)
                     (assoc x :because-of (act-id 1)) (assoc x :subjects #{:experiment-3})]))
       [false false false false false false false]]
      ["no digest of what is no act: no map, a part that the form does not name, a fact that is wrong"
@@ -2846,7 +2846,7 @@
       (fn [] [(= hex (decision/hex-for-its-permission (under 10 ya x-another-way) (act-of (under 10 ya x-another-way))))
               (decision/hex-for-its-permission good (act-of good))])
       [true nil]]
-     ["a line of a layer's acts under yeses for one act: a try before the yes lands, one with another value and one in another run are refused and use nothing; the same thing again under its act-id is not decided; the act written another way is taken under any act-id of its maker's and uses the yes up, so the same act again is refused and the used yes has nothing to end; its id takes no give again. Two yeses for one act stand at once, and each is used once. A yes is ended by its giver, by one above the giver, and by its holder under her permission for the layer; never under another yes; it ends itself only when its act is its end, and that end is its use. A yes gives nothing, and a refused give uses nothing. A yes stands as any permission does: the end of a permission above it ends it, and the give again of the one above does not bring it back; its holder ends it all the same"
+     ["a line of a lane's acts under yeses for one act: a try before the yes lands, one with another value and one in another run are refused and use nothing; the same thing again under its act-id is not decided; the act written another way is taken under any act-id of its maker's and uses the yes up, so the same act again is refused and the used yes has nothing to end; its id takes no give again. Two yeses for one act stand at once, and each is used once. A yes is ended by its giver, by one above the giver, and by its holder under her permission for the lane; never under another yes; it ends itself only when its act is its end, and that end is its use. A yes gives nothing, and a refused give uses nothing. A yes stands as any permission does: the end of a permission above it ends it, and the give again of the one above does not bring it back; its holder ends it all the same"
       (fn [] (words-by-number after))
       {1 :accepted 2 :accepted 3 :accepted 4 :accepted
        5 :permission-does-not-stand 6 :accepted 7 :act-not-the-one-permitted 8 :act-not-the-one-permitted
@@ -2855,7 +2855,7 @@
        19 :accepted 20 :accepted 21 :permission-ended 22 :a-yes-is-given-once
        23 :accepted 24 :accepted 25 :permission-ended
        26 :accepted 27 :accepted 28 :accepted 29 :accepted 30 :not-above-the-permission
-       31 :accepted 32 :accepted 33 :permission-used-up 34 :accepted 35 :only-a-permission-for-the-layer-gives
+       31 :accepted 32 :accepted 33 :permission-used-up 34 :accepted 35 :only-a-permission-for-the-lane-gives
        36 :accepted 37 :accepted 38 :permission-above-ended 39 :accepted 40 :permission-above-ended
        41 :permission-above-ended 42 :accepted}]
      ["the same thing again under the act-id of a refused try is not decided and writes nothing; the try's answer stays its own"
@@ -2887,28 +2887,28 @@
   probes 1A, 1B, 2, 6C and 6D), written again for a yes with an id of its
   own, since the probe was written for the form before it and no longer
   loads: a yes then sat on the uuid of its act's act-id, and its digest was
-  of the thing with its act-id. Each history keeps the probe's who, layers,
+  of the thing with its act-id. Each history keeps the probe's who, lanes,
   acts and order, with the yes on an id of its own and its digest of the act
   as its maker made it; the act goes under an act-id of its maker's. Walked
   in memory, each act against the rows that the acts before it wrote."
   (let [act-key :softland.store/act-permission
         holder-key :softland.store/permission
-        thing (fn [layer n who permission session & facts]
-                {:act-id [layer :streaming (uuid n)] :depot :streaming declaration/time-part now
-                 :version 1 :who who :layer layer :permission permission :session session :facts (vec facts)})
-        making (fn [layer who] (thing layer 1 who [who layer layer] :s0
-                                      {:e layer :k :softland.store/depot :v :streaming}
-                                      {:e who :k holder-key :v [who layer layer]}))
-        under (fn [layer n permission maker-act]
-                (merge maker-act {:act-id [layer :streaming (uuid n)] :depot :streaming
+        thing (fn [lane n who permission session & facts]
+                {:act-id [lane :streaming (uuid n)] :depot :streaming declaration/time-part now
+                 :version 1 :who who :lane lane :permission permission :session session :facts (vec facts)})
+        making (fn [lane who] (thing lane 1 who [who lane lane] :s0
+                                      {:e lane :k :softland.store/depot :v :streaming}
+                                      {:e who :k holder-key :v [who lane lane]}))
+        under (fn [lane n permission maker-act]
+                (merge maker-act {:act-id [lane :streaming (uuid n)] :depot :streaming
                                   declaration/time-part now :permission permission}))
-        words (fn [layer line] (let [after (walked-line empty-task :streaming line)]
-                                 (mapv (fn [x] (or (:refused (get-in after [:answers (record/answer-key layer (nth (:act-id x) 2))]))
+        words (fn [lane line] (let [after (walked-line empty-task :streaming line)]
+                                 (mapv (fn [x] (or (:refused (get-in after [:answers (record/answer-key lane (nth (:act-id x) 2))]))
                                                    :accepted))
                                        line)))
-        ;; 1A: Asha's layer; Ben's yes, ended, a try while it is ended, Cal given a permission, a yes again
+        ;; 1A: Asha's lane; Ben's yes, ended, a try while it is ended, Cal given a permission, a yes again
         lab-root [:asha :lab :lab]
-        x {:version 1 :who :ben :layer :lab :session :run-1 :facts [{:e :exp-1 :k :dose :v "5 mg"}]}
+        x {:version 1 :who :ben :lane :lab :session :run-1 :facts [{:e :exp-1 :k :dose :v "5 mg"}]}
         pa1 [:ben :lab :lab lab-root :see-and-act [:act (uuid 301) (digest/hex-for-a-yes x)]]
         cal-perm [:cal :lab :lab lab-root :see-and-act]
         pa2-same-id [:ben :lab :lab cal-perm :see-and-act [:act (uuid 301) (digest/hex-for-a-yes x)]]
@@ -2921,10 +2921,10 @@
                     (thing :lab 6 :cal cal-perm :s0 {:e (uuid 301) :k act-key :v pa2-same-id})
                     (thing :lab 7 :cal cal-perm :s0 {:e (uuid 302) :k act-key :v pa2})
                     (under :lab 8 pa2 x)]
-        ;; 1B: Ida's layer; Cal may only see; Joe's yes; Cal sends under an act-id whose uuid is the yes's id
+        ;; 1B: Ida's lane; Cal may only see; Joe's yes; Cal sends under an act-id whose uuid is the yes's id
         ida-own [:ida :studio :studio]
         cal-see [:cal :studio :studio ida-own :see]
-        joes {:version 1 :who :joe :layer :studio :session :run-1 :facts [{:e :secret-exp :k :dose :v "5 mg"}]}
+        joes {:version 1 :who :joe :lane :studio :session :run-1 :facts [{:e :secret-exp :k :dose :v "5 mg"}]}
         pa [:joe :studio :studio ida-own :see-and-act [:act (uuid 399) (digest/hex-for-a-yes joes)]]
         history-1b [(making :studio :ida)
                     (thing :studio 2 :ida ida-own :s0 {:e :cal :k holder-key :v cal-see})
@@ -2934,8 +2934,8 @@
                     (under :studio 5 pa joes)]
         ;; 6C: Ben's yes for the act that ends it, and his run's permission that says see
         u50 (uuid 350)
-        ends-itself {:version 1 :who :ben :layer :lab6 :session :run-1 :facts [{:e u50 :k act-key}]}
-        a-doc {:version 1 :who :ben :layer :lab6 :session :run-1 :facts [{:e :doc :k :v :v 1}]}
+        ends-itself {:version 1 :who :ben :lane :lab6 :session :run-1 :facts [{:e u50 :k act-key}]}
+        a-doc {:version 1 :who :ben :lane :lab6 :session :run-1 :facts [{:e :doc :k :v :v 1}]}
         root6 [:asha :lab6 :lab6]
         pa-doc [:ben :lab6 :lab6 root6 :see-and-act [:act (uuid 351) (digest/hex-for-a-yes a-doc)]]
         pa-end [:ben :lab6 :lab6 root6 :see-and-act [:act u50 (digest/hex-for-a-yes ends-itself)]]
@@ -2949,13 +2949,13 @@
                     (under :lab6 5 pa-end ends-itself)
                     (thing :lab6 6 :ben r-see :run-1 {:e :run-1 :k :softland.store/run-permission})]
         ;; 2 and 6D: the maker's act, the thing that the door appends, the act written another way
-        maker-act {:version 1 :who :joe :layer :studio :session :run-1 :facts [{:e :exp :k :dose :v "5 mg"}]}
+        maker-act {:version 1 :who :joe :lane :studio :session :run-1 :facts [{:e :exp :k :dose :v "5 mg"}]}
         door-id [:studio :streaming (uuid 77)]
         appended (fn [an-act permission]
                    (:thing (additions/thing-to-append (additions/reading (assoc an-act :permission permission) door-id)
                                                       door-id now)))
-        a1 {:version 1 :who :ben :layer :lab :session :s1 :facts [{:e :x :k :n :v 5}]}
-        a2 {:version 1 :who :ben :layer :lab :session :s1 :subjects #{} :based-on {} :facts (list {:e :x :k :n :v 5N})}]
+        a1 {:version 1 :who :ben :lane :lab :session :s1 :facts [{:e :x :k :n :v 5}]}
+        a2 {:version 1 :who :ben :lane :lab :session :s1 :subjects #{} :based-on {} :facts (list {:e :x :k :n :v 5N})}]
     [["probe 1A, a yes given again after an end and a refused try: the try under the ended yes is refused and uses nothing; a give at the ended yes's id is refused, a yes's id taking one give; a yes on an id of its own, given by Cal beneath his permission, is taken, and so is Ben's act under it"
       (fn [] (words :lab history-1a))
       [:accepted :accepted :accepted :permission-ended :accepted :a-yes-is-given-once :accepted :accepted]]
@@ -2995,8 +2995,8 @@
         cal-p [:cal :lab :lab root :see-and-act]
         thing (fn [n who permission session & facts]
                 {:act-id [:lab :streaming (uuid n)] :depot :streaming declaration/time-part now
-                 :version 1 :who who :layer :lab :permission permission :session session :facts (vec facts)})
-        maker (fn [session & facts] {:version 1 :who :ben :layer :lab :session session :facts (vec facts)})
+                 :version 1 :who who :lane :lab :permission permission :session session :facts (vec facts)})
+        maker (fn [session & facts] {:version 1 :who :ben :lane :lab :session session :facts (vec facts)})
         under (fn [n permission maker-act]
                 (merge maker-act {:act-id [:lab :streaming (uuid n)] :depot :streaming
                                   declaration/time-part now :permission permission}))
@@ -3086,14 +3086,14 @@
 (def ^:private stray-of-the-other-gate
   "A thing with an act-id of the streaming gate, for the base: on the
   microbatch depot it is a stray. It holds no time."
-  {:act-id [:base :streaming (uuid 18)] :depot :streaming :layer :base :facts [{:e :p1 :k :stray}]})
+  {:act-id [:base :streaming (uuid 18)] :depot :streaming :lane :base :facts [{:e :p1 :k :stray}]})
 
 (def ^:private line
   "A line of things into a base that is made, and the record before it. The
   things are in the order of the depot. Among them: two acts that replace
   one fact; two that write one place and name nothing; a give and an act
   under it, in both orders; a value alone on its entity; a repeat; one
-  act-id under two things; two acts for layers of the other gate; a plain
+  act-id under two things; two acts for lanes of the other gate; a plain
   value under a plain key; two strays; acts with no standing, one of which
   carries the greatest stamp there is; an act with
   three values that is accepted, and one that is refused whole; an act that
@@ -3127,10 +3127,10 @@
       answered
       (base-thing 14 :system system-own {:e :p1 :k :twice})
       (base-thing 14 :system system-own {:e :p2 :k :twice})
-      ;; two acts for layers of the other gate
-      {:act-id [:alice :microbatch (uuid 15)] :depot :microbatch declaration/time-part now :version 1 :who :alice :layer :alice
+      ;; two acts for lanes of the other gate
+      {:act-id [:alice :microbatch (uuid 15)] :depot :microbatch declaration/time-part now :version 1 :who :alice :lane :alice
        :permission alice-own :session :s1 :facts [{:e :p1 :k :stranger}]}
-      {:act-id [:nobody :microbatch (uuid 16)] :depot :microbatch declaration/time-part now :version 1 :who :alice :layer :nobody
+      {:act-id [:nobody :microbatch (uuid 16)] :depot :microbatch declaration/time-part now :version 1 :who :alice :lane :nobody
        :permission [:alice :nobody :nobody] :session :s1 :facts [{:e :p2 :k :stranger}]}
       ;; a plain value under a plain key, and two strays
       (base-thing 17 :system system-own {:e :p1 :k :plain :v "a plain value"})
@@ -3172,7 +3172,7 @@
   what it replaces; a write of the marks that takes one key off and marks a
   new one, then a fact under the new key and a fact under the key that was
   taken off, a second write of the marks, and a stale fact under a marked
-  key; two writes of who may see the layer; two writes of what the layer
+  key; two writes of who may see the lane; two writes of what the lane
   builds on that name the same fact to replace; a holder of see who acts,
   who names her permission without its slot, who gives, and who sends a
   value under a marked key; a retract of the marks; marks on another
@@ -3335,7 +3335,7 @@
                                            (fact-row base-writer (arrived-fact :doc-1 :title "before") (uuid 802) 0 before-the-line
                                                      time-before-the-line)])
                                     {":base" before-the-line})]
-    [["at the streaming gate, the making act of a group's layer" :streaming empty-task (as-sent (making :team :alice :alice) :streaming)
+    [["at the streaming gate, the making act of a group's lane" :streaming empty-task (as-sent (making :team :alice :alice) :streaming)
       [:fact :fact :answer :last-stamp] nil]
      ["at the streaming gate, a fact with a value" :streaming alice-made (arrived 2 (value-at :note-2 :text))
       [:fact :answer :last-stamp] nil]
@@ -3371,15 +3371,15 @@
   stamp, gives the same writes in every field: what a second attempt of a
   batch does. What a run writes on the record that the first run left,
   where the act-id's answer is, so that check (a) ends it: nothing. And
-  whether that run left every table as it was, the layer's last stamp
+  whether that run left every table as it was, the lane's last stamp
   too."
   (map (fn [[what gate record thing kinds word]]
          [(str "a second run of one decision: " what)
           (fn [] (let [first-run (walked record gate thing)
                        second-run (walked record gate thing)
                        on-what-it-left (walked first-run gate thing)
-                       [layer _ act-uuid] (:act-id thing)
-                       answer (get-in first-run [:answers (record/answer-key layer act-uuid)])]
+                       [lane _ act-uuid] (:act-id thing)
+                       answer (get-in first-run [:answers (record/answer-key lane act-uuid)])]
                    [(mapv first (:wrote first-run))
                     (if answer (:refused answer) :no-answer)
                     (= (comparable (:wrote first-run)) (comparable (:wrote second-run)))
@@ -3392,14 +3392,14 @@
 
 (def ^:private stamp-line-cases
   "The cases of the stamp in a line, each decided by the walk in memory, in
-  a layer of each gate: ten acts whose times rise, stand still, go back by
+  a lane of each gate: ten acts whose times rise, stand still, go back by
   two milliseconds and by a minute, leap far ahead, come back, fall to 0,
   leap to the greatest long and rise again; the same ten acts all with the
   time `now`; a line of accepts and refusals, one of them with no time and
   one with a time far ahead, and an act that carries the greatest stamp
   there is; and an act with a time far ahead, then two acts after it that
   each replace the fact before and carry the stamp that its answer gave.
-  Alice's layer is made with the stamp 0, so its line counts on from 1; the
+  Alice's lane is made with the stamp 0, so its line counts on from 1; the
   base's from `before-the-line` plus one."
   (let [times [now (+ now 5) (+ now 5) (+ now 3) (- now 60000) far-ahead (+ now 6) 0 Long/MAX_VALUE (+ now 2000)]
         timed (fn [thing t] (assoc thing declaration/time-part t))
@@ -3412,14 +3412,14 @@
                                [:facts ":alice :alice :softland.store/permission" (permission-row alice-own)]]
                               {":alice" 0})
         base-is-made (task-with base-made {":base" before-the-line})
-        answer-in (fn [record thing] (let [[layer _ act-uuid] (:act-id thing)] (get-in record [:answers (record/answer-key layer act-uuid)])))
+        answer-in (fn [record thing] (let [[lane _ act-uuid] (:act-id thing)] (get-in record [:answers (record/answer-key lane act-uuid)])))
         stamps-in (fn [record things] (mapv #(:stamp (answer-in record %)) things))
         times-in (fn [record things] (mapv #(:time (answer-in record %)) things))
-        fact-times (fn [record layer] (mapv (fn [i] (:time (get-in record [:facts (record/place-key layer (keyword (str "n" i)) :text)])))
+        fact-times (fn [record lane] (mapv (fn [i] (:time (get-in record [:facts (record/place-key lane (keyword (str "n" i)) :text)])))
                                             (range 10)))
         of-alices (walked-line alice-made :streaming alices)
         of-the-base (walked-line base-is-made :microbatch bases)
-        ;; accepts and refusals in Alice's layer, one after the other
+        ;; accepts and refusals in Alice's lane, one after the other
         mixed [(arrived 510 (value-at :m1 :text))
                (without-time (arrived 511 (value-at :m2 :text)))
                (arrived 512 (value-at :m3 :text))
@@ -3431,8 +3431,8 @@
         of-mixed (walked-line alice-made :streaming mixed)
         ;; an act with a time far ahead; then an act that replaces its fact and carries its stamp; then one that does the same for that act
         honest-after-far (fn [gate thing-of id-of record]
-                           (let [layer (first (id-of 520))
-                                 last-stamp (get-in record [:last-stamp (declaration/id-text layer)])
+                           (let [lane (first (id-of 520))
+                                 last-stamp (get-in record [:last-stamp (declaration/id-text lane)])
                                  things [(timed (thing-of 520 (value-at :k1 :text "a")) far-ahead)
                                          (assoc (thing-of 521 (assoc (value-at :k1 :text "b") :replaces [(id-of 520) 0]))
                                                 :based-on {[(id-of 520) 0] (+ last-stamp 1)})
@@ -3440,14 +3440,14 @@
                                                 :based-on {[(id-of 521) 0] (+ last-stamp 2)})]
                                  after (walked-line record gate things)]
                              [(vec (vals (words-by-number after))) (mapv #(- % last-stamp) (stamps-in after things)) (times-in after things)
-                              (:value (get-in after [:facts (record/place-key layer :k1 :text)]))]))]
-    [["ten acts of a streaming layer, whose times go back, leap ahead to 2^50 ms and to the greatest long, and fall to 0: each is accepted, the stamps of their answers are 1 to 10 after the making act's 0, and the last stamp kept for the layer is 10"
+                              (:value (get-in after [:facts (record/place-key lane :k1 :text)]))]))]
+    [["ten acts of a streaming lane, whose times go back, leap ahead to 2^50 ms and to the greatest long, and fall to 0: each is accepted, the stamps of their answers are 1 to 10 after the making act's 0, and the last stamp kept for the lane is 10"
       (fn [] [(vec (vals (words-by-number of-alices))) (stamps-in of-alices alices) (get-in of-alices [:last-stamp ":alice"])])
       [(vec (repeat 10 :accepted)) (vec (range 1 11)) 10]]
      ["the same ten acts in the base: the stamps count on from the base's last stamp before them, one by one"
       (fn [] [(vec (vals (words-by-number of-the-base))) (stamps-in of-the-base bases) (get-in of-the-base [:last-stamp ":base"])])
       [(vec (repeat 10 :accepted)) (vec (range (+ before-the-line 1) (+ before-the-line 11))) (+ before-the-line 10)]]
-     ["each answer and each row of a fact holds the time on its act as it is, beside the stamp, in a layer of each gate: the time far ahead, the greatest long and 0 among them"
+     ["each answer and each row of a fact holds the time on its act as it is, beside the stamp, in a lane of each gate: the time far ahead, the greatest long and 0 among them"
       (fn [] [(times-in of-alices alices) (fact-times of-alices :alice) (times-in of-the-base bases) (fact-times of-the-base :base)])
       [times times times times]]
      ["the times move no stamp and change no other field: the same ten acts with the time `now` on each give records that differ only in :time, in the answers and the rows of the nine acts whose time is not `now`, and the same last stamps, at a gate of each kind"
@@ -3457,7 +3457,7 @@
                    [[of-alices (walked-line alice-made :streaming (alices-at (repeat 10 now)))]
                     [of-the-base (walked-line base-is-made :microbatch (bases-at (repeat 10 now)))]]))
       [[18 #{#{:time}} true] [18 #{#{:time}} true]]]
-     ["accepts and refusals of one layer take their stamps by one rule: an accept, a thing with no time, an accept, a wrong version with a time far ahead, an act by a who that is not the holder, an act that names a fact that is not current, an accept that carries the greatest stamp there is, and an accept after it get the stamps 1 to 8 in their order, with no gap; each answer holds the time on its thing, and the one with no time holds none"
+     ["accepts and refusals of one lane take their stamps by one rule: an accept, a thing with no time, an accept, a wrong version with a time far ahead, an act by a who that is not the holder, an act that names a fact that is not current, an accept that carries the greatest stamp there is, and an accept after it get the stamps 1 to 8 in their order, with no gap; each answer holds the time on its thing, and the one with no time holds none"
       (fn [] [(words-by-number of-mixed) (stamps-in of-mixed mixed) (times-in of-mixed mixed)
               (contains? (answer-in of-mixed (second mixed)) :time)])
       [{510 :accepted 511 :no-door-time 512 :accepted 513 :unknown-version 514 :who-not-the-permissions-holder
@@ -3473,10 +3473,10 @@
 
 (def ^:private mark-cases
   "The cases of a mark and of a fact under its key in the next act, for a
-  layer of each gate: by hand over `softland.store.gate.decision/writes`,
+  lane of each gate: by hand over `softland.store.gate.decision/writes`,
   where the stamp of each place of the second act is taken from the mark's
   row as the first act wrote it; and by the walk in memory, for both gate
-  words. In a layer that the line makes, the making act has the stamp 0,
+  words. In a lane that the line makes, the making act has the stamp 0,
   the mark 1 and the fact 2."
   (let [of-the-mark 1
         of-the-fact 2
@@ -3495,22 +3495,22 @@
                                                 (digest/digest fact-thing)
                                                 {:since-by-place since :place-rows rows-before :level-from of-the-fact})]
                     [(record/marked-keys-of marks-row) since (mapv (fn [[which k row]] [which k (:stamp row)]) (to-copy writes))]))
-        marks (fn [layer keys] {:e layer :k :softland.store/marked-keys :v keys})
+        marks (fn [lane keys] {:e lane :k :softland.store/marked-keys :v keys})
         alices-making (as-sent (making :alice :alice :alice) :streaming)
         bases-making (base-thing 1 :system system-own {:e :base :k :softland.store/depot :v :microbatch}
                                  {:e :system :k :softland.store/permission :v system-own})
-        in-the-line (fn [gate layer things]
+        in-the-line (fn [gate lane things]
                       (let [after (walked-line empty-task gate things)
                             [_ mark-thing fact-thing] things
-                            stamp-under (fn [thing] (:stamp (get-in after [:answers (record/answer-key layer (nth (:act-id thing) 2))])))]
+                            stamp-under (fn [thing] (:stamp (get-in after [:answers (record/answer-key lane (nth (:act-id thing) 2))])))]
                         [(vec (vals (words-by-number after)))
                          (stamp-under mark-thing)
-                         (record/marked-keys-of (get-in after [:facts (record/place-key layer layer :softland.store/marked-keys)]))
+                         (record/marked-keys-of (get-in after [:facts (record/place-key lane lane :softland.store/marked-keys)]))
                          (set (keys (:by-value after)))
-                         (:stamp (get-in after [:facts (record/place-key layer :b1 :on)]))
+                         (:stamp (get-in after [:facts (record/place-key lane :b1 :on)]))
                          (mapv first (last (writes-of-line empty-task gate things)))]))
-        entry (fn [layer since e] (record/by-value-key layer :on since (digest-of-text ":c1") e))]
-    [["in a streaming layer, by hand: the row of the marks holds the stamp of the act that wrote it for the key; the next act's place under that key has that stamp; and among its writes is the fact's entry of the facts by value, under the key's stamp and with the fact's own stamp"
+        entry (fn [lane since e] (record/by-value-key lane :on since (digest-of-text ":c1") e))]
+    [["in a streaming lane, by hand: the row of the marks holds the stamp of the act that wrote it for the key; the next act's place under that key has that stamp; and among its writes is the fact's entry of the facts by value, under the key's stamp and with the fact's own stamp"
       (fn [] (by-hand (arrived 2 (marks :alice #{:on})) (arrived 3 (value-at :b1 :on :c1))))
       [{:on of-the-mark} {":alice :b1 :on" of-the-mark}
        [[:fact ":alice :b1 :on" of-the-fact] [:by-value (entry :alice of-the-mark :b1) of-the-fact]]]]
@@ -3568,14 +3568,14 @@
                                         [[:answers (record/answer-key :base (uuid 801))
                                           (record/answer-row nil before-the-line time-before-the-line (digest/digest repeat-a))]
                                          [:answers (record/answer-key :base (uuid 802))
-                                          (record/answer-row :layer-not-made before-the-line time-before-the-line (digest/digest repeat-b))]])
+                                          (record/answer-row :lane-not-made before-the-line time-before-the-line (digest/digest repeat-b))]])
                                   {":base" before-the-line})
         answer-of-far (fn [thing] (let [row (get-in (walked base-is-made :microbatch thing) [:answers (record/answer-key :base (uuid 70))])]
                                     [(:refused row) (:stamp row) (:time row)]))]
     [["the word of each answer after the line, by the number of its act-id; the two strays have none"
       (fn [] words)
       {1 :accepted 2 :replaced-fact-not-current 3 :accepted 4 :accepted 5 :accepted 6 :accepted 7 :permission-does-not-stand
-       8 :accepted 9 :accepted 14 :accepted 15 :layer-belongs-to-the-other-gate 16 :layer-belongs-to-the-other-gate
+       8 :accepted 9 :accepted 14 :accepted 15 :lane-belongs-to-the-other-gate 16 :lane-belongs-to-the-other-gate
        17 :accepted 19 :who-not-the-permissions-holder 20 :permission-does-not-stand 21 :who-not-the-permissions-holder
        22 :accepted 23 :replaced-fact-not-current 25 :accepted 26 :replaced-fact-not-current 27 :store-key-not-known
        28 :value-too-large 801 :accepted}]
@@ -3595,9 +3595,9 @@
       (fn [] [(words 14) (:by-act (get facts ":base :p1 :twice")) (get facts ":base :p2 :twice")
               (:stamp (get-in after [:answers (record/answer-key :base (uuid 801))])) (get facts ":base :p1 :repeat")])
       [:accepted (uuid 14) nil before-the-line nil]]
-     ["an act for a layer of the other gate has the word of such a layer, for each of two layers that start with the streaming depot: the record of this gate holds nothing of either, and the walk in memory holds no other record to read. Neither writes a fact"
+     ["an act for a lane of the other gate has the word of such a lane, for each of two lanes that start with the streaming depot: the record of this gate holds nothing of either, and the walk in memory holds no other record to read. Neither writes a fact"
       (fn [] [(words 15) (words 16) (count (filter #(or (str/starts-with? % ":alice ") (str/starts-with? % ":nobody ")) (keys facts)))])
-      [:layer-belongs-to-the-other-gate :layer-belongs-to-the-other-gate 0]]
+      [:lane-belongs-to-the-other-gate :lane-belongs-to-the-other-gate 0]]
      ["a plain value under a plain key is accepted, and its row holds the text of the value"
       (fn [] [(words 17) (:value (get facts ":base :p1 :plain"))])
       [:accepted "\"a plain value\""]]
@@ -3630,7 +3630,7 @@
                                           (:answers after)))]
                [(mapv first stamped) (= (mapv second stamped) (mapv s (range 20)))]))
       [[1 2 3 4 5 6 7 8 9 14 17 19 20 21 22 23 25 26 27 28] true]]
-     ["the last stamp is kept for a layer: the base's is the stamp of its last decision; each layer of the other gate, of which one thing was decided and refused, has 0, the stamp of the first decision of a layer. So a decision in one layer does not raise the stamps of another"
+     ["the last stamp is kept for a lane: the base's is the stamp of its last decision; each lane of the other gate, of which one thing was decided and refused, has 0, the stamp of the first decision of a lane. So a decision in one lane does not raise the stamps of another"
       (fn [] (:last-stamp after))
       {":base" (s 19) ":alice" 0 ":nobody" 0}]
      ["the line decided a second time from the same record gives the same record: no row differs in any field, the last stamps and the strays are the same, and more than 20 rows are rows that the line wrote"
@@ -3649,7 +3649,7 @@
      ["a line into a base that is not made: an act before the making is refused; the first making act makes the base; a second one names a permission that is there and gives one that is not beneath its own; then an act, a give and two acts under it, one after the other, are accepted"
       (fn [] [(words-by-number made) (:by-act (get-in made [:facts ":base :base :softland.store/depot"]))
               (:value (get-in made [:facts ":base :carol :text"]))])
-      [{30 :layer-not-made 31 :accepted 32 :permission-fact-not-beneath-the-acts-own 33 :accepted 34 :accepted 35 :accepted 36 :accepted}
+      [{30 :lane-not-made 31 :accepted 32 :permission-fact-not-beneath-the-acts-own 33 :accepted 34 :accepted 35 :accepted 36 :accepted}
        (uuid 31) "\"a value in a base made in this line\""]]
      ["a line of strays alone: no answer, no fact and no stamp is written, and the last stamp stays; the digest of each stray is in the set of its word, and a thing that arrives twice is in it once"
       (fn [] (let [after-strays (walked-line base-is-made :microbatch [5 "a stray" 5 stray-of-the-other-gate])]
@@ -3686,7 +3686,7 @@
       {40 :accepted 41 :accepted 42 :accepted 43 :accepted 44 :accepted 45 :accepted 46 :accepted 47 :accepted
        48 :accepted 49 :accepted 50 :accepted 51 :replaced-fact-not-current 52 :permission-does-not-allow-acting
        53 :permission-does-not-stand 54 :permission-does-not-allow-acting 55 :accepted 56 :accepted
-       57 :store-key-retract-not-built 58 :setting-not-on-the-layer 59 :accepted 60 :replaced-fact-not-current
+       57 :store-key-retract-not-built 58 :setting-not-on-the-lane 59 :accepted 60 :replaced-fact-not-current
        61 :permission-does-not-allow-acting}]
      ["the facts by value after the line: of two acts on one place the later one's value alone; a value written again; no row for a retract, of a fact from before the mark or since it; the entry of a replaced fact gone and the new one there; the entry of a fact under the key that an act of the line marked, under that act's stamp; and none under the key whose mark an act of the line took off"
       (fn [] (set (keys entries)))
@@ -3725,10 +3725,10 @@
      ["a fact under a marked key that names a fact which is not current is refused whole: its value has no row in the order, and the entry of the place is the accepted act's"
       (fn [] [(words 60) (run-of :on since :c9) (:by-act (get entries (entry :on since :c0 :q1)))])
       [:replaced-fact-not-current [] (uuid 42)]]
-     ["two writes of who may see the layer that name nothing are both accepted, and the row is the later one's"
+     ["two writes of who may see the lane that name nothing are both accepted, and the row is the later one's"
       (fn [] [(words 48) (words 49) (record/read-value (get facts ":base :base :softland.store/who-may-see"))])
       [:accepted :accepted [:value :everyone]]]
-     ["two writes of what the layer builds on that name the same fact to replace: the first is accepted, the second is stale, and the row is the first one's"
+     ["two writes of what the lane builds on that name the same fact to replace: the first is accepted, the second is stale, and the row is the first one's"
       (fn [] [(words 50) (words 51) (record/read-value (get facts ":base :base :softland.store/builds-on"))])
       [:accepted :replaced-fact-not-current [:value [:team]]]]
      ["a holder of see: her act is refused; naming her permission without the slot does not stand; her give is refused, so no permission is beneath a see"
@@ -3739,7 +3739,7 @@
       [:permission-does-not-allow-acting [] nil]]
      ["a retract of the marks and marks on another entity are refused"
       (fn [] [(words 57) (words 58) (get facts ":base :p1 :softland.store/marked-keys")])
-      [:store-key-retract-not-built :setting-not-on-the-layer nil]]]))
+      [:store-key-retract-not-built :setting-not-on-the-lane nil]]]))
 
 ;; ----------------------------------------------------------- the door's words
 
@@ -3749,7 +3749,7 @@
   does not know."
   {:find-the-module       :nothing
    :make-an-act-id        :nothing
-   :read-the-layers-depot :nothing
+   :read-the-lanes-depot :nothing
    :read-the-act          :nothing
    :add-its-parts         :nothing
    :append-cleanly        :not-known
@@ -3761,7 +3761,7 @@
 
 (def ^:private read-refused
   "What the read by act-id gives for a refused act whose digest is \"aa\"."
-  {:verdict :refused :reason :layer-not-made :stamp 78 :time now :digest "aa"})
+  {:verdict :refused :reason :lane-not-made :stamp 78 :time now :digest "aa"})
 
 (def ^:private door-words-cases
   "The cases of the door's words: the table of the seven; that none is a
@@ -3774,29 +3774,29 @@
     (fn [] (into {} (map (fn [[w entry]] [w (:from entry)])) words/words))
     {:find-the-module       #{:open}
      :make-an-act-id        #{:act-id-for :act-ids-for :send-act}
-     :read-the-layers-depot #{:act-id-for :act-ids-for :send-act}
+     :read-the-lanes-depot #{:act-id-for :act-ids-for :send-act}
      :read-the-act          #{:send-act}
      :add-its-parts         #{:send-act}
      :append-cleanly        #{:send-act}
      :read-the-answer       #{:answer-of}}]
    ["what a word can carry, by name"
     (fn [] (set (keys words/carried)))
-    #{:at :module :layer :act-id :digest :threw :said}]
+    #{:at :module :lane :act-id :digest :threw :said}]
    ["no word of the door's is a reason word of the act or of the declaration, or a word of a stray"
     (fn [] (filterv (set (concat act/reasons declaration/reasons declaration/stray-reasons)) (keys words/words)))
     []]
    ["a word as a maker gets it holds :could-not, its own :appended and what it carries, and no :answer and no :reason"
-    (fn [] (words/word :append-cleanly {:act-id (act-id 1) :digest "aa" :answer :accepted :reason :layer-not-made :appended :nothing}))
+    (fn [] (words/word :append-cleanly {:act-id (act-id 1) :digest "aa" :answer :accepted :reason :lane-not-made :appended :nothing}))
     {:could-not :append-cleanly :appended :not-known :act-id (act-id 1) :digest "aa"}]
    ["a word that the table does not hold is not made: one of the four answers, a gate's reason word, nothing"
-    (fn [] [(words/word :refused {:at :layer}) (words/word :layer-not-made nil) (words/word nil nil)])
+    (fn [] [(words/word :refused {:at :lane}) (words/word :lane-not-made nil) (words/word nil nil)])
     [nil nil nil]]
    ["the answer from a read of an accept with the digest given: accepted, with its stamp and the time on the act"
     (fn [] (words/answer read-accepted "aa"))
     {:answer :accepted :stamp 77 :time now}]
    ["the answer from a read of a refusal with the digest given: refused, with the gate's reason word, its stamp and the time on the thing"
     (fn [] (words/answer read-refused "aa"))
-    {:answer :refused :reason :layer-not-made :stamp 78 :time now}]
+    {:answer :refused :reason :lane-not-made :stamp 78 :time now}]
    ["the answer from a read of a refusal of a thing that held no usable time: refused, with the word and the stamp, and no :time"
     (fn [] (words/answer (assoc read-refused :reason :no-door-time :time nil) "aa"))
     {:answer :refused :reason :no-door-time :stamp 78}]
@@ -3829,7 +3829,7 @@
 (def ^:private makers-act
   "Alice's act as a maker gives it, with no facts: the parts that the form
   asks for, plain."
-  {:version 1 :who :alice :layer :alice :permission alice-own :session :alice-s1})
+  {:version 1 :who :alice :lane :alice :permission alice-own :session :alice-s1})
 
 (defn- maker
   "Alice's act as a maker gives it, with these facts as a vector."
@@ -3900,27 +3900,27 @@
   "The cases of things given to the door that are no act, one kind of thing
   after the other. A thing that ends in one of the door's words gives the
   word. A thing that goes in gives the word that the declaration's check has
-  for the thing that the door would append: the door reads the layer and no
+  for the thing that the door would append: the door reads the lane and no
   other part, so each fault of a fact, of a value or of a limit is a gate's
   to name."
   [["no act: no map: nil, a number, a string, a vector"
     (fn [] (mapv through [nil 7 "x" [1 2]]))
     (vec (repeat 4 (could-not :read-the-act)))]
-   ["no act: a map with no :layer, or a nil one"
-    (fn [] (mapv through [{:facts []} (assoc (maker value-fact) :layer nil)]))
-    (vec (repeat 2 (could-not :make-an-act-id :layer)))]
-   ["no act: a thing whose :layer cannot be read without a throw: a sorted map with string keys"
-    (fn [] (through (sorted-map "layer" :alice "facts" [])))
-    (could-not :read-the-act :layer)]
-   ["no act: a record with a :layer"
-    (fn [] (through (assoc (->Thing :note-1 :text) :layer :alice :facts [])))
+   ["no act: a map with no :lane, or a nil one"
+    (fn [] (mapv through [{:facts []} (assoc (maker value-fact) :lane nil)]))
+    (vec (repeat 2 (could-not :make-an-act-id :lane)))]
+   ["no act: a thing whose :lane cannot be read without a throw: a sorted map with string keys"
+    (fn [] (through (sorted-map "lane" :alice "facts" [])))
+    (could-not :read-the-act :lane)]
+   ["no act: a record with a :lane"
+    (fn [] (through (assoc (->Thing :note-1 :text) :lane :alice :facts [])))
     (could-not :read-the-act)]
-   ["no act: a :layer that is no id: a string, a number, a keyword that does not read back"
-    (fn [] (mapv (fn [layer] (through (assoc (maker value-fact) :layer layer))) ["notes" 7 (keyword "a b")]))
-    (vec (repeat 3 (could-not :make-an-act-id :layer)))]
-   ["no act: a :layer that prints to 257 characters; one of 256 is read"
-    (fn [] [(read-word (assoc (maker) :layer (long-id 257)) nil) (read-word (assoc (maker) :layer (long-id 256)) nil)])
-    [(could-not :make-an-act-id :layer) :read]]
+   ["no act: a :lane that is no id: a string, a number, a keyword that does not read back"
+    (fn [] (mapv (fn [lane] (through (assoc (maker value-fact) :lane lane))) ["notes" 7 (keyword "a b")]))
+    (vec (repeat 3 (could-not :make-an-act-id :lane)))]
+   ["no act: a :lane that prints to 257 characters; one of 256 is read"
+    (fn [] [(read-word (assoc (maker) :lane (long-id 257)) nil) (read-word (assoc (maker) :lane (long-id 256)) nil)])
+    [(could-not :make-an-act-id :lane) :read]]
    ["no act: an act that already carries :act-id, also a nil one"
     (fn [] [(through (assoc (maker value-fact) :act-id (act-id 1))) (through (assoc (maker value-fact) :act-id nil))])
     (vec (repeat 2 (could-not :add-its-parts :act-id)))]
@@ -3976,7 +3976,7 @@
    ["no act: 1,025 entries of :based-on"
     (fn [] (through (assoc (maker value-fact) :based-on (into {} (map (fn [i] [[(act-id i) 0] 1])) (range 1025)))))
     [:goes-in :too-many-based-on]]
-   ["no act: an id of 300 characters that is not the layer"
+   ["no act: an id of 300 characters that is not the lane"
     (fn [] (through (maker {:e (long-id 300) :k :text})))
     [:goes-in :id-too-long]]
    ["no act: a value whose text is 65,537 bytes goes in, and a gate has the word; one of 65,536 is taken"
@@ -4003,22 +4003,22 @@
         hands-thing (fn [facts] (assoc makers-act :act-id (act-id 70) :depot :streaming declaration/time-part (+ now 60000)
                                        :facts facts))]
     [;; a reading
-     ["a reading holds two parts: the maker's own map, and its layer"
+     ["a reading holds two parts: the maker's own map, and its lane"
       (fn [] (let [act (maker value-fact)
                    reading (additions/reading act nil)]
-               [(sort (keys reading)) (identical? act (:thing reading)) (:layer reading)]))
-      [[:layer :thing] true :alice]]
+               [(sort (keys reading)) (identical? act (:thing reading)) (:lane reading)]))
+      [[:lane :thing] true :alice]]
 
      ;; an act-id given back
-     ["an act-id given back, of the act's layer: used as given"
+     ["an act-id given back, of the act's lane: used as given"
       (fn [] (select-keys (:thing (built (maker value-fact) (given :streaming))) [:act-id :depot]))
       {:act-id (given :streaming) :depot :streaming}]
-     ["an act-id given back, of another layer"
+     ["an act-id given back, of another lane"
       (fn [] (read-word (maker value-fact) [:bob :streaming (uuid 9)]))
       (could-not :make-an-act-id :act-id)]
      ["an act-id given back that is not of the shape: two slots, a string, a depot slot that is no depot word, a word of the door's"
       (fn [] (mapv (fn [id] (read-word (maker value-fact) id))
-                   [[:alice :streaming] "an act-id" [:alice :nowhere (uuid 9)] (could-not :make-an-act-id :layer)]))
+                   [[:alice :streaming] "an act-id" [:alice :nowhere (uuid 9)] (could-not :make-an-act-id :lane)]))
       (vec (repeat 4 (could-not :make-an-act-id :act-id)))]
      ["an act-id given back with the other depot word: used as given, and the thing names that depot"
       (fn [] [(select-keys (:thing (built (maker value-fact) (given :microbatch))) [:act-id :depot])
@@ -4054,12 +4054,12 @@
 
      ;; the order of the tests
      ["two faults, the thing is no plain map and it carries :act-id: the first test gives the word"
-      (fn [] (through (assoc (->Thing :note-1 :text) :layer :alice :act-id (act-id 1))))
+      (fn [] (through (assoc (->Thing :note-1 :text) :lane :alice :act-id (act-id 1))))
       (could-not :read-the-act)]
-     ["two faults, it carries :act-id and has no :layer: the door's own parts come before the layer"
+     ["two faults, it carries :act-id and has no :lane: the door's own parts come before the lane"
       (fn [] (through {:act-id (act-id 1) :facts [value-fact]}))
       (could-not :add-its-parts :act-id)]
-     ["two faults, it carries the part of the time and has no :layer: the same order"
+     ["two faults, it carries the part of the time and has no :lane: the same order"
       (fn [] (through {declaration/time-part now :facts [value-fact]}))
       (could-not :add-its-parts declaration/time-part)]
      ["a maker's thing that already holds the part of the time, also a nil one: the reading is the word :add-its-parts with nothing appended, and its place is the name that the declaration holds; the text of the word in the door's table names that part beside the two others"
@@ -4077,9 +4077,9 @@
                [(at :act-id :depot declaration/time-part) (at :depot declaration/time-part) (at :act-id declaration/time-part)
                 (at declaration/time-part)]))
       [:act-id :depot :act-id declaration/time-part]]
-     ["two faults, a :layer that is no id and a value that is no value: the door reads no fact, so the layer gives the word"
-      (fn [] (through (assoc (maker (assoc value-fact :v 1/3)) :layer "notes")))
-      (could-not :make-an-act-id :layer)]
+     ["two faults, a :lane that is no id and a value that is no value: the door reads no fact, so the lane gives the word"
+      (fn [] (through (assoc (maker (assoc value-fact :v 1/3)) :lane "notes")))
+      (could-not :make-an-act-id :lane)]
 
      ;; the thing that is built
      ["the thing holds :facts as the very object that the maker gave, for a vector, a list and a lazy sequence; the building does not walk the lazy sequence"
@@ -4092,7 +4092,7 @@
       (fn [] (let [act (assoc (mixed three) :subjects #{:bob} :based-on {[(act-id 5) 0] 7} :note {:a 1})
                    thing (:thing (built act))]
                [(every? (fn [part] (identical? (get act part) (get thing part)))
-                        [:version :who :layer :permission :session :subjects :based-on :note :facts])
+                        [:version :who :lane :permission :session :subjects :based-on :note :facts])
                 (sort (remove (set (keys act)) (keys thing)))
                 (select-keys thing doors-parts)
                 (sort (remove (set (keys (:thing (built (maker value-fact))))) [:based-on :because-of :claimed-when :subjects]))]))
@@ -4130,8 +4130,8 @@
                      [(maker value-fact) (given :microbatch)]
                      [(dissoc (maker) :facts) (given :streaming)]
                      [(assoc (maker value-fact) :note "x") (given :streaming)]])
-              (declaration/stray-reason :streaming (assoc (->Thing :note-1 :text) :layer :alice :act-id (given :streaming)))
-              (read-word (assoc (->Thing :note-1 :text) :layer :alice) (given :streaming))])
+              (declaration/stray-reason :streaming (assoc (->Thing :note-1 :text) :lane :alice :act-id (given :streaming)))
+              (read-word (assoc (->Thing :note-1 :text) :lane :alice) (given :streaming))])
       [[nil nil nil nil] :no-act-id (could-not :read-the-act)]]
      ["the digest of the thing that the door builds follows the form of the facts as the maker gave them: a list and a lazy sequence have one digest, a vector has another, and each is the digest of the same thing as a hand would send it a minute later, since the time is no part of the digest"
       (fn [] (let [of (fn [facts] (digest/hex-of (:thing (built (mixed facts)))))
@@ -4156,7 +4156,7 @@
                 (sort (remove (set (keys endless)) (keys (:thing (built endless)))))]))
       [:read :read :read true true (sort doors-parts)]]
      ["nothing throws while the three parts are added: a reading whose thing is a sorted map with string keys, which takes no keyword's part, and an act-id that is no vector, each end in the word :read-the-act"
-      (fn [] [(said (additions/thing-to-append {:thing (sorted-map "layer" :alice) :layer :alice} (act-id 70) now))
+      (fn [] [(said (additions/thing-to-append {:thing (sorted-map "lane" :alice) :lane :alice} (act-id 70) now))
               (said (additions/thing-to-append (additions/reading (maker value-fact) nil) 5 now))])
       [(could-not :read-the-act) (could-not :read-the-act)]]
      ["the digest that the door takes tells a thing that throws while it is read: nothing for a thing whose facts throw, where the plain digest is that of #unreadable"
@@ -4169,7 +4169,7 @@
               (first (through (maker value-fact (sorted-map "e" :note-1 "v" 1))))])
       [[:goes-in :malformed] [:goes-in :malformed] :goes-in]]
      ["nothing throws for a thing that is anything at all"
-      (fn [] (mapv (fn [x] (:could-not (additions/reading x x))) [(throwing) (Object.) 'x {:layer (throwing)}]))
+      (fn [] (mapv (fn [x] (:could-not (additions/reading x x))) [(throwing) (Object.) 'x {:lane (throwing)}]))
       [:read-the-act :read-the-act :read-the-act :make-an-act-id]]
 
      ;; the count of a series
@@ -4378,8 +4378,8 @@
   one with no time, and values of each kind."
   [good
    (assoc good :based-on {[(act-id 9) 0] 3} :subjects #{:bob} :claimed-when 5 :because-of (act-id 8))
-   {:act-id (act-id 2) :layer :alice}
-   {:act-id (act-id 3) :layer :alice :bytes (byte-array [1 2 3]) declaration/time-part 7}
+   {:act-id (act-id 2) :lane :alice}
+   {:act-id (act-id 3) :lane :alice :bytes (byte-array [1 2 3]) declaration/time-part 7}
    (without-time good)
    {:x #{:a "b" 3} :y {:k [1 2.5 -0.0 nil true]} declaration/time-part 12}
    "a string" [1 2 3] 42])
@@ -4463,12 +4463,12 @@
    ["the walk weighs up to 256 KiB a thing that the declaration refused, and up to 32 MiB one that it took"
     (fn [] [(decision/weighing-bound :malformed) (decision/weighing-bound :value-too-large) (decision/weighing-bound nil)])
     [262144 262144 33554432]]
-   ["a sender has standing when the declaration took the thing and the act's permission stands and is hers: an accept, a refusal of the places, a holder who may only see, and a making act are kept up to 32 MiB; a permission that does not stand, ended, above ended, used up, of another holder or another run, a yes for another act, a layer not made or of the other gate, and a refusal of the declaration, up to 256 KiB"
+   ["a sender has standing when the declaration took the thing and the act's permission stands and is hers: an accept, a refusal of the places, a holder who may only see, and a making act are kept up to 32 MiB; a permission that does not stand, ended, above ended, used up, of another holder or another run, a yes for another act, a lane not made or of the other gate, and a refusal of the declaration, up to 256 KiB"
     (fn [] (mapv (fn [[decl standing]] (decision/kept-bound decl standing))
                  [[nil nil] [nil :permission-does-not-allow-acting]
                   [nil :permission-does-not-stand] [nil :permission-ended] [nil :permission-above-ended]
                   [nil :permission-used-up] [nil :who-not-the-permissions-holder] [nil :permission-for-another-run]
-                  [nil :act-not-the-one-permitted] [nil :layer-not-made] [nil :layer-belongs-to-the-other-gate]
+                  [nil :act-not-the-one-permitted] [nil :lane-not-made] [nil :lane-belongs-to-the-other-gate]
                   [:malformed :malformed] [:no-door-time :no-door-time]]))
     [33554432 33554432 262144 262144 262144 262144 262144 262144 262144 262144 262144 262144 262144]]])
 
@@ -4479,13 +4479,13 @@
             (record/before? (record/line-key :a 9) (record/line-key :a 10))
             (record/before? (record/line-key :a 10) (record/line-key :a 9223372036854775807))])
     [":a 0000000000000000009" true true]]
-   ["a layer's run of its line, from a stamp on, holds its keys from that stamp and no key of a layer whose text begins with its text"
+   ["a lane's run of its line, from a stamp on, holds its keys from that stamp and no key of a lane whose text begins with its text"
     (fn [] (let [[from to] (record/line-run :a 5)
                  in? (fn [k] (and (not (record/before? k from)) (record/before? k to)))]
              [from to (in? (record/line-key :a 5)) (in? (record/line-key :a 9223372036854775807))
               (in? (record/line-key :a 4)) (in? (record/line-key :ab 5))]))
     [":a 0000000000000000005" ":a!" true true false false]]
-   ["one who's rows by who in one layer are one run, from a stamp on, which holds no row of a who whose text begins with hers or with which hers begins"
+   ["one who's rows by who in one lane are one run, from a stamp on, which holds no row of a who whose text begins with hers or with which hers begins"
     (fn [] (let [[from to] (record/by-who-run :a :asha 0)
                  in? (fn [k] (and (not (record/before? k from)) (record/before? k to)))]
              [(record/by-who-key :a :asha 3) (in? (record/by-who-key :a :asha 3))
@@ -4499,9 +4499,9 @@
     [42 7 nil nil nil]]])
 
 (def ^:private line-writes-cases
-  "The rows that one decision writes in the layer's line
+  "The rows that one decision writes in the lane's line
   (`softland.store.gate.decision/line-writes`), against rows written out."
-  (let [thing {:act-id (act-id 5) :layer :alice :who :bob :junk 1}
+  (let [thing {:act-id (act-id 5) :lane :alice :who :bob :junk 1}
         d (byte-array (range 32))
         hex (text/hex d)
         k ":alice 0000000000000000005"]
@@ -4532,7 +4532,7 @@
       [true true]]]))
 
 (def ^:private alice-making
-  "The making act of Alice's layer, as it arrives on the streaming depot."
+  "The making act of Alice's lane, as it arrives on the streaming depot."
   (as-sent (making :alice :alice :alice) :streaming))
 
 (defn- with-facts
@@ -4541,10 +4541,10 @@
   [n who permission & facts]
   (assoc (apply arrived n facts) :who who :permission permission))
 
-(def ^:private bob-sees "Bob's permission in Alice's layer: see, and not act." [:bob :alice :alice alice-own :see])
+(def ^:private bob-sees "Bob's permission in Alice's lane: see, and not act." [:bob :alice :alice alice-own :see])
 
 (def ^:private a-line
-  "A line of Alice's layer, each kind of thing that the line is for: its
+  "A line of Alice's lane, each kind of thing that the line is for: its
   making act; a taken act; a thing that the declaration refused; a stranger's
   act refused for its standing; a stray; the taken act again under its
   act-id; another thing under that act-id; heavy things of 300 KB: a
@@ -4555,7 +4555,7 @@
         taken (arrived 2 (value-at :note-2 :text))]
     [alice-making
      taken
-     {:act-id (act-id 3) :layer :alice :who :carol :junk 1 declaration/time-part now}
+     {:act-id (act-id 3) :lane :alice :who :carol :junk 1 declaration/time-part now}
      (with-facts 4 :zed [:zed :alice :alice alice-own] (value-at :n4 :text))
      5
      taken
@@ -4565,21 +4565,21 @@
      (arrived 8 (value-at :big :text (text-of-bytes 300000)))
      (arrived 9 {:e :bob :k :softland.store/permission :v bob-sees})
      (apply with-facts 10 :bob bob-sees (heavy))
-     {:act-id (act-id 11) :layer :alice :who :dee declaration/time-part now :p (Object.)}]))
+     {:act-id (act-id 11) :lane :alice :who :dee declaration/time-part now :p (Object.)}]))
 
 (def ^:private a-line-walked
   "What `a-line` leaves, walked in memory from nothing."
   (delay (walked-line empty-task :streaming a-line)))
 
 (defn- line-row-at
-  "The line row at a stamp of Alice's layer in a record."
+  "The line row at a stamp of Alice's lane in a record."
   [record stamp]
   (get-in record [:line (record/line-key :alice stamp)]))
 
 (def ^:private line-walk-cases
   "A line of things decided in memory, one after the other, by the walk's
   steps (`walked`), and what its line holds."
-  [["each decision of the line has one line row at its stamp, from 0 to the layer's last stamp, and nothing else is in the line: a stray, the act again under its act-id and another thing under it add none"
+  [["each decision of the line has one line row at its stamp, from 0 to the lane's last stamp, and nothing else is in the line: a stray, the act again under its act-id and another thing under it add none"
     (fn [] (let [after @a-line-walked]
              [(get-in after [:last-stamp ":alice"])
               (mapv record/stamp-of-line-key (sort (keys (:line after))))]))
@@ -4628,11 +4628,11 @@
 (def ^:private reads-acts-key :softland.store/who-may-read-acts)
 
 (def ^:private acts-setting-line
-  "A line of Alice's layer that writes who may read its acts, each way that
+  "A line of Alice's lane that writes who may read its acts, each way that
   a gate takes or refuses: the making act; a give to Bob; Alice writes
   everyone; Bob writes it; Alice writes it on another entity, with no value,
   with a word that is neither, as a string; Alice marks it; Alice writes
-  members again; a making act of another layer that carries it."
+  members again; a making act of another lane that carries it."
   [alice-making
    (arrived 2 {:e :bob :k :softland.store/permission :v bobs})
    (arrived 3 {:e :alice :k reads-acts-key :v :everyone})
@@ -4645,9 +4645,9 @@
    (arrived 10 {:e :alice :k reads-acts-key :v :members})])
 
 (def ^:private acts-setting-cases
-  "Who may read a layer's acts whole, as a rule of a gate: the eighth store
+  "Who may read a lane's acts whole, as a rule of a gate: the eighth store
   key."
-  [["with no fact, who may read a layer's acts reads as members, for a layer and for the base"
+  [["with no fact, who may read a lane's acts reads as members, for a lane and for the base"
     (fn [] [(first-act/starts-with :alice reads-acts-key) (first-act/starts-with :base reads-acts-key)])
     [:members :members]]
    ["the key is a store key, a setting that takes a second write, of the shape of its two words"
@@ -4658,23 +4658,23 @@
    ["the first holder writes everyone and members; a holder of a given permission is refused as for every setting; on another entity, with no value, with a word that is neither or a string, and as a marked key, each is refused with the word of the other settings or of its own"
     (fn [] (words-by-number (walked-line empty-task :streaming acts-setting-line)))
     (into (sorted-map) {1 :accepted 2 :accepted 3 :accepted 4 :only-the-first-holder-writes-a-setting
-                        5 :setting-not-on-the-layer 6 :store-key-retract-not-built
+                        5 :setting-not-on-the-lane 6 :store-key-retract-not-built
                         7 :who-may-read-acts-fact-not-members-or-everyone
                         8 :who-may-read-acts-fact-not-members-or-everyone
                         9 :marked-key-in-the-stores-namespace 10 :accepted})]
-   ["the row that the first holder writes is the setting's, at the layer's own entity, and holds the last word written"
+   ["the row that the first holder writes is the setting's, at the lane's own entity, and holds the last word written"
     (fn [] (let [after (walked-line empty-task :streaming acts-setting-line)]
              (:value (get-in after [:facts (record/place-key :alice :alice reads-acts-key)]))))
     ":members"]
-   ["a making act that carries the key as a third fact is no making act: refused, the layer not made"
+   ["a making act that carries the key as a third fact is no making act: refused, the lane not made"
     (fn [] (words-by-number (walked-line empty-task :streaming
                                          [(update alice-making :facts conj {:e :alice :k reads-acts-key :v :everyone})])))
-    (sorted-map 1 :layer-not-made)]
+    (sorted-map 1 :lane-not-made)]
    ["a thing refused store-key-not-known for the key before it was known now has the word of its other fault, when a later rule names one: no place of the new rule keeps the old word (the plan's check, item d); a thing that an earlier rule refuses keeps its word"
     (fn [] [(verdict (declaration/check (arrived 1 {:e :alice :k reads-acts-key :v :everyone}
                                                   {:e :other :k :softland.store/who-may-see :v :invalid})))
-            (verdict (declaration/check (assoc (arrived 1 {:e :alice :k reads-acts-key :v :everyone}) :layer :bob)))])
-    [:who-may-see-fact-not-members-or-everyone :permission-not-in-layer]]])
+            (verdict (declaration/check (assoc (arrived 1 {:e :alice :k reads-acts-key :v :everyone}) :lane :bob)))])
+    [:who-may-see-fact-not-members-or-everyone :permission-not-in-lane]]])
 
 (deftest the-one-text-and-the-digest
   (holds text-cases)
@@ -4711,7 +4711,7 @@
          (count declared-shapes) "more:" (pr-str (sort (keys declared-shapes))))
   (shown "its" (count declaration/rules) "rules, in order:" (pr-str (mapv first declaration/rules)))
   (shown "the" (count declaration/store-keys) "store keys:" (pr-str (sort (keys declaration/store-keys)))
-         "the settings, which a gate takes only on the layer's own entity:" (pr-str (sort declaration/setting-keys))
+         "the settings, which a gate takes only on the lane's own entity:" (pr-str (sort declaration/setting-keys))
          "the keys that take a second write:" (pr-str (sort declaration/second-write-keys))
          "the limits:" (pr-str {:facts declaration/max-facts :based-on declaration/max-based-on
                                 :value-bytes declaration/max-value-bytes :act-bytes declaration/max-act-bytes
@@ -4811,7 +4811,7 @@
 
 (deftest the-stamp
   (let [n (holds stamp-cases)]
-    (shown "the stamp," n "cases: the layer's count of decisions, 0 for the first and the last stamp plus one after it, a long; it takes the last stamp alone, so no time and nothing of the act is in it")
+    (shown "the stamp," n "cases: the lane's count of decisions, 0 for the first and the last stamp plus one after it, a long; it takes the last stamp alone, so no time and nothing of the act is in it")
     (shown "the stamp after each last stamp, as [last stamp, stamp]:"
            (pr-str (mapv (juxt identity stamp/next-stamp) [nil 0 1 41 (dec Long/MAX_VALUE) Long/MAX_VALUE])))))
 
@@ -4819,23 +4819,23 @@
   (holds first-act-cases)
   (shown "the form of a making act:"
          (str/join " | " (map (fn [[what gate-depot _ expected]] (str what " [" (name gate-depot) " gate] " expected)) first-act-rows)))
-  (shown "a layer that starts with the other gate's depot, as [gate's depot, layer, the answer]:"
+  (shown "a lane that starts with the other gate's depot, as [gate's depot, lane, the answer]:"
          (pr-str (vec (for [gate-depot [:streaming :microbatch]
-                            layer [first-act/base :alice :team (uuid 1)]]
-                        [gate-depot layer (first-act/starts-with-the-other-gates-depot? gate-depot layer)])))))
+                            lane [first-act/base :alice :team (uuid 1)]]
+                        [gate-depot lane (first-act/starts-with-the-other-gates-depot? gate-depot lane)])))))
 
 (deftest the-records-rows
   (let [n (holds record-cases)
         value-row (fact-row writer {:e :note-1 :k :text :v nil :replaces nil :text "\"a text\""} (uuid 5) 2 900 now)]
     (shown "the record's rows," n "cases: the keys" (pr-str [(record/answer-key :alice (uuid 5)) (record/place-key :alice :note-1 :text)])
            "; each field of a row of its declared class; a retract is a row with no value; every value is kept plain and as a String, the one text of the value in its normal form, which the row takes from the fact as it is; each row of a fact holds who wrote it and the permission that the act named; the heads of the two reads give nothing for what is no id or no act-id")
-    (shown "the routing id of an act-id is its layer, for an act-id of each depot:"
+    (shown "the routing id of an act-id is its lane, for an act-id of each depot:"
            (pr-str (mapv (juxt identity record/routing-id) [[:alice :streaming (uuid 5)] [:base :microbatch (uuid 5)]]))
            "| the head of the read by act-id with that routing id, and with the act-id's uuid in its place:"
            (pr-str (mapv (fn [given] (record/answer-read-by-routing-id given [:base :microbatch (uuid 5)])) [:base (uuid 5)]))
-           "| an act-id's layer and uuid come back from the text of its answer's key, for a layer that is a keyword and one that is a UUID:"
-           (pr-str (mapv (fn [layer] (let [[layer-text act-uuid] (record/answer-key-parts (record/answer-key layer (uuid 5)))]
-                                       [(record/id-of-text layer-text) act-uuid]))
+           "| an act-id's lane and uuid come back from the text of its answer's key, for a lane that is a keyword and one that is a UUID:"
+           (pr-str (mapv (fn [lane] (let [[lane-text act-uuid] (record/answer-key-parts (record/answer-key lane (uuid 5)))]
+                                       [(record/id-of-text lane-text) act-uuid]))
                          [:alice (uuid 3)])))
     (shown "the row of a fact whose text is \"a text\" in its quotes:" (pr-str value-row)
            "| its plain bytes, read as UTF-8:" (pr-str (String. ^bytes (record/plain-bytes-of value-row) StandardCharsets/UTF_8)))
@@ -4844,7 +4844,7 @@
                                             {:value "\u0000\"a\"" :stamp 1}])))
     (shown "the facts by value: a key is" (pr-str (record/by-value-key :alice :on 100 (record/value-digest-of :c1) :b1))
            "| the run of the value :c1 under the key :on since the stamp 100 is" (pr-str (record/by-value-run :alice :on 100 :c1))
-           "| a keyword, a UUID, a string with spaces, a number, a map and a value whose text is 65,536 bytes each have one digest of 64 hex characters, and no run holds a key of another value, layer, key or stamp")))
+           "| a keyword, a UUID, a string with spaces, a number, a map and a value whose text is 65,536 bytes each have one digest of 64 hex characters, and no run holds a key of another value, lane, key or stamp")))
 
 (deftest the-decision
   (holds early-cases)
@@ -4873,14 +4873,14 @@
                         ["a time below zero" (at-time -1)]
                         ["a time far ahead" (at-time far-ahead)]])))
   (shown "the standing of an act, at the streaming gate's depot:"
-         (str/join " | " (map (fn [[what _ _ _ word makes?]] (str what " " (or word (if makes? "makes the layer" "stands")))) standing-rows)))
+         (str/join " | " (map (fn [[what _ _ _ word makes?]] (str what " " (or word (if makes? "makes the lane" "stands")))) standing-rows)))
   (shown "the standing of an act into the base, at the microbatch gate's depot:"
-         (str/join " | " (map (fn [[what _ _ _ word makes?]] (str what " " (or word (if makes? "makes the layer" "stands")))) base-standing-rows)))
-  (shown "a layer of the other gate, from the gate's depot and the act alone, with no row of the layer, as [the gate's depot, what arrives, the word or what the act does]:"
+         (str/join " | " (map (fn [[what _ _ _ word makes?]] (str what " " (or word (if makes? "makes the lane" "stands")))) base-standing-rows)))
+  (shown "a lane of the other gate, from the gate's depot and the act alone, with no row of the lane, as [the gate's depot, what arrives, the word or what the act does]:"
          (pr-str (mapv (fn [[what gate thing _ _ _ _ _]]
                          (let [act (act-of thing)]
                            [gate what (or (decision/standing gate act nil nil {} nil)
-                                          (if (decision/makes-the-layer? gate act nil nil) :makes-the-layer :stands))]))
+                                          (if (decision/makes-the-lane? gate act nil nil) :makes-the-lane :stands))]))
                        other-gate-rows)))
   (shown "the checks of the places:"
          (str/join " | " (map (fn [[what _ _ word]] (str what " " (or word "passes"))) places-rows)))
@@ -4916,15 +4916,15 @@
                                      times))
         after-the-acts (walked-line empty-task :streaming (cons (as-sent (making :alice :alice :alice) :streaming) timed-acts))]
     (shown "what a gate may copy to other tasks," copies "cases: of the writes of a decision, each row of a fact and of the facts by value, in their order, a key that is taken out among them, and never the answer or the last stamp; nothing of a refusal. `copies-of`, read as data from the source file of the walk and made a function here with no Rama, gives what the proof's own filter gives. Of the writes of an accept of one value, and of a refusal, as the kinds of the writes and of what is copied:"
-           (pr-str (mapv (fn [writes] [(mapv first writes) (mapv first (copies-of writes))]) [(writes-of nil) (writes-of :layer-not-made)])))
+           (pr-str (mapv (fn [writes] [(mapv first writes) (mapv first (copies-of writes))]) [(writes-of nil) (writes-of :lane-not-made)])))
     (shown "a second run of one decision," again "cases, by the walk in memory: from the same record it gives the same writes in every field; on the record that the first run left it finds the answer under the act-id, writes nothing and leaves every table as it was. As [what, the kinds of the writes, the word]:"
            (str/join " | " (map (fn [[what _ _ _ kinds word]] (str what " " (pr-str kinds) " " (or word "accepted"))) second-run-rows)))
-    (shown "the stamp in a line," stamps "cases, by the walk in memory, for a layer of each gate: a layer's stamps are 0, 1, 2 and on, an accept's and a refusal's alike, whatever the times on its acts and the stamps that they carry. Five acts after the making act of Alice's layer, with times that rise, go back by a minute, leap 2^50 ms ahead and fall to 0, as [time, stamp] from their answers:"
+    (shown "the stamp in a line," stamps "cases, by the walk in memory, for a lane of each gate: a lane's stamps are 0, 1, 2 and on, an accept's and a refusal's alike, whatever the times on its acts and the stamps that they carry. Five acts after the making act of Alice's lane, with times that rise, go back by a minute, leap 2^50 ms ahead and fall to 0, as [time, stamp] from their answers:"
            (pr-str (mapv (fn [thing] ((juxt :time :stamp) (get-in after-the-acts [:answers (record/answer-key :alice (nth (:act-id thing) 2))])))
                          timed-acts)))
-    (shown "a mark holds from the next act," marks "cases, for a layer of each gate: the key gets the stamp of the act that marks it; a fact under the key in that act is in no run; a fact under it in the next act has its entry in the facts by value under that stamp")))
+    (shown "a mark holds from the next act," marks "cases, for a lane of each gate: the key gets the stamp of the act that marks it; a fact under the key in that act is in no run; a fact under it in the next act has its entry in the facts by value under that stamp")))
 
-(deftest the-line-of-a-layer
+(deftest the-line-of-a-lane
   (let [weights (holds weight-cases)
         bounds (holds bound-cases)
         keys-n (holds line-key-cases)
@@ -4939,7 +4939,7 @@
     (shown "a line of" (count a-line) "things walked in memory," walk-n "cases. Its line, by stamp, as [the word, the who, the weight or why no thing is kept]:"
            (pr-str (mapv (fn [s] (let [row (line-row-at after s)] [(:refused row) (:who row) (or (:weight row) (:not-kept row))]))
                          (range (count (:line after))))))
-    (shown "who may read a layer's acts whole, the eighth store key," setting "cases")))
+    (shown "who may read a lane's acts whole, the eighth store key," setting "cases")))
 
 (deftest a-line-is-decided-in-the-depots-order
   (let [n (holds line-cases)
@@ -4947,7 +4947,7 @@
     (shown "a line of" (count (:things line)) "things into a base that is made, decided in memory one thing after the other in the order of the depot, with the pure functions in the walk's order;" n
            "cases with a line into a base that is not made, a line of strays, a line of repeats, and the line decided a second time. The word of each answer, by the number of its act-id:"
            (pr-str (words-by-number after)))
-    (shown "after that line, the last stamp kept for each layer, the base's" before-the-line "before it:"
+    (shown "after that line, the last stamp kept for each lane, the base's" before-the-line "before it:"
            (pr-str (into (sorted-map) (:last-stamp after)))
            "| the strays, how many digests under each word:"
            (pr-str (into (sorted-map) (map (fn [[word digests]] [word (count digests)])) (:strays after))))
@@ -4981,7 +4981,7 @@
     (shown "what the door makes of one act," (+ rows others) "cases." rows
            "of them are things that are no act, one kind after the other: a thing ends in one of the door's words and nothing is appended, or it goes in and a gate's check has the word:"
            (str/join " | " (map (fn [[what f _]] (str (second (str/split what #": ")) " -> " (pr-str (f))))
-                                (filter (fn [[what _ _]] (re-find #"^no act: (a map with no :layer|a thing whose :layer cannot|a record with a :layer|an act that already carries :depot|an act that already carries the part of the time|257 facts|a fact that is a record|a fact that carries :sealed|a value that is no value|a value whose text|1,025)" what))
+                                (filter (fn [[what _ _]] (re-find #"^no act: (a map with no :lane|a thing whose :lane cannot|a record with a :lane|an act that already carries :depot|an act that already carries the part of the time|257 facts|a fact that is a record|a fact that carries :sealed|a value that is no value|a value whose text|1,025)" what))
                                         not-an-act-cases))))
     (shown "a reading of a maker's act holds" (pr-str (sort (keys (additions/reading (maker value-fact) nil))))
            "| the thing that the door builds is the maker's act with :act-id, :depot and the time that the door hands, here" now
@@ -5144,7 +5144,7 @@
   (the-records-rows)
   (the-decision)
   (the-walk-of-one-thing-in-memory)
-  (the-line-of-a-layer)
+  (the-line-of-a-lane)
   (a-line-is-decided-in-the-depots-order)
   (a-line-under-marked-keys)
   (the-doors-words)

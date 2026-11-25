@@ -31,7 +31,7 @@
   (:require [softland.auth.reference :as ref]))
 
 (def write-kinds
-  #{:invite :enter :own-layer-made :begin-sign-in :replace-secret :end-sign-in
+  #{:invite :enter :own-lane-made :begin-sign-in :replace-secret :end-sign-in
     :make-actor :end-actor :open-session :close-session :ask :answer-ask})
 
 (def read-kinds
@@ -51,7 +51,7 @@
      :close!         @(req 'close!)
      :invite         @(req 'invite)
      :enter          @(req 'enter)
-     :own-layer-made @(req 'own-layer-made)
+     :own-lane-made @(req 'own-lane-made)
      :begin-sign-in  @(req 'begin-sign-in)
      :replace-secret @(req 'replace-secret)
      :end-sign-in    @(req 'end-sign-in)

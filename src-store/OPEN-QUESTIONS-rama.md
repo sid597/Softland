@@ -54,7 +54,7 @@ disassembling it. Nothing below comes from inside the jar.
 | 11 | A batch of a stream topology that fails with no restart of its worker | open; not reached in process |
 | 12 | The order in which a microbatch runs the records of one partition | open: seen, and promised by no page that was read |
 | 13 | When the copies that a batch sends with `\|all` are written | open: seen, and promised by no page that was read; the store is built so that it does not rest on it |
-| 14 | Another number of tasks for a module whose rows are placed by the layer's hash | open for the way that keeps a layer on the task of its hash |
+| 14 | Another number of tasks for a module whose rows are placed by the lane's hash | open for the way that keeps a lane on the task of its hash |
 
 ## 1. A watched row that holds a byte array is sent whole
 
@@ -100,8 +100,8 @@ docstring of `counted-under` in [read_path.clj](softland/store/read_path.clj).
 ## 3. `genHashingIndexKeys` outside a test
 
 **14 October 2026: the store no longer rests on this, because the read path names no task.** It
-asks no task by number and uses no class of Rama's for that: every source of a microbatch layer is
-read under the routing id of the layer that the read starts from (`run-again/PART-B.md`, section
+asks no task by number and uses no class of Rama's for that: every source of a microbatch lane is
+read under the routing id of the lane that the read starts from (`run-again/PART-B.md`, section
 7). The function that "Meanwhile" names is gone. The proofs still use the Clojure form of these
 keys, in a test, which is what Rama's sources show them for.
 
@@ -120,7 +120,7 @@ public code uses it in tests only. On a reactive query on every partition: nothi
 **Seen.** On the in-process cluster it works for a select and for a reactive query
 (`reads/PROGRESS.md`, ruling 62).
 
-**Meanwhile.** The read path names the tasks of a microbatch layer with these keys, for a run across
+**Meanwhile.** The read path names the tasks of a microbatch lane with these keys, for a run across
 the entities of the base: the docstring of `task-routing-ids` in
 [read_path.clj](softland/store/read_path.clj). Sid's line on this, in ruling 62: "we will do it
 right as rama team will suggest". For a select, what Rama's author suggests is a query topology and
@@ -151,10 +151,10 @@ sections 1 and 12; `reads/PROGRESS.md`, rulings 87 and 91). No run set the optio
 
 **Meanwhile.** The read path holds 900 on one table under one routing id and turns a read away
 itself, at once: the namespace docstring of [read_path.clj](softland/store/read_path.clj), "How
-many pushes". The 900 is kept and not decided. In the base the routing id is the layer that a read
-starts from, so the 900 bounds the pushes on the base of the askers who start from one layer, and
-not what all such layers of one task hold on the base together; Rama's own bound counts those.
-Derived, not run: each such layer holds a push on the base's own rows and one at least on a fact,
+many pushes". The 900 is kept and not decided. In the base the routing id is the lane that a read
+starts from, so the 900 bounds the pushes on the base of the askers who start from one lane, and
+not what all such lanes of one task hold on the base together; Rama's own bound counts those.
+Derived, not run: each such lane holds a push on the base's own rows and one at least on a fact,
 so the default bound holds about 500 of them for each task (the read path's
 [page](softland/store/read_path/README.md), "The read path bounds its own pushes").
 
@@ -364,7 +364,7 @@ and a second run the other way.
 source retries all after: [streaming_gate.clj](softland/store/module/streaming_gate.clj). The
 module leaves `topology.stream.max.executing.per.task` at Rama's default; Sid is against that
 setting (the [source entry](README.md), decisions of 13 October 2026, entry 7). What the store says
-of this case is on the [store's page](softland/store/README.md), under the order of a layer's acts
+of this case is on the [store's page](softland/store/README.md), under the order of a lane's acts
 after a failure. It is row V47 of the queue.
 
 ## 12. The order in which a microbatch runs the records of one partition
@@ -384,7 +384,7 @@ of a partition at most unless `depot.microbatch.max.records` is set
 (`/mnt/data/projects/research/softland/rama-reference/docs/12-microbatch-topologies.md:156`; the number was run).
 
 **Seen.** On a stand-in gate (`run-again/probes-the-bases-gate/RESULTS.md`, C1 and C2). 3,000
-records of one layer, each replacing the one before it on its key, were all accepted, each with the
+records of one lane, each replacing the one before it on its key, were all accepted, each with the
 number of its place in the depot, when the gate took them in 87 batches and when it took them in 3;
 and 20,000 in 20 batches, and in one batch of 20,000. So a later record of a batch read the rows
 that the earlier records of the same batch wrote. With `(yield-if-overtime)` at the head of the
@@ -428,12 +428,12 @@ over, so no copy writes a row on the task where a decision reads: the docstring 
 over". What the gate rests on is the order of what one task sends to another, which Rama's page
 promises.
 
-## 14. Another number of tasks for a module whose rows are placed by the layer's hash
+## 14. Another number of tasks for a module whose rows are placed by the lane's hash
 
-**Open.** How a module goes to another number of tasks when its gate decides a layer on the task of
-the layer's depot partition and its reads look for the layer by its hash. In Rama's manual way the
+**Open.** How a module goes to another number of tasks when its gate decides a lane on the task of
+the lane's depot partition and its reads look for the lane by its hash. In Rama's manual way the
 new module makes "new depots that are a copy of the old depots": whether that copy keeps the
-records of one partitioning key in their order, so that a layer is one line again. On which task a
+records of one partitioning key in their order, so that a lane is one line again. On which task a
 record of a mirrored partition is emitted when the two modules differ in their number of tasks,
 as a rule and not only as seen. And whether a hop by the key at the head of the dataflow is a
 supported way for a topology whose order matters.
@@ -452,11 +452,11 @@ specified must be a power of two" (`/mnt/data/projects/research/softland/rama-re
 refused to launch a module with 6 tasks and one with 3: "Invalid config: Num tasks must be power of
 two". It let a module with 8 tasks, and one with 2, mirror and consume the depot of a module with
 4. With 8, partition p was emitted on task p; with 2, partitions 0 and 1 on task 0 and partitions 2
-and 3 on task 1. With the walk as it is, every task held the first module's rows and each layer was
-decided in its depot order; but a layer's answers and its last number were on the task that got its
-partition, which was not always the task of its name in that module: one layer was decided on task
-3 of 8, and its name lands on task 7 of 8. With `(|hash *layer)` at the head of the dataflow they
-were on the task of the name, and each layer kept its order; that hop was run only with a walk that
+and 3 on task 1. With the walk as it is, every task held the first module's rows and each lane was
+decided in its depot order; but a lane's answers and its last number were on the task that got its
+partition, which was not always the task of its name in that module: one lane was decided on task
+3 of 8, and its name lands on task 7 of 8. With `(|hash *lane)` at the head of the dataflow they
+were on the task of the name, and each lane kept its order; that hop was run only with a walk that
 does not yield and does not fail. A fresh module with 8 tasks, and one with 2, that a client fed
 the same records, each partition in its order, made the same rows. On the store's own module: the
 run-again proof feeds the kept acts to a fresh store of 8 tasks and holds its tables against those
@@ -464,5 +464,5 @@ that a store of 4 gave (`test-store/softland/store/run_again_proof.clj`, its thi
 
 **Meanwhile.** Not built: the store has no way to another number of tasks for a store with real
 data. The gate says what would go wrong with a mirror alone, under "What the gate rests on and does
-not test" in [microbatch_gate.clj](softland/store/module/microbatch_gate.clj): a layer's answers
-would be on a task where a read by the layer does not look. It is row V48 of the queue.
+not test" in [microbatch_gate.clj](softland/store/module/microbatch_gate.clj): a lane's answers
+would be on a task where a read by the lane does not look. It is row V48 of the queue.

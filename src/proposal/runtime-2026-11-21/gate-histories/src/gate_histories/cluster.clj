@@ -31,7 +31,7 @@
     flock ../../backend-on-rama-2026-10-02/before-real-data/runs/cluster.lock clojure -M:cluster 3000 1
 
   What it does not reach: the base and the microbatch gate (every history is
-  one streaming layer), and every order of the pushes of a live read, which
+  one streaming lane), and every order of the pushes of a live read, which
   Rama gives as it gives them."
   (:require [com.rpl.rama :as rama]
             [com.rpl.rama.test :as rtest]
@@ -42,7 +42,7 @@
 
 (def ^:private live-askers @#'gate-histories.run/live-askers)
 (def ^:private live-asks @#'gate-histories.run/live-asks)
-(def ^:private the-layer run/layer)
+(def ^:private the-lane run/lane)
 
 (defn- answer-word
   "An answer of the door as a short word: the answer, with the reason of a
@@ -98,7 +98,7 @@
                                           (swap! calls assoc who [])
                                           {:who who :events events
                                            :live (read-path/read-live rp {:asks live-asks :asker who :session run
-                                                                          :layers [the-layer]}
+                                                                          :lanes [the-lane]}
                                                                       (fn [ev] (swap! events conj ev)))})))))
                        ;; a push reaches a live read a little after the gate ran
                        (Thread/sleep 150)

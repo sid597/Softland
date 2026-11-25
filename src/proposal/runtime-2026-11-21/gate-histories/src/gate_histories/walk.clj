@@ -28,7 +28,7 @@
     :answers     the answer under each act-id, by `answer-key`
     :facts       the row of each place, by `place-key`
     :by-value    the rows of the facts by value
-    :last-stamp  the last stamp of each layer, by layer id
+    :last-stamp  the last stamp of each lane, by lane id
     :strays      the reason word of each stray, in order
     :aside       each row of a kind that this copy does not know, as
                  [which key row], in the order written
@@ -46,7 +46,7 @@
   breaks when one of them changes: `decision/hex-for-its-permission` with the
   thing and the act; `decision/writes` with seven arguments; and
   `decision/permission-place`, `depot-place`, `chain-needed`, `standing`
-  (six), `makes-the-layer?`, `places-needed`, `chains-needed`, `places`,
+  (six), `makes-the-lane?`, `places-needed`, `chains-needed`, `places`,
   `marked-keys-place`, `reads-marked-keys?`, `since-by-place`,
   `rows-before-needed` and `time-on`; `declaration/stray-reason` and
   `check`; `digest/digest` and `readable-hex-of`; `stamp/next-stamp`;
@@ -66,7 +66,7 @@
             [softland.store.record.rows :as record]))
 
 (def empty-record
-  "A record that holds nothing: no layer is made."
+  "A record that holds nothing: no lane is made."
   {:answers {} :facts {} :by-value {} :last-stamp {} :strays [] :aside []})
 
 (defn through-the-door
@@ -95,7 +95,7 @@
   "Steps 4 and 5 for an act that the declaration took. Takes the record's
   facts, the gate's depot, the thing as it arrived and the act. Gives
   {:word :makes? :rows}: the word of the first check that fails, or nil;
-  whether the act makes its layer; and, when no check of the standing
+  whether the act makes its lane; and, when no check of the standing
   failed, every row that the two steps read, as a map from key to row: the
   row at the place of the act's permission and the rows of its chain, and
   the rows of the places of its facts and of the chains that those need.
@@ -109,7 +109,7 @@
         chain-rows (rows-at facts (decision/chain-needed act permission-row))
         standing-word (decision/standing gate-depot act permission-row depot-row chain-rows
                                          (decision/hex-for-its-permission thing act))
-        makes? (decision/makes-the-layer? gate-depot act permission-row depot-row)]
+        makes? (decision/makes-the-lane? gate-depot act permission-row depot-row)]
     (if standing-word
       {:word standing-word :makes? false :rows {}}
       (let [standing-rows (assoc chain-rows permission-key permission-row)
@@ -123,7 +123,7 @@
   has in hand, as the module's walk gives it. Takes the record's facts, the
   act, the rows that `checks` read, and the act's stamp. The rows handed on
   under `:place-rows` are all of those, and for an act that reads the
-  layer's marked keys the row at their place and the row before of each
+  lane's marked keys the row at their place and the row before of each
   place under a marked key, each read once."
   [facts act rows stamp]
   (if (decision/reads-marked-keys? act)
@@ -137,13 +137,13 @@
     {:since-by-place {} :place-rows rows :level-from stamp}))
 
 (defn- write-rows
-  "Takes a record, a layer and the rows of one decision. Gives the record
+  "Takes a record, a lane and the rows of one decision. Gives the record
   with each row written, as the walk writes them: a fact, an entry of the
-  facts by value, the answer and the layer's last stamp. A row of any other
+  facts by value, the answer and the lane's last stamp. A row of any other
   kind is kept aside, under `:aside`, in the order written; nothing here
   reads it back, so a rule of the store that rests on such a row is not
   held by this copy until the copy writes that kind."
-  [rec layer writes]
+  [rec lane writes]
   (reduce (fn [rec [which k row :as write]]
             (case which
               :fact (assoc-in rec [:facts k] row)
@@ -151,7 +151,7 @@
                           (assoc-in rec [:by-value k] row)
                           (update rec :by-value dissoc k))
               :answer (assoc-in rec [:answers k] row)
-              :last-stamp (assoc-in rec [:last-stamp layer] row)
+              :last-stamp (assoc-in rec [:last-stamp lane] row)
               (update rec :aside (fnil conj []) write)))
           rec
           writes))
@@ -175,8 +175,8 @@
   [rec gate-depot thing]
   (if-let [stray (declaration/stray-reason gate-depot thing)]
     {:record (update rec :strays conj stray) :outcome {:stray stray}}
-    (let [[layer _ act-uuid :as act-id] (:act-id thing)]
-      (if (get (:answers rec) (record/answer-key layer act-uuid))
+    (let [[lane _ act-uuid :as act-id] (:act-id thing)]
+      (if (get (:answers rec) (record/answer-key lane act-uuid))
         {:record rec :outcome {:repeat true}}
         (let [thing-digest (digest/digest thing)
               checked (declaration/check thing)
@@ -185,10 +185,10 @@
               {:keys [word makes? rows]} (if act
                                            (checks (:facts rec) gate-depot thing act)
                                            {:word (:refuse checked) :makes? false :rows {}})
-              stamp (stamp/next-stamp (get (:last-stamp rec) layer))
+              stamp (stamp/next-stamp (get (:last-stamp rec) lane))
               in-hand (if word {} (accept-in-hand (:facts rec) act rows stamp))
               writes (decision/writes act-id act word stamp time-millis thing-digest in-hand)]
-          {:record (write-rows rec layer writes)
+          {:record (write-rows rec lane writes)
            :outcome {:verdict (or word :accepted)
                      :stamp stamp
                      :act act
@@ -205,6 +205,6 @@
   `{:answer :nothing-yet}`, or `{:answer :not-mine}` when the act-id's
   answer is of another thing."
   [rec thing]
-  (let [[layer _ act-uuid] (:act-id thing)]
-    (words/answer (record/answer-of (get (:answers rec) (record/answer-key layer act-uuid)))
+  (let [[lane _ act-uuid] (:act-id thing)]
+    (words/answer (record/answer-of (get (:answers rec) (record/answer-key lane act-uuid)))
                   (digest/readable-hex-of thing))))

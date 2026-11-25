@@ -152,11 +152,11 @@
       {:line connection :hello (client/hello connection)})))
 
 (defn- act-of
-  "Builds one act of one fact in the hello's own layer."
+  "Builds one act of one fact in the hello's own lane."
   [hello e k v]
-  (let [layer (:own-layer hello)]
-    {:version 1 :who (:who hello) :session (:session hello) :layer layer
-     :permission [(:who hello) layer layer] :facts [{:e e :k k :v v}]}))
+  (let [lane (:own-lane hello)]
+    {:version 1 :who (:who hello) :session (:session hello) :lane lane
+     :permission [(:who hello) lane lane] :facts [{:e e :k k :v v}]}))
 
 (defn- arguments
   "Takes the arguments of the command line. Gives a map of them."
@@ -183,7 +183,7 @@
         twice (client/say (:line other) {:word :send :act on-its-way :act-id on-its-way-uuid})
         earlier (client/say (:line other) {:word :send :act before-act :act-id before-uuid})
         read (client/say (:line other) {:word :read :query {:asks [:place :kiln-1 :fired] :asker (:who hello)
-                                                            :layers [(:own-layer hello)]}})]
+                                                            :lanes [(:own-lane hello)]}})]
     (check "A copy of the runtime that is killed takes its connections with it and nothing else: the word that was on its way is not answered, and the system connects to another copy with the same credential, in the same session."
            (and (:could-not cut-off) (= (:session hello) (:session (:hello other))))
            {:cut-off cut-off :other (:hello other)})

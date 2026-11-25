@@ -7,10 +7,10 @@
   the one above it, up to a first permission, which has nothing above it
   (`softland.store.act`, the forms of a permission id). So the chain of a
   permission is read from its id alone, and each permission of the chain
-  sits on a place of its own in the same layer, which its id names
+  sits on a place of its own in the same lane, which its id names
   (`place`): on its holder, on the run that it covers, or, for a yes for
   one act, on the yes's own id. A gate takes a give only
-  straight beneath the giver's own permission, in the giver's layer
+  straight beneath the giver's own permission, in the giver's lane
   (`softland.store.gate.decision`, check (g)).
 
   When a permission stands. All of these hold:
@@ -43,7 +43,7 @@
   end what is beneath writes an end on each place beneath at the end
   itself: it needs a table of who gave to whom, and one end then writes a
   row for each holder beneath, with no bound, in one decision of the
-  layer's one line. The other way to tell a second give is one more part of
+  lane's one line. The other way to tell a second give is one more part of
   the id; it can be added later as a slot was (`softland.store.act`).
 
   What it costs. To know that a permission stands takes the row of each
@@ -54,20 +54,20 @@
   Inputs and results, by call:
 
     above         a permission -> the permission above it, or nil
-    place         a layer, a permission -> the key of its place: on its
+    place         a lane, a permission -> the key of its place: on its
                   holder, on its run, or on a yes's own id
-    places-above  a layer, a permission -> the keys of the places of the
+    places-above  a lane, a permission -> the keys of the places of the
                   permissions above it, nearest first
     above?        two permissions -> true when the first is in the chain
                   above the second
-    stands?       a layer, a permission, rows by key -> true or false
+    stands?       a lane, a permission, rows by key -> true or false
 
   State and effects. None. Each function is pure, and none throws on a
   permission id in its one form.
 
   Callers. `softland.store.gate.decision`, for the standing of an act and
   for an end and a give at a place that holds a row. The read path's
-  `softland.store.read-path.layers`, for whether an asker may see a layer
+  `softland.store.read-path.lanes`, for whether an asker may see a lane
   that is open to its members."
   (:require [softland.store.act :as act]
             [softland.store.record.rows :as record]))
@@ -79,33 +79,33 @@
   (nth permission 3 nil))
 
 (defn place
-  "Takes a layer and a permission id. Gives the key of the place where the
-  permission sits in that layer, read from what the permission covers
-  (`softland.store.act/covers`): one that covers the layer sits on its
+  "Takes a lane and a permission id. Gives the key of the place where the
+  permission sits in that lane, read from what the permission covers
+  (`softland.store.act/covers`): one that covers the lane sits on its
   holder, under `:softland.store/permission`; one for a run on the run's
   session, under `:softland.store/run-permission`; a yes for one act on the
   yes's own id, the uuid that its giver made, under
-  `:softland.store/act-permission`. So a holder's permission for the layer,
+  `:softland.store/act-permission`. So a holder's permission for the lane,
   her permissions for runs and her yeses for acts sit on places of their
   own and stand or end each by itself, and two yeses for one act sit on two
   places."
-  [layer permission]
+  [lane permission]
   (let [[kind what] (act/covers permission)]
     (case kind
-      :run (record/place-key layer what :softland.store/run-permission)
-      :act (record/place-key layer what :softland.store/act-permission)
-      (record/place-key layer (nth permission 0) :softland.store/permission))))
+      :run (record/place-key lane what :softland.store/run-permission)
+      :act (record/place-key lane what :softland.store/act-permission)
+      (record/place-key lane (nth permission 0) :softland.store/permission))))
 
 (defn places-above
-  "Takes a layer and a permission id. Gives the keys of the places of the
-  permissions above it in that layer, nearest first: the place of the one
+  "Takes a lane and a permission id. Gives the keys of the places of the
+  permissions above it in that lane, nearest first: the place of the one
   above, then of the one above that, up to the first permission. An empty
   vector for a first permission. One key for each permission above."
-  [layer permission]
+  [lane permission]
   (loop [upper (above permission)
          keys []]
     (if upper
-      (recur (above upper) (conj keys (place layer upper)))
+      (recur (above upper) (conj keys (place lane upper)))
       keys)))
 
 (defn above?
@@ -121,24 +121,24 @@
       :else (recur (above p)))))
 
 (defn stands?
-  "Takes a layer; a permission id; and rows, a map from the key of a place
+  "Takes a lane; a permission id; and rows, a map from the key of a place
   to the row at that place, nil or absent for an empty place. Gives true
-  when the permission stands in the layer, by the two rules of the
+  when the permission stands in the lane, by the two rules of the
   namespace docstring: its row holds it, and each permission above it stands
   and has an older row.
 
   What must hold: the map holds the row at `place` of the permission and at
   each of `places-above`, for each place that holds one. A place that the
   map does not hold reads as empty, so the permission then does not stand."
-  [layer permission rows]
+  [lane permission rows]
   (loop [p permission
-         row (get rows (place layer permission))]
+         row (get rows (place lane permission))]
     (cond
       (not (record/holds-value? row p)) false
       (nil? (above p)) true
       :else
       (let [upper (above p)
-            upper-row (get rows (place layer upper))]
+            upper-row (get rows (place lane upper))]
         (if (and upper-row (< (long (:stamp upper-row)) (long (:stamp row))))
           (recur upper upper-row)
           false)))))

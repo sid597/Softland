@@ -15,15 +15,15 @@ what can be asked of it, or what it gives back.
 The store is where makers write facts, and nothing written is ever erased. A
 maker is a converter, the screen or an agent. A fact is one statement: an
 entity, a key and a value, as in "chair-7, colour, green". Facts arrive in acts:
-one or more facts that one maker sends into one layer under one act-id. A gate
+one or more facts that one maker sends into one lane under one act-id. A gate
 takes or refuses each act whole. It judges the act's form and its maker's
 standing, and reads nothing of what a tool's values say. Taken or refused, the
-act stays in its layer's line of acts for ever. A reader reads through a stack
-of layers that she chooses: at each place, the nearest layer that holds a fact
+act stays in its lane's line of acts for ever. A reader reads through a stack
+of lanes that she chooses: at each place, the nearest lane that holds a fact
 wins.
 
 In an engineer's words: an append-only, permissioned entity–attribute–value
-store, with one total order in each layer and overlay reads, built on Rama.
+store, with one total order in each lane and overlay reads, built on Rama.
 
 ## The words
 
@@ -31,22 +31,22 @@ store, with one total order in each layer and overlay reads, built on Rama.
 |---|---|---|
 | fact | One statement: entity, key, value. It may name an earlier fact that it replaces. A fact with no value is a retract: it says "nothing here". | EAV triple; tombstone |
 | key | What a fact says of its entity: a readable keyword. | attribute |
-| place | One entity and one key. A layer holds one current fact at each place. | cell |
-| act | One or more facts that one maker sends into one layer, taken or refused whole. | atomic batch, transaction |
-| act-id | `[layer depot uuid]`. The door makes it on request, before the act is sent. | transaction id |
+| place | One entity and one key. A lane holds one current fact at each place. | cell |
+| act | One or more facts that one maker sends into one lane, taken or refused whole. | atomic batch, transaction |
+| act-id | `[lane depot uuid]`. The door makes it on request, before the act is sent. | transaction id |
 | fact id | `[act-id index]`: one fact of one act. | version id |
-| layer | A home for facts, with its own line of acts in one order. | namespace |
-| depot | Where a layer's acts arrive: `:streaming`, each act decided as it arrives, or `:microbatch`, acts decided in batches. The base is the one microbatch layer. | write mode; log |
-| stack | The layers that one read looks through, nearest first. | overlay view |
-| permission | The right to see a layer, or to see it and act in it: `[who layer granted-in]`, or a given one that holds the permission above it. A given one can say what it covers: one run, or one act; with nothing said it covers the layer. It can be ended, and what was given beneath it ends with it. | grant; capability; scope; revocation |
+| lane | A home for facts, with its own line of acts in one order. | namespace |
+| depot | Where a lane's acts arrive: `:streaming`, each act decided as it arrives, or `:microbatch`, acts decided in batches. The base is the one microbatch lane. | write mode; log |
+| stack | The lanes that one read looks through, nearest first. | overlay view |
+| permission | The right to see a lane, or to see it and act in it: `[who lane granted-in]`, or a given one that holds the permission above it. A given one can say what it covers: one run, or one act; with nothing said it covers the lane. It can be ended, and what was given beneath it ends with it. | grant; capability; scope; revocation |
 | a yes | A permission for one act: on an id of its own, which its giver makes, for the act as its maker made it, and used up by the act that is taken under it. | one-time grant; approval |
 | run | What an act names as its `:session`: one sitting of a person, or one run of an agent. A permission can cover one run. | session |
-| stamp | An act's number in its layer's order, with no gaps. A refused act gets one too. | per-layer sequence number |
-| mark | A key that a layer indexes by value, so that a read can ask what points at a value. | secondary index |
-| the base | The one layer that everyone subscribes to. | |
-| the system | The id that makes the base, and each personal layer for its person. | |
+| stamp | An act's number in its lane's order, with no gaps. A refused act gets one too. | per-lane sequence number |
+| mark | A key that a lane indexes by value, so that a read can ask what points at a value. | secondary index |
+| the base | The one lane that everyone subscribes to. | |
+| the system | The id that makes the base, and each personal lane for its person. | |
 
-An id (an entity, a who, a layer, a session, a subject) is a readable keyword or
+An id (an entity, a who, a lane, a session, a subject) is a readable keyword or
 a UUID, and a key is a readable keyword only ([act.clj](softland/store/act.clj),
 `leaves`). A value is nil, a boolean, a string, a readable keyword, a UUID, an
 integer of any width, a finite double, a big integer, a decimal, or a plain map,
@@ -60,21 +60,21 @@ a "lock".
 maker      a converter, the screen, an agent
   │ an act
   ▼
-door       adds the act-id, the layer's depot and the time of its server's clock;
+door       adds the act-id, the lane's depot and the time of its server's clock;
   │        checks nothing of the act
   ▼
-depot      the layer's line: each act as it arrived, taken or refused, never trimmed
+depot      the lane's line: each act as it arrived, taken or refused, never trimmed
   │
   ▼
-gate       decides each act once, in the layer's order, on its form and its standing
+gate       decides each act once, in the lane's order, on its form and its standing
   │
   ▼
 record     answers: under each act-id, the verdict, the reason, the stamp,
   │                 the time and the act's digest
   │        facts: the current fact at each place, from taken acts only
   │        facts by value: the same facts in the order of their values,
-  │                 under the keys that a layer marks
-  │        line: each decision of a layer by its stamp, with its answer, and
+  │                 under the keys that a lane marks
+  │        line: each decision of a lane by its stamp, with its answer, and
   │                 the act again as it arrived when the gate keeps it
   │
   ├──▶ door        reads an act's answer back by act-id
@@ -89,21 +89,21 @@ The parts, and how a thing passes through them, are in
 An illustration of the rules as built; it was not run. The base says that
 chair-7's colour is red and that its material is oak.
 
-1. **Asha makes a layer, asha-draft.** A layer is made by its first act, which
-   holds exactly two facts: the layer's depot, on the layer's own entity, and
-   the layer's first permission, `[asha asha-draft asha-draft]`, on Asha
+1. **Asha makes a lane, asha-draft.** A lane is made by its first act, which
+   holds exactly two facts: the lane's depot, on the lane's own entity, and
+   the lane's first permission, `[asha asha-draft asha-draft]`, on Asha
    ([gate/first_act.clj](softland/store/gate/first_act.clj), `making-act?`).
-   The depot is not hers to choose: the base is microbatch and every other layer
+   The depot is not hers to choose: the base is microbatch and every other lane
    streaming (`depot-at-making`). The act's `:who` must be the holder or the
    system. A gate checks no sender, so any program that can send can make any
-   layer that is not made
+   lane that is not made
    ([store/README.md](softland/store/README.md#what-the-gate-does-not-check-said-plainly)).
-   A new layer reads as open to its members only, building on nothing and
+   A new lane reads as open to its members only, building on nothing and
    marking nothing, until a fact says otherwise (`starts-with`).
-2. **She says what it builds on.** A layer has four settings, each a fact on the
-   layer's own entity: who may see it, who may read its acts whole, the layers
+2. **She says what it builds on.** A lane has four settings, each a fact on the
+   lane's own entity: who may see it, who may read its acts whole, the lanes
    that it builds on in order, and the keys that it marks. A setting can be written again and never retracted,
-   and only the layer's first holder writes one, here Asha
+   and only the lane's first holder writes one, here Asha
    ([gate/decision.clj](softland/store/gate/decision.clj),
    `who-may-write-fault`); the depot is written once
    ([door/declaration.clj](softland/store/door/declaration.clj), `store-keys`).
@@ -126,27 +126,27 @@ chair-7's colour is red and that its material is oak.
    the base the ack says only that the depot holds the act: the answer is there
    once the batch that decides it is committed, so the maker asks again.
 5. **Ben tries to read it,** with no permission in asha-draft. A read names its
-   layers as a list, nearest first, or names one layer and takes that layer's
+   lanes as a list, nearest first, or names one lane and takes that lane's
    builds-on list ([read_path/query.clj](softland/store/read_path/query.clj)).
    Named as asha-draft then base, the read leaves asha-draft out, says so, and
    gives red from the base. Started from asha-draft, the read takes asha-draft
-   alone, since its list is a fact of a layer that Ben may not see: he gets
+   alone, since its list is a fact of a lane that Ben may not see: he gets
    nothing, and the same note
-   ([read_path/layers.clj](softland/store/read_path/layers.clj), `in-order`).
+   ([read_path/lanes.clj](softland/store/read_path/lanes.clj), `in-order`).
 6. **Asha gives Ben a permission.** A give is an act. A holder who may act can
-   give a permission straight beneath her own, in the same layer:
+   give a permission straight beneath her own, in the same lane:
    `[ben asha-draft asha-draft [asha asha-draft asha-draft]]`. A holder who may
    only see cannot give, since a give is an act. A holder has one permission in
-   a layer at a time
+   a lane at a time
    ([gate/decision.clj](softland/store/gate/decision.clj), `standing`). Ben
-   reads again from asha-draft and gets green, with the layer that won
+   reads again from asha-draft and gets green, with the lane that won
    (asha-draft), the fact id and its stamp. The base still says red.
 7. **Both change the same place.** Ben writes blue, replacing the green fact by
    its fact id: taken. Asha then writes yellow, replacing the same fact: refused,
    since that fact is no longer current. A replace works only on a fact of the
-   act's own layer ([record/rows.clj](softland/store/record/rows.clj),
+   act's own lane ([record/rows.clj](softland/store/record/rows.clj),
    `written-by?`), so a fact of the base can only be covered. A fact that names
-   nothing to replace becomes current: the last in the layer's order wins.
+   nothing to replace becomes current: the last in the lane's order wins.
 8. **Asha's connection drops,** and she sends the act again under the same
    act-id. The first decision under an act-id is the only one, and she is given
    it. A different act under a used act-id is not decided again, and its sender
@@ -154,7 +154,7 @@ chair-7's colour is red and that its material is oak.
    `answers`).
 9. **Ben builds on Asha.** ben-notes builds on asha-draft. A read from ben-notes
    looks at ben-notes, then asha-draft, and no further: the base is not read,
-   though asha-draft builds on it. Ben names the base in his layer's list, or
+   though asha-draft builds on it. Ben names the base in his lane's list, or
    names the whole list in his read.
 
    ```text
@@ -168,7 +168,7 @@ chair-7's colour is red and that its material is oak.
    Each read falls down its column until it meets a fact. With the base in the
    list, the colour is blue and the material oak; without it, there is no
    material. How far a read walks is a working answer for Sid
-   ([read_path/layers.clj](softland/store/read_path/layers.clj), `in-order`).
+   ([read_path/lanes.clj](softland/store/read_path/lanes.clj), `in-order`).
 10. **Ben keeps a read live.** Each change to a place that he watches is pushed
     to him. Two acts on one place can come as one change, so a caller that must
     see every act cannot rest on a live read; a place never comes with an answer
@@ -180,7 +180,7 @@ chair-7's colour is red and that its material is oak.
     ([read_path/answer.clj](softland/store/read_path/answer.clj)).
 12. **Asha ends Ben's permission.** An end is an act: a permission fact with no
     value, on Ben. His giver ends it, or anyone above his giver up to the
-    layer's first holder, or Ben himself; the first permission does not end.
+    lane's first holder, or Ben himself; the first permission does not end.
     Ben's blue stays, and the log holds his acts. His next act is refused, and
     so is the act of anyone to whom he had given a permission beneath his own:
     a gate reads the row of each permission above an act's own. A read that he
@@ -206,9 +206,9 @@ chair-7's colour is red and that its material is oak.
     nothing, and is sent again under a new act-id. For the act a second
     time she gives a second yes, on another id: two can stand at once,
     each used once, and a yes's id is never given again. bio-agent now has
-    permissions for the layer and for the run, and yeses, each ended by
+    permissions for the lane and for the run, and yeses, each ended by
     itself. A permission for a run or a yes gives nothing: a holder for one
-    run cannot give herself one for the layer
+    run cannot give herself one for the lane
     ([act.clj](softland/store/act.clj), `covers`;
     [gate/decision.clj](softland/store/gate/decision.clj), `standing` and
     `use-of-its-yes`).
@@ -218,14 +218,14 @@ chair-7's colour is red and that its material is oak.
 Four kinds of thing.
 
 - **The acts.** Each act as it arrived, with all that it carries, is in its
-  layer's depot. A layer's acts are one line of one depot partition, and the
+  lane's depot. A lane's acts are one line of one depot partition, and the
   depots are never trimmed ([module.clj](softland/store/module.clj);
   [store/README.md](softland/store/README.md)).
 - **What the gate made of each act.** Its answer: the verdict, the reason of a
   refusal, the stamp, the time, and the act's digest, the SHA-256 of its one text
   without the time ([record/rows.clj](softland/store/record/rows.clj),
   `answer-row`; [door/digest.clj](softland/store/door/digest.clj)). The last
-  stamp of each layer ([record/tables.clj](softland/store/record/tables.clj),
+  stamp of each lane ([record/tables.clj](softland/store/record/tables.clj),
   `task`). And, under a marked key, each fact again in the order of its value's
   digest, the SHA-256 of the value's one text
   ([record/rows.clj](softland/store/record/rows.clj), `value-digest`).
@@ -234,7 +234,7 @@ Four kinds of thing.
   ([record/tables.clj](softland/store/record/tables.clj), `facts`). A new fact at
   a place takes the place of the row: the tables are the present, and the history
   is in the depots.
-- **Each layer's line.** For each decision of a layer, taken or refused, a row
+- **Each lane's line.** For each decision of a lane, taken or refused, a row
   under its stamp: the uuid of its act-id, its answer again, the who that the
   act names and its weight; under the same key, the act again as it arrived,
   when the gate keeps it; and a row under the who that the act names
@@ -259,13 +259,13 @@ the proof is named in the [verification map](../test-store/README.md)).
   place, one entity, a run of neighbouring places, or what points at a value
   under a marked key, once or kept live
   ([read_path.clj](softland/store/read_path.clj)).
-- **Its layers,** as a list nearest first, or as one layer and its builds-on list
-  ([read_path/layers.clj](softland/store/read_path/layers.clj)). A layer that the
+- **Its lanes,** as a list nearest first, or as one lane and its builds-on list
+  ([read_path/lanes.clj](softland/store/read_path/lanes.clj)). A lane that the
   asker may not see is left out, and the answer says so. An asker who is not
-  signed in sees only the layers open to everyone. A read can name the run
-  that it is asked in: the asker then sees a layer under her permission for
-  the layer, or under that run's.
-- **What every answer names.** For each place: the layer that won, the fact id,
+  signed in sees only the lanes open to everyone. A read can name the run
+  that it is asked in: the asker then sees a lane under her permission for
+  the lane, or under that run's.
+- **What every answer names.** For each place: the lane that won, the fact id,
   and the stamp of that fact. A writer names that fact id in `:replaces` and
   carries that stamp in `:based-on`. On request the answer also gives the
   writer, the permission and the time
@@ -273,16 +273,16 @@ the proof is named in the [verification map](../test-store/README.md)).
 - **An act's answer,** through the door, by act-id: accepted, refused, nothing
   yet, or not mine ([door.clj](softland/store/door.clj), `answer-of`;
   [door/words.clj](softland/store/door/words.clj)).
-- **A layer's acts, by stamp,** through the read path: the decisions of one
-  layer from a stamp on, in the order of its stamps, taken and refused, each
+- **A lane's acts, by stamp,** through the read path: the decisions of one
+  lane from a stamp on, in the order of its stamps, taken and refused, each
   with its answer and the act whole as it arrived; at most a count, and acts
   of a bounded weight in all, and the stamp where the next read begins
   ([read_path/acts.clj](softland/store/read_path/acts.clj)). It is asked once
-  and not kept live. Whoever holds a permission that stands in the layer reads
-  each decision whole. A visitor of a layer that everyone may see reads her
-  own whole and every other as its stamp alone, unless the layer's first
+  and not kept live. Whoever holds a permission that stands in the lane reads
+  each decision whole. A visitor of a lane that everyone may see reads her
+  own whole and every other as its stamp alone, unless the lane's first
   holder set who may read its acts to everyone. An asker is given her own
-  acts in any layer, one that she may not see too, and nothing else of it.
+  acts in any lane, one that she may not see too, and nothing else of it.
   An act that the gate kept not is given with its answer and the word of
   why.
 
@@ -295,21 +295,21 @@ the proof is named in the [verification map](../test-store/README.md)).
   key a gate reads nothing of a tool's value: it keeps the value's text, counts
   its bytes and, under a marked key, hashes it (`with-texts`).
 - **The standing:** the act's permission names the act's `:who`, the record
-  holds that permission, it covers the act (the layer, the act's run, or
+  holds that permission, it covers the act (the lane, the act's run, or
   this one act by its digest, by a yes that is not used up), each
   permission above it stands, and it allows acting
   ([gate/decision.clj](softland/store/gate/decision.clj), `standing`;
   [gate/chain.clj](softland/store/gate/chain.clj)); or the
-  act makes a layer that is not made
+  act makes a lane that is not made
   ([gate/first_act.clj](softland/store/gate/first_act.clj)).
 - **A replace:** the fact that an act replaces is current, in the act's own
-  layer ([record/rows.clj](softland/store/record/rows.clj), `written-by?`).
+  lane ([record/rows.clj](softland/store/record/rows.clj), `written-by?`).
 - **The store's own keys:** eight, each with its shape, its entity, and whether it
   takes a second write. Three are a permission's, one for each thing that a
-  permission covers: the layer, a run, an act. A retract under the other
+  permission covers: the lane, a run, an act. A retract under the other
   five is refused; under a permission's it is an end
   ([door/declaration.clj](softland/store/door/declaration.clj), `store-keys`).
-- **Who writes a setting, and who ends a permission:** the layer's first holder
+- **Who writes a setting, and who ends a permission:** the lane's first holder
   alone writes its settings, who may see it and who may read its acts whole, its
   list and its marks; a permission is ended by a
   holder above it or by its own
@@ -331,8 +331,8 @@ of a tool.
 ## What the store promises
 
 - An act is taken whole or refused whole.
-- In a layer, acts have one order, the stamp, with no gaps and with the refusals
-  in it. Between layers there is no order, except where one act names another.
+- In a lane, acts have one order, the stamp, with no gaps and with the refusals
+  in it. Between lanes there is no order, except where one act names another.
 - A depot is never changed and never trimmed. The tables hold the present.
 - A second run of the gates over the depots makes the same tables.
 - The time on an act is a label: no gate orders or decides by it
@@ -347,7 +347,7 @@ of a tool.
   `:because-of`, `:based-on`, `:subjects`, `:claimed-when` and `:version`; the
   line holds the act whole when the gate kept it
   ([record/tables.clj](softland/store/record/tables.clj), `things`), and the
-  read of a layer's acts gives it to whoever may read it whole. An act over
+  read of a lane's acts gives it to whoever may read it whole. An act over
   its bound is in its depot alone. The read of acts reaches an act by its
   stamp; whether a read should reach "the whole act from a fact" is not
   decided
@@ -357,19 +357,19 @@ of a tool.
   answer, its stamp among it, and not the act. No row keeps where in its
   partition the act is ([gate/stamp.clj](softland/store/gate/stamp.clj);
   [record/rows.clj](softland/store/record/rows.clj), `answer-row`). The line
-  keeps it by its stamp: a second read, of the layer's acts from that stamp
+  keeps it by its stamp: a second read, of the lane's acts from that stamp
   and one at most, gives it to an asker who may read it.
 - **A fact that was replaced, and the facts that one act wrote.** A table holds
   the current fact at each place. A fact's row names its act, and no table is
   kept by act ([record/tables.clj](softland/store/record/tables.clj)).
-- **A layer's refusals alone.** The read of a layer's acts gives each of its
+- **A lane's refusals alone.** The read of a lane's acts gives each of its
   decisions in the order of the stamps, refusals among them; no read gives
   the refusals and nothing else.
 - **Every fact under one key,** in one read.
 - **Who sent an act.** For the store, `:who` is what the sending program said.
   Beyond its form as an id, a gate holds it only against the permission that
   the act names, or against the form of a making act, and a permission is made
-  of public parts: its holder, its layer twice, and the permission above it. A
+  of public parts: its holder, its lane twice, and the permission above it. A
   gate checks no sender
   ([store/README.md](softland/store/README.md#what-the-gate-does-not-check-said-plainly)).
 - **A table that only the read path can read.** Each program that can open
@@ -387,10 +387,10 @@ of a tool.
 
 Each is said in full where its code is.
 
-- How far a read walks from a layer: its own list and no further is a working
-  answer ([read_path/layers.clj](softland/store/read_path/layers.clj),
+- How far a read walks from a lane: its own list and no further is a working
+  answer ([read_path/lanes.clj](softland/store/read_path/lanes.clj),
   `in-order`).
-- Whether a holder can have two permissions for the layer that stand at once,
+- Whether a holder can have two permissions for the lane that stand at once,
   "see" from one giver and "see and act" from another: today one, beside her
   permissions for runs and her yeses
   ([gate/decision.clj](softland/store/gate/decision.clj), `permission-place`).
@@ -398,14 +398,14 @@ Each is said in full where its code is.
   run that may give
   (`src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md`, "Not in this
   piece").
-- A layer that is handed to another holder, and the end of a layer's first
+- A lane that is handed to another holder, and the end of a lane's first
   permission ([gate/decision.clj](softland/store/gate/decision.clj),
   `end-fault`).
-- What a new layer reads as: its members for a layer, everyone for the base
+- What a new lane reads as: its members for a lane, everyone for the base
   ([gate/first_act.clj](softland/store/gate/first_act.clj), `starts-with`).
 - How deep a permission can be ([act.clj](softland/store/act.clj), `nesting`).
 - The numbers of the build: the docstring of each says whether it is decided.
-- A gate's check of a key's grammar. Sid decided that each layer holds a copy of
+- A gate's check of a key's grammar. Sid decided that each lane holds a copy of
   each grammar that it uses, and that a gate reads it on its own task
   ([decisions of 7 October](README.md#decisions-of-7-october-2026--the-stores-module),
   entry 5). The check is not built
@@ -423,12 +423,12 @@ Each is said in full where its code is.
 | The bytes of one value under a plain key | `max-value-bytes`, the same |
 | The bytes that one act can write into rows | `max-act-bytes`, the same |
 | The characters of an id or a key | `max-id-text`, the same |
-| The layers that one layer builds on | `max-builds-on`, the same |
-| The keys that one layer marks | `max-marked-keys`, the same |
+| The lanes that one lane builds on | `max-builds-on`, the same |
+| The keys that one lane marks | `max-marked-keys`, the same |
 | The weight of an act that a gate keeps again, from a sender whose permission stands | `max-kept-weight`, [gate/decision.clj](softland/store/gate/decision.clj) |
 | The same, from a sender with none, or for a thing that the declaration refused | `max-kept-weight-with-no-standing`, the same |
 | The subjects of one act | `max-subjects`, [act.clj](softland/store/act.clj) |
 | How deep a value nests, and a permission | `max-depth`, the same |
-| The layers of one read | `max-layers-of-one-read`, [read_path/query.clj](softland/store/read_path/query.clj) |
+| The lanes of one read | `max-lanes-of-one-read`, [read_path/query.clj](softland/store/read_path/query.clj) |
 | A read's runs, checks, pushes and wait | `default-numbers`, the same |
-| The decisions of one read of a layer's acts, and the weight of its acts in all | `:max-acts-of-one-read` and `:max-thing-weight-of-one-read`, the same |
+| The decisions of one read of a lane's acts, and the weight of its acts in all | `:max-acts-of-one-read` and `:max-thing-weight-of-one-read`, the same |

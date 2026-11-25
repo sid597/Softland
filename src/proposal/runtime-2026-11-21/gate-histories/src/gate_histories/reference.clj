@@ -4,7 +4,7 @@
   no digest, and it does not know how a gate tells a permission that was
   given again from the one that ended, or how it marks a yes as used.
 
-  It keeps, for one layer, what a person would keep on paper: who was given
+  It keeps, for one lane, what a person would keep on paper: who was given
   a permission by whom, which of those gives were ended, which yes for one
   act was used, and the one answer of each act-id. Each give that is taken
   is a thing of its own, a grant, with a number. A grant that is given
@@ -23,17 +23,17 @@
         permission again. Each is given again, by an act of its own.
     S4  A permission is ended by its giver, by anyone above the giver, and
         by its own holder. Nobody else ends it.
-    S5  The layer's first permission does not end.
-    S6  A holder has one permission in a layer: a give to a holder whose
+    S5  The lane's first permission does not end.
+    S6  A holder has one permission in a lane: a give to a holder whose
         permission stands is refused.
     S7  A permission is given only straight beneath the giver's own.
-    S8  Only the holder of the first permission writes a layer's settings.
+    S8  Only the holder of the first permission writes a lane's settings.
     S9  A holder who may only see cannot act: no write, no give, no end.
     S10 An act is taken whole or refused whole.
-    S11 Whoever holds a permission that stands may see the layer, whatever
+    S11 Whoever holds a permission that stands may see the lane, whatever
         the permission allows. A holder whose permission ended, or beneath
-        one that ended, may not see a layer that is open to its members.
-    S12 A layer that its first holder opened to everyone is seen by
+        one that ended, may not see a lane that is open to its members.
+    S12 A lane that its first holder opened to everyone is seen by
         everyone, signed in or not; closed again, by its members only.
 
   S4's \"by its own holder\", S5 and S6 are choices of the session that
@@ -43,12 +43,12 @@
   Piece 2 of the store's line adds a permission for one run and a yes for
   one act (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md, \"The
   statements\"). S6 becomes: a holder has at most one permission that
-  covers the layer and stands, and beside it one for each of any number of
+  covers the lane and stands, and beside it one for each of any number of
   runs, and any number of yeses for one act.
 
   A yes for one act has the form of 22 November, the one in the prompt that
   Sid pasted that day, which a session wrote and he can turn:
-  `[who layer granted-in above :see-and-act [:act yes digest]]`. `yes` is a
+  `[who lane granted-in above :see-and-act [:act yes digest]]`. `yes` is a
   uuid that its giver makes, the yes's own id, and the yes sits on it. The
   digest names the act as its maker made it. The act goes under any act-id
   of its maker's: the act-id plays no part in a yes.
@@ -67,7 +67,7 @@
         unless that other is beneath it.
     R5  A permission for a run or a yes for one act is ended by its giver,
         by anyone above the giver, and by its holder. Its holder ends it
-        under her permission for the layer, or under the permission itself
+        under her permission for the lane, or under the permission itself
         when that permission takes the end: a permission for a run that
         allows acting takes an end of itself sent in its run; a yes takes
         no act but its one act, so it ends itself only when that act is its
@@ -79,9 +79,9 @@
         number of yeses that stand at once, each used once: a yes's place
         takes one give, and nothing is ever given there again, once it is
         ended or used.
-    R7  A setting is written under the layer's first permission alone.
-    R8  An asker may see a layer that is open to its members when her
-        permission for the layer stands, or when she asks in a run whose
+    R7  A setting is written under the lane's first permission alone.
+    R8  An asker may see a lane that is open to its members when her
+        permission for the lane stands, or when she asks in a run whose
         permission stands and names her. A yes for one act lets nobody see.
     R9  A thing that names a permission for another run than its own, or a
         yes for another act, is refused.
@@ -89,7 +89,7 @@
         nothing is ever beneath one. The session that wrote these statements
         found it by running them by themselves, before any of piece 2 was
         built (SPEC.md, R10): without it, a holder for one run gives herself
-        a permission for the layer.
+        a permission for the lane.
 
   R2's \"part for part\" is said here in plain code (`the-act`), not by a
   digest: a yes names its act by a digest, and the statements are told which
@@ -126,20 +126,20 @@
   statements take the act, the first reason when they do not, the answer
   that its sender is to be told, and the state after.
 
-  `may-see` says whether an asker may see the layer.
+  `may-see` says whether an asker may see the lane.
 
   What it does not hold: the form of a thing (the declaration's), a fact
   that names something to replace, and what a read gives beyond whether the
-  asker may see the layer.")
+  asker may see the lane.")
 
 (def setting-keys
-  "The three keys of a layer that take a second write, by their words."
+  "The three keys of a lane that take a second write, by their words."
   #{:softland.store/who-may-see :softland.store/builds-on :softland.store/marked-keys})
 
 (def permission-keys
   "The key that a permission fact is under, for each kind of thing that a
   permission covers."
-  {:softland.store/permission :layer
+  {:softland.store/permission :lane
    :softland.store/run-permission :run
    :softland.store/act-permission :act})
 
@@ -159,11 +159,11 @@
   (constantly nil))
 
 (def start
-  "The state before the layer is made.
+  "The state before the lane is made.
 
-    :made?    whether the layer is made
+    :made?    whether the lane is made
     :at       place -> what sits there: a grant's number, or :end. A place
-              is [:layer holder], [:run session] or [:act yes]
+              is [:lane holder], [:run session] or [:act yes]
     :given    place -> each grant's number and each :end that was put
               there, in order
     :grants   number -> {:holder :permission :parent}, each grant ever taken
@@ -172,15 +172,15 @@
               under
     :answers  act-id -> {:sent the first thing decided under it, as sent
               (`as-sent`), :answer its answer}
-    :everyone?  whether the layer is open to everyone. A layer starts
+    :everyone?  whether the lane is open to everyone. A lane starts
                 open to its members only"
   {:made? false :at {} :given {} :grants {} :killed #{} :used #{} :answers {} :n 0 :everyone? false})
 
 (defn covers
-  "What a permission covers, from its id: [:layer], [:run session] or
+  "What a permission covers, from its id: [:lane], [:run session] or
   [:act yes digest]."
   [permission]
-  (if (= 6 (count permission)) (nth permission 5) [:layer]))
+  (if (= 6 (count permission)) (nth permission 5) [:lane]))
 
 (defn- allows
   "What a permission allows, from its id: its fifth slot, or see and act."
@@ -212,7 +212,7 @@
   session of its run, or on the yes's own id."
   [permission]
   (let [[kind id] (covers permission)]
-    (if (= :layer kind) [:layer (first permission)] [kind id])))
+    (if (= :lane kind) [:lane (first permission)] [kind id])))
 
 (def ^:private left-out-parts
   "The parts of an act that its maker may leave out, with what a part that
@@ -271,10 +271,10 @@
 
 (defn standing-grant
   "The grant under which `who` may be heard when she names a permission for
-  the layer: the grant at her place, when it stands and has exactly that id.
+  the lane: the grant at her place, when it stands and has exactly that id.
   Else nil."
   [state who permission]
-  (let [grant (grant-at state [:layer who])]
+  (let [grant (grant-at state [:lane who])]
     (when (and grant (= permission (:permission grant)) (alive? state (:n grant)))
       grant)))
 
@@ -333,7 +333,7 @@
             place (place-of v)
             there (grant-at state place)]
         (cond
-          (and (not *short-gives?*) (not= :layer own-kind)) :only-a-permission-for-the-layer-gives ; R10
+          (and (not *short-gives?*) (not= :lane own-kind)) :only-a-permission-for-the-lane-gives ; R10
           (not= kind v-kind) :permission-fact-under-another-key
           (not= e (second place)) :permission-fact-not-on-what-it-covers
           (and (= :act v-kind) (not= :see-and-act (allows v))) :an-acts-permission-says-see-and-act
@@ -351,14 +351,14 @@
           (nil? (:parent there)) :the-first-permission-does-not-end                 ; S5
           (or (= (:permission own) (:permission there))
               (above? (:permission own) (:permission there))) nil                   ; S4, R5
-          (and (= :layer own-kind) (= who (:holder there))) nil                     ; R5, the holder
+          (and (= :lane own-kind) (= who (:holder there))) nil                     ; R5, the holder
           :else :not-above-it))
 
       ;; a setting
       (contains? setting-keys k)
       (when (some? (:parent own)) :only-the-first-holder-writes-a-setting)         ; S8, R7
 
-      ;; the depot of a layer that is made
+      ;; the depot of a lane that is made
       (= :softland.store/depot k) :a-depot-is-written-once
 
       :else nil)))
@@ -405,10 +405,10 @@
          :state (-> state
                     (assoc :made? true)
                     (assoc-in [:grants 0] {:holder who :permission permission :parent nil})
-                    (assoc-in [:at [:layer who]] 0)
-                    (update-in [:given [:layer who]] (fnil conj []) 0)
+                    (assoc-in [:at [:lane who]] 0)
+                    (update-in [:given [:lane who]] (fnil conj []) 0)
                     (assoc :n 1))}
-        {:accept? false :why :layer-not-made :state state})
+        {:accept? false :why :lane-not-made :state state})
       (let [{own :grant why :why} (heard-under state thing)]
         (cond
           (nil? own)
@@ -423,7 +423,7 @@
                       (= :act (first (covers (:permission own)))) (update :used conj (:n own)))}))))))
 
 (defn judge
-  "Takes the state, the layer's id, and a thing as it arrived: `:act-id`,
+  "Takes the state, the lane's id, and a thing as it arrived: `:act-id`,
   `:who`, `:permission`, `:session` and `:facts`, each fact with `:e`, `:k`
   and maybe `:v`. Gives {:accept? :why :answer :state}: whether the
   statements take it now, the first reason when they do not, the answer
@@ -435,7 +435,7 @@
   `:accept?` is false: for the same thing, `:repeat?` is true and `:answer`
   is its first answer; for another thing, `:not-mine?` is true and the
   answer is \"not mine\"."
-  [state _layer thing]
+  [state _lane thing]
   (let [act-id (:act-id thing)
         sent (as-sent thing)
         first-of (get-in state [:answers act-id])]
@@ -454,8 +454,8 @@
             (assoc-in [:state :answers act-id] {:sent sent :answer answer}))))))
 
 (defn may-see
-  "Whether an asker may see the layer, by S11, S12 and R8: `:not-made` before
-  the layer is made, else `:yes` or `:may-not-see`. `run` is the run that
+  "Whether an asker may see the lane, by S11, S12 and R8: `:not-made` before
+  the lane is made, else `:yes` or `:may-not-see`. `run` is the run that
   she asks in, or nil."
   ([state who signed-in?] (may-see state who nil signed-in?))
   ([state who run signed-in?]
@@ -463,7 +463,7 @@
      (not (:made? state)) :not-made
      (:everyone? state) :yes
      (not signed-in?) :may-not-see
-     :else (let [hers (grant-at state [:layer who])
+     :else (let [hers (grant-at state [:lane who])
                  runs (when run (grant-at state [:run run]))]
              (if (or (and hers (alive? state (:n hers)))
                      (and runs (= who (:holder runs)) (alive? state (:n runs))))
@@ -473,7 +473,7 @@
 (defn ends-as-holder?
   "True when the statements take this end only because the act's who is the
   holder of the permission that it ends, and her act is under her
-  permission for the layer (R5): she is not its giver and not above it."
+  permission for the lane (R5): she is not its giver and not above it."
   [state thing fact]
   (let [kind (permission-keys (:k fact))
         there (when (and kind (nil? (:v fact))) (grant-at state [kind (:e fact)]))
@@ -497,7 +497,7 @@
       :else (recur (above p)))))
 
 (defn summary
-  "For a trace: what stands in the layer now, by place."
+  "For a trace: what stands in the lane now, by place."
   [state]
   (into (sorted-map-by #(compare (pr-str %1) (pr-str %2)))
         (keep (fn [[place n]]

@@ -1,5 +1,5 @@
 (ns piece3-statements.statements
-  "Plain-code statements of what must hold of a layer's line and of the read
+  "Plain-code statements of what must hold of a lane's line and of the read
   by stamp, derived from `store-piece-3/SPEC.md` (which governs) and
   `IMPLICIT_SPEC.md` alone, together with Sid's call of 22 November 2026:
 
@@ -42,45 +42,45 @@
         whole above 256 KiB.
 
     S1  :default-members-including-base
-        With no fact under :softland.store/who-may-read-acts, every layer —
+        With no fact under :softland.store/who-may-read-acts, every lane —
         the base included — reads as :members.
     S2  :only-first-holder-writes-acts-setting
-        Only an act under the layer's first permission writes
+        Only an act under the lane's first permission writes
         :softland.store/who-may-read-acts; a given permission is refused
         :only-the-first-holder-writes-a-setting.
     S3  :acts-setting-shape-and-entity
         :softland.store/who-may-read-acts accepts only :members or :everyone
-        on the layer's own entity, cannot be retracted, and cannot be marked.
+        on the lane's own entity, cannot be retracted, and cannot be marked.
     S4  :acts-setting-retroactive
         Changing :softland.store/who-may-read-acts governs the entire line
         from stamp 0 onward.
 
     R1  :holder-reads-all
-        A holder of a standing layer permission (:see or :see-and-act) or of
+        A holder of a standing lane permission (:see or :see-and-act) or of
         a standing run-permission for the query's :session gets L's
         last-stamp and every decision whole (or :too-large when over byte
         bounds); an act-permission grants no reading.
     R2  :ended-or-above-ended-loses-holder
         Once a permission or any permission above it in its chain no longer
         stands, the asker gets nothing whole on a holder's ground.
-    R3  :open-layer-visitor-members-setting
-        In an :everyone layer whose acts setting is :members, a visitor gets
+    R3  :open-lane-visitor-members-setting
+        In an :everyone lane whose acts setting is :members, a visitor gets
         last-stamp and consecutive stamps: a signed-in visitor gets her own
         usable-:who decisions whole/:too-large and every other :withheld
         (:stamp alone — no act-id, no answer, no thing, no :too-large); an
         unsigned-in visitor gets every decision :withheld.
-    R4  :open-layer-visitor-everyone-setting
-        In an :everyone layer whose acts setting is :everyone, any visitor
+    R4  :open-lane-visitor-everyone-setting
+        In an :everyone lane whose acts setting is :everyone, any visitor
         (signed in or :not-signed-in) gets last-stamp and every decision
         whole/:too-large.
-    R5  :closed-layer-own-things-and-left-out
-        In a made :members layer where the asker has no standing permission,
+    R5  :closed-lane-own-things-and-left-out
+        In a made :members lane where the asker has no standing permission,
         L is left out (:may-not-see) with no last-stamp; a signed-in asker
         gets her own usable-:who decisions whole/:too-large (with gaps where
         others' stamps sit) and nothing of any other stamp; an unsigned-in
         asker gets no decisions.
-    R6  :unmade-layer-own-refusals-and-not-made
-        In a layer that is not made, L is left out (:not-made) with no
+    R6  :unmade-lane-own-refusals-and-not-made
+        In a lane that is not made, L is left out (:not-made) with no
         last-stamp; a signed-in asker gets her own usable-:who refused
         decisions whole/:too-large, and nobody else gets anything.
     R7  :raw-who-safety
@@ -153,8 +153,8 @@
                (catch Throwable _ nil))]
     (when (usable-id? w) w)))
 
-(defn depot-at-making [layer]
-  (if (= :base layer) :microbatch :streaming))
+(defn depot-at-making [lane]
+  (if (= :base lane) :microbatch :streaming))
 
 (defn utf8-len ^long [^String s]
   (let [n (.length s)]
@@ -329,7 +329,7 @@
                (:standing :declaration) (<= (long thing-bytes) max-no-standing-or-declaration-bytes))))
 
 (defn permission-stands?
-  "Plain-code statement of Piece 1's `stands?` on a layer's current permission
+  "Plain-code statement of Piece 1's `stands?` on a lane's current permission
   places (`{place-id {:perm p :stamp s}}`, nil/absent when ended or empty)."
   [perm-places perm]
   (let [covers (when (= 6 (count perm)) (nth perm 5))
@@ -355,7 +355,7 @@
 
 (defn holder-for-read?
   "SPEC.md ('After piece 2'): an asker holds a permission that stands in a
-  made layer iff her layer permission stands OR she asks in `:session` and
+  made lane iff her lane permission stands OR she asks in `:session` and
   that run's permission stands and names her as its holder. An act-permission
   grants no reading."
   [{:keys [made? perm-places]} asker session]
@@ -371,23 +371,23 @@
              false))))
 
 (defn asker-role
-  "Classifies how `(asker, not-signed-in, session)` meets `layer-state` under
-  SPEC.md (which governs over IMPLICIT_SPEC.md on closed and unmade layers):
-    `:not-made`      — layer not made: left-out `:not-made`, no last-stamp,
+  "Classifies how `(asker, not-signed-in, session)` meets `lane-state` under
+  SPEC.md (which governs over IMPLICIT_SPEC.md on closed and unmade lanes):
+    `:not-made`      — lane not made: left-out `:not-made`, no last-stamp,
                        signed-in asker still gets her own usable-:who refusals
-    `:may-not-see`   — made `:members` layer, asker is no holder: left-out
+    `:may-not-see`   — made `:members` lane, asker is no holder: left-out
                        `:may-not-see`, no last-stamp, signed-in asker still
                        gets her own usable-:who decisions
-    `:all-whole`     — holder, OR open layer (`who-may-see == :everyone`) with
+    `:all-whole`     — holder, OR open lane (`who-may-see == :everyone`) with
                        `who-may-read-acts == :everyone`
-    `:visitor-own`   — open layer with `who-may-read-acts == :members`:
+    `:visitor-own`   — open lane with `who-may-read-acts == :members`:
                        consecutive stamps, own usable-:who whole/:too-large,
                        all others `:withheld`"
-  [{:keys [made? who-may-see who-may-read-acts] :as layer-state}
+  [{:keys [made? who-may-see who-may-read-acts] :as lane-state}
    {:keys [asker session]}]
   (cond
     (not made?) :not-made
-    (holder-for-read? layer-state asker session) :all-whole
+    (holder-for-read? lane-state asker session) :all-whole
     (= :everyone who-may-see)
     (if (= :everyone who-may-read-acts) :all-whole :visitor-own)
     :else :may-not-see))
@@ -420,8 +420,8 @@
 ;; --------------------------------------------- Checking a read response
 
 (defn valid-read-request?
-  [{:keys [layer start max-count max-bytes asker not-signed-in session]}]
-  (and (usable-id? layer)
+  [{:keys [lane start max-count max-bytes asker not-signed-in session]}]
+  (and (usable-id? lane)
        (int? start) (<= 0 (long start))
        (int? max-count) (pos? (long max-count))
        (or (nil? max-bytes) (and (int? max-bytes) (pos? (long max-bytes))))
@@ -443,7 +443,7 @@
       (not= :withheld (:status actual))
       {:statement (if (= :accepted (get-in decided-map [:answer :verdict]))
                     :R3/visitor-reads-taken-act-whole
-                    :R3/open-layer-visitor-members-setting)
+                    :R3/open-lane-visitor-members-setting)
        :detail (str "Decision at stamp " (:stamp expected) " must be :withheld, got " (pr-str actual))}
 
       (not= #{:stamp :status} (set (keys actual)))
@@ -493,10 +493,10 @@
     :else nil))
 
 (defn check-single-page
-  "Holds one read response `resp` against `layer-state` and `req` (`{:layer
+  "Holds one read response `resp` against `lane-state` and `req` (`{:lane
   :start :max-count :max-bytes :asker :not-signed-in :session}`). Returns nil
   when every statement holds, or `{:statement kw :detail str}`."
-  [layer-state {:keys [start max-count max-bytes asker] :as req} resp]
+  [lane-state {:keys [start max-count max-bytes asker] :as req} resp]
   (if-not (valid-read-request? req)
     (when-not (and (map? resp) (:could-not resp))
       {:statement :R10/bad-query-refused-cleanly
@@ -504,8 +504,8 @@
     (if (or (not (map? resp)) (:could-not resp))
       {:statement :R10/bad-query-refused-cleanly
        :detail (str "Valid read request " (pr-str req) " failed: " (pr-str resp))}
-      (let [role (asker-role layer-state req)
-            decisions (:decisions layer-state)
+      (let [role (asker-role lane-state req)
+            decisions (:decisions lane-state)
             true-last (when (seq decisions) (dec (count decisions)))
             eff-max-bytes (or max-bytes Long/MAX_VALUE)
             expected-all (->> decisions
@@ -519,19 +519,19 @@
           (cond
             (not= role (:left-out resp))
             {:statement (if (= :not-made role)
-                          :R6/unmade-layer-own-refusals-and-not-made
-                          :R5/closed-layer-own-things-and-left-out)
+                          :R6/unmade-lane-own-refusals-and-not-made
+                          :R5/closed-lane-own-things-and-left-out)
              :detail (str "Expected :left-out " role ", got " (pr-str (:left-out resp)))}
 
             (some? (:last-stamp resp))
-            {:statement :R5/closed-layer-leaks-last-stamp
-             :detail (str "Left-out layer (" role ") leaked :last-stamp " (:last-stamp resp))}
+            {:statement :R5/closed-lane-leaks-last-stamp
+             :detail (str "Left-out lane (" role ") leaked :last-stamp " (:last-stamp resp))}
 
             :else nil)
 
           (some? (:left-out resp))
           {:statement :R1/holder-reads-all
-           :detail (str "Asker with role " role " saw layer left out: " (pr-str resp))}
+           :detail (str "Asker with role " role " saw lane left out: " (pr-str resp))}
 
           (not= true-last (:last-stamp resp))
           {:statement :L4/consecutive-stamps-from-zero
@@ -542,11 +542,11 @@
 (defn check-page-entries-and-bounds
   "Checks the entries, count bound, byte bound, consecutiveness, and
   `next-stamp` of a valid single-page response `resp`."
-  [layer-state {:keys [start max-count max-bytes asker] :as req} resp]
-  (or (check-single-page layer-state req resp)
+  [lane-state {:keys [start max-count max-bytes asker] :as req} resp]
+  (or (check-single-page lane-state req resp)
       (when (valid-read-request? req)
-        (let [role (asker-role layer-state req)
-              decisions (:decisions layer-state)
+        (let [role (asker-role lane-state req)
+              decisions (:decisions lane-state)
               eff-max-bytes (or max-bytes Long/MAX_VALUE)
               expected-all (->> decisions
                                 (drop start)
@@ -568,8 +568,8 @@
              :detail (str "Returned whole bytes " bytes-returned " > max-bytes " eff-max-bytes)}
 
             ;; When expected-all is non-empty, a page must make progress!
-            ;; Either it returns >= 1 entry, or (for a closed/unmade layer that pages in chunks)
-            ;; advances `next-stamp > start`. For an asker who sees the layer (`:all-whole` or
+            ;; Either it returns >= 1 entry, or (for a closed/unmade lane that pages in chunks)
+            ;; advances `next-stamp > start`. For an asker who sees the lane (`:all-whole` or
             ;; `:visitor-own`), if `expected-all` is non-empty, `entries` MUST be non-empty!
             (and (seq expected-all)
                  (empty? entries)
@@ -587,7 +587,7 @@
             ;; Returned entries must match the exact prefix of `expected-all`!
             (> n (count expected-all))
             {:statement (if (contains? #{:not-made :may-not-see} role)
-                          :R5/closed-layer-leaks-others
+                          :R5/closed-lane-leaks-others
                           :R9/consecutive-and-pagination)
              :detail (str "Returned " n " entries when only " (count expected-all)
                           " are visible: " (pr-str entries))}
@@ -597,14 +597,14 @@
                         (check-entry-against-expected
                          role exp act (nth decisions (:stamp exp))))
                       (map vector (take n expected-all) entries))
-                ;; Consecutive stamps for askers who see the layer
+                ;; Consecutive stamps for askers who see the lane
                 (when (and (contains? #{:all-whole :visitor-own} role) (seq entries))
                   (let [stamps (mapv :stamp entries)
                         want (vec (range start (+ start n)))]
                     (when (not= want stamps)
                       {:statement :R9/consecutive-and-pagination
                        :detail (str "Stamps not consecutive from " start ": got " stamps)})))
-                ;; next-stamp check when seeing the layer
+                ;; next-stamp check when seeing the lane
                 (when (contains? #{:all-whole :visitor-own} role)
                   (let [next-s (:next-stamp resp)]
                     (cond
@@ -622,9 +622,9 @@
   "Pages forward from `start = 0` using `read-line` with `page-size` and
   `max-bytes` until the end of the line, verifying every page and verifying
   that all pages concatenated equal the complete expected sequence for `req`."
-  [read-line layer-state {:keys [asker max-bytes] :as base-req} page-size]
-  (let [role (asker-role layer-state base-req)
-        decisions (:decisions layer-state)
+  [read-line lane-state {:keys [asker max-bytes] :as base-req} page-size]
+  (let [role (asker-role lane-state base-req)
+        decisions (:decisions lane-state)
         eff-max-bytes (or max-bytes Long/MAX_VALUE)
         expected-all (->> decisions
                           (keep #(expected-entry-for role asker eff-max-bytes %))
@@ -637,7 +637,7 @@
          :detail (str "Pagination failed to terminate after " guards " pages")}
         (let [req (assoc base-req :start cursor :max-count page-size)
               resp (read-line req)]
-          (if-let [err (check-page-entries-and-bounds layer-state req resp)]
+          (if-let [err (check-page-entries-and-bounds lane-state req resp)]
             err
             (let [entries (vec (:entries resp))
                   acc' (into acc entries)
@@ -657,8 +657,8 @@
               (if done?
                 (when (not= expected-all acc')
                   {:statement (cond
-                                (= :not-made role) :R6/unmade-layer-own-refusals-and-not-made
-                                (= :may-not-see role) :R5/closed-layer-own-things-and-left-out
+                                (= :not-made role) :R6/unmade-lane-own-refusals-and-not-made
+                                (= :may-not-see role) :R5/closed-lane-own-things-and-left-out
                                 (= :all-whole role) :R1/holder-reads-all
                                 :else :R9/consecutive-and-pagination)
                    :detail (str "Joined pages (" (count acc') " entries) != expected ("

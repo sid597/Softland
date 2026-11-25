@@ -45,7 +45,7 @@
   says, and its `:appended`.
 
   Why seven. One word names one thing that the door could not do: find the
-  module, make an act-id, read the layer's depot, read the act, add its
+  module, make an act-id, read the lane's depot, read the act, add its
   three parts, append, read the answer. With fewer words a maker would have to
   read a second word inside the first to learn what to do next. Where in
   the maker's thing the door stopped is no word of its own: it is carried
@@ -57,12 +57,12 @@
 
    :make-an-act-id
    {:from     #{:act-id-for :act-ids-for :send-act}
-    :says     "no act-id can be made for this layer, or the act-id given is not one of this layer, or the count of a series is no fixed-width integer of 1 or more"
+    :says     "no act-id can be made for this lane, or the act-id given is not one of this lane, or the count of a series is no fixed-width integer of 1 or more"
     :appended :nothing}
 
-   :read-the-layers-depot
+   :read-the-lanes-depot
    {:from     #{:act-id-for :act-ids-for :send-act}
-    :says     "the read of the layer's depot threw; a read that failed has not said that the layer is not made"
+    :says     "the read of the lane's depot threw; a read that failed has not said that the lane is not made"
     :appended :nothing}
 
    :read-the-act
@@ -91,7 +91,7 @@
   record."
   {:at     "the place in the maker's thing where the door stopped, by the thing's own part names: a part of the act, or :count for the count of a series"
    :module "the name of the module that the door was to be opened on"
-   :layer  "the layer whose depot the door could not read"
+   :lane  "the lane whose depot the door could not read"
    :act-id "the act-id of the maker's act, or of the read"
    :digest "the digest of the thing whose append threw, as hex text"
    :threw  "the name of the class of what Rama's client threw"
@@ -166,6 +166,6 @@
     :depot-holds  the microbatch depot's ack, at the ack level :append-ack:
                   the depot holds the thing. It says nothing about the
                   decision: the answer is there when the batch that decides
-                  the thing is committed on the layer's task"
+                  the thing is committed on the lane's task"
   {:streaming  :gate-ran
    :microbatch :depot-holds})

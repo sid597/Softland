@@ -38,7 +38,7 @@
 
     D1  an act through the door and a gate: one maker sends acts of one
         fact, a string of 100 bytes under a plain key, each to another place
-        of one layer, 100 a second. The streaming gate, timed to the return
+        of one lane, 100 a second. The streaming gate, timed to the return
         of `send-act`, which is the streaming depot's ack: once with the key
         not marked and once with it marked. And the base, timed to the
         moment at which the door's wait gives \"accepted\": once through a
@@ -51,7 +51,7 @@
         the lines of the base stand beside no line of that file, whose
         base gave an answer only for a closed batch
     D2  the same act sent a second time under its act-id, into a streaming
-        layer: the gate finds the answer that it gave the first time and
+        lane: the gate finds the answer that it gave the first time and
         decides nothing. One maker asks for the act-ids of a series ahead,
         sends each act under its act-id, and then sends each again; both
         sends are timed to the return of `send-act`
@@ -126,7 +126,7 @@
   the launch: the streaming gate runs one event of a task at a time. It
   calls the definition of `softland.store.module/Store` with its own
   `setup` and `topologies`. So it declares the two depots of acts as
-  `Store` does, each partitioned by the thing's `:layer`, and adds the two
+  `Store` does, each partitioned by the thing's `:lane`, and adds the two
   gates and the door's two reads by `Store`'s one call; this file writes
   none of that a second time. It has a name of its own, and a door opens on
   that name. Nothing of the store's code names the option.")
@@ -176,21 +176,21 @@
 ;; ------------------------------------------------------------- through the door
 
 (defn- send!
-  "Sends one act of a who into a layer through a door, under a permission;
+  "Sends one act of a who into a lane through a door, under a permission;
   under an act-id when one is given. Gives what `send-act` gave."
-  ([door who layer permission facts] (send! door who layer permission facts nil))
-  ([door who layer permission facts act-id]
+  ([door who lane permission facts] (send! door who lane permission facts nil))
+  ([door who lane permission facts act-id]
    (door/send-act door
-                  {:version 1 :who who :layer layer :permission permission
+                  {:version 1 :who who :lane lane :permission permission
                    :session :gate-measures :facts facts}
                   act-id)))
 
 (defn- accepted!
   "Sends one act and waits until the door's wait gives its answer. Gives
   the answer. It stops the run when the act is not accepted: the measures
-  cannot run on a layer that is not as they made it."
-  [door who layer permission facts]
-  (let [sent (send! door who layer permission facts)
+  cannot run on a lane that is not as they made it."
+  [door who lane permission facts]
+  (let [sent (send! door who lane permission facts)
         answer (when-not (:could-not sent)
                  (door/answer-of door (:act-id sent) (:digest sent) 60000))]
     (when-not (= :accepted (:answer answer))
@@ -208,11 +208,11 @@
   (accepted! door :system :base system-own [{:e :maker :k :softland.store/permission :v [:maker :base :base system-own]}]))
 
 (defn- make!
-  "Makes a streaming layer whose holder is `:maker`. Gives the maker's
+  "Makes a streaming lane whose holder is `:maker`. Gives the maker's
   permission in it."
-  [door layer]
-  (let [own [:maker layer layer]]
-    (accepted! door :maker layer own [{:e layer :k :softland.store/depot :v :streaming}
+  [door lane]
+  (let [own [:maker lane lane]]
+    (accepted! door :maker lane own [{:e lane :k :softland.store/depot :v :streaming}
                                       {:e :maker :k :softland.store/permission :v own}])
     own))
 
@@ -257,20 +257,20 @@
 ;; ------------------------------------------------------------------------ D1
 
 (defn- streaming-gate-times
-  "One maker sends acts of one fact into a streaming layer, 100 a second,
-  after acts that are not counted. Takes a door, the layer, the maker's
+  "One maker sends acts of one fact into a streaming lane, 100 a second,
+  after acts that are not counted. Takes a door, the lane, the maker's
   permission, how many acts, how many are not counted, and a function from
   the act's number to its fact. Gives {:from-due :from-call :last}: the
   times to the return of `send-act`, in nanoseconds, and the word of the
   last act's answer, read once after the last return."
-  [door layer permission n warm fact-of]
+  [door lane permission n warm fact-of]
   (dotimes [i warm]
-    (send! door :maker layer permission [(fact-of (- i warm))]))
+    (send! door :maker lane permission [(fact-of (- i warm))]))
   (let [from-due (atom []) from-call (atom []) last-sent (atom nil)]
     (paced n every-10-ms
            (fn [i due]
              (let [called (System/nanoTime)
-                   sent (send! door :maker layer permission [(fact-of i)])
+                   sent (send! door :maker lane permission [(fact-of i)])
                    returned (System/nanoTime)]
                (reset! last-sent sent)
                (when-not (:could-not sent)
@@ -292,11 +292,11 @@
   "D1, the streaming gate: once with the key not marked, once with it
   marked."
   [{:keys [door]} {:keys [acts warm]}]
-  (let [layer :d1
-        own (make! door layer)
-        plain (streaming-gate-times door layer own acts warm another-place)
-        _ (accepted! door :maker layer own [{:e layer :k :softland.store/marked-keys :v #{:text}}])
-        marked (streaming-gate-times door layer own acts warm (fn [i] (another-place (+ 50000 i))))]
+  (let [lane :d1
+        own (make! door lane)
+        plain (streaming-gate-times door lane own acts warm another-place)
+        _ (accepted! door :maker lane own [{:e lane :k :softland.store/marked-keys :v #{:text}}])
+        marked (streaming-gate-times door lane own acts warm (fn [i] (another-place (+ 50000 i))))]
     (print-streaming-shape "D1" "the key not marked" plain)
     (print-streaming-shape "D1" "the key marked, so each act also writes a row of the facts by value" marked)))
 
@@ -349,24 +349,24 @@
   digest of the first (`softland.store.door/send-act`); the door appends it
   with `:ack`, and the gate finds the answer that it gave the first time
   and decides nothing. Both sends are timed from the call of `send-act` to its
-  return. Neither reads the layer's depot, since the act-id is given: so the
+  return. Neither reads the lane's depot, since the act-id is given: so the
   first sends are not D1's shape, and they are printed to stand beside the
   second ones."
   [{:keys [door]} {:keys [again warm]}]
-  (let [layer :d2-again
-        own (make! door layer)
+  (let [lane :d2-again
+        own (make! door lane)
         fact-of (fn [i] (another-place (+ 200000 i)))
-        ids (door/act-ids-for door layer again)]
+        ids (door/act-ids-for door lane again)]
     (when (:could-not ids)
       (throw (ex-info "the measures: the door gave no act-ids for D2" {:word ids})))
     (dotimes [i warm]
-      (send! door :maker layer own [(another-place (- i warm))]))
+      (send! door :maker lane own [(another-place (- i warm))]))
     (let [round (fn []
                   (let [took (atom []) words (atom 0) last-sent (atom nil)]
                     (paced again every-10-ms
                            (fn [i _]
                              (let [called (System/nanoTime)
-                                   sent (send! door :maker layer own [(fact-of i)] (nth ids i))
+                                   sent (send! door :maker lane own [(fact-of i)] (nth ids i))
                                    returned (System/nanoTime)]
                                (reset! last-sent sent)
                                (if (:could-not sent)
@@ -375,7 +375,7 @@
                     {:took @took :words @words :last (answer-word door @last-sent)}))
           first-time (round)
           second-time (round)]
-      (measured "D2 the streaming gate, 100 acts a second, each act sent under an act-id asked for ahead, so the send reads no depot of a layer | the first send | from the call of send-act to its return:"
+      (measured "D2 the streaming gate, 100 acts a second, each act sent under an act-id asked for ahead, so the send reads no depot of a lane | the first send | from the call of send-act to its return:"
                 (times (:took first-time)) "| sends that came back with a word of the door:" (:words first-time)
                 "| the last act's answer, read once:" (pr-str (:last first-time)))
       (measured "D2 the streaming gate, the same acts sent a second time under the same act-ids, each with the door's time of its second send, appended with :ack, so the gate finds each answer there | from the call of send-act to its return:"
@@ -398,10 +398,10 @@
     (.prestartAllCoreThreads)))
 
 (defn- at-a-rate
-  "One maker sends acts of one fact into a streaming layer at a rate for
+  "One maker sends acts of one fact into a streaming lane at a rate for
   some seconds, with no wait for the one before: each send is given to a
   thread of `senders` at its due moment. Then it waits until every send has
-  returned, for 300 s at most. Takes a door, the layer, the maker's
+  returned, for 300 s at most. Takes a door, the lane, the maker's
   permission, the rate in acts a second, the seconds, and the number of the
   first act's place. Gives {:from-due :from-call :words :most-on-way
   :last-took :last :all-returned?}: the times to the return of `send-act`
@@ -410,7 +410,7 @@
   that were due and had not returned at one moment; the last act's time
   from its due moment, or nil; the word of its answer, read once after
   every send returned; and whether every send returned in the 300 s."
-  [door layer permission rate seconds first-number]
+  [door lane permission rate seconds first-number]
   (let [n (* (long rate) (long seconds))
         pool (senders)
         from-due (atom []) from-call (atom []) words (atom [])
@@ -423,7 +423,7 @@
              (.execute pool
                        (fn []
                          (let [called (System/nanoTime)
-                               sent (send! door :maker layer permission [(another-place (+ first-number i))])
+                               sent (send! door :maker lane permission [(another-place (+ first-number i))])
                                returned (System/nanoTime)]
                            (.decrementAndGet on-way)
                            (if (:could-not sent)
@@ -440,15 +440,15 @@
        :last-took @last-took :last (answer-word door @last-sent) :all-returned? all-returned?})))
 
 (defn- one-by-one
-  "One maker sends acts of one fact into a streaming layer, each when the
+  "One maker sends acts of one fact into a streaming lane, each when the
   one before is answered: it sends, reads the answer back through the door,
-  and sends the next, for some seconds. Takes a door, the layer, the maker's
+  and sends the next, for some seconds. Takes a door, the lane, the maker's
   permission, the seconds, and the number of the first act's place. Gives
   {:to-return :to-answer :other :seconds}: the times from the call of
   `send-act` to its return and to the moment at which the answer was read
   as accepted, in nanoseconds, of the accepted acts; how many acts were not
   read as accepted; and how long the sending took."
-  [door layer permission seconds first-number]
+  [door lane permission seconds first-number]
   (let [began (System/nanoTime)
         ends (+ began (* 1000000000 (long seconds)))]
     (loop [i 0 to-return [] to-answer [] other 0]
@@ -456,7 +456,7 @@
         {:to-return to-return :to-answer to-answer :other other
          :seconds (/ (double (- (System/nanoTime) began)) 1.0e9)}
         (let [called (System/nanoTime)
-              sent (send! door :maker layer permission [(another-place (+ first-number i))])
+              sent (send! door :maker lane permission [(another-place (+ first-number i))])
               returned (System/nanoTime)
               answer (when-not (:could-not sent)
                        (door/answer-of door (:act-id sent) (:digest sent) 60000))
@@ -469,12 +469,12 @@
   "D3, the most acts a second that one maker holds, in both readings, for
   one setting: the rates of `at-a-rate`, one after the other, each begun
   when every send of the one before has returned; and `one-by-one`. Takes a
-  door, a streaming layer that is made and warm, the maker's permission,
+  door, a streaming lane that is made and warm, the maker's permission,
   what the setting is, as text, and the load."
-  [door layer permission at {:keys [rates rate-seconds one-by-one-seconds]}]
+  [door lane permission at {:keys [rates rate-seconds one-by-one-seconds]}]
   (let [held (atom [])]
     (doseq [[r rate] (map-indexed vector rates)]
-      (let [got (at-a-rate door layer permission rate rate-seconds (* 1000000 (inc r)))
+      (let [got (at-a-rate door lane permission rate rate-seconds (* 1000000 (inc r)))
             in-a-second? (and (:last-took got) (<= (:last-took got) 1000000000))]
         (when in-a-second? (swap! held conj rate))
         (measured "D3 the streaming gate, the setting" at "| one maker sends" rate "acts a second for" rate-seconds
@@ -493,7 +493,7 @@
                   "| every send returned within 300 s of the last due moment:" (if (:all-returned? got) "yes" "no"))))
     (measured "D3 the streaming gate, the setting" at "| the rates of this run at which the last act was answered within a second of its due moment:"
               (pr-str @held) "of" (pr-str rates) "acts a second")
-    (let [got (one-by-one door layer permission one-by-one-seconds 9000000)
+    (let [got (one-by-one door lane permission one-by-one-seconds 9000000)
           n (count (:to-answer got))]
       (measured "D3 the streaming gate, the setting" at "| one maker sends each act when the one before is answered, for" one-by-one-seconds
                 "s: it sends, reads the answer through the door, and sends the next |" n "acts in" (ms (* 1.0e9 (:seconds got)))
@@ -503,26 +503,26 @@
       (measured "D3 the same, one by one, the setting" at "| from the call of send-act to its return:" (times (:to-return got))))))
 
 (defn- d3-default
-  "D3's half at Rama's default, in the first cluster: a streaming layer of
+  "D3's half at Rama's default, in the first cluster: a streaming lane of
   its own, warmed with acts that are not counted, and then `d3-most`."
   [{:keys [door]} {:keys [warm] :as load}]
-  (let [layer :d3
-        own (make! door layer)]
+  (let [lane :d3
+        own (make! door lane)]
     (dotimes [i warm]
-      (send! door :maker layer own [(another-place (- i warm))]))
-    (d3-most door layer own "at Rama's default" load)))
+      (send! door :maker lane own [(another-place (- i warm))]))
+    (d3-most door lane own "at Rama's default" load)))
 
 (defn- d3-at-one
   "D3's half at 1, in a cluster of its own with the module `StoreAtOne`:
-  D1's first shape, and then `d3-most` in the same layer. Takes a door that
+  D1's first shape, and then `d3-most` in the same lane. Takes a door that
   is opened on `StoreAtOne`."
   [door {:keys [acts warm] :as load}]
   (set-up! door)
-  (let [layer :d3
-        own (make! door layer)
-        plain (streaming-gate-times door layer own acts warm another-place)]
+  (let [lane :d3
+        own (make! door lane)
+        plain (streaming-gate-times door lane own acts warm another-place)]
     (print-streaming-shape "D3 the setting at 1," "the key not marked" plain)
-    (d3-most door layer own "at 1" load)))
+    (d3-most door lane own "at 1" load)))
 
 ;; ----------------------------------------------------------------------- the run
 

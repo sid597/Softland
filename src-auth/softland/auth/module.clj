@@ -41,7 +41,7 @@
             AskEvent AnswerAskEvent BeginSignInEvent CloseSessionEvent
             EndActorEvent EndSignInEvent EnterEvent IAccountState IAskState
             IClaimState IEnterOpState ILiveEntry IRootDatum InviteEvent
-            MakeActorEvent OpenSessionEvent OwnLayerMadeEvent
+            MakeActorEvent OpenSessionEvent OwnLaneMadeEvent
             ReplaceSecretEvent]))
 
 (def ^:private source-opts
@@ -357,10 +357,10 @@
     (source> *root-events source-opts :> *ev)
     (<<if (s/root-record-fits? *ev)
       (<<subsource *ev
-        (case> OwnLayerMadeEvent)
+        (case> OwnLaneMadeEvent)
         (s/k-root (get *ev :root-id) :> *rk)
         (local-select> [(keypath *rk)] $$root-data :> *r)
-        (s/own-layer-made-step *ev *r :> *act)
+        (s/own-lane-made-step *ev *r :> *act)
         (s/act-write-k *act :> *wk)
         (<<if (some? *wk)
           (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$root-data))

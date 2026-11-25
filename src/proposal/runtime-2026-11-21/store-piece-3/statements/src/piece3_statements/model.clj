@@ -50,7 +50,7 @@
         :act-id-malformed
         (not (<= (count (str (nth act-id 0))) st/max-id-text)) :id-too-long
         (not= gate-depot (nth act-id 1)) :act-id-of-the-other-gate
-        (not= (nth act-id 0) (get thing :layer)) :act-id-of-another-layer
+        (not= (nth act-id 0) (get thing :lane)) :act-id-of-another-lane
         :else nil))
     (catch Throwable _ :no-act-id)))
 
@@ -97,7 +97,7 @@
        (<= 0 (long (nth x 1)))))
 
 (def allowed-act-keys
-  #{:act-id :depot :door-time :version :who :layer :permission :session
+  #{:act-id :depot :door-time :version :who :lane :permission :session
     :based-on :because-of :claimed-when :subjects :facts})
 
 (def allowed-fact-keys
@@ -115,7 +115,7 @@
       (not (and (int? (:door-time thing)) (<= 0 (long (:door-time thing))))) {:refuse :no-door-time}
       (not= 1 (:version thing)) {:refuse :unknown-version}
       (not (st/usable-id? (:who thing))) {:refuse :malformed}
-      (not (st/usable-id? (:layer thing))) {:refuse :malformed}
+      (not (st/usable-id? (:lane thing))) {:refuse :malformed}
       (nil? (:permission thing)) {:refuse :no-permission}
       (not (valid-perm-id? (:permission thing))) {:refuse :malformed}
       (nil? (:session thing)) {:refuse :no-session}
@@ -144,7 +144,7 @@
                    (:facts thing)))
       {:refuse :malformed}
       ;; Rules
-      (not= (:layer thing) (nth (:permission thing) 1)) {:refuse :permission-not-in-layer}
+      (not= (:lane thing) (nth (:permission thing) 1)) {:refuse :permission-not-in-lane}
       (not= (:depot thing) (nth (:act-id thing) 1)) {:refuse :depot-not-the-act-ids-depot}
       (> (count (:facts thing)) max-facts) {:refuse :too-many-facts}
       (> (count (or (:based-on thing) {})) 1024) {:refuse :too-many-based-on}
@@ -224,19 +224,19 @@
 ;; ---------------------------------------------- Gate standing & places
 
 (defn making-act? [gate-depot act]
-  (let [layer (:layer act)
+  (let [lane (:lane act)
         who (:who act)
-        perm [who layer layer]
+        perm [who lane lane]
         facts (vec (:facts act))]
-    (and (= gate-depot (st/depot-at-making layer))
+    (and (= gate-depot (st/depot-at-making lane))
          (= perm (:permission act))
          (= 2 (count facts))
          (every? #(nil? (:replaces %)) facts)
-         (= {:e layer :k :softland.store/depot :v gate-depot}
+         (= {:e lane :k :softland.store/depot :v gate-depot}
             (select-keys (nth facts 0) [:e :k :v]))
          (= {:e who :k :softland.store/permission :v perm}
             (select-keys (nth facts 1) [:e :k :v]))
-         (or (not= :base layer) (= :system who)))))
+         (or (not= :base lane) (= :system who)))))
 
 (defn perm-place-id [perm]
   (let [cov (perm-covers perm)]
@@ -245,13 +245,13 @@
       :act [:act (second cov)]
       [:holder (nth perm 0)])))
 
-(defn check-standing [gate-depot layer-state act raw-thing]
+(defn check-standing [gate-depot lane-state act raw-thing]
   (let [perm (:permission act)
         [ckind cwhat chex] (perm-covers perm)
         p-id (perm-place-id perm)
-        cur (get-in layer-state [:perm-places p-id])
-        ended-set (get layer-state :ended-perm-places #{})
-        made? (:made? layer-state)]
+        cur (get-in lane-state [:perm-places p-id])
+        ended-set (get lane-state :ended-perm-places #{})
+        made? (:made? lane-state)]
     (cond
       (and cur (= perm (:perm cur)))
       (cond
@@ -261,7 +261,7 @@
         (and (= :act ckind)
              (not= chex (st/digest-hex (dissoc raw-thing :permission))))
         :act-not-the-one-permitted
-        (not (st/permission-stands? (:perm-places layer-state) perm)) :permission-above-ended
+        (not (st/permission-stands? (:perm-places lane-state) perm)) :permission-above-ended
         (= :see (perm-allows perm)) :permission-does-not-allow-acting
         :else nil)
 
@@ -271,14 +271,14 @@
         (and (nil? cur) (contains? ended-set p-id)) :permission-ended
         :else :permission-does-not-stand)
 
-      (not= gate-depot (st/depot-at-making (:layer act)))
-      :layer-belongs-to-the-other-gate
+      (not= gate-depot (st/depot-at-making (:lane act)))
+      :lane-belongs-to-the-other-gate
 
       (making-act? gate-depot act)
       nil
 
       :else
-      :layer-not-made)))
+      :lane-not-made)))
 
 (defn above-in-chain? [upper lower]
   (loop [p (when (>= (count lower) 4) (nth lower 3))]
@@ -287,11 +287,11 @@
       (= p upper) true
       :else (recur (when (>= (count p) 4) (nth p 3))))))
 
-(defn check-places [gate-depot layer-state act makes-layer?]
-  (let [layer (:layer act)
+(defn check-places [gate-depot lane-state act makes-lane?]
+  (let [lane (:lane act)
         facts (vec (:facts act))
-        facts-map (:facts layer-state {})
-        perm-places (:perm-places layer-state {})]
+        facts-map (:facts lane-state {})
+        perm-places (:perm-places lane-state {})]
     (or ;; (e) replaces
         (some (fn [f]
                 (when-let [rep (:replaces f)]
@@ -299,21 +299,21 @@
                     (when-not (and cur (= rep (:fact-id cur)))
                       :replaced-fact-not-current))))
               facts)
-        ;; (f) setting on layer entity
+        ;; (f) setting on lane entity
         (some (fn [f]
                 (when (and (get-in store-keys [(:k f) :setting])
-                           (not= (:e f) layer))
-                  :setting-not-on-the-layer))
+                           (not= (:e f) lane))
+                  :setting-not-on-the-lane))
               facts)
-        (when-not makes-layer?
+        (when-not makes-lane?
           (or ;; (g) permission give shape
               (some (fn [f]
                       (let [given (:v f)]
                         (when (and (contains? permission-keys (:k f)) (some? given))
                           (cond
-                            (some? (perm-covers (:permission act))) :only-a-permission-for-the-layer-gives
-                            (not= layer (nth given 1)) :permission-fact-for-another-layer
-                            (not= layer (nth given 2)) :permission-fact-granted-in-another-layer
+                            (some? (perm-covers (:permission act))) :only-a-permission-for-the-lane-gives
+                            (not= lane (nth given 1)) :permission-fact-for-another-lane
+                            (not= lane (nth given 2)) :permission-fact-granted-in-another-lane
                             (not= (:permission act) (nth given 3 nil)) :permission-fact-not-beneath-the-acts-own))))
                     facts)
               ;; who-may-write-fault
@@ -359,10 +359,10 @@
                           :else nil)))
                     facts))))))
 
-(defn empty-layer-state [layer]
-  {:layer layer
+(defn empty-lane-state [lane]
+  {:lane lane
    :made? false
-   :who-may-see (if (= :base layer) :everyone :members)
+   :who-may-see (if (= :base lane) :everyone :members)
    :who-may-read-acts :members
    :perm-places {}
    :ended-perm-places #{}
@@ -370,8 +370,8 @@
    :answers {}
    :decisions []})
 
-(defn- apply-accepted-facts [layer-state act stamp]
-  (let [layer (:layer act)
+(defn- apply-accepted-facts [lane-state act stamp]
+  (let [lane (:lane act)
         act-id (:act-id act)]
     (reduce (fn [ls [idx f]]
               (let [e (:e f)
@@ -402,7 +402,7 @@
                           (update :ended-perm-places disj p-id))))
 
                   :else ls1)))
-            layer-state
+            lane-state
             (map-indexed vector (:facts act)))))
 
 ;; ---------------------------------------------- Model instance & hooks
@@ -417,12 +417,12 @@
          state (atom {:gates {:streaming {} :microbatch {}}
                       :strays {:streaming #{} :microbatch #{}}
                       :clock 1700000000000})
-         ensure-layer (fn [st gate layer]
-                        (if (get-in st [:gates gate layer])
+         ensure-lane (fn [st gate lane]
+                        (if (get-in st [:gates gate lane])
                           st
-                          (assoc-in st [:gates gate layer]
-                                    (assoc (empty-layer-state layer)
-                                           :who-may-read-acts (default-acts-setting layer)))))
+                          (assoc-in st [:gates gate lane]
+                                    (assoc (empty-lane-state lane)
+                                           :who-may-read-acts (default-acts-setting lane)))))
          append-to-gate!
          (fn [gate-depot raw-thing]
            (swap! state
@@ -431,17 +431,17 @@
                       (if (and stray (not (:stray-gets-stamp? hooks)))
                         (update-in st [:strays gate-depot] conj (st/digest-hex raw-thing))
                         (let [act-id (if stray
-                                       [(or (and (st/plain-map? raw-thing) (:layer raw-thing)) :stray-layer)
+                                       [(or (and (st/plain-map? raw-thing) (:lane raw-thing)) :stray-lane)
                                         gate-depot
                                         (UUID/randomUUID)]
                                        (:act-id raw-thing))
-                              [layer _ uuid] act-id
-                              st1 (ensure-layer st gate-depot layer)
-                              ls (get-in st1 [:gates gate-depot layer])]
+                              [lane _ uuid] act-id
+                              st1 (ensure-lane st gate-depot lane)
+                              ls (get-in st1 [:gates gate-depot lane])]
                           (if-let [prev-ans (get-in ls [:answers uuid])]
                             (if (:resend-overwrites-thing? hooks)
                               (let [s (:stamp prev-ans)]
-                                (assoc-in st1 [:gates gate-depot layer :decisions s :thing] raw-thing))
+                                (assoc-in st1 [:gates gate-depot lane :decisions s :thing] raw-thing))
                               st1)
                             (let [stamp (count (:decisions ls))
                                   t (st/usable-time raw-thing)
@@ -492,15 +492,15 @@
                                   ls-final (-> ls-after
                                                (assoc-in [:answers uuid] ans)
                                                (update :decisions conj decision))]
-                              (assoc-in st1 [:gates gate-depot layer] ls-final)))))))))
+                              (assoc-in st1 [:gates gate-depot lane] ls-final)))))))))
          next-time! (fn [] (:clock (swap! state update :clock + 10)))]
      {:state state
 
       :act-id-for
-      (fn [layer]
-        (if-not (st/usable-id? layer)
-          {:could-not :make-an-act-id :at :layer}
-          [layer (st/depot-at-making layer) (UUID/randomUUID)]))
+      (fn [lane]
+        (if-not (st/usable-id? lane)
+          {:could-not :make-an-act-id :at :lane}
+          [lane (st/depot-at-making lane) (UUID/randomUUID)]))
 
       :append-raw!
       (fn [depot raw-thing]
@@ -512,9 +512,9 @@
         (cond
           (not (st/plain-map? maker-act)) {:could-not :read-the-act}
           (some #(contains? maker-act %) [:act-id :depot :door-time]) {:could-not :add-its-parts}
-          (not (st/usable-id? (:layer maker-act))) {:could-not :make-an-act-id :at :layer}
+          (not (st/usable-id? (:lane maker-act))) {:could-not :make-an-act-id :at :lane}
           :else
-          (let [aid (or act-id [(:layer maker-act) (st/depot-at-making (:layer maker-act)) (UUID/randomUUID)])
+          (let [aid (or act-id [(:lane maker-act) (st/depot-at-making (:lane maker-act)) (UUID/randomUUID)])
                 depot (nth aid 1)
                 thing (assoc maker-act :act-id aid :depot depot :door-time (next-time!))
                 dig (st/digest-hex thing)]
@@ -525,8 +525,8 @@
       (fn [act-id digest]
         (if-not (valid-act-id? act-id)
           {:answer :nothing-yet}
-          (let [[layer depot uuid] act-id
-                ans (get-in @state [:gates depot layer :answers uuid])]
+          (let [[lane depot uuid] act-id
+                ans (get-in @state [:gates depot lane :answers uuid])]
             (cond
               (nil? ans) {:answer :nothing-yet}
               (not= digest (:digest ans)) {:answer :not-mine}
@@ -538,16 +538,16 @@
                 (some? (:time ans)) (assoc :time (:time ans)))))))
 
       :read-line
-      (fn [{:keys [layer start max-count max-bytes asker not-signed-in session] :as req}]
+      (fn [{:keys [lane start max-count max-bytes asker not-signed-in session] :as req}]
         (if-not (st/valid-read-request? req)
           {:could-not :read-the-query}
-          (let [own-gate (st/depot-at-making layer)
+          (let [own-gate (st/depot-at-making lane)
                 other-gate (if (= :microbatch own-gate) :streaming :microbatch)
-                ls0 (or (get-in @state [:gates own-gate layer])
-                        (assoc (empty-layer-state layer)
-                               :who-may-read-acts (default-acts-setting layer)))
+                ls0 (or (get-in @state [:gates own-gate lane])
+                        (assoc (empty-lane-state lane)
+                               :who-may-read-acts (default-acts-setting lane)))
                 ls (if (:other-gate-mixed-in? hooks)
-                     (let [other-decs (get-in @state [:gates other-gate layer :decisions] [])]
+                     (let [other-decs (get-in @state [:gates other-gate lane :decisions] [])]
                        (update ls0 :decisions
                                (fn [ds]
                                  (vec (map-indexed (fn [i d]
@@ -567,8 +567,8 @@
                                   (:perm-places ls)))
                        :all-whole
 
-                       ;; Hook: open layer skips reading asker's permission
-                       (and (:open-layer-skips-permission? hooks)
+                       ;; Hook: open lane skips reading asker's permission
+                       (and (:open-lane-skips-permission? hooks)
                             (= :everyone (:who-may-see ls)))
                        (if (= :everyone (:who-may-read-acts ls)) :all-whole :visitor-own)
 
@@ -583,7 +583,7 @@
                 decisions (:decisions ls)
                 true-last (when (seq decisions) (dec (count decisions)))]
             (if (and (contains? #{:not-made :may-not-see} role)
-                     (:closed-layer-hides-own-things? hooks))
+                     (:closed-lane-hides-own-things? hooks))
               {:left-out role :last-stamp nil :next-stamp nil :entries []}
               (let [candidates
                     (->> decisions
@@ -596,9 +596,9 @@
                                         (= :accepted (get-in d [:answer :verdict])))
                                    (st/expected-entry-for :all-whole asker eff-max-bytes d)
 
-                                   ;; Hook: closed layer leaks withheld stamps of others
+                                   ;; Hook: closed lane leaks withheld stamps of others
                                    (and (= :may-not-see role)
-                                        (:closed-layer-leaks-stamps? hooks))
+                                        (:closed-lane-leaks-stamps? hooks))
                                    (or (st/expected-entry-for role asker eff-max-bytes d)
                                        {:stamp (:stamp d) :status :withheld})
 
@@ -634,7 +634,7 @@
                              :else nil)]
                 {:left-out (when (contains? #{:not-made :may-not-see} role) role)
                  :last-stamp (if (contains? #{:not-made :may-not-see} role)
-                               (when (:closed-layer-leaks-stamps? hooks) true-last)
+                               (when (:closed-lane-leaks-stamps? hooks) true-last)
                                true-last)
                  :next-stamp next-s
                  :entries page-entries})))))})))

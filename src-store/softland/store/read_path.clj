@@ -1,6 +1,6 @@
 ;; Before changing this file, read the plan of this part again:
 ;; src/proposal/backend-on-rama-2026-10-02/reads/PLAN-read-path.md
-;; and, for where a microbatch layer is read, the section "The read path" of
+;; and, for where a microbatch lane is read, the section "The read path" of
 ;; src/proposal/backend-on-rama-2026-10-02/run-again/PLAN-the-bases-gate.md
 ;; and the rulings that came after its check, which the plan does not hold:
 ;; 78 and 80; and 86, 87, 89 and 91, which the review of the whole built
@@ -19,12 +19,12 @@
   A caller hands the read path a query written as data
   (`softland.store.read-path.query`): a place; an entity, or a run of
   neighbouring places; what points at a thing; with who asks, and a list of
-  layers or a layer to take the list from. The read path reads whether the
-  asker may see each layer, reads each layer that she may see, and puts the
-  layers together: for each place the nearest layer that holds a fact wins.
+  lanes or a lane to take the list from. The read path reads whether the
+  asker may see each lane, reads each lane that she may see, and puts the
+  lanes together: for each place the nearest lane that holds a fact wins.
   It reads the gates' four tables of facts straight; no query of the store
-  stands between. A query can also ask for one layer's acts by stamp
-  (`:acts`): the read path then reads that layer's line, its things and its
+  stands between. A query can also ask for one lane's acts by stamp
+  (`:acts`): the read path then reads that lane's line, its things and its
   gate's table for a task, as straight, and puts the answer together with
   `softland.store.read-path.acts`, which holds the one rule of who reads a
   decision whole. That read is asked once, and is not kept live.
@@ -67,7 +67,7 @@
   `path-of` builds from texts of `softland.store.record.rows`. No caller
   gives a path, a table or a routing id. So the read path never opens a
   push on a whole table: the widest thing that a query can name is the
-  whole of one layer, which is a run. Rama does not refuse a path that it
+  whole of one lane, which is a run. Rama does not refuse a path that it
   cannot serve cleanly (one such select stopped a worker of the in-process
   cluster, in a probe of this build's plan), so the read path sends no
   other form. A run is read whole only after a bounded read has shown that
@@ -78,8 +78,8 @@
   wrote the fact, the permission that its act named. A caller is handed who
   wrote a fact, or the permission, only when her query asked for it
   (`softland.store.read-path.answer/place-answer`). A read asked once reads
-  a layer's fact in the same call as its rights, so the runtime can read
-  one row, or the first places of a run, of a layer that the asker may then
+  a lane's fact in the same call as its rights, so the runtime can read
+  one row, or the first places of a run, of a lane that the asker may then
   not see; they are dropped, and nothing of them is handed over. Each
   program that can open Rama's ports is trusted with the whole store
   (src-store/README.md, decisions of 11 and 12 October 2026, entry 4).
@@ -87,7 +87,7 @@
   State. The read path owns no durable state, and it writes nothing: it
   appends to no depot and keeps no record of who read what. An opened read
   path borrows ten handles of Rama's client: the tables of facts and of
-  facts by value of both gates, and, for a read of a layer's acts, each
+  facts by value of both gates, and, for a read of a lane's acts, each
   gate's line, its things and its table for a task. The opener owns the
   cluster handle, and nothing closes the read path. It holds its nine
   numbers, fixed at the opening. Its one memory is `held`, an atom of three maps, in the memory of
@@ -102,27 +102,27 @@
     :reads   a read's id -> its query, its function, its turn, the set of
              the sources that it holds, whether it is opened, and its mark:
              whether the whole answer is owed, or what its asker was told
-             of each layer and which layers wait
+             of each lane and which lanes wait
 
   That is who looks at what, what each asked for, the pushes with a count
   of them, and one mark for each read. It holds no row, no value and no
-  place-answer; of an answer, the mark holds what it said of each layer,
+  place-answer; of an answer, the mark holds what it said of each lane,
   seen or left out and why, and nothing more.
   The values are in Rama's pushes and nowhere else: each holds the current
   value of its path, and Rama keeps it level (Sid, 11 October 2026: \"i
   also don't consider it a cache\"). What a live read gives is worked out
   at each change, from the values that the pushes hold at that moment, for
   the places that the change names. A read's mark is true while the whole
-  answer is owed; else it is what its asker was last told of each layer, seen
-  or left out and why, and the layers that wait, and no value of the tables:
+  answer is owed; else it is what its asker was last told of each lane, seen
+  or left out and why, and the lanes that wait, and no value of the tables:
   one step sets it to true when it finds that what shapes the read changed,
   the step that gives the whole answer makes it again from that answer, and
   `read-live` makes it from the first answer
-  (`softland.store.read-path.answer/mark-of`). A layer waits when she was
+  (`softland.store.read-path.answer/mark-of`). A lane waits when she was
   told that she may not see it and a change of her rights there leaves her
   standing not known yet: whether she is owed anything is said when its
   rows are given (`softland.store.read-path.answer/after-change`). So the
-  read path holds, of what it told an asker, the standing of each layer and
+  read path holds, of what it told an asker, the standing of each lane and
   nothing of its facts. A read asked once holds what it fetched until it
   returns, and it fetches every source from the tables by a select of its
   own: it takes no value of a push, also where a live read holds one open
@@ -194,11 +194,11 @@
   1,000 pushes opened on one table on one task, the next one was refused,
   and a push that was closed made room for one more; and Rama refuses one
   opening at a time, so a read that asked for about 10,000 pushes was
-  turned away only after seconds. A streaming layer is whole on one task,
+  turned away only after seconds. A streaming lane is whole on one task,
   so every live read through it, of every asker, counts toward that one
-  bound, and so do the other layers of that task. A microbatch layer is
+  bound, and so do the other lanes of that task. A microbatch lane is
   whole on every task, and a read holds its pushes on the task of the
-  read's home; so the live reads of that layer are spread over the tasks as
+  read's home; so the live reads of that lane are spread over the tasks as
   their homes are, and on one task its table counts the pushes of every
   home that Rama puts there.
 
@@ -211,20 +211,20 @@
   earlier rounds are left. An open read that comes to need such a push
   ends, with `:no-room-for-a-push-it-came-to-need`. A read asked once
   opens no push and is not held to the bound. And one read of what points
-  at a thing, kept live, may need 250 checks of nearer layers, each of
+  at a thing, kept live, may need 250 checks of nearer lanes, each of
   them a push (`:max-checks-of-one-live-read`); a read that needs more is
   turned away with `:serve-a-read-that-large` before one check is opened.
 
-  What the count bounds. For a streaming layer the routing id is the
-  layer, so the count is of every push of every asker through that layer.
-  For a microbatch layer the routing id is the home of the read
+  What the count bounds. For a streaming lane the routing id is the
+  lane, so the count is of every push of every asker through that lane.
+  For a microbatch lane the routing id is the home of the read
   (`softland.store.read-path.sources`), so the count is of the pushes that
   the askers of one home hold on one table of the microbatch gate: the 900
-  bounds what the reads that start from one layer hold on the base, and
+  bounds what the reads that start from one lane hold on the base, and
   not what all reads hold on the base.
 
   What that bound does not reach. It counts by routing id, since Rama's
-  client does not say which task a routing id is on: two streaming layers
+  client does not say which task a routing id is on: two streaming lanes
   that Rama puts on one task are counted apart, and so are two homes on one
   task, whose pushes on the base are on one table of that task. A live read
   of the base holds two pushes at least on the base's facts under its home,
@@ -250,21 +250,21 @@
   come a second time with the answer that it already had; it never comes
   with an answer that is older than one that came before.
 
-  A microbatch layer. A layer's gate is the depot that it starts with
-  (`softland.store.gate.first-act/depot-at-making`). In a streaming layer
-  every row is on the layer's task. In a microbatch layer every row of the
+  A microbatch lane. A lane's gate is the depot that it starts with
+  (`softland.store.gate.first-act/depot-at-making`). In a streaming lane
+  every row is on the lane's task. In a microbatch lane every row of the
   facts, and of the facts by value, is on every task, the same rows
-  everywhere: its gate decides an act on the layer's task and writes the
-  rows of an accept on each task. So a read of such a layer needs one task,
-  and the read path reads it on the task of the read's home, the layer that
-  the read starts from: an asker reads the base where her own layer lives,
+  everywhere: its gate decides an act on the lane's task and writes the
+  rows of an accept on each task. So a read of such a lane needs one task,
+  and the read path reads it on the task of the read's home, the lane that
+  the read starts from: an asker reads the base where her own lane lives,
   and a read that starts from the base reads it on the base's own task
-  (`softland.store.read-path.sources`, \"Where a layer is read\"). A run
+  (`softland.store.read-path.sources`, \"Where a lane is read\"). A run
   across entities, and a run of the facts by value, come whole from that
-  one task. A row of a microbatch layer is read straight, as a row of a
-  streaming layer is, and nothing of a batch is read: a second attempt of a
+  one task. A row of a microbatch lane is read straight, as a row of a
+  streaming lane is, and nothing of a batch is read: a second attempt of a
   batch writes the same row again, and a push that calls back with a row
-  that is the same tells an asker nothing. The layers of one read are read
+  that is the same tells an asker nothing. The lanes of one read are read
   at moments that differ, and two tasks show one batch at two instants
   (read in Rama's page on microbatch topologies), so two askers with two
   homes can be told of one act of the base at two instants; nothing lines
@@ -377,7 +377,7 @@
     :live   16. A live read opens within 8 rounds on tables that do not
             change while it opens, and is given 8 more for writes that make
             a part of it wanted anew while it opens: a list that gains a
-            layer asks 5. A step of an opened read (`settle!`) is held to
+            lane asks 5. A step of an opened read (`settle!`) is held to
             the same number, and a step that meets it ends its read
 
   The 8 more are the builder's choice, and not decided: a read that writes
@@ -452,8 +452,8 @@
   is one that this build did not find Rama to make rightly
   (`softland.store.read-path.sources/first-read-holds?`), so the reader drops
   the keys past the end itself (`softland.store.read-path.sources/keys-of-run`).
-  A layer and a who are each such an id, so the run of one who's rows by who
-  takes the same care as the run of a layer's line. What must hold: the
+  A lane and a who are each such an id, so the run of one who's rows by who
+  takes the same care as the run of a lane's line. What must hold: the
   count is a whole number of 1 or more."
   [from to n]
   (if (or (sources/outside-the-agreed-range? from) (sources/outside-the-agreed-range? to))
@@ -466,7 +466,7 @@
   of any other kind; the read path then makes no call. Of a read of facts:
 
     a source of one row, `:whole`    (keypath key)
-    the layer's own rows, `:whole`   (sorted-map-range from to)
+    the lane's own rows, `:whole`   (sorted-map-range from to)
     a run, `:whole`                  (sorted-map-range from to): a select
                                      of the run, or its push
     a run, `:first`                  a walk of `:run-start-places` and one
@@ -482,14 +482,14 @@
                                      row. Alone in its call, since it gives
                                      one value or two
 
-  And of a read of a layer's acts (`softland.store.read-path.acts`), each
+  And of a read of a lane's acts (`softland.store.read-path.acts`), each
   `:whole`:
 
     a window, of the line or of the things
                                      a walk of a count of rows from the
                                      run's first end, cut at its last
                                      (`window`)
-    a layer's last stamp             (keypath :last-stamp text), in the
+    a lane's last stamp             (keypath :last-stamp text), in the
                                      gate's table for a task
     one who's rows by who            (keypath :by-who) and a window of them,
                                      in the same table
@@ -595,7 +595,7 @@
   or [:word a word]. Each call is one `multi-path` of the paths of its
   reads, one for each read of its sources
   (`softland.store.read-path.sources/read-of`): a row for a source of one
-  row, the rows for the layer's own rows, and the first read for a run; a
+  row, the rows for the lane's own rows, and the first read for a run; a
   read's value is given to each source of it. A call whose values are not
   one for each path, in the paths' order, cannot be told apart from
   another, so it ends in `:reach-the-store`."
@@ -632,8 +632,8 @@
   asked at once, then the runs. A run that grew past the number between its
   size and its read ends in the same word.
 
-  What must hold: the asker's standing in each source's layer is `:yes`.
-  `read-once` calls it for no other, so the size of a layer that she may
+  What must hold: the asker's standing in each source's lane is `:yes`.
+  `read-once` calls it for no other, so the size of a lane that she may
   not see is neither read past the first read nor told."
   [^ReadPath read-path run-sources deadline]
   (let [numbers (.-numbers read-path)
@@ -655,7 +655,7 @@
           :else [:ok (zipmap run-sources (map first runs))])))))
 
 (defn- read-acts-once
-  "The body of `read-once` for a query of the word `:acts`, a layer's acts
+  "The body of `read-once` for a query of the word `:acts`, a lane's acts
   by stamp. Takes the read path and the query in its one form. Gives the
   answer of `softland.store.read-path.acts`, or a word. It goes round as a
   read of facts does: what is wanted (`softland.store.read-path.acts/reading`);
@@ -694,7 +694,7 @@
   push} or in {:word a word}. It waits for nothing: a callback of Rama's
   can call it, under a read's turn.
 
-  A source of one row, and a layer's own rows, are opened at once. A run is
+  A source of one row, and a lane's own rows, are opened at once. A run is
   bounded first: its count on the task, by a walk of the first places; when
   that walk is full, or the run has no first read
   (`softland.store.read-path.sources/first-read-holds?`), its size, by a
@@ -790,9 +790,9 @@
   its table and its routing id. Rama's client sends one routing id to one
   task, so every push of one such count is on one task of one table.
 
-  What one count holds. In a streaming layer the routing id is the layer,
-  so every push of every asker through one layer is one count. In a
-  microbatch layer the routing id is the home of the read, so one count
+  What one count holds. In a streaming lane the routing id is the lane,
+  so every push of every asker through one lane is one count. In a
+  microbatch lane the routing id is the home of the read, so one count
   holds the pushes on that gate's table of the askers whose reads have one
   home: on the base, the pushes of the askers of one home, and not those of
   all who read the base.
@@ -804,8 +804,8 @@
   ids that Rama puts on one task are counted apart, and their pushes
   together can pass Rama's bound while each count is under the read path's
   own: Rama then refuses the opening, and the read gets `:reach-the-store`,
-  as before this count. That is so for two streaming layers on one task,
-  and for two homes on one task, whose pushes on a microbatch layer are on
+  as before this count. That is so for two streaming lanes on one task,
+  and for two homes on one task, whose pushes on a microbatch lane are on
   one table of that task."
   [source]
   [(:gate source) (:table source) (:routing-id source)])
@@ -1289,20 +1289,20 @@
   "The body of `read-once`, for a query that passed its head. Takes the read
   path and the query in its one form. Gives an answer or a word. It goes round: what is wanted
   (`softland.store.read-path.sources/reading`); the runs whose first read
-  was not whole, in the layers that she may see, are read whole
+  was not whole, in the lanes that she may see, are read whole
   (`run-now`); when nothing is missing, the answer; else each missing
   source is read by a select, and round again. It reads `held` nowhere: a
   source that a live read holds open is selected all the same, so a read
   asked once gives what the tables held when Rama served its calls, and
   never a value that a push holds. A run that has no first read
   (`softland.store.read-path.sources/first-read-holds?`) is wanted only in
-  a layer that she may see, and is read by its size and then whole."
+  a lane that she may see, and is read by its size and then whole."
   [^ReadPath read-path query]
   (let [numbers (.-numbers read-path)
         deadline (+ (now-ms) (:wait-ms numbers))]
     (loop [round 0 known {} first-reads #{}]
       (let [reading (sources/reading query known :once numbers)
-            to-read-whole (filterv #(= :yes (get (:standing reading) (:layer %))) first-reads)]
+            to-read-whole (filterv #(= :yes (get (:standing reading) (:lane %))) first-reads)]
         (cond
           (:too-large reading)
           (words/word :serve-a-read-that-large (:too-large reading))
@@ -1348,7 +1348,7 @@
   (`softland.store.read-path.answer`), or one of the read path's words:
   `:read-the-query`, `:read-inside-an-askers-function`, `:reach-the-store`,
   `:get-an-answer-within-its-wait` or `:serve-a-read-that-large`. A query of
-  a layer's acts (`:acts`) is read by `read-acts-once`, and gives the answer
+  a lane's acts (`:acts`) is read by `read-acts-once`, and gives the answer
   of `softland.store.read-path.acts` or one of the same words but the last,
   or `:find-the-line-whole`; what it costs is in that namespace's docstring.
   It never throws, and it holds nothing when it returns.
@@ -1356,24 +1356,24 @@
   What it costs. Each round is the calls that are missing, one for each
   table under each routing id, sent at once; how many rounds a read takes
   is derived in `softland.store.read-path.sources` (\"How many rounds a read
-  takes\"), at most 6. A layer's rights and a place in it are one call: a
-  place through three layers is three calls in one round, when no
-  permission of hers in a layer that is open to its members was given her
+  takes\"), at most 6. A lane's rights and a place in it are one call: a
+  place through three lanes is three calls in one round, when no
+  permission of hers in a lane that is open to its members was given her
   by another; for each that was, the rows above it are one round more, one
-  call for each such layer, in one round for all of them. From a layer,
-  the start layer's calls come first and the others after them. What
+  call for each such lane, in one round for all of them. From a lane,
+  the start lane's calls come first and the others after them. What
   points at a thing takes one round more for the orders and one for the
-  checks of nearer layers, each check one seek. A run of more than
-  `:run-start-places` places costs two calls more. A microbatch layer is
+  checks of nearer lanes, each check one seek. A run of more than
+  `:run-start-places` places costs two calls more. A microbatch lane is
   read on the task of the read's home, in a call of its own table: a run
-  across its entities is one call, as in a streaming layer.
+  across its entities is one call, as in a streaming lane.
 
   A query that names its run reads the row of the run's permission in the
   call that reads her own. When that row holds a permission of hers, the
   rows above it are read in the round that reads the rows above her own
   permissions: rows more and no call more when that round is there anyway,
-  because a permission of hers in the same layer was given her; one round
-  more, with one call, when she holds none in that layer or holds its first
+  because a permission of hers in the same lane was given her; one round
+  more, with one call, when she holds none in that lane or holds its first
   permission. When the row holds another holder's permission, nothing above
   it is read. Counted by the read path's pure proof (`the-loop-ends`). One
   bound, `:wait-ms`, holds for the whole call. No count of pushes bounds
@@ -1386,13 +1386,13 @@
   push is late; a read asked once that took its value could give a caller
   the state before her own act, straight after that act was acked. So what
   `read-once` gives is what the tables held when Rama served its calls: an
-  act whose ack a caller has, in a streaming layer, is in it. An act of a
-  microbatch layer is in it once the task that serves the read holds its
+  act whose ack a caller has, in a streaming lane, is in it. An act of a
+  microbatch lane is in it once the task that serves the read holds its
   rows, which is a task of the read's home and can be another than the one
   that decided the act.
 
   What it reads before it knows the asker's right, and what it then drops,
-  is in the namespace docstring. The layers are read at moments that
+  is in the namespace docstring. The lanes are read at moments that
   differ; nothing lines them up."
   [^ReadPath read-path query]
   (try
@@ -1515,7 +1515,7 @@
   (`softland.store.read-path.query`) and a function of one argument. Gives
   {:now the answer, :leave-with a handle}, or one of the read path's
   words: those of `read-once`, and `:keep-more-reads-live`. A query of a
-  layer's acts is not kept live: it gives `:keep-a-read-of-acts-live` at
+  lane's acts is not kept live: it gives `:keep-a-read-of-acts-live` at
   once, with no call to Rama, and the caller asks again by `read-once` from
   where its last read ended. It never throws.
 
@@ -1529,7 +1529,7 @@
   caller that keeps none.
 
   What ends a read: Rama ended a push; a run grew past
-  `:max-places-of-one-run`, or the checks of nearer layers past
+  `:max-places-of-one-run`, or the checks of nearer lanes past
   `:max-checks-of-one-live-read`; a push that the open read came to need
   was not given, or would have taken the read path past its own bound on
   pushes; a step that still wanted more after the bound on rounds of a live
@@ -1544,33 +1544,33 @@
   call.
 
   What it follows. Every fact that shapes the read, each by a push that
-  those who need it share: the layer's own rows (whether it is made, who
-  may see it, what it builds on, its marked keys) as one push for a layer;
+  those who need it share: the lane's own rows (whether it is made, who
+  may see it, what it builds on, its marked keys) as one push for a lane;
   the asker's permission, and the permission of each holder above hers,
-  only while the layer is made and its setting is `:members`; for a query
+  only while the lane is made and its setting is `:members`; for a query
   that names the run that it is asked in, its `:session`, the permission of
-  that run in each such layer and the permission of each holder above it,
-  beside her own; and the facts. She may see such a layer while either
-  stands (`softland.store.read-path.layers/either`). So when the last of
+  that run in each such lane and the permission of each holder above it,
+  beside her own; and the facts. She may see such a lane while either
+  stands (`softland.store.read-path.lanes/either`). So when the last of
   hers that stood ends, or one above it, her read leaves the
-  layer as it does when a setting goes to `:members`. When what shapes the read changes, the asker
-  is given the whole answer anew. When a layer is no longer rightful for
-  her, her read leaves that layer's facts at once; the answer then says
-  that the layer is left out, and nothing of the layer's facts. A fact of
-  that layer that Rama called back before the setting's change reached the
+  lane as it does when a setting goes to `:members`. When what shapes the read changes, the asker
+  is given the whole answer anew. When a lane is no longer rightful for
+  her, her read leaves that lane's facts at once; the answer then says
+  that the lane is left out, and nothing of the lane's facts. A fact of
+  that lane that Rama called back before the setting's change reached the
   read path can still be told: as late as a push is, and no sooner.
 
-  What it costs. One push for each source: for a place through k layers of
-  which g are \"members\", k + g + k, and one more in each such layer for
-  each permission above hers there: none when she is the layer's first
-  holder. A query that names its run holds, in each such layer, one push
+  What it costs. One push for each source: for a place through k lanes of
+  which g are \"members\", k + g + k, and one more in each such lane for
+  each permission above hers there: none when she is the lane's first
+  holder. A query that names its run holds, in each such lane, one push
   more on the run's row, and one for each permission above the one that
   the row holds. A push on a row above hers is read after her own row and
   names its stamp, so askers share it only when their rows were written by
   one decision (`softland.store.read-path.sources/chain-sources` says why).
   For what points at a thing, one push
-  more for each place of a farther order and each nearer layer. Each open
-  push costs its layer's gate at each write. Rama opens a bounded count of
+  more for each place of a farther order and each nearer lane. Each open
+  push costs its lane's gate at each write. Rama opens a bounded count of
   pushes on one table on one task, and the read path holds a bound of its
   own under that: a read whose pushes would pass it is turned away at once,
   with `:keep-more-reads-live`, and has opened none of them (the namespace

@@ -220,15 +220,15 @@
           (cond
             (or (not= :AccountLinked (:state acc))
                 (not= (:person acc) P)
-                (not= (:own-layer acc) (:own-layer result))
+                (not= (:own-lane acc) (:own-lane result))
                 (not= (:making acc) (:making result)))
             {:question :q5-read-misses-effect
              :subkind :enter-account-link-misses-effect
              :detail (str "enter returned " result " for " (:account input) " but $$accounts holds " acc)}
 
-            (not= (:own-layer w) (:own-layer result))
+            (not= (:own-lane w) (:own-lane result))
             {:question :q5-read-misses-effect
-             :subkind :enter-who-is-misses-own-layer
+             :subkind :enter-who-is-misses-own-lane
              :detail (str "enter returned " result " but who-is(P) returned " w)}
 
             :else nil)))
@@ -283,7 +283,7 @@
                  (nil? pa)
                  (and (= :AccountLinked (:state pa))
                       (= (:person pa) (:person oa))
-                      (= (:own-layer pa) (get-in ost [:persons (:person oa) :own-layer]))
+                      (= (:own-lane pa) (get-in ost [:persons (:person oa) :own-lane]))
                       (= (:making pa) (get-in ost [:persons (:person oa) :making]))
                       (= (:says pa) (:says oa))))))
            (:accounts entities))

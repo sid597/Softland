@@ -13,7 +13,7 @@
   is seen by a flow that the other holds.
 
   State. The cluster's files are temporary and are Rama's. The proof makes
-  layers and acts in the store that it started, and ends with the cluster
+  lanes and acts in the store that it started, and ends with the cluster
   closed."
   (:require [com.rpl.rama :as rama]
             [com.rpl.rama.test :as rtest]
@@ -63,10 +63,10 @@
 (defn- kinds [got] (mapv #(cond (not (map? %)) % (:anew %) :anew (:changed %) :changed (:ended %) :ended) @got))
 
 (defn- write
-  "Gives the act that writes one fact into a layer under a person's first
+  "Gives the act that writes one fact into a lane under a person's first
   permission there, without `:who` and `:session`."
-  [who layer entity k v]
-  {:version 1 :layer layer :permission [who layer layer] :facts [{:e entity :k k :v v}]})
+  [who lane entity k v]
+  {:version 1 :lane lane :permission [who lane lane] :facts [{:e entity :k k :v v}]})
 
 (defn- run-checks [cluster]
   (let [store-name (rama/get-module-name store/Store)
@@ -86,22 +86,22 @@
           asha (m/? (sign-in/person-for a claims))
           again (m/? (sign-in/person-for b (assoc claims "name" "Asha K")))
           system (seam/system a)
-          says (m/? (seam/read a system {:asks [:place (:who asha) sign-in/says-key] :layers [sign-in/people]}))]
-      (check "A first sign-in of an account gives a person: an id and her own layer's id, both random UUIDs."
-             (and (uuid? (:who asha)) (uuid? (:own-layer asha)) (not= (:who asha) (:own-layer asha))) asha)
-      (check "A later sign-in of the same account, through another copy of the server, finds the same person and the same layer."
+          says (m/? (seam/read a system {:asks [:place (:who asha) sign-in/says-key] :lanes [sign-in/people]}))]
+      (check "A first sign-in of an account gives a person: an id and her own lane's id, both random UUIDs."
+             (and (uuid? (:who asha)) (uuid? (:own-lane asha)) (not= (:who asha) (:own-lane asha))) asha)
+      (check "A later sign-in of the same account, through another copy of the server, finds the same person and the same lane."
              (= asha again) again)
       (check "What Google said at her latest sign-in is on her entity, under Google's own names, for the system to read."
              (= "Asha K" (get (:value (:place says)) "name")) says)
-      (check "Each act of sign-in that is about a person names her id as its subject, in the store's own form of an act: the act that writes what Google said, and the act that makes her own layer. The act that makes the system's layer names nobody."
+      (check "Each act of sign-in that is about a person names her id as its subject, in the store's own form of an act: the act that writes what Google said, and the act that makes her own lane. The act that makes the system's lane names nobody."
              (let [whole (fn [act] (:ok (act/parse (assoc act :who :system :session (UUID/randomUUID)))))
                    person (:who asha)]
                (= [#{person} #{person} #{}]
                   [(:subjects (whole (#'sign-in/in-people [{:e person :k sign-in/says-key :v {"sub" "1"}}] person)))
-                   (:subjects (whole (#'sign-in/making-act (:own-layer asha) person)))
+                   (:subjects (whole (#'sign-in/making-act (:own-lane asha) person)))
                    (:subjects (whole (#'sign-in/making-act sign-in/people :system)))])))
-      (check "Her own layer is where sign-in said: `own-layer-of` gives it for her id, and nothing for an id that is no person."
-             (= [(:own-layer asha) nil] [(m/? (sign-in/own-layer-of a (:who asha))) (m/? (sign-in/own-layer-of a (UUID/randomUUID)))]))
+      (check "Her own lane is where sign-in said: `own-lane-of` gives it for her id, and nothing for an id that is no person."
+             (= [(:own-lane asha) nil] [(m/? (sign-in/own-lane-of a (:who asha))) (m/? (sign-in/own-lane-of a (UUID/randomUUID)))]))
       (let [both (m/? (m/join vector
                               (sign-in/person-for a {"sub" "2000000001"})
                               (sign-in/person-for b {"sub" "2000000001"})))]
@@ -134,17 +134,17 @@
                       (= (:who asha) (seam/who-of (m/? (seam/actor b token))))))
 
           ;; ----------------------------------------------------------- the tasks
-          (let [layer (:own-layer asha)
+          (let [lane (:own-lane asha)
                 who (:who asha)
-                [act-id other-id] (m/? (seam/act-ids a actor layer 2))
-                act (write who layer :chair-7 :colour :green)
+                [act-id other-id] (m/? (seam/act-ids a actor lane 2))
+                act (write who lane :chair-7 :colour :green)
                 receipt (m/? (seam/send a actor act act-id))
                 answer (m/? (seam/answer a actor act-id (:digest receipt) 2000))
                 again (m/? (seam/send b actor act act-id))
-                read-back (m/? (seam/read a actor {:asks [:place :chair-7 :colour] :from-layer layer :with #{:writer}}))]
-            (check "The seam gives act-ids of a layer ahead of sending, and gives a visitor none."
-                   (and (= [layer :streaming] (pop act-id)) (not= act-id other-id)
-                        (= :find-her-session (:could-not (m/? (seam/act-ids a (seam/visitor) layer 1))))))
+                read-back (m/? (seam/read a actor {:asks [:place :chair-7 :colour] :from-lane lane :with #{:writer}}))]
+            (check "The seam gives act-ids of a lane ahead of sending, and gives a visitor none."
+                   (and (= [lane :streaming] (pop act-id)) (not= act-id other-id)
+                        (= :find-her-session (:could-not (m/? (seam/act-ids a (seam/visitor) lane 1))))))
             (check "A send gives the door's receipt, the act-id and the digest and the ack, and the answer read with them says accepted."
                    (and (= act-id (:act-id receipt)) (string? (:digest receipt)) (= :gate-ran (:ack receipt))
                         (= :accepted (:answer answer)))
@@ -153,7 +153,7 @@
                    (and (= (:digest receipt) (:digest again))
                         (= answer (m/? (seam/answer b actor act-id (:digest again) 2000)))))
             (check "Another act under the used act-id is not hers to read: the answer says not mine."
-                   (let [other (m/? (seam/send a actor (write who layer :chair-7 :colour :red) act-id))]
+                   (let [other (m/? (seam/send a actor (write who lane :chair-7 :colour :red) act-id))]
                      (= {:answer :not-mine} (m/? (seam/answer a actor act-id (:digest other) 2000)))))
             (check "The fact that a read gives back names her as its writer: the who of the act was the actor's, written by the seam."
                    (and (= :green (:value (:place read-back))) (= who (:writer (:place read-back)))) read-back)
@@ -163,37 +163,37 @@
                       [(m/? (seam/send a actor (assoc act :who :system) nil))
                        (m/? (seam/send a actor (assoc act :session (UUID/randomUUID)) nil))]))
             (check "A query that already holds its asker is turned away by the seam."
-                   (= :read-the-word (:could-not (m/? (seam/read a actor {:asks [:place :chair-7 :colour] :from-layer layer :asker :system})))))
+                   (= :read-the-word (:could-not (m/? (seam/read a actor {:asks [:place :chair-7 :colour] :from-lane lane :asker :system})))))
             (check "An act of a wrong form is sent all the same, and a gate refuses it under its act-id: the log keeps it."
-                   (let [wrong (m/? (seam/send a actor {:version 9 :layer layer :permission [who layer layer] :facts []} nil))]
+                   (let [wrong (m/? (seam/send a actor {:version 9 :lane lane :permission [who lane lane] :facts []} nil))]
                      (= :refused (:answer (m/? (seam/answer a actor (:act-id wrong) (:digest wrong) 2000))))))
-            (check "A visitor sends nothing, and reads her layer as somebody who may not see it."
+            (check "A visitor sends nothing, and reads her lane as somebody who may not see it."
                    (and (= {:could-not :find-her-session :why :no-credential} (m/? (seam/send a (seam/visitor) act nil)))
-                        (= [{:layer layer :why :may-not-see}]
-                           (:left-out (m/? (seam/read a (seam/visitor) {:asks [:place :chair-7 :colour] :layers [layer]}))))))
-            (check "A person who is signed in may not see the layer of the people."
-                   (= [{:layer sign-in/people :why :may-not-see}]
-                      (:left-out (m/? (seam/read a actor {:asks [:points-at sign-in/account-key "108234567890"] :layers [sign-in/people]})))))
-            (let [ids (m/? (seam/act-ids a actor layer 3))
-                  results (m/? (seam/send-all a actor (mapv (fn [id n] [id (write who layer :chair-8 :n n)]) ids [1 2 3])))
-                  after-three (:value (:place (m/? (seam/read a actor {:asks [:place :chair-8 :n] :from-layer layer}))))
-                  stopped (m/? (seam/send-all a actor [[(first (m/? (seam/act-ids a actor layer 1))) (write who layer :chair-8 :n 4)]
-                                                      [[:another-layer :streaming (UUID/randomUUID)] (write who layer :chair-8 :n 5)]
-                                                      [(first (m/? (seam/act-ids a actor layer 1))) (write who layer :chair-8 :n 6)]]))]
+                        (= [{:lane lane :why :may-not-see}]
+                           (:left-out (m/? (seam/read a (seam/visitor) {:asks [:place :chair-7 :colour] :lanes [lane]}))))))
+            (check "A person who is signed in may not see the lane of the people."
+                   (= [{:lane sign-in/people :why :may-not-see}]
+                      (:left-out (m/? (seam/read a actor {:asks [:points-at sign-in/account-key "108234567890"] :lanes [sign-in/people]})))))
+            (let [ids (m/? (seam/act-ids a actor lane 3))
+                  results (m/? (seam/send-all a actor (mapv (fn [id n] [id (write who lane :chair-8 :n n)]) ids [1 2 3])))
+                  after-three (:value (:place (m/? (seam/read a actor {:asks [:place :chair-8 :n] :from-lane lane}))))
+                  stopped (m/? (seam/send-all a actor [[(first (m/? (seam/act-ids a actor lane 1))) (write who lane :chair-8 :n 4)]
+                                                      [[:another-lane :streaming (UUID/randomUUID)] (write who lane :chair-8 :n 5)]
+                                                      [(first (m/? (seam/act-ids a actor lane 1))) (write who lane :chair-8 :n 6)]]))]
               (check "A series of acts is sent in order and gives a receipt for each, and the last of them is what a read gives."
                      (and (= ids (mapv :act-id results)) (= 3 after-three))
                      [results after-three])
               (check "A series ends at the first act that the door could not send: the word is its last thing, and no act after it is tried."
                      (and (= 2 (count stopped)) (:act-id (first stopped)) (:could-not (second stopped))
-                          (= 4 (:value (:place (m/? (seam/read a actor {:asks [:place :chair-8 :n] :from-layer layer}))))))
+                          (= 4 (:value (:place (m/? (seam/read a actor {:asks [:place :chair-8 :n] :from-lane lane}))))))
                      stopped))
 
             ;; ---------------------------------------------------------- the flow
-            (let [query {:asks [:entity :desk-1] :from-layer layer}
+            (let [query {:asks [:entity :desk-1] :from-lane lane}
                   [watched cancel-watch] (collected (seam/watch a actor query))]
               (check "A watch gives the whole answer first."
                      (= [:anew] (until #(when (seq @watched) (kinds watched)))) (kinds watched))
-              (m/? (seam/send b actor (write who layer :desk-1 :height 72) nil))
+              (m/? (seam/send b actor (write who lane :desk-1 :height 72) nil))
               (check "A watch is told the place that an act changed, with what the read gives there now, on a thread that is not Rama's."
                      (let [message (until #(second @watched))]
                        (and (= 72 (:value (get (:changed message) [:desk-1 :height]))) (::virtual? message)))
@@ -202,12 +202,12 @@
               (check "A watch that is cancelled leaves its live read: the read path holds no read and no push."
                      (= {:live-reads 0 :pushes 0} (until #(let [n (read-path/open-count the-read-path)] (when (= 0 (:live-reads n)) n))))
                      (read-path/open-count the-read-path)))
-            (let [query {:asks [:entity :desk-2] :from-layer layer}
+            (let [query {:asks [:entity :desk-2] :from-lane lane}
                   hold (CountDownLatch. 1)
                   [watched cancel-watch] (collected (seam/watch a actor query) hold)]
               (Thread/sleep 500)
               (doseq [n (range 30)]
-                (m/? (seam/send a actor (write who layer :desk-2 (nth [:x :y :z] (mod n 3)) n) nil)))
+                (m/? (seam/send a actor (write who lane :desk-2 (nth [:x :y :z] (mod n 3)) n) nil)))
               (.countDown hold)
               (let [fresh (m/? (seam/read a actor query))
                     told (until #(when (= (:places fresh)
@@ -218,7 +218,7 @@
               (cancel-watch))
 
             ;; ---------------------------------------- a session that ends, ends
-            (let [[watched _] (collected (seam/watch a actor {:asks [:entity :desk-1] :from-layer layer}))]
+            (let [[watched _] (collected (seam/watch a actor {:asks [:entity :desk-1] :from-lane lane}))]
               (until #(seq @watched))
               (check "The session is ended through the other copy of the server, by an actor that the other copy made from the same credential."
                      (= [:ok] (m/? (seam/sign-out b (m/? (seam/actor b token))))))
@@ -234,7 +234,7 @@
                      (= [{:could-not :find-her-session :why :ended} {:could-not :find-her-session :why :ended}]
                         [(m/? (seam/actor a token)) (m/? (seam/actor b token))]))
               (check "An actor that was made before her session ended opens no watch: the flow gives the end and nothing else."
-                     (let [[stale _] (collected (seam/watch a actor {:asks [:entity :desk-1] :from-layer layer}))]
+                     (let [[stale _] (collected (seam/watch a actor {:asks [:entity :desk-1] :from-lane lane}))]
                        (and (= [:ended ::done] (until #(when (= ::done (last @stale)) (kinds stale))))
                             (= {:could-not :find-her-session :why :ended} (:ended (first @stale))))))
               (check "No live read is left behind."
@@ -246,7 +246,7 @@
               hash (credential/hash-of token)
               _ (m/? (seam/begin short (:who asha) hash))
               actor (m/? (seam/actor short token))
-              [watched _] (collected (seam/watch short actor {:asks [:entity :desk-1] :from-layer (:own-layer asha)}))
+              [watched _] (collected (seam/watch short actor {:asks [:entity :desk-1] :from-lane (:own-lane asha)}))
               [standings _] (collected (seam/standing short token))]
           (check "A session whose time passes ends its watch and the flow of its standing, by the server's own timer."
                  (and (= [:anew :ended ::done] (until #(when (= ::done (last @watched)) (kinds watched))))
@@ -256,7 +256,7 @@
           (check "After its time the credential is no actor, and an actor that a face still held sends nothing."
                  (and (= {:could-not :find-her-session :why :over} (m/? (seam/actor a token)))
                       (= {:could-not :find-her-session :why :over}
-                         (m/? (seam/send a actor (write (:who asha) (:own-layer asha) :desk-1 :late true) nil))))))
+                         (m/? (seam/send a actor (write (:who asha) (:own-lane asha) :desk-1 :late true) nil))))))
 
         ;; -------------------------------------------------------------- her no
         (let [asked (credential/hash-of (credential/make))

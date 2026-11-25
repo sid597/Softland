@@ -19,10 +19,10 @@
   the two declarations, takes anything, and gives the act in its one form or
   the reason why it is not an act.
 
-  A permission id has five forms. `[who layer granted-in]` is a first
-  permission, with nothing above it. `[who layer granted-in parent]` is a
+  A permission id has five forms. `[who lane granted-in]` is a first
+  permission, with nothing above it. `[who lane granted-in parent]` is a
   given permission, with the permission above it. And
-  `[who layer granted-in parent allows]` is a given permission that says
+  `[who lane granted-in parent allows]` is a given permission that says
   what it allows: `:see`, or `:see-and-act`. A permission without that slot
   allows seeing and acting; `allows` is the one function that reads the
   slot. That a permission says what it allows is Sid's decision of 11 and 12
@@ -31,10 +31,10 @@
 
   The last two forms say what the permission covers, in a sixth slot;
   `covers` is the one function that reads it. A permission without that slot
-  covers its layer, until it is ended.
-  `[who layer granted-in parent allows [:run session]]` covers one run: the
+  covers its lane, until it is ended.
+  `[who lane granted-in parent allows [:run session]]` covers one run: the
   acts that carry that session, and the reads that are asked in it.
-  `[who layer granted-in parent :see-and-act [:act yes digest]]` is a yes
+  `[who lane granted-in parent :see-and-act [:act yes digest]]` is a yes
   for one act. `yes` is a UUID that its giver makes, the yes's own id, and
   the yes sits on it. `digest` is a text of 64 hex characters: the digest
   of the act as its maker made it, in the one form that `parse` gives, with
@@ -45,7 +45,7 @@
   the act, and a try that is refused uses nothing. A yes says
   `:see-and-act`: one that said `:see` would allow nothing. That a
   permission covers an act, or a run, and that a holder can have more than
-  one in a layer, are Sid's decisions of 21 November 2026
+  one in a lane, are Sid's decisions of 21 November 2026
   (src-store/README.md, entries 4 to 6 of 20 and 21 November). The form of
   a permission for a run is a session's
   (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md); the form of a
@@ -97,21 +97,21 @@
   that reads a shape; the check.
 
   Not here. Act-ids: the door makes them, on request ahead of sending. The
-  depot: the door adds it, from the layer. The time on the act: the door
+  depot: the door adds it, from the lane. The time on the act: the door
   writes it, from the clock of its server. The standing of a permission, and
   whether an act claims to be the store: a gate decides. Which gate an act
   is for: the gate's. A replaced fact against the record, the rules of a
   session and the digest of an act: the gates'. The partition of an act in
-  its depot: the depot takes it from the act's layer
+  its depot: the depot takes it from the act's lane
   (`softland.store.module`). The door is `softland.store.door`; the gate
   is in its own namespaces beside this one. A stamp, an answer, a read and
-  the settings of a layer are not here either.
+  the settings of a lane are not here either.
 
   Words. A fact is one statement: entity, key, value. An act is one or more
   facts that one maker sends under one act-id. An act-id is
-  `[layer depot uuid]`: the layer, the layer's depot, a random UUID. A
-  layer's depot is `:streaming` or `:microbatch`: the depot that takes its
-  acts. The layer and the depot are there so that the act can be routed and
+  `[lane depot uuid]`: the lane, the lane's depot, a random UUID. A
+  lane's depot is `:streaming` or `:microbatch`: the depot that takes its
+  acts. The lane and the depot are there so that the act can be routed and
   the door can find its answer in the right record. \"Depot\" is Sid's word,
   of 9 October 2026; his decisions before that day say \"class\" for it.
   From Sid's \"act-uuid\" of 7 October
@@ -180,7 +180,7 @@
    [:parts
     [:version      [:enum version]                    {:reason :unknown-version}]
     [:who          :id]
-    [:layer        :id]
+    [:lane        :id]
     [:permission   :permission-id                     {:absent :no-permission}]
     [:session      :id                                {:absent :no-session}]
     [:based-on     [:map-of :fact-id :carried-stamp]  {:optional true :default {}}]
@@ -198,7 +198,7 @@
     [:v        :value   {:optional true}]
     [:replaces :fact-id {:optional true}]]
 
-   ;; [layer depot uuid]. The door makes it; an act refers to act-ids.
+   ;; [lane depot uuid]. The door makes it; an act refers to act-ids.
    :act-id
    [:tuple :id [:enum :streaming :microbatch] :uuid]
 
@@ -206,8 +206,8 @@
    :fact-id
    [:tuple :act-id [:int {:min 0}]]
 
-   ;; [who layer granted-in]: a first permission. [who layer granted-in
-   ;; parent]: a given permission. [who layer granted-in parent allows]: a
+   ;; [who lane granted-in]: a first permission. [who lane granted-in
+   ;; parent]: a given permission. [who lane granted-in parent allows]: a
    ;; given permission that says what it allows. With a sixth slot, a given
    ;; permission that says what it covers: one run, or one act. A tuple fits
    ;; only its own count, and the two forms of six slots differ in the word
@@ -260,10 +260,10 @@
   rule relates two places of the act. `rule-checks` holds the code of each
   rule.
 
-  The one rule: the layer of the act's permission is the act's own layer. A
-  permission cited for another layer cannot cover the act, whatever its
+  The one rule: the lane of the act's permission is the act's own lane. A
+  permission cited for another lane cannot cover the act, whatever its
   standing; whether it stands is a gate's question."
-  [[:permission-is-in-the-acts-layer :permission-not-in-layer]])
+  [[:permission-is-in-the-acts-lane :permission-not-in-lane]])
 
 ;; ------------------------------------------ what the declaration says, as sets
 
@@ -539,7 +539,7 @@
   is the one place where that is code. A gate refuses an act under a
   permission that allows `:see`. The read path does not ask it: any
   permission that is there allows seeing
-  (`softland.store.read-path.layers/standing`).
+  (`softland.store.read-path.lanes/standing`).
 
   What must hold: the thing has the shape `:permission-id`. It never throws:
   anything that is no vector of five slots or six gives `:see-and-act`, so a
@@ -553,7 +553,7 @@
   "Takes a permission id in its one form. Gives what the permission covers,
   its sixth slot: `[:run session]`, the acts and the reads of one run;
   `[:act yes digest]`, one act, once, for a yes with that id; or nil for a
-  permission with no sixth slot, which covers its layer until it is ended.
+  permission with no sixth slot, which covers its lane until it is ended.
   The one place where that slot is read. A gate holds an act to it
   (`softland.store.gate.decision/standing`), and it says on which place the
   permission sits (`softland.store.gate.chain/place`).
@@ -567,9 +567,9 @@
 (def ^:private rule-checks
   "The code of each rule of `rules`. Each takes an act in its one form, which
   has the shape, and gives true when the act keeps the rule. A permission id
-  in its one form is a vector whose second slot is its layer."
-  {:permission-is-in-the-acts-layer
-   (fn [act] (= (:layer act) (nth (:permission act) 1)))})
+  in its one form is a vector whose second slot is its lane."
+  {:permission-is-in-the-acts-lane
+   (fn [act] (= (:lane act) (nth (:permission act) 1)))})
 
 (defn- parse*
   "The body of `parse`, with no guard around it. Takes anything. Gives
@@ -612,7 +612,7 @@
 
   Limits. It reads no clock and gives `:claimed-when` no default. It has no
   rule about a session beyond its shape. It examines the shape of a
-  permission and its layer, not its standing. It examines a value with
+  permission and its lane, not its standing. It examines a value with
   `value?` only. Facts that are a sequence with no end do not come back from
   it."
   [x]

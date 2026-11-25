@@ -1,6 +1,6 @@
 (ns softland.runtime.sign-in
   "What sign-in does: how an account that its provider has proven becomes a
-  person with a layer of her own, how a browser and a program come to stand
+  person with a lane of her own, how a browser and a program come to stand
   for somebody, and how a deployment is born. It requires Missionary, the
   seam, Auth's client and the store's two ids. Each call blocks, and a face calls it on a
   thread that is cheap to hold.
@@ -13,7 +13,7 @@
       holds none of it;
     - sign-up is by invitation or a list, and an invitation is a person id
       that waits for an account;
-    - a signed-in person has a layer of her own and a permission in it,
+    - a signed-in person has a lane of her own and a permission in it,
       without asking, and the system makes both at her first sign-in
       (src-store/README.md, 8 October 2026, entry 2);
     - she is called what she confirms: her provider's name for her is
@@ -22,23 +22,23 @@
       the first person.
 
   Auth first, the store second. A first sign-in writes in two modules: the
-  link in Auth, and the act that makes her own layer in the store. The
-  runtime writes Auth first. Auth fixes the layer's id, and the UUID and
+  link in Auth, and the act that makes her own lane in the store. The
+  runtime writes Auth first. Auth fixes the lane's id, and the UUID and
   the session of the act that makes it, at the first `enter` of her
   account. The act is built from those and from nothing else, so every
   copy of the runtime sends the same thing with the same digest, and a
   gate takes it once. When the answer says accepted, Auth is told that the
-  layer is made. A break anywhere between leaves a person whose layer is
+  lane is made. A break anywhere between leaves a person whose lane is
   not marked as made, and the next `enter` of her account sends the act
-  again. The other order would leave layers that no account leads to.
+  again. The other order would leave lanes that no account leads to.
 
   What is written into the store, and by whom:
 
-    the system    the act that makes her own layer: the layer's depot, and
+    the system    the act that makes her own lane: the lane's depot, and
                   her first permission in it. It names her as its subject.
                   At setup: the act that makes the base, and the act that
                   gives the first person a permission in it
-    she herself   her name, as a fact on her own id in her own layer, under
+    she herself   her name, as a fact on her own id in her own lane, under
                   `name-key`
 
   What the provider said of her, her account's number and her email among
@@ -46,7 +46,7 @@
 
   Inputs and results, by call:
 
-    enter!          the seam and a proven account -> {:person :own-layer},
+    enter!          the seam and a proven account -> {:person :own-lane},
                     or a word
     begin-browser!  the seam and a person -> {:credential :until}, or a word
     name-of         the seam and a caller -> her name, or nil
@@ -75,7 +75,7 @@
 
 (def name-key
   "The key under which a person's own id holds the name that she
-  confirmed, in her own layer. A session's word, and Sid's to change."
+  confirmed, in her own lane. A session's word, and Sid's to change."
   :person/name)
 
 (def ^:private answer-wait-ms
@@ -94,20 +94,20 @@
   {:could-not :write-her-sign-in :at step :got got})
 
 (defn- making-act
-  "Takes a layer, the holder of its first permission, and the session that
-  the act names. Gives the act that makes the layer, whole: the system is
-  its who; its facts are the layer's depot on the layer and the first
+  "Takes a lane, the holder of its first permission, and the session that
+  the act names. Gives the act that makes the lane, whole: the system is
+  its who; its facts are the lane's depot on the lane and the first
   permission on its holder (`softland.store.gate.first-act/making-act?`).
   When the holder is a person, the act names her as its subject, so that
   what the log holds of her can be found by her id."
-  [layer holder session]
-  (let [permission [holder layer layer]]
+  [lane holder session]
+  (let [permission [holder lane lane]]
     (cond-> {:version 1
              :who first-act/system
              :session session
-             :layer layer
+             :lane lane
              :permission permission
-             :facts [{:e layer :k :softland.store/depot :v (first-act/depot-at-making layer)}
+             :facts [{:e lane :k :softland.store/depot :v (first-act/depot-at-making lane)}
                      {:e holder :k :softland.store/permission :v permission}]}
       (not= first-act/system holder) (assoc :subjects #{holder}))))
 
@@ -124,13 +124,13 @@
   map: `:account`, [provider subject]; `:says`, what the provider said, a
   map of texts; `:email`, the address that the provider vouches for, or
   nil; `:code-hash`, the hash of an invitation's code that came with the
-  sign-in, or nil. Gives {:person her id :own-layer her layer's id}, or a
+  sign-in, or nil. Gives {:person her id :own-lane her lane's id}, or a
   word: `:take-that` with `:why :not-invited` for an account that has no
   person and proves no claim; `:reach-auth`; or `:write-her-sign-in` when
-  the act that makes her layer was not accepted.
+  the act that makes her lane was not accepted.
 
   The steps are in the namespace docstring, \"Auth first, the store
-  second\". A person whose layer is marked as made costs one write of Auth
+  second\". A person whose lane is marked as made costs one write of Auth
   and nothing else."
   [the-seam {:keys [account says email code-hash]}]
   (let [client (seam/auth-of the-seam)
@@ -138,25 +138,25 @@
                                     :says says
                                     :email (some-> ^String email (.toLowerCase Locale/ROOT))
                                     :code-hash code-hash
-                                    :own-layer (UUID/randomUUID)
+                                    :own-lane (UUID/randomUUID)
                                     :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)}
                                     :at (seam/now-ms)})]
     (cond
       (:could-not entered) (words/could-not :reach-auth {:got entered})
       (:refused entered) (words/could-not :take-that {:why (:refused entered)})
-      (:own-layer-made? entered) (select-keys entered [:person :own-layer])
+      (:own-lane-made? entered) (select-keys entered [:person :own-lane])
       :else
-      (let [{:keys [person own-layer making]} entered
+      (let [{:keys [person own-lane making]} entered
             sent (seam/send-as-system the-seam
-                                      (making-act own-layer person (:session making))
+                                      (making-act own-lane person (:session making))
                                       (:uuid making)
                                       answer-wait-ms)]
         (if-not (accepted? sent)
-          (could-not :make-her-own-layer sent)
-          (let [marked (auth/own-layer-made client {:person person :at (seam/now-ms)})]
+          (could-not :make-her-own-lane sent)
+          (let [marked (auth/own-lane-made client {:person person :at (seam/now-ms)})]
             (if (or (:could-not marked) (:refused marked))
               (words/could-not :reach-auth {:got marked})
-              {:person person :own-layer own-layer})))))))
+              {:person person :own-lane own-lane})))))))
 
 (defn begin-browser!
   "Begins a browser's sign-in for a person. Takes the seam and her id.
@@ -182,32 +182,32 @@
 (defn name-of
   "Reads the name that a person confirmed. Takes the seam and her caller.
   Gives the name, or nil when she has confirmed none or the read failed.
-  One read of her own layer, as herself."
+  One read of her own lane, as herself."
   [the-seam caller]
-  (when-let [layer (seam/own-layer-of caller)]
+  (when-let [lane (seam/own-lane-of caller)]
     (let [who (seam/root-of caller)
           answer (m/? (seam/call the-seam caller
                                  {:word :read
-                                  :query {:asks [:place who name-key] :asker (seam/who-of caller) :layers [layer]}}))
+                                  :query {:asks [:place who name-key] :asker (seam/who-of caller) :lanes [lane]}}))
           value (get-in answer [:place :value])]
       (when (string? value) value))))
 
 (defn name!
-  "Writes the name that a person confirms: her own act, in her own layer.
+  "Writes the name that a person confirms: her own act, in her own lane.
   Takes the seam; her caller, who is the person herself and is in a
   session; the name, a text; and the act's UUID, which the page made, so
   that a form that is posted twice is one act. Gives what the word `:send`
   gives."
   [the-seam caller name uuid]
   (let [who (seam/who-of caller)
-        layer (seam/own-layer-of caller)]
+        lane (seam/own-lane-of caller)]
     (m/? (seam/call the-seam caller
                     {:word :send
                      :act {:version 1
                            :who who
                            :session (seam/session-of caller)
-                           :layer layer
-                           :permission [who layer layer]
+                           :lane lane
+                           :permission [who lane lane]
                            :subjects #{who}
                            :facts [{:e who :k name-key :v name}]}
                      :act-id uuid
@@ -297,8 +297,8 @@
 ;; ------------------------------------------------------- a deployment's birth
 
 (defn- not-made?
-  "Takes an answer of a read through one layer. Gives true when the answer
-  says that the layer is not made."
+  "Takes an answer of a read through one lane. Gives true when the answer
+  says that the lane is not made."
   [answer]
   (boolean (some (fn [left] (= :not-made (:why left))) (:left-out answer))))
 
@@ -309,7 +309,7 @@
   [the-seam]
   (let [answer (seam/read-as-system the-seam {:asks [:place first-act/base :softland.store/depot]
                                               :asker first-act/system
-                                              :layers [first-act/base]
+                                              :lanes [first-act/base]
                                               :stores-own-facts true})]
     (cond
       (:could-not answer) answer
@@ -334,7 +334,7 @@
   Each step holds when it is done twice. A run that was cut off after step
   1 is run again with the same `:person`, which the first run printed; a
   new id would be refused at step 1, since the claim names the first id
-  for good. Her own layer is made at her first sign-in, as everybody's is."
+  for good. Her own lane is made at her first sign-in, as everybody's is."
   [the-seam {:keys [email person]}]
   (let [client (seam/auth-of the-seam)
         person (or person (UUID/randomUUID))
@@ -363,7 +363,7 @@
                        {:version 1
                         :who system
                         :session session
-                        :layer base
+                        :lane base
                         :permission above
                         :subjects #{person}
                         :facts [{:e person :k :softland.store/permission

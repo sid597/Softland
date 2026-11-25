@@ -138,16 +138,16 @@
 ;; ------------------------------------------------------------------- the words
 
 (def ^:private an-act-id [:notes :streaming (UUID/randomUUID)])
-(def ^:private an-act {:version 1 :layer :notes :permission [:asha :notes :notes] :facts [{:e :chair-7 :k :colour :v :green}]})
-(def ^:private a-query {:asks [:place :chair-7 :colour] :layers [:notes]})
+(def ^:private an-act {:version 1 :lane :notes :permission [:asha :notes :notes] :facts [{:e :chair-7 :k :colour :v :green}]})
+(def ^:private a-query {:asks [:place :chair-7 :colour] :lanes [:notes]})
 
 (defn- words-checks []
   (check "Each word in its form passes the check and comes back in its one form."
          (every? :ok (map words/check
                           [{:word :who-am-i}
                            {:word :who-am-i :wait-ms 500}
-                           {:word :act-ids :layer :notes}
-                           {:word :act-ids :layer :notes :count 3}
+                           {:word :act-ids :lane :notes}
+                           {:word :act-ids :lane :notes :count 3}
                            {:word :send :act an-act}
                            {:word :send :act an-act :act-id an-act-id}
                            {:word :send-all :acts [[an-act-id an-act]]}
@@ -156,7 +156,7 @@
                            {:word :watch :query a-query}
                            {:word :sign-out}])))
   (check "A part that is left out holds its default in the one form: a count of 1, a wait of 0."
-         (= [1 0] [(:count (:ok (words/check {:word :act-ids :layer :notes})))
+         (= [1 0] [(:count (:ok (words/check {:word :act-ids :lane :notes})))
                    (:wait-ms (:ok (words/check {:word :who-am-i})))]))
   (check "A wait that is longer than the longest is cut to it."
          (= words/longest-wait-ms (:wait-ms (:ok (words/check {:word :who-am-i :wait-ms 999999999})))))
@@ -182,7 +182,7 @@
              {:refuse :word-not-known :at :word}
              {:refuse :word-not-known :at :word}
              {:refuse :part-not-known :at :extra}
-             {:refuse :layer-not-named :at :layer}
+             {:refuse :lane-not-named :at :lane}
              {:refuse :count-out-of-range :at :count}
              {:refuse :count-out-of-range :at :count}
              {:refuse :not-given :at :act}
@@ -201,8 +201,8 @@
              (words/check {:word :dance})
              (words/check {:word :who-am-i :extra 1})
              (words/check {:word :act-ids})
-             (words/check {:word :act-ids :layer :notes :count 0})
-             (words/check {:word :act-ids :layer :notes :count (inc words/max-act-ids)})
+             (words/check {:word :act-ids :lane :notes :count 0})
+             (words/check {:word :act-ids :lane :notes :count (inc words/max-act-ids)})
              (words/check {:word :send})
              (words/check {:word :send :act [an-act]})
              (words/check {:word :send :act an-act :act-id [:notes :streaming "no uuid"]})
@@ -215,7 +215,7 @@
              (words/check {:word :read})]))
   (check "Every reason that the check gave above is one of the declared reasons."
          (every? words/reasons
-                 [:not-a-word :word-not-known :part-not-known :layer-not-named :count-out-of-range :not-given
+                 [:not-a-word :word-not-known :part-not-known :lane-not-named :count-out-of-range :not-given
                   :not-a-plain-map :act-id-has-no-form :act-id-not-given :digest-not-given :digest-is-no-text
                   :wait-is-no-span :acts-not-a-series :holds-a-part-that-the-server-writes]))
   (check "A word of the server's own is made only when it is declared, and each has a status."
@@ -270,7 +270,7 @@
         place-answer (fn [] (if (zero? (.nextInt random 4))
                               {:holds :no-fact}
                               {:holds :value :value (.nextInt random 100) :stamp (.nextInt random 1000)}))
-        whole (fn [] {:anew {:layers [:l] :left-out []
+        whole (fn [] {:anew {:lanes [:l] :left-out []
                              :places (into {} (keep (fn [place] (let [pa (place-answer)]
                                                                   (when-not (= :no-fact (:holds pa)) [place pa]))))
                                            places)}})

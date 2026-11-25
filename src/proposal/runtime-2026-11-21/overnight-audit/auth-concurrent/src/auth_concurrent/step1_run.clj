@@ -55,9 +55,9 @@
              [o2 _] (oracle/oracle-step o1 [:enter {:account (:account arg) :says (or (:says arg) {})
                                                     :email (when (= :email (get-in arg [:claim :by])) (get-in arg [:claim :email]))
                                                     :code-hash (when (= :code (get-in arg [:claim :by])) (get-in arg [:claim :hash]))
-                                                    :own-layer (:own-layer arg) :making (:making arg) :at (or (:at arg) 0)}])
-             [o3 _] (if (:own-layer-made? arg)
-                      (oracle/oracle-step o2 [:own-layer-made {:person (:person arg) :at 0}])
+                                                    :own-lane (:own-lane arg) :making (:making arg) :at (or (:at arg) 0)}])
+             [o3 _] (if (:own-lane-made? arg)
+                      (oracle/oracle-step o2 [:own-lane-made {:person (:person arg) :at 0}])
                       [o2 nil])]
          [p' o3])))
    [ps/empty-pstates oracle/empty-oracle-state]
@@ -92,7 +92,7 @@
       :entities {:accounts [Acc1] :codes [] :persons [:P1] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:invite {:person :P1 :claim C1 :invited-by :system :at 100}]}
               {:id :c2 :call [:enter {:account Acc1 :says {"k" "v1"} :email (:email C1) :code-hash nil
-                                      :own-layer :L1 :making M1 :at 120}]}]})
+                                      :own-lane :L1 :making M1 :at 120}]}]})
 
    (let [[p o] (seed-both [[:invite {:person :P1 :claim C1 :invited-by :system :at 10}]
                            [:invite {:person :P2 :claim C2 :invited-by :system :at 10}]])]
@@ -100,29 +100,29 @@
       :init-pstates p :init-oracle o
       :entities {:accounts [Acc1] :codes [] :persons [:P1 :P2] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account Acc1 :says {"s" "fast-200"} :email (:email C1) :code-hash nil
-                                      :own-layer :L1 :making M1 :at 200}]}
+                                      :own-lane :L1 :making M1 :at 200}]}
               {:id :c2 :call [:enter {:account Acc1 :says {"s" "slow-100"} :email (:email C2) :code-hash nil
-                                      :own-layer :L2 :making M2 :at 100}]}]})
+                                      :own-lane :L2 :making M2 :at 100}]}]})
 
    (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1
-                                             :own-layer :L1 :making M1 :says {"s" "init"} :at 50 :own-layer-made? false}]])]
+                                             :own-lane :L1 :making M1 :says {"s" "init"} :at 50 :own-lane-made? false}]])]
      {:name "2C-06: two returning enters of linked account with differing clocks (t1=300 vs t2=100)"
       :init-pstates p :init-oracle o
       :entities {:accounts [Acc1] :codes [] :persons [:P1] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account Acc1 :says {"s" "newer-300"} :email nil :code-hash nil
-                                      :own-layer :L9 :making M2 :at 300}]}
+                                      :own-lane :L9 :making M2 :at 300}]}
               {:id :c2 :call [:enter {:account Acc1 :says {"s" "older-100"} :email nil :code-hash nil
-                                      :own-layer :L8 :making M3 :at 100}]}]})
+                                      :own-lane :L8 :making M3 :at 100}]}]})
 
    (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1
-                                             :own-layer :L1 :making M1 :says {"s" "init"} :at 50 :own-layer-made? false}]])]
+                                             :own-lane :L1 :making M1 :says {"s" "init"} :at 50 :own-lane-made? false}]])]
      {:name "2C-16: two sequential returning enters of linked account with equal :at=200 and different :says"
       :init-pstates p :init-oracle o
       :entities {:accounts [Acc1] :codes [] :persons [:P1] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account Acc1 :says {"s" "first-at-200"} :email nil :code-hash nil
-                                      :own-layer :L9 :making M2 :at 200}]}
+                                      :own-lane :L9 :making M2 :at 200}]}
               {:id :c2 :call [:enter {:account Acc1 :says {"s" "second-at-200"} :email nil :code-hash nil
-                                      :own-layer :L8 :making M3 :at 200}]
+                                      :own-lane :L8 :making M3 :at 200}]
                :sequential-after [:c1]}]})
 
    (let [[p o] (seed-both [[:invite {:person :P1 :claim C1 :invited-by :system :at 10}]])]
@@ -130,9 +130,9 @@
       :init-pstates p :init-oracle o
       :entities {:accounts [Acc1 Acc2] :codes [] :persons [:P1] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account Acc1 :says {"a" "1"} :email (:email C1) :code-hash nil
-                                      :own-layer :L1 :making M1 :at 100}]}
+                                      :own-lane :L1 :making M1 :at 100}]}
               {:id :c2 :call [:enter {:account Acc2 :says {"a" "2"} :email (:email C1) :code-hash nil
-                                      :own-layer :L2 :making M2 :at 110}]}]})
+                                      :own-lane :L2 :making M2 :at 110}]}]})
 
    (let [[p o] (seed-both [[:invite {:person :P1 :claim C_CODE :invited-by :system :at 10}]
                            [:invite {:person :P2 :claim C1 :invited-by :system :at 10}]])]
@@ -140,29 +140,29 @@
       :init-pstates p :init-oracle o
       :entities {:accounts [Acc1 Acc2] :codes [] :persons [:P1 :P2] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account Acc1 :says {"a" "1"} :email (:email C1) :code-hash (:hash C_CODE)
-                                      :own-layer :L1 :making M1 :at 100}]}
+                                      :own-lane :L1 :making M1 :at 100}]}
               {:id :c2 :call [:enter {:account Acc2 :says {"a" "2"} :email nil :code-hash (:hash C_CODE)
-                                      :own-layer :L2 :making M2 :at 100}]}]})
+                                      :own-lane :L2 :making M2 :at 100}]}]})
 
    (let [[p o] (seed-both [[:invite {:person :P2 :claim C1 :invited-by :system :at 10}]])]
      {:name "2C-09: 2-claim enter (code nil, email waiting) racing invite on the code claim"
       :init-pstates p :init-oracle o
       :entities {:accounts [Acc1] :codes [] :persons [:P1 :P2] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account Acc1 :says {"a" "1"} :email (:email C1) :code-hash (:hash C_CODE)
-                                      :own-layer :L1 :making M1 :at 100}]}
+                                      :own-lane :L1 :making M1 :at 100}]}
               {:id :c2 :call [:invite {:person :P1 :claim C_CODE :invited-by :system :at 105}]}]})
 
    (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1
-                                             :own-layer :L1 :making M1 :says {} :at 10 :own-layer-made? false}]])]
-     {:name "2C-10: returning enter racing own-layer-made"
+                                             :own-lane :L1 :making M1 :says {} :at 10 :own-lane-made? false}]])]
+     {:name "2C-10: returning enter racing own-lane-made"
       :init-pstates p :init-oracle o
       :entities {:accounts [Acc1] :codes [] :persons [:P1] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account Acc1 :says {"a" "1"} :email nil :code-hash nil
-                                      :own-layer :L9 :making M2 :at 100}]}
-              {:id :c2 :call [:own-layer-made {:person :P1 :at 110}]}]})
+                                      :own-lane :L9 :making M2 :at 100}]}
+              {:id :c2 :call [:own-lane-made {:person :P1 :at 110}]}]})
 
-   (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1 :own-layer :L1 :making M1 :at 10 :own-layer-made? true}]
-                           [:entered-person {:person :P2 :claim C2 :account Acc2 :own-layer :L2 :making M2 :at 10 :own-layer-made? true}]
+   (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1 :own-lane :L1 :making M1 :at 10 :own-lane-made? true}]
+                           [:entered-person {:person :P2 :claim C2 :account Acc2 :own-lane :L2 :making M2 :at 10 :own-lane-made? true}]
                            [:ask {:code "ASK00001" :hash H_ASK :asks "cli" :ends 1000 :at 50}]])]
      {:name "2C-11: two persons answering one ask yes with new agents at once"
       :init-pstates p :init-oracle o
@@ -172,7 +172,7 @@
               {:id :c2 :call [:answer-ask {:code "ASK00001" :yes? true :root :P2 :actor :A2
                                            :new-agent {:label "bot2"} :sign-in :G2 :until 5000 :at 210}]}]})
 
-   (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1 :own-layer :L1 :making M1 :at 10 :own-layer-made? true}]
+   (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1 :own-lane :L1 :making M1 :at 10 :own-lane-made? true}]
                            [:begin-sign-in {:root :P1 :actor :P1 :sign-in :G0 :kind :browser :hash H_ASK :until 1500 :label "web" :at 20}]
                            [:open-session {:root :P1 :sign-in :G0 :session :S0 :until 1500 :driven-by {:kind :person} :at 20}]
                            [:ask {:code "ASK00002" :hash H_ASK :asks "cli" :ends 3000 :at 50}]])]
@@ -184,7 +184,7 @@
               {:id :c2 :call [:answer-ask {:code "ASK00002" :yes? false :root :P1 :actor :P1
                                            :new-agent nil :sign-in :G2 :until 5000 :at 2000}]}]})
 
-   (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1 :own-layer :L1 :making M1 :at 10 :own-layer-made? true}]
+   (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1 :own-lane :L1 :making M1 :at 10 :own-lane-made? true}]
                            [:make-actor {:root :P1 :actor :A1 :made-by :P1 :label "agent1" :at 20}]
                            [:ask {:code "ASK00003" :hash H_ASK :asks "cli" :ends 1000 :at 50}]])]
      {:name "2C-13: answer-ask yes for existing agent A1 racing end-actor(A1)"
@@ -194,8 +194,8 @@
                                            :new-agent nil :sign-in :G1 :until 5000 :at 200}]}
               {:id :c2 :call [:end-actor {:root :P1 :actor :A1 :at 210}]}]})
 
-   (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1 :own-layer :L1 :making M1 :at 10 :own-layer-made? true}]
-                           [:entered-person {:person :P2 :claim C2 :account Acc2 :own-layer :L2 :making M2 :at 10 :own-layer-made? true}]
+   (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1 :own-lane :L1 :making M1 :at 10 :own-lane-made? true}]
+                           [:entered-person {:person :P2 :claim C2 :account Acc2 :own-lane :L2 :making M2 :at 10 :own-lane-made? true}]
                            [:ask {:code "ASK00004" :hash H_ASK :asks "cli" :ends 1000 :at 50}]])]
      {:name "2C-14: two answers straddling ask :ends (P1 at=500 before ends=1000, P2 at=1200 after ends)"
       :init-pstates p :init-oracle o
@@ -228,9 +228,9 @@
       :init-pstates p :init-oracle o
       :entities {:accounts [Acc1] :codes [] :persons [:P1 :P2] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account Acc1 :says {"s" "1"} :email (:email C1) :code-hash nil
-                                      :own-layer :L1 :making M1 :at 100}]}
+                                      :own-lane :L1 :making M1 :at 100}]}
               {:id :c2 :call [:enter {:account Acc1 :says {"s" "2"} :email (:email C2) :code-hash nil
-                                      :own-layer :L2 :making M2 :at 200}]}
+                                      :own-lane :L2 :making M2 :at 200}]}
               {:id :c3 :call [:invite {:person :P1 :claim C1 :invited-by :system :at 150}]}]})
 
    (let [[p o] (seed-both [[:invite {:person :P2 :claim C1 :invited-by :system :at 10}]])]
@@ -238,9 +238,9 @@
       :init-pstates p :init-oracle o
       :entities {:accounts [Acc1] :codes [] :persons [:P1 :P2] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account Acc1 :says {"s" "1"} :email (:email C1) :code-hash (:hash C_CODE)
-                                      :own-layer :L1 :making M1 :at 100}]}
+                                      :own-lane :L1 :making M1 :at 100}]}
               {:id :c2 :call [:enter {:account Acc1 :says {"s" "2"} :email (:email C1) :code-hash (:hash C_CODE)
-                                      :own-layer :L2 :making M2 :at 200}]}
+                                      :own-lane :L2 :making M2 :at 200}]}
               {:id :c3 :call [:invite {:person :P1 :claim C_CODE :invited-by :system :at 120}]}]})
 
    (let [[p o] (seed-both [[:invite {:person :P2 :claim C1 :invited-by :system :at 10}]
@@ -252,16 +252,16 @@
       :init-pstates p :init-oracle o
       :entities {:accounts [Acc1 Acc2 Acc3] :codes [] :persons [:P1 :P2] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account Acc1 :says {"a" "1"} :email (:email C1) :code-hash (:hash C_CODE)
-                                      :own-layer :L1 :making M1 :at 100}]}
+                                      :own-lane :L1 :making M1 :at 100}]}
               {:id :c2 :call [:enter {:account Acc2 :says {"a" "2"} :email nil :code-hash (:hash C_CODE)
-                                      :own-layer :L2 :making M2 :at 110}]}
+                                      :own-lane :L2 :making M2 :at 110}]}
               {:id :c3 :call [:enter {:account Acc3 :says {"a" "3"} :email nil :code-hash (:hash C_CODE)
-                                      :own-layer :L3 :making M3 :at 120}]}]})
+                                      :own-lane :L3 :making M3 :at 120}]}]})
 
    ;; Also test 3-caller stale-ClaimClaiming eviction race (`PLAN.md:525, 537`) starting from a delayed retry of a 2-claim enter!
    (let [[p0 o] (seed-both [[:invite {:person :P1 :claim C_CODE :invited-by :system :at 10}]
                             [:invite {:person :P2 :claim C1 :invited-by :system :at 10}]
-                            [:entered-person {:person :P2 :claim C1 :account Acc1 :own-layer :L1 :making M1 :at 50 :own-layer-made? false}]])
+                            [:entered-person {:person :P2 :claim C1 :account Acc1 :own-lane :L1 :making M1 :at 50 :own-lane-made? false}]])
          ;; Acc1's 2-claim op0 (:op-stale) moved to EnterOpWon(P2, :email) after missing C_CODE before P1 was invited,
          ;; and a delayed child message of op0 wrote ClaimClaiming(:P1, :op-stale, :code) on C_CODE (Trace E-3, PLAN.md:564)!
          p (-> p0
@@ -272,14 +272,14 @@
       :init-pstates p :init-oracle o
       :entities {:accounts [Acc1 Acc2 Acc3] :codes [] :persons [:P1 :P2] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account Acc2 :says {"a" "2"} :email nil :code-hash (:hash C_CODE)
-                                      :own-layer :L2 :making M2 :at 100}]}
+                                      :own-lane :L2 :making M2 :at 100}]}
               {:id :c2 :call [:enter {:account Acc3 :says {"a" "3"} :email nil :code-hash (:hash C_CODE)
-                                      :own-layer :L3 :making M3 :at 110}]}]})
+                                      :own-lane :L3 :making M3 :at 110}]}]})
 
    (let [[p0 o] (seed-both [[:invite {:person :P1 :claim C_CODE :invited-by :system :at 10}]
                             [:invite {:person :P2 :claim C1 :invited-by :system :at 10}]
                             [:invite {:person :P3 :claim C2 :invited-by :system :at 10}]
-                            [:entered-person {:person :P2 :claim C1 :account Acc1 :own-layer :L1 :making M1 :at 50 :own-layer-made? false}]])
+                            [:entered-person {:person :P2 :claim C1 :account Acc1 :own-lane :L1 :making M1 :at 50 :own-lane-made? false}]])
          p (-> p0
                (assoc-in [:enter-ops :op-stale] {:state :EnterOpWon :person :P2 :won-phase :email})
                (assoc-in [:claims C_CODE] {:state :ClaimClaiming :person :P1 :invited-by :system :invited-at 10
@@ -288,9 +288,9 @@
       :init-pstates p :init-oracle o
       :entities {:accounts [Acc1 Acc2 Acc3] :codes [] :persons [:P1 :P2 :P3] :sign-ins [] :sessions []}
       :calls [{:id :c1 :call [:enter {:account Acc2 :says {"a" "2"} :email (:email C2) :code-hash (:hash C_CODE)
-                                      :own-layer :L2 :making M2 :at 100}]}
+                                      :own-lane :L2 :making M2 :at 100}]}
               {:id :c2 :call [:enter {:account Acc3 :says {"a" "3"} :email (:email C2) :code-hash (:hash C_CODE)
-                                      :own-layer :L3 :making M3 :at 110}]}]})
+                                      :own-lane :L3 :making M3 :at 110}]}]})
 
    (let [[p o] (seed-both [])]
      {:name "3C-08: invite(P1,C1) in flight; invite(P2,C2) returns -> invite(P1,C2) helps C1 without rechecking C2 (PLAN.md:479-480)"
@@ -301,7 +301,7 @@
               {:id :c3 :call [:invite {:person :P1 :claim C2 :invited-by :system :at 120}]
                :sequential-after [:c2]}]})
 
-   (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1 :own-layer :L1 :making M1 :at 10 :own-layer-made? true}]
+   (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1 :own-lane :L1 :making M1 :at 10 :own-lane-made? true}]
                            [:ask {:code "ASK00005" :hash H_ASK :asks "cli" :ends 1000 :at 50}]])]
      {:name "3C-09: answer-ask yes with new-agent A1 racing make-actor(P1, A1) and second answer-ask"
       :init-pstates p :init-oracle o
@@ -312,8 +312,8 @@
               {:id :c3 :call [:answer-ask {:code "ASK00005" :yes? false :root :P1 :actor :P1
                                            :new-agent nil :sign-in :G2 :until 5000 :at 220}]}]})
 
-   (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1 :own-layer :L1 :making M1 :at 10 :own-layer-made? true}]
-                           [:entered-person {:person :P2 :claim C2 :account Acc2 :own-layer :L2 :making M2 :at 10 :own-layer-made? true}]
+   (let [[p o] (seed-both [[:entered-person {:person :P1 :claim C1 :account Acc1 :own-lane :L1 :making M1 :at 10 :own-lane-made? true}]
+                           [:entered-person {:person :P2 :claim C2 :account Acc2 :own-lane :L2 :making M2 :at 10 :own-lane-made? true}]
                            [:ask {:code "ASK00006" :hash H_ASK :asks "cli" :ends 1000 :at 50}]])]
      {:name "3C-07: three answers on one ask — refused answer (:no-such-actor) + yes + no"
       :init-pstates p :init-oracle o
@@ -428,7 +428,7 @@
 
     (.append md "\n## What the Model Leaves Out, and How Far the Search Went\n\n")
     (.append md "- **How far the search went:** Every 2-caller scenario (`2C-01`..`2C-14`) ran exhaustively to 0 remaining unexplored states across `:pure` (0 faults + post-quiescence client re-runs), `:individual` (crash + source retry at every in-flight hop), `:all-after` (partition replay from every prior depot index), and `:timeout-overlap` (duplicate attempt while slow hop remains queued). All 3-caller scenarios (`3C-01`..`3C-07`) ran with the same four modes up to 35,000 deduplicated system states per `(scenario, mode)` cell.\n")
-    (.append md "- **What the model includes:** Exact single-task atomic steps of `PLAN.md` §1A (`invite`), §1B (`enter` 1-claim and 2-claim), §1C (`answer-ask`), §2 (`take-out`, `end-actor`, `own-layer-made`), and all 4 reads (`who-is`, `ask-of`, `under`, `watch-root` / `$$live`), FIFO ordering per `(src-task, dst-task)` channel (`stream.md:37`), independent single-threaded tasks per entity key, differing clocks, helpers, and causal linearizability against `SPEC.md` + Sid's 2 calls of 22 November.\n")
+    (.append md "- **What the model includes:** Exact single-task atomic steps of `PLAN.md` §1A (`invite`), §1B (`enter` 1-claim and 2-claim), §1C (`answer-ask`), §2 (`take-out`, `end-actor`, `own-lane-made`), and all 4 reads (`who-is`, `ask-of`, `under`, `watch-root` / `$$live`), FIFO ordering per `(src-task, dst-task)` channel (`stream.md:37`), independent single-threaded tasks per entity key, differing clocks, helpers, and causal linearizability against `SPEC.md` + Sid's 2 calls of 22 November.\n")
     (.append md "- **What the model leaves out:**\n")
     (.append md "  1. Physical JVM/RocksDB serialization, network sockets, and `ForeignProxy` diff transport (client-side callback threading and `ping-task` timers).\n")
     (.append md "  2. Multiple cascading faults (`> 1` injected fault per 2/3-caller trace), and `>= 4` simultaneous callers (note: `3C-06` explicitly tests the 2-caller continuation from `PLAN.md` Trace E-3's 2-caller setup, which corresponds to 4 callers end-to-end).\n")

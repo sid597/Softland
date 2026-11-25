@@ -24,7 +24,7 @@
   the query `answer-by-act-id`; the row of a place, by a select of the
   gates' tables of facts, to see what a gate kept of a value and that a
   refused act left no row; and the strays of both gates. A place of a
-  streaming layer has its row on the layer's task. A place of the base has
+  streaming lane has its row on the lane's task. A place of the base has
   the same row on every task, and the proof reads each task.
 
   The base. An act of the base goes to the microbatch depot, whose ack says
@@ -48,12 +48,12 @@
   took from the return of `send-act` to its answer, as an order of size,
   and holds that time to nothing but the bound of a wait.
 
-  The depot of a layer, and the other depot word. The door reads a layer's
+  The depot of a lane, and the other depot word. The door reads a lane's
   depot when it makes an act-id. The proof notes what that read was asked
-  and what it gave, for the base, for a streaming layer and for a layer
+  and what it gave, for the base, for a streaming lane and for a lane
   that is not made. An act under an act-id whose depot word is not the
-  layer's goes to the depot that the act-id names. The proof sends one to
-  each depot, for a layer that is made and for one that is not, and holds
+  lane's goes to the depot that the act-id names. The proof sends one to
+  each depot, for a lane that is made and for one that is not, and holds
   the word of the refusal that comes back.
 
   The time on the act. The door adds three parts to a maker's act: the
@@ -66,12 +66,12 @@
   run in one process, so the proof reads the clock that the door reads. It
   also holds that the answer of an act carries the time on the thing that a
   gate decided, the time read back from the log, for an accept and for a
-  refusal, in a streaming layer and in the base. And it holds that a stamp
-  holds no time: the stamps of a layer count its decisions, 0 for the
+  refusal, in a streaming lane and in the base. And it holds that a stamp
+  holds no time: the stamps of a lane count its decisions, 0 for the
   first and one more for each decision after it, an accept or a refusal.
-  Of acts that 16 threads send into one layer at once it holds only what
+  Of acts that 16 threads send into one lane at once it holds only what
   holds in every order: each answer carries the time on its own act, and
-  the 400 stamps are the 400 numbers after the stamp of the layer's making
+  the 400 stamps are the 400 numbers after the stamp of the lane's making
   act.
 
   Where the proof stands in for a call of Rama's client. Clojure lets a
@@ -106,7 +106,7 @@
   for the time on an act, round a call of the door.
 
   Approach. The checks run in one order on one cluster, and later checks
-  build on the layers that earlier ones made. Near the end the proof starts
+  build on the lanes that earlier ones made. Near the end the proof starts
   the module again in the cluster, by Rama's module update with the
   unchanged module; Rama then prints some lines of its own log, marked
   ERROR, that are no failed checks. So does a thing that holds a plain Java
@@ -191,7 +191,7 @@
      :streaming-depot  (rama/foreign-depot ipc m "*streaming-depot")
      :microbatch-depot (rama/foreign-depot ipc m "*microbatch-depot")
      :answer           (rama/foreign-query ipc m "answer-by-act-id")
-     :depot-of-layer   (rama/foreign-query ipc m "depot-of-layer")
+     :depot-of-lane   (rama/foreign-query ipc m "depot-of-lane")
      :streaming-facts  (rama/foreign-pstate ipc m "$$streaming-facts")
      :microbatch-facts (rama/foreign-pstate ipc m "$$microbatch-facts")
      :streaming-task   (rama/foreign-pstate ipc m "$$streaming-task")
@@ -206,9 +206,9 @@
 (defn- the-paced-door "The door that was opened with a read each 100 ms." [] (:paced-door *round*))
 
 (defn- act-id-for!
-  "An act-id for a layer, through a door."
-  [d layer]
-  (noted (door/act-id-for d layer)))
+  "An act-id for a lane, through a door."
+  [d lane]
+  (noted (door/act-id-for d lane)))
 
 (defn- send!
   "Sends a maker's act through a door, with the act-id that the maker asked
@@ -331,34 +331,34 @@
   (rama/foreign-invoke-query (:answer *round*) (record/routing-id act-id) act-id))
 
 (defn- row-of
-  "The row of a place of a streaming layer, by a select of the streaming
-  gate's table of facts on the task of the layer, or nil for a place with
-  no row. What must hold: the layer is a streaming layer, and each of the
+  "The row of a place of a streaming lane, by a select of the streaming
+  gate's table of facts on the task of the lane, or nil for a place with
+  no row. What must hold: the lane is a streaming lane, and each of the
   three is an id within the limit."
-  [layer e k]
-  (rama/foreign-select-one (path/keypath (record/place-key layer e k)) (:streaming-facts *round*) {:pkey layer}))
+  [lane e k]
+  (rama/foreign-select-one (path/keypath (record/place-key lane e k)) (:streaming-facts *round*) {:pkey lane}))
 
 (defn- rows-in
   "The row at one place in one gate's table of facts, as each task holds
   it: a vector with one entry for each task, nil where a task holds no row.
   Takes the proof's name of the table, :streaming-facts or
   :microbatch-facts, and the place. The microbatch gate keeps a fact of its
-  layers as the same row on every task. What must hold: each of the three
+  lanes as the same row on every task. What must hold: each of the three
   of the place is an id within the limit."
-  [pstate layer e k]
+  [pstate lane e k]
   (mapv (fn [pkey]
-          (rama/foreign-select-one (path/keypath (record/place-key layer e k)) (get *round* pstate) {:pkey pkey}))
+          (rama/foreign-select-one (path/keypath (record/place-key lane e k)) (get *round* pstate) {:pkey pkey}))
         (rtest/gen-hashing-index-keys tasks)))
 
 (defn- rows-at
   "Each row that the two gates hold at one place, by a select of both
   gates' tables of facts on each task: a vector, empty when no gate holds a
   row there. It asks every task, so it does not rest on where a gate keeps
-  a place. A place of a streaming layer has one row at most; a place of a
-  microbatch layer has its row once for each task. What must hold: each of
+  a place. A place of a streaming lane has one row at most; a place of a
+  microbatch lane has its row once for each task. What must hold: each of
   the three is an id within the limit."
-  [layer e k]
-  (vec (remove nil? (concat (rows-in :streaming-facts layer e k) (rows-in :microbatch-facts layer e k)))))
+  [lane e k]
+  (vec (remove nil? (concat (rows-in :streaming-facts lane e k) (rows-in :microbatch-facts lane e k)))))
 
 (defn- strays
   "How many different strays the two gates hold, over every word and every
@@ -411,7 +411,7 @@
   "Calls f while the proof stands in for Rama's two client calls with
   functions that note each call and then call Rama. Gives {:result what f
   gave, :calls the calls in their order}, each call as [:append or :query,
-  how many arguments it had after the handle]: 1 is the read of a layer's
+  how many arguments it had after the handle]: 1 is the read of a lane's
   depot, 2 the read of an answer, and an append has 2. What must hold is
   what `counting` asks."
   [f]
@@ -432,8 +432,8 @@
   `foreign-invoke-query` with a function that calls Rama and then notes
   what the query was asked and what it gave. Gives {:result what f gave,
   :asked the queries in their order}, each query as [the arguments after
-  the handle, what Rama gave]: the read of a layer's depot has one
-  argument, the layer; the read of an answer has two, the routing id and
+  the handle, what Rama gave]: the read of a lane's depot has one
+  argument, the lane; the read of an answer has two, the routing id and
   the act-id. What must hold is what `counting` asks."
   [f]
   (let [asked (atom [])
@@ -466,7 +466,7 @@
   "Calls f while the proof stands in for Rama's client call
   `foreign-invoke-query` with a function that throws for a call with n
   arguments after the handle, and calls Rama for each other: 1 is the read
-  of a layer's depot, 2 the read of an answer."
+  of a lane's depot, 2 the read of an answer."
   [n f]
   (let [real-query rama/foreign-invoke-query]
     (with-redefs [rama/foreign-invoke-query
@@ -490,26 +490,26 @@
 ;; ----------------------------------------------------------------- the makers
 
 (defn- own
-  "The first permission of a personal layer: its person holds it, with
+  "The first permission of a personal lane: its person holds it, with
   nothing above it."
   [who]
   [who who who])
 
 (defn- making-of
-  "The making act of a personal layer, as a maker gives it: by the system,
-  for the person, with the depot that the layer starts with."
+  "The making act of a personal lane, as a maker gives it: by the system,
+  for the person, with the depot that the lane starts with."
   [who]
-  {:version 1 :who :system :layer who :permission (own who) :session :door-proof
+  {:version 1 :who :system :lane who :permission (own who) :session :door-proof
    :facts [{:e who :k :softland.store/depot :v :streaming}
            {:e who :k :softland.store/permission :v (own who)}]})
 
 (defn- act-of
-  "An act of a person into her own layer, as a maker gives it: plain values,
+  "An act of a person into her own lane, as a maker gives it: plain values,
   no act-id, no depot. `more` is merged in last, for other parts and for
   faults."
   ([who facts] (act-of who facts {}))
   ([who facts more]
-   (merge {:version 1 :who who :layer who :permission (own who) :session :door-proof :facts facts}
+   (merge {:version 1 :who who :lane who :permission (own who) :session :door-proof :facts facts}
           more)))
 
 (defn- value
@@ -518,8 +518,8 @@
   [e v]
   {:e e :k :text :v v})
 
-(defn- make-layer!
-  "Makes the personal layer of a who, through the door. Gives true when the
+(defn- make-lane!
+  "Makes the personal lane of a who, through the door. Gives true when the
   making act was accepted."
   [d who]
   (accepted? (decide! d (making-of who))))
@@ -530,12 +530,12 @@
 (defn- system-act
   "The system's act into the base, as a maker gives it."
   [facts]
-  {:version 1 :who :system :layer :base :permission system-own :session :door-proof :facts facts})
+  {:version 1 :who :system :lane :base :permission system-own :session :door-proof :facts facts})
 
 (defn- base-act-of
   "An act into the base of a who under a permission, as a maker gives it."
   [who permission facts]
-  {:version 1 :who who :layer :base :permission permission :session :door-proof :facts facts})
+  {:version 1 :who who :lane :base :permission permission :session :door-proof :facts facts})
 
 (defn- time-sent
   "The time that the door wrote on the thing that it sent for a result of
@@ -558,7 +558,7 @@
 (defn- one-apart?
   "True for stamps that are all there and of which each is the one before
   it plus one: the stamps of decisions that follow one another in one
-  layer, with no other decision of the layer between them."
+  lane, with no other decision of the lane between them."
   [stamps]
   (boolean (and (seq stamps) (every? int? stamps)
                 (= (vec stamps) (vec (range (first stamps) (+ (first stamps) (count stamps))))))))
@@ -595,8 +595,8 @@
            [(:could-not wrong) (:appended wrong) (:module wrong) (string? (:threw wrong))])
     (check "the right name gives a door and no word; so does the same name with the door's one number given"
            [nil nil] [(:could-not d) (:could-not (the-paced-door))])
-    (check "the opening of a door fetches four handles of Rama's client and no more: the two depots of acts, and the two queries, of an answer and of a layer's depot"
-           [nil #{"*streaming-depot" "*microbatch-depot"} 2 #{"answer-by-act-id" "depot-of-layer"} 2]
+    (check "the opening of a door fetches four handles of Rama's client and no more: the two depots of acts, and the two queries, of an answer and of a lane's depot"
+           [nil #{"*streaming-depot" "*microbatch-depot"} 2 #{"answer-by-act-id" "depot-of-lane"} 2]
            [(:could-not (:result fetched)) (set (:depots fetched)) (count (:depots fetched))
             (set (:queries fetched)) (count (:queries fetched))])
     (check "a door prints as the word door and the module's name, whatever prints it: pr, str, println, a pretty-printer"
@@ -623,7 +623,7 @@
         series (counting #(door/act-ids-for d :alice 20))
         ids (noted (:result series))]
     (swap! kept assoc :making {:act-id before :digest (:digest sent) :answer answer})
-    (check "act-id-for a layer that is not made: the layer, the depot that it starts with, and a uuid"
+    (check "act-id-for a lane that is not made: the lane, the depot that it starts with, and a uuid"
            [:alice :streaming true 3] [(nth before 0) (nth before 1) (uuid? (nth before 2)) (count before)])
     (check "the making act through the door: the act-id that the maker gave back, a digest of 64 hex characters, and the streaming gate's ack"
            [before true :gate-ran #{:act-id :digest :ack}] [(:act-id sent) (hex64? (:digest sent)) (:ack sent) (set (keys sent))])
@@ -641,24 +641,24 @@
             (digest/hex-of (assoc in-log declaration/time-part 0)) (:digest round-the-door)])
     (check "the answer carries the time that the door wrote on the act, read back from the depot, and no other clock: a time between the proof's two readings round the send"
            [door-time true] [(:time answer) (time-between? (:time answer) clock-before clock-after)])
-    (check "the stamp of the answer holds no time: this making act is the first decision of its layer, and its stamp is 0"
+    (check "the stamp of the answer holds no time: this making act is the first decision of its lane, and its stamp is 0"
            0 (:stamp answer))
-    (check "after the making, act-id-for gives the same layer and depot, and another uuid"
+    (check "after the making, act-id-for gives the same lane and depot, and another uuid"
            [[:alice :streaming] true] [(vec (take 2 after)) (not= (nth before 2) (nth after 2))])
-    (check "act-ids-for 20: 20 different act-ids of the layer, made with one query and no append"
+    (check "act-ids-for 20: 20 different act-ids of the lane, made with one query and no append"
            [20 20 #{[:alice :streaming]} 1 0]
            [(count ids) (count (set ids)) (set (map (fn [id] (vec (take 2 id))) ids)) (:queries series) (:appends series)])
-    (shown "the making act of a streaming layer through the door:" (pr-str (dissoc sent :digest)) "| answer-of:" (pr-str answer))
+    (shown "the making act of a streaming lane through the door:" (pr-str (dissoc sent :digest)) "| answer-of:" (pr-str answer))
     (shown "the time that the door wrote on that act, read back from the depot:" door-time
            "| the proof's readings of the clock just before and just after the send:" clock-before clock-after
            "| the stamp and the time of its answer:" (:stamp answer) (:time answer)
            "| the parts of the record that the maker did not give:" (pr-str (vec (sort (remove (set (keys making)) (keys in-log))))))
-    (shown "act-ids-for 20 in one layer: 20 different act-ids with" (:queries series)
+    (shown "act-ids-for 20 in one lane: 20 different act-ids with" (:queries series)
            "query. The proof counted the query by standing in for Rama's client call with a function that counts and then calls Rama.")))
 
 (deftest round-trips-are-counted
   (let [d (the-door)
-        made? (make-layer! d :carol)
+        made? (make-lane! d :carol)
         logs-before (log-counts)
         first-value (counting #(send! d (act-of :carol [(value :c-1 "one")])))
         given-id (act-id-for! d :carol)
@@ -678,9 +678,9 @@
         no-id (counting #(answer! d :no-act-id (:digest (:result held)) 600))
         no-id-ms (quot (- (System/nanoTime) began-no-id) 1000000)
         trips (fn [counted] [(:appends counted) (:queries counted)])]
-    (check "the layer of this check is made" true made?)
+    (check "the lane of this check is made" true made?)
     (check "each of the three sends went in" [nil nil nil] (mapv (comp :could-not :result) [first-value held five]))
-    (check "a person's first send of a value, which makes its act-id: 1 append, of the act, and 1 query, the read of the layer's depot" [1 1] (trips first-value))
+    (check "a person's first send of a value, which makes its act-id: 1 append, of the act, and 1 query, the read of the lane's depot" [1 1] (trips first-value))
     (check "a send of a value with a given act-id: 1 append and no query" [1 0] (trips held))
     (check "a send of five values that makes its act-id: 1 append and 1 query, as for one value" [1 1] (trips five))
     (check "the three sends are three records more in the streaming depot's log and none in the other, and the two that made their act-id are accepted"
@@ -702,7 +702,7 @@
 
 (deftest a-value-is-in-the-log-as-given
   (let [d (the-door)
-        made? (make-layer! d :dora)
+        made? (make-lane! d :dora)
         v {:b 1.50M :a [1 2N]}
         first-act (act-of :dora [(value :note-1 v)] {:session :doras-session})
         logs-before (log-counts)
@@ -722,13 +722,13 @@
         mixed (decide! d (act-of :dora mixed-facts))
         mixed-record (record-of (:act-id (:sent mixed)))]
     (swap! kept assoc :landed {:act-id act-id :digest (:digest (:sent landed)) :answer (:answer landed)})
-    (check "the layer of this check is made" true made?)
+    (check "the lane of this check is made" true made?)
     (check "a person's first act with a value is one record more in the streaming depot's log, the act itself, and it is accepted"
            [[1 0] true] [(mapv - logs-after logs-before) (accepted? landed)])
     (check "the record in the log is the maker's act with the door's three additions: without its time it is the act with :act-id and :depot, its time is a time of the door's clock between the proof's two readings round the call, and its fact holds :e, :k and :v and no other part"
            [(assoc first-act :act-id act-id :depot :streaming) true #{:e :k :v}]
            [(without-the-time record) (time-between? (time-on record) clock-before clock-after) (set (keys fact))])
-    (check "its answer carries the time that the door wrote on it, read back from the depot; and its stamp is 1: the layer's making act was the layer's first decision, and this act is its second"
+    (check "its answer carries the time that the door wrote on it, read back from the depot; and its stamp is 1: the lane's making act was the lane's first decision, and this act is its second"
            [(time-on record) 1] [(:time (:answer landed)) (:stamp (:answer landed))])
     (check "the value in the log is as the maker gave it and not in its normal form: the decimal keeps its trailing zero, and the big integer is big"
            ["1.50M" "[1 2N]" #{:a :b}]
@@ -763,7 +763,7 @@
 
 (deftest the-door-and-the-hand-send-the-same-thing
   (let [d (the-door)
-        made? (make-layer! d :erin)
+        made? (make-lane! d :erin)
         facts [(value :note-1 {:n 1 :tags #{:a}})
                {:e :note-2 :k :text}
                {:e :erin :k :softland.store/who-may-see :v :members}]
@@ -773,20 +773,20 @@
         clock-after (clock)
         door-record (record-of (:act-id (:sent by-door)))
         ;; by the hand: the hand's steps, written out a second time
-        depot-word (or (rama/foreign-invoke-query (:depot-of-layer *round*) :erin) (first-act/depot-at-making :erin))
+        depot-word (or (rama/foreign-invoke-query (:depot-of-lane *round*) :erin) (first-act/depot-at-making :erin))
         hand-id [:erin depot-word (UUID/randomUUID)]
         hand-time (clock)
         hand-thing (merge {:act-id hand-id :depot depot-word declaration/time-part hand-time} (act-of :erin facts))
         _ (rama/foreign-append! (:streaming-depot *round*) hand-thing :ack)
         hand-answer (answer-round hand-id)
         hand-record (record-of hand-id)]
-    (check "the layer of this check is made" true made?)
+    (check "the lane of this check is made" true made?)
     (check "one act with a value, a retract and a store-key fact goes in through the door and is accepted" true (accepted? by-door))
     (check "the same act by the hand is accepted, with the digest of what the hand sent, and the time in its answer is the time that the hand wrote on it, a reading of the clock after the door's send"
            [:accepted (digest/hex-of hand-thing) hand-time]
            [(:verdict hand-answer) (:digest hand-answer) (:time hand-answer)])
     (check "the door's record in the log, with the uuid of its act-id and its time set aside, is the maker's act with the door's three additions, written out here"
-           {:version 1 :who :erin :layer :erin :permission [:erin :erin :erin] :session :door-proof
+           {:version 1 :who :erin :lane :erin :permission [:erin :erin :erin] :session :door-proof
             :facts [{:e :note-1 :k :text :v {:n 1 :tags #{:a}}}
                     {:e :note-2 :k :text}
                     {:e :erin :k :softland.store/who-may-see :v :members}]
@@ -869,17 +869,17 @@
         logs-after-time-given (log-counts)
         words-given
         [["no map" (mapv (fn [x] (said (send! d x))) [nil 7 "x" [1 2]]) (vec (repeat 4 (could-not :read-the-act)))]
-         ["no :layer" (said (send! d (dissoc (alice [(value :n 1)]) :layer))) (could-not :make-an-act-id :layer)]
-         ["a sorted map with string keys" (said (send! d (sorted-map "layer" :alice "facts" []))) (could-not :read-the-act :layer)]
-         ["a record with a :layer" (said (send! d (assoc (->Thing :n :text) :layer :alice :facts []))) (could-not :read-the-act)]
-         ["a :layer that is no id" (mapv (fn [layer] (said (send! d (assoc (alice [(value :n 1)]) :layer layer)))) ["notes" 7])
-          (vec (repeat 2 (could-not :make-an-act-id :layer)))]
-         ["a :layer of 257 characters" (said (send! d (assoc (alice []) :layer (keyword (apply str (repeat 256 "a")))))) (could-not :make-an-act-id :layer)]
+         ["no :lane" (said (send! d (dissoc (alice [(value :n 1)]) :lane))) (could-not :make-an-act-id :lane)]
+         ["a sorted map with string keys" (said (send! d (sorted-map "lane" :alice "facts" []))) (could-not :read-the-act :lane)]
+         ["a record with a :lane" (said (send! d (assoc (->Thing :n :text) :lane :alice :facts []))) (could-not :read-the-act)]
+         ["a :lane that is no id" (mapv (fn [lane] (said (send! d (assoc (alice [(value :n 1)]) :lane lane)))) ["notes" 7])
+          (vec (repeat 2 (could-not :make-an-act-id :lane)))]
+         ["a :lane of 257 characters" (said (send! d (assoc (alice []) :lane (keyword (apply str (repeat 256 "a")))))) (could-not :make-an-act-id :lane)]
          ["an act that already carries :act-id, or :depot"
           [(said (send! d (assoc (alice [(value :n 1)]) :act-id [:alice :streaming (UUID/randomUUID)])))
            (said (send! d (assoc (alice [(value :n 1)]) :depot :streaming)))]
           [(could-not :add-its-parts :act-id) (could-not :add-its-parts :depot)]]
-         ["an act-id given back that is of another layer" (said (send! d (alice [(value :n 1)]) [:carol :streaming (UUID/randomUUID)])) (could-not :make-an-act-id :act-id)]
+         ["an act-id given back that is of another lane" (said (send! d (alice [(value :n 1)]) [:carol :streaming (UUID/randomUUID)])) (could-not :make-an-act-id :act-id)]
          ["a :session that throws when it is read, which the door meets in the walk for its digest"
           (said (send! d (alice [(value :n 1)] {:session throws-when-read}))) (could-not :read-the-act)]]
         ;; a who that the door does not read, and that Rama's client cannot write
@@ -1022,7 +1022,7 @@
            [#{:answer :reason :stamp :time} :refused :replaced-fact-not-current true true stale-time]
            [(set (keys (:answer stale))) (:answer (:answer stale)) (:reason (:answer stale)) (int? (:stamp (:answer stale)))
             (int? stale-time) (:time (:answer stale))])
-    (check "a refusal is counted in its layer as an accept is: the refused act, the next decision of the layer, has the stamp of the accept before it plus one"
+    (check "a refusal is counted in its lane as an accept is: the refused act, the next decision of the lane, has the stamp of the accept before it plus one"
            (when (int? stamp) (inc stamp)) (:stamp (:answer stale)))
     (check "nothing yet, for an act-id that was never sent" {:answer :nothing-yet} never)
     (check "nothing yet, for a thing that is no act-id, with no query made" [{:answer :nothing-yet} 0] [(:result no-act-id) (:queries no-act-id)])
@@ -1063,13 +1063,13 @@
 
 (deftest a-maker-who-may-not-act
   (let [d (the-door)
-        ;; a place of the same layer that its holder writes: the select that must find no row for a refused act finds this one
-        alices (decide! d (act-of :alice [(value :a-1 "a value of the layer's holder")]))
+        ;; a place of the same lane that its holder writes: the select that must find no row for a refused act finds this one
+        alices (decide! d (act-of :alice [(value :a-1 "a value of the lane's holder")]))
         alices-rows (rows-at :alice :a-1 :text)
         ;; a who under a permission that was never given
         id (act-id-for! d :alice)
         mallorys [:mallory :alice :alice (own :alice)]
-        mallorys-act {:version 1 :who :mallory :layer :alice :permission mallorys :session :door-proof
+        mallorys-act {:version 1 :who :mallory :lane :alice :permission mallorys :session :door-proof
                       :facts [(value :m-1 "a value of a who with no permission")]}
         logs-before (log-counts)
         clock-before (clock)
@@ -1078,17 +1078,17 @@
         logs-after (log-counts)
         answer (answer! d id (:digest (:result sent)))
         round-the-door (answer-round id)
-        ;; a value act into a layer that is not made
-        nowheres-act (act-of :nowhere [(value :n-1 "a value into a layer that is not made")])
+        ;; a value act into a lane that is not made
+        nowheres-act (act-of :nowhere [(value :n-1 "a value into a lane that is not made")])
         logs-before-2 (log-counts)
         clock-before-2 (clock)
         not-made (decide! d nowheres-act)
         clock-after-2 (clock)
         logs-after-2 (log-counts)
         not-made-id (:act-id (:sent not-made))]
-    (check "a value of the layer's holder is accepted, and the select round the door finds its one row"
-           [true ["\"a value of the layer's holder\""]] [(accepted? alices) (mapv :value alices-rows)])
-    (check "a who under a permission that was never given sends a value act into that layer: the door checks nothing of her and stops nothing; one append and no query, the streaming gate's ack, and one record more in the streaming depot's log"
+    (check "a value of the lane's holder is accepted, and the select round the door finds its one row"
+           [true ["\"a value of the lane's holder\""]] [(accepted? alices) (mapv :value alices-rows)])
+    (check "a who under a permission that was never given sends a value act into that lane: the door checks nothing of her and stops nothing; one append and no query, the streaming gate's ack, and one record more in the streaming depot's log"
            [nil :gate-ran [1 0] [1 0]]
            [(:could-not (:result sent)) (:ack (:result sent)) [(:appends sent) (:queries sent)] (mapv - logs-after logs-before)])
     (check "the log holds her act under its own act-id, as she gave it, with its value plain: one record, which without its time is her act with :act-id and :depot, and whose time is a time of the door's clock between the proof's two readings round the send"
@@ -1097,8 +1097,8 @@
            [(as-answered (:result sent) {:answer :refused :reason :permission-does-not-stand}) [:refused :permission-does-not-stand (:digest (:result sent))]]
            [(dissoc answer :stamp) [(:verdict round-the-door) (:reason round-the-door) (:digest round-the-door)]])
     (check "no fact of it is in the tables: no gate holds a row at its place, on any task" [] (rows-at :alice :m-1 :text))
-    (check "a value act into a layer that is not made: the thing goes to the depot that the layer would start with, one record more in its log, and a gate refuses it under its own act-id with its word and with the time that the door wrote on it"
-           [nil :gate-ran [1 0] (as-answered (:sent not-made) {:answer :refused :reason :layer-not-made})]
+    (check "a value act into a lane that is not made: the thing goes to the depot that the lane would start with, one record more in its log, and a gate refuses it under its own act-id with its word and with the time that the door wrote on it"
+           [nil :gate-ran [1 0] (as-answered (:sent not-made) {:answer :refused :reason :lane-not-made})]
            [(:could-not (:sent not-made)) (:ack (:sent not-made)) (mapv - logs-after-2 logs-before-2) (dissoc (:answer not-made) :stamp)])
     (check "the log holds that act too, as its maker gave it, with its value plain, and with the door's three additions: one record, which without its time is the act with :act-id and :depot, and whose time is between the proof's two readings round the call; and no gate holds a row at its place"
            [[[(assoc nowheres-act :act-id not-made-id :depot :streaming) true]] []]
@@ -1106,14 +1106,14 @@
     (shown "a value act of a who under a permission that was never given goes in with" (:appends sent) "append and" (:queries sent)
            "queries, and is refused under its own act-id:" (pr-str (dissoc answer :stamp))
            "| its value is plain in the log, and no row is at its place. The proof counted the calls by standing in for Rama's two client calls with functions that count and then call Rama.")
-    (shown "a value act into a layer that is not made goes in and is refused under its own act-id:" (told not-made))))
+    (shown "a value act into a lane that is not made goes in and is refused under its own act-id:" (told not-made))))
 
 (deftest a-holder-of-see
   (let [d (the-door)
         veras [:vera :alice :alice (own :alice) :see]
         gave (decide! d (act-of :alice [{:e :vera :k :softland.store/permission :v veras}]))
         id (act-id-for! d :alice)
-        veras-act {:version 1 :who :vera :layer :alice :permission veras :session :door-proof
+        veras-act {:version 1 :who :vera :lane :alice :permission veras :session :door-proof
                    :facts [(value :v-1 "a value of a holder of see")]}
         logs-before (log-counts)
         clock-before (clock)
@@ -1122,9 +1122,9 @@
         logs-after (log-counts)
         answer (answer! d id (:digest sent))
         round-the-door (answer-round id)
-        no-value (decide! d {:version 1 :who :vera :layer :alice :permission veras :session :door-proof
+        no-value (decide! d {:version 1 :who :vera :lane :alice :permission veras :session :door-proof
                              :facts [{:e :v-1 :k :text}]})]
-    (check "Alice gives, through the door, a permission in her layer that says see: a fact under a store key, and it is accepted"
+    (check "Alice gives, through the door, a permission in her lane that says see: a fact under a store key, and it is accepted"
            true (accepted? gave))
     (check "the holder of see sends a value: the thing goes in under the act-id that she gave back, one record more in the streaming depot's log, and the log holds her act as she gave it, with its value plain: one record, which without its time is her act with :act-id and :depot, and whose time is a time of the door's clock between the proof's two readings round the send"
            [nil :gate-ran [1 0] [[(assoc veras-act :act-id id :depot :streaming) true]]]
@@ -1146,7 +1146,7 @@
         act-key :softland.store/act-permission
         wills-run [:will :alice :alice (own :alice) :see-and-act [:run :run-w]]
         wills (fn [permission session facts]
-                {:version 1 :who :will :layer :alice :permission permission :session session :facts facts})
+                {:version 1 :who :will :lane :alice :permission permission :session session :facts facts})
         give-run (decide! d (act-of :alice [{:e :run-w :k run-key :v wills-run}]))
         in-run (decide! d (wills wills-run :run-w [(value :w-1 "in his run")]))
         in-another-run (decide! d (wills wills-run :run-v [(value :w-2 "in another run")]))
@@ -1195,7 +1195,7 @@
 (deftest reads-that-throw
   (let [d (the-door)
         logs-before (log-counts)
-        ;; the read of a layer's depot
+        ;; the read of a lane's depot
         depot-word (with-read-thrown 1 #(act-id-for! d :alice))
         depot-word-in-send (with-read-thrown 1 #(send! d (act-of :alice [(value :read-thrown-1 "a value")])))
         series-word (with-read-thrown 1 #(noted (door/act-ids-for d :alice 3)))
@@ -1207,9 +1207,9 @@
         given (act-id-for! d :alice)
         no-read (with-read-thrown 1 #(send! d (act-of :alice [(value :read-thrown-2 "a value")]) given))
         no-read-answer (when-not (:could-not no-read) (answer! d given (:digest no-read)))]
-    (check "the read of a layer's depot is made to throw: the word, from act-id-for, from a send of a value that makes its act-id, and from act-ids-for"
-           (vec (repeat 3 [:read-the-layers-depot :nothing :alice "clojure.lang.ExceptionInfo"]))
-           (mapv (juxt :could-not :appended :layer :threw) [depot-word depot-word-in-send series-word]))
+    (check "the read of a lane's depot is made to throw: the word, from act-id-for, from a send of a value that makes its act-id, and from act-ids-for"
+           (vec (repeat 3 [:read-the-lanes-depot :nothing :alice "clojure.lang.ExceptionInfo"]))
+           (mapv (juxt :could-not :appended :lane :threw) [depot-word depot-word-in-send series-word]))
     (check "the read of an answer is made to throw: the word, and none of the four answers"
            [:read-the-answer :nothing (:act-id making) nil] [(:could-not answer-word) (:appended answer-word) (:act-id answer-word) (:answer answer-word)])
     (check "nothing was appended by those four calls, and no row is at the place of the value whose send ended in the word"
@@ -1222,7 +1222,7 @@
 
 (deftest the-openers-numbers
   (let [paced (the-paced-door)
-        made? (make-layer! paced :nora)
+        made? (make-lane! paced :nora)
         never (act-id-for! paced :nora)
         waited (counting #(answer! paced never "no digest" 250))
         ;; what is no number of the door's
@@ -1233,7 +1233,7 @@
         waited-great (counting #(answer! great never "no digest" 300))
         through-great (decide! great (act-of :nora [(value :n-1 "a value")]))
         trips (fn [counted] [(:appends counted) (:queries counted)])]
-    (check "the door that was opened with a read each 100 ms makes its layer" true made?)
+    (check "the door that was opened with a read each 100 ms makes its lane" true made?)
     (check "with a read each 100 ms, a wait of 250 ms that finds nothing makes 4 queries: at once, twice more, and at its bound"
            [[0 4] {:answer :nothing-yet}] [(trips waited) (:result waited)])
     (check "a door opened with a :read-every-ms that is no integer of 1 or more, and with a name that is none of the door's: a door, which reads each 200 ms, the door's own number: a wait of 600 ms that finds nothing makes 4 queries"
@@ -1310,15 +1310,15 @@
                                [t i j]))
         ;; eight whos at once, each on two threads
         whos (mapv (fn [i] (keyword (str "who-" i))) (range 8))
-        whos-made (mapv (fn [who] (make-layer! d who)) whos)
+        whos-made (mapv (fn [who] (make-lane! d who)) whos)
         work-2 (mapv (fn [t]
                        (let [who (nth whos (mod t 8))]
                          (future (mapv (fn [i] (decide! d (act-of who [(value (keyword (str "t" t "-a" i)) i)]))) (range 10)))))
                      (range 16))
         decided-2 (vec (mapcat (fn [f] (deref f 120000 [{:sent {:could-not :no-return}}])) work-2))
         streaming (log-of :streaming)
-        ;; the time on each of the 400 acts of the one layer, against the time in its answer, and the stamps
-        crowds-times (into {} (keep (fn [r] (when (and (map? r) (= :crowd (:layer r))) [(:act-id r) (time-on r)]))) streaming)
+        ;; the time on each of the 400 acts of the one lane, against the time in its answer, and the stamps
+        crowds-times (into {} (keep (fn [r] (when (and (map? r) (= :crowd (:lane r))) [(:act-id r) (time-on r)]))) streaming)
         stamps-and-times (mapv (fn [one] [(:stamp (:answer one)) (:time (:answer one)) (get crowds-times (:act-id (:sent one)))]) decided)
         own-times (count (filter (fn [[_ t on-act]] (and (int? t) (= t on-act))) stamps-and-times))
         first-stamp (:stamp (:answer making))
@@ -1331,17 +1331,17 @@
                                      :when (= [:value i] (record/read-value (row-of who (keyword (str "t" t "-a" i)) :text)))]
                                  [t i]))])
                      (range 8) whos)]
-    (check "the layer of this check is made" true made?)
-    (check "16 threads through the one door, for one who in one layer, 25 acts each of 1 to 3 values: every act is accepted"
+    (check "the lane of this check is made" true made?)
+    (check "16 threads through the one door, for one who in one lane, 25 acts each of 1 to 3 values: every act is accepted"
            [(* threads acts-each) (* threads acts-each)] [(count decided) (count (filter accepted? decided))])
     (check "the log holds one record more for each of the 400 acts and no other, and the door gave 400 different act-ids"
            [[400 0] 400] [(mapv - logs-after logs-before) (count (set act-ids))])
     (check "the acts hold 799 values, and each of them reads back from the row of its own place"
            [799 799] [values in-their-rows])
-    (check "each of the 400 records holds a time, and each of the 400 answers carries the time on its own act; the layer's making act has the stamp 0, and the 400 stamps are 1 to 400, each once: the stamps count the layer's decisions with no gap, in whatever order the threads reached the depot"
+    (check "each of the 400 records holds a time, and each of the 400 answers carries the time on its own act; the lane's making act has the stamp 0, and the 400 stamps are 1 to 400, each once: the stamps count the lane's decisions with no gap, in whatever order the threads reached the depot"
            [400 400 0 (vec (range 1 401))]
            [(count (filter int? (map #(nth % 2) stamps-and-times))) own-times first-stamp stamps])
-    (check "8 whos at once, each on 2 threads, 10 acts of one value each: every layer is made and every act is accepted"
+    (check "8 whos at once, each on 2 threads, 10 acts of one value each: every lane is made and every act is accepted"
            [(vec (repeat 8 true)) 160] [whos-made (count (filter accepted? decided-2))])
     (check "for each of the 8 whos: 20 records under her who in the log, and each of her 20 values reads back from the row of its own place"
            (vec (repeat 8 [20 20])) by-who)
@@ -1360,13 +1360,13 @@
         logs-before-other (log-counts)
         other (decide! d (system-act [(value :wrong-depot-base-1 "a value")]) other-id)
         logs-after-other (log-counts)
-        making {:version 1 :who :system :layer :base :permission system-own :session :door-proof
+        making {:version 1 :who :system :lane :base :permission system-own :session :door-proof
                 :facts [{:e :base :k :softland.store/depot :v :microbatch}
                         {:e :system :k :softland.store/permission :v system-own}]}
         made-sent (send! d making)
         made-answer (answer! d (:act-id made-sent) (:digest made-sent) wait-ms)
         made-time (time-sent made-sent)
-        ;; a value act: one read of the layer's depot and one append
+        ;; a value act: one read of the lane's depot and one append
         first-act (system-act [(value :doc-1 "a title")])
         logs-before (log-counts)
         clock-before (clock)
@@ -1384,11 +1384,11 @@
            :base-under-the-streaming-word (:answer other)
            :base-answers [[(:act-id made-sent) (:digest made-sent) made-answer]
                           [(:act-id first-value) (:digest first-value) first-answer]])
-    (check "act-id-for the base before it is made: the base starts as a microbatch layer" [:base :microbatch] (vec (take 2 before)))
-    (check "that act-id came of one read of the layer's depot, asked with the layer alone, which gave nothing: the base was not made, and the door gave the depot that the base starts with"
+    (check "act-id-for the base before it is made: the base starts as a microbatch lane" [:base :microbatch] (vec (take 2 before)))
+    (check "that act-id came of one read of the lane's depot, asked with the lane alone, which gave nothing: the base was not made, and the door gave the depot that the base starts with"
            [[[[:base] nil]] (first-act/depot-at-making :base)] [(:asked asked-before) (get before 1)])
-    (check "an act for the base under an act-id with the streaming depot word, sent before the base is made: the thing goes to the streaming depot, one record more in its log and none in the other; the streaming gate's ack; and that gate's recorded refusal comes back, with the word of a layer of the other gate and not the word of a layer that is not made, and with the time that the door wrote on the thing"
-           [nil :gate-ran [1 0] (as-answered (:sent other) {:answer :refused :reason :layer-belongs-to-the-other-gate})]
+    (check "an act for the base under an act-id with the streaming depot word, sent before the base is made: the thing goes to the streaming depot, one record more in its log and none in the other; the streaming gate's ack; and that gate's recorded refusal comes back, with the word of a lane of the other gate and not the word of a lane that is not made, and with the time that the door wrote on the thing"
+           [nil :gate-ran [1 0] (as-answered (:sent other) {:answer :refused :reason :lane-belongs-to-the-other-gate})]
            [(:could-not (:sent other)) (:ack (:sent other)) (mapv - logs-after-other logs-before-other) (dissoc (:answer other) :stamp)])
     (check "the base's making act by the system: the microbatch depot's ack, which says only that the depot holds the thing; and a wait gives accepted"
            [:depot-holds [:base :microbatch] :accepted] [(:ack made-sent) (vec (take 2 (:act-id made-sent))) (:answer made-answer)])
@@ -1397,7 +1397,7 @@
     (check "a value act into the base: the microbatch depot's ack, and one record more in its log, the act itself"
            [nil :depot-holds [0 1]]
            [(:could-not first-value) (:ack first-value) (mapv - logs-after logs-before)])
-    (check "the calls of Rama's client inside that send, in their order: the read of the layer's depot, and the act's append"
+    (check "the calls of Rama's client inside that send, in their order: the read of the lane's depot, and the act's append"
            [[:query 1] [:append 2]] (:calls noted-calls))
     (check "the record in the log is the system's act with the door's three additions, its value plain: without its time it is the act with :act-id and :depot, and its time is a time of the door's clock between the proof's two readings round the send. The door writes the time on a thing for the microbatch depot as it does for the other"
            [(assoc first-act :act-id (:act-id first-value) :depot :microbatch) true]
@@ -1405,7 +1405,7 @@
     (check "the act's answer by a wait is accepted; the microbatch gate holds the row of its place on each task, one row, with the text of its value; and the streaming gate holds no row there on any task"
            [:accepted (vec (repeat tasks "\"a title\"")) 1 (vec (repeat tasks nil))]
            [(:answer first-answer) (mapv :value first-rows) (count (set first-rows)) (rows-in :streaming-facts :base :doc-1 :text)])
-    (check "a read of that answer with no wait is one query, asked with the act-id's layer and the act-id: the routing id of an act-id of the base is its layer. The read gives the answer that the wait gave, its stamp too"
+    (check "a read of that answer with no wait is one query, asked with the act-id's lane and the act-id: the routing id of an act-id of the base is its lane. The read gives the answer that the wait gave, its stamp too"
            [[[:base (:act-id first-value)]] :base first-answer]
            [(mapv first (:asked asked-again)) (record/routing-id (:act-id first-value)) (:result asked-again)])
     (check "the system gives Alice a permission in the base" true (accepted? gave))
@@ -1418,35 +1418,35 @@
            "| a read of its answer with no wait asked the query with its routing id and its act-id, and the routing id was" (pr-str (first (ffirst (:asked asked-again)))))
     (shown "an act for the base under an act-id with the streaming depot word, sent before the base was made:" (told other))))
 
-(deftest the-depot-of-a-layer
+(deftest the-depot-of-a-lane
   (let [d (the-door)
-        asked (fn [layer] (asking #(act-id-for! d layer)))
+        asked (fn [lane] (asking #(act-id-for! d lane)))
         base (asked :base)
         streaming (asked :alice)
-        not-made (asked :no-such-layer)
+        not-made (asked :no-such-lane)
         seen (fn [got] [(:asked got) (vec (take 2 (:result got)))])
         series (asking #(noted (door/act-ids-for d :base 3)))
         sent (asking #(send! d (system-act [(value :depot-read-doc "a value")])))
         sent-answer (answer! d (:act-id (:result sent)) (:digest (:result sent)) wait-ms)
-        by-hand (mapv (fn [layer] (rama/foreign-invoke-query (:depot-of-layer *round*) layer)) [:base :alice :no-such-layer])]
+        by-hand (mapv (fn [lane] (rama/foreign-invoke-query (:depot-of-lane *round*) lane)) [:base :alice :no-such-lane])]
     (swap! kept update :base-answers conj [(:act-id (:result sent)) (:digest (:result sent)) sent-answer])
-    (check "act-id-for the base, which is made: one read of the layer's depot, asked with the layer alone; the read gave the microbatch depot, and the act-id names it"
+    (check "act-id-for the base, which is made: one read of the lane's depot, asked with the lane alone; the read gave the microbatch depot, and the act-id names it"
            [[[[:base] :microbatch]] [:base :microbatch]] (seen base))
-    (check "act-id-for a streaming layer that is made: one read, which gave the streaming depot, and the act-id names it"
+    (check "act-id-for a streaming lane that is made: one read, which gave the streaming depot, and the act-id names it"
            [[[[:alice] :streaming]] [:alice :streaming]] (seen streaming))
-    (check "act-id-for a layer that is not made: one read, which gave nothing; the act-id names the depot that the layer starts with, which for a layer that is not the base is the streaming depot"
-           [[[[:no-such-layer] nil]] [:no-such-layer :streaming] :streaming]
-           (conj (seen not-made) (first-act/depot-at-making :no-such-layer)))
+    (check "act-id-for a lane that is not made: one read, which gave nothing; the act-id names the depot that the lane starts with, which for a lane that is not the base is the streaming depot"
+           [[[[:no-such-lane] nil]] [:no-such-lane :streaming] :streaming]
+           (conj (seen not-made) (first-act/depot-at-making :no-such-lane)))
     (check "act-ids-for 3 in the base: one read, which gave the microbatch depot, and 3 act-ids that name it"
            [[[[:base] :microbatch]] 3 #{[:base :microbatch]}]
            [(:asked series) (count (:result series)) (set (map (fn [id] (vec (take 2 id))) (:result series)))])
     (check "a send into the base that makes its act-id: one read, of the base's depot, which gave the microbatch depot; the thing went to that depot, and its answer by a wait is accepted"
            [[[[:base] :microbatch]] [:base :microbatch] :depot-holds :accepted]
            [(:asked sent) (vec (take 2 (:act-id (:result sent)))) (:ack (:result sent)) (:answer sent-answer)])
-    (check "the query of a layer's depot, called with the proof's own handle for the same three layers, gives the microbatch depot, the streaming depot, and nothing"
+    (check "the query of a lane's depot, called with the proof's own handle for the same three lanes, gives the microbatch depot, the streaming depot, and nothing"
            [:microbatch :streaming nil] by-hand)
-    (shown "the depot of a layer, as the door's read of it gave it, each read asked with the layer alone: the base" (pr-str (:asked base))
-           "| a streaming layer that is made" (pr-str (:asked streaming)) "| a layer that is not made" (pr-str (:asked not-made))
+    (shown "the depot of a lane, as the door's read of it gave it, each read asked with the lane alone: the base" (pr-str (:asked base))
+           "| a streaming lane that is made" (pr-str (:asked streaming)) "| a lane that is not made" (pr-str (:asked not-made))
            "for which the door gave" (pr-str (vec (take 2 (:result not-made))))
            "| the proof noted each read by standing in for Rama's client call with a function that calls Rama and notes what it gave")))
 
@@ -1644,14 +1644,14 @@
 
 (deftest a-value-of-each-kind-through-each-depot
   (let [d (the-door)
-        made? (make-layer! d :kinds)
+        made? (make-lane! d :kinds)
         entity (fn [i] (keyword (str "kind-" i)))
         streaming (vec (map-indexed (fn [i [_ v _]] (decide! d (act-of :kinds [(value (entity i) v)]))) kinds-of-value))
         base-sent (vec (map-indexed (fn [i [_ v _]] (send! d (system-act [(value (entity i) v)]))) kinds-of-value))
         base-answers (mapv (fn [sent] (when-not (:could-not sent) (answer! d (:act-id sent) (:digest sent) wait-ms))) base-sent)
         _ (settle-base!)
-        seen (fn [layer i answer]
-               (let [rows (rows-at layer (entity i) :text)]
+        seen (fn [lane i answer]
+               (let [rows (rows-at lane (entity i) :text)]
                  [(:answer answer) (mapv :value rows) (record/read-value (first rows))]))
         seen-in-base (fn [i answer]
                        (let [rows (rows-in :microbatch-facts :base (entity i) :text)]
@@ -1661,7 +1661,7 @@
         all (vec (map-indexed (fn [i [what v text]]
                                 [what v text (seen :kinds i (:answer (nth streaming i))) (seen-in-base i (nth base-answers i))])
                               kinds-of-value))]
-    (check "the layer of this check is made, and the proof holds a value of 45 kinds" [true 45] [made? (count kinds-of-value)])
+    (check "the lane of this check is made, and the proof holds a value of 45 kinds" [true 45] [made? (count kinds-of-value)])
     (doseq [[what v text through-streaming through-base] all]
       (check (str what ", through the streaming depot: accepted under the door's digest; one gate holds one row at its place, with the one text of the value in its normal form; a reader of the row is given the value")
              [:accepted [text] [:value v]] through-streaming)
@@ -1671,7 +1671,7 @@
     (shown "a value of each of" (count kinds-of-value) "kinds that the form takes, through the door and each depot: accepted under the door's digest through the streaming depot"
            (count (filter (fn [[_ _ _ [answer]]] (= :accepted answer)) all)) "| through the microbatch depot"
            (count (filter (fn [[_ _ _ _ [answer]]] (= :accepted answer)) all))
-           "| places of the streaming layer whose one row holds the text written out in the proof:"
+           "| places of the streaming lane whose one row holds the text written out in the proof:"
            (count (filter (fn [[_ _ text [_ texts]]] (= [text] texts)) all))
            "| places of the base whose row holds that text on each of the" tasks "tasks:"
            (count (filter (fn [[_ _ text _ [_ texts]]] (= (vec (repeat tasks text)) texts)) all)))
@@ -1689,7 +1689,7 @@
         with-value (decide! d with-value-act id-2)
         clock-after (clock)
         logs-after (log-counts)
-        ;; a layer that is not made and that starts with the streaming depot, under the microbatch depot word
+        ;; a lane that is not made and that starts with the streaming depot, under the microbatch depot word
         id-3 (assoc (act-id-for! d :made-by-nobody) 1 :microbatch)
         not-made (decide! d (act-of :made-by-nobody [(value :wrong-depot-3 "a value")]) id-3)
         ;; the base, which is made, under the streaming depot word
@@ -1701,32 +1701,32 @@
         clock-after-base (clock)
         logs-after-base (log-counts)
         before-the-making (:base-under-the-streaming-word @kept)]
-    (check "an act of a streaming layer under an act-id that a maker gives back with the other depot word: the thing goes to the depot that the act-id names, and that gate's recorded refusal comes back, with the time that the door wrote on the thing"
-           [:depot-holds (as-answered (:sent no-value) {:answer :refused :reason :layer-belongs-to-the-other-gate})]
+    (check "an act of a streaming lane under an act-id that a maker gives back with the other depot word: the thing goes to the depot that the act-id names, and that gate's recorded refusal comes back, with the time that the door wrote on the thing"
+           [:depot-holds (as-answered (:sent no-value) {:answer :refused :reason :lane-belongs-to-the-other-gate})]
            [(:ack (:sent no-value)) (dissoc (:answer no-value) :stamp)])
-    (check "the same with a value: the thing goes to the depot that the act-id names, one record more in that log and none in the layer's own, and that gate's recorded refusal comes back under the act's own act-id, with the time that the door wrote on the thing"
-           [nil :depot-holds [0 1] (as-answered (:sent with-value) {:answer :refused :reason :layer-belongs-to-the-other-gate})]
+    (check "the same with a value: the thing goes to the depot that the act-id names, one record more in that log and none in the lane's own, and that gate's recorded refusal comes back under the act's own act-id, with the time that the door wrote on the thing"
+           [nil :depot-holds [0 1] (as-answered (:sent with-value) {:answer :refused :reason :lane-belongs-to-the-other-gate})]
            [(:could-not (:sent with-value)) (:ack (:sent with-value)) (mapv - logs-after logs-before) (dissoc (:answer with-value) :stamp)])
     (check "the log of that depot holds the act as its maker gave it, with its value plain: one record, which without its time is the act with :act-id and :depot, the depot that the act-id names, and whose time is a time of the door's clock between the proof's two readings round the call; and no fact of it is in the tables: no gate holds a row at its place, on any task"
            [[[(assoc with-value-act :act-id id-2 :depot :microbatch) true]] []]
            [(seen-in-log id-2 clock-before clock-after) (rows-at :alice :wrong-depot-2 :text)])
-    (check "an act into a layer that is not made and that starts with the streaming depot, under an act-id with the microbatch depot word: the microbatch gate refuses it with the same word, the word of a layer of the other gate, and not with the word of a layer that is not made, and with the time that the door wrote on the thing; no gate holds a row at its place, on any task"
-           [:depot-holds (as-answered (:sent not-made) {:answer :refused :reason :layer-belongs-to-the-other-gate}) []]
+    (check "an act into a lane that is not made and that starts with the streaming depot, under an act-id with the microbatch depot word: the microbatch gate refuses it with the same word, the word of a lane of the other gate, and not with the word of a lane that is not made, and with the time that the door wrote on the thing; no gate holds a row at its place, on any task"
+           [:depot-holds (as-answered (:sent not-made) {:answer :refused :reason :lane-belongs-to-the-other-gate}) []]
            [(:ack (:sent not-made)) (dissoc (:answer not-made) :stamp) (rows-at :made-by-nobody :wrong-depot-3 :text)])
     (check "an act of the base, which is made, under an act-id with the streaming depot word: the thing goes to the streaming depot, one record more in that log and none in the base's own; the streaming gate's ack; and that gate's recorded refusal comes back under the act's own act-id, with the time that the door wrote on the thing"
-           [nil :gate-ran [1 0] (as-answered (:sent base-other) {:answer :refused :reason :layer-belongs-to-the-other-gate})]
+           [nil :gate-ran [1 0] (as-answered (:sent base-other) {:answer :refused :reason :lane-belongs-to-the-other-gate})]
            [(:could-not (:sent base-other)) (:ack (:sent base-other)) (mapv - logs-after-base logs-before-base) (dissoc (:answer base-other) :stamp)])
     (check "the log of the streaming depot holds that act as its maker gave it: one record, which without its time is the act with :act-id and :depot, the depot that the act-id names, and whose time is a time of the door's clock between the proof's two readings round the call; and no gate holds a row at its place, on any task"
            [[[(assoc base-act :act-id id-4 :depot :streaming) true]] []]
            [(seen-in-log id-4 clock-before-base clock-after-base) (rows-at :base :wrong-depot-base-2 :text)])
-    (check "the streaming gate gave the same word for an act of the base before the base was made: the word of an act for a layer of the other gate does not follow what the other gate has made"
-           [{:answer :refused :reason :layer-belongs-to-the-other-gate} true]
+    (check "the streaming gate gave the same word for an act of the base before the base was made: the word of an act for a lane of the other gate does not follow what the other gate has made"
+           [{:answer :refused :reason :lane-belongs-to-the-other-gate} true]
            [(dissoc before-the-making :stamp :time) (= (dissoc before-the-making :stamp :time) (dissoc (:answer base-other) :stamp :time))])
     (shown "an act-id given back with the other depot word: an act with no value comes back" (pr-str (dissoc (:answer no-value) :stamp))
            "| an act with a value goes to the depot that the act-id names and comes back" (pr-str (dissoc (:answer with-value) :stamp))
            "under its own act-id, with no row at its place")
-    (shown "the other depot word on each depot: an act of a streaming layer that is made, on the microbatch depot," (pr-str (:reason (:answer with-value)))
-           "| an act into a streaming layer that is not made, on the microbatch depot," (pr-str (:reason (:answer not-made)))
+    (shown "the other depot word on each depot: an act of a streaming lane that is made, on the microbatch depot," (pr-str (:reason (:answer with-value)))
+           "| an act into a streaming lane that is not made, on the microbatch depot," (pr-str (:reason (:answer not-made)))
            "| an act of the base on the streaming depot, before the base was made" (pr-str (:reason before-the-making))
            "and after" (pr-str (:reason (:answer base-other))))))
 
@@ -1787,7 +1787,7 @@
 
 (deftest each-word-and-no-stray
   (let [given (set (keep :could-not @results))
-        seven #{:find-the-module :make-an-act-id :read-the-layers-depot :read-the-act :add-its-parts :append-cleanly :read-the-answer}]
+        seven #{:find-the-module :make-an-act-id :read-the-lanes-depot :read-the-act :add-its-parts :append-cleanly :read-the-answer}]
     (check "the door made no stray in the whole run: over each word of a stray, of which there is one at least, and each task of both gates"
            [true 0] [(pos? (count declaration/stray-reasons)) (strays)])
     (check "the door's words are seven, written out here, and each of them was given in this run, and no other"
@@ -1797,7 +1797,7 @@
 
 (defn test-ns-hook
   "Runs the checks in the order in which the proof tells them. Later checks
-  build on the layers that earlier ones made. The base is made late, and
+  build on the lanes that earlier ones made. The base is made late, and
   the checks of the base follow its making; the module is started again
   near the end, and the check over the whole run comes last."
   []
@@ -1817,7 +1817,7 @@
   (an-append-that-threw)
   (many-makers-at-once)
   (the-base-through-the-door)
-  (the-depot-of-a-layer)
+  (the-depot-of-a-lane)
   (the-ack-of-the-base-is-no-answer)
   (two-sends-into-the-base-are-decided-in-their-order)
   (how-long-an-act-of-the-base-takes)

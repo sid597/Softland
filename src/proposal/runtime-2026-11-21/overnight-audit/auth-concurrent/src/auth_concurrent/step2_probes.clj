@@ -31,23 +31,23 @@
   "Builds a nested store `:permission-id` chain starting at root `P` (`depth 0`
   in Auth, `nesting 1` in `act.clj`), followed by `makers-below-root` delegated
   agent permissions `A_1 .. A_k`."
-  [P layer granted-in makers-below-root]
+  [P lane granted-in makers-below-root]
   (reduce (fn [parent-perm i]
-            [(UUID. 0 (long (inc i))) layer granted-in parent-perm])
-          [P layer granted-in]
+            [(UUID. 0 (long (inc i))) lane granted-in parent-perm])
+          [P lane granted-in]
           (range makers-below-root)))
 
 (defn run-probe-f []
   (let [P (UUID/fromString "00000000-0000-0000-0000-000000000001")
-        layer (UUID/fromString "00000000-0000-0000-0000-0000000000aa")
+        lane (UUID/fromString "00000000-0000-0000-0000-0000000000aa")
         granted-in (UUID/fromString "00000000-0000-0000-0000-0000000000bb")
         sess (UUID/fromString "00000000-0000-0000-0000-0000000000cc")
-        perm-31 (build-permission-chain P layer granted-in 31)
-        perm-32 (build-permission-chain P layer granted-in 32)
+        perm-31 (build-permission-chain P lane granted-in 31)
+        perm-32 (build-permission-chain P lane granted-in 32)
         mk-act (fn [who perm]
                  {:version 1
                   :who who
-                  :layer layer
+                  :lane lane
                   :permission perm
                   :session sess
                   :facts [{:e who :k :agent/status :v "ok"}]})]
@@ -299,7 +299,7 @@
 ;; =============================================================================
 
 (definterface IProbeRootDatum)
-(defrecord PRoot [own-layer own-layer-made?] IProbeRootDatum)
+(defrecord PRoot [own-lane own-lane-made?] IProbeRootDatum)
 (defrecord PActor [actor made-by depth label ended? seq] IProbeRootDatum)
 (defrecord PActorOrder [actor made-by label ended? seq] IProbeRootDatum)
 (defrecord PChildEdge [child] IProbeRootDatum)
@@ -353,7 +353,7 @@
   "Generates deterministic entries for `n-actors` live agents (rooted under `A1`,
   starting with a 32-deep spine `P -> A1 -> ... -> A32` and wide fan-out across
   depths 1..32), `n-signins` live sign-ins, and `n-sessions` open sessions."
-  [root own-layer n-actors n-signins n-sessions]
+  [root own-lane n-actors n-signins n-sessions]
   (let [actors (mapv (fn [i]
                        (let [id (UUID. (most-significant-bits root) (long (inc i)))
                              made-by (cond
@@ -378,7 +378,7 @@
                                until (+ 200000 (long k))]
                            {:session sid :sign-in (:sign-in g) :until until :driven-by :person}))
                        (range n-sessions))
-        rd-entries (transient [[(k-root root) (->PRoot own-layer true)]])
+        rd-entries (transient [[(k-root root) (->PRoot own-lane true)]])
         live-entries (transient [])]
     (doseq [{:keys [actor made-by depth label seq]} actors]
       (conj! rd-entries [(k-actor root actor) (->PActor actor made-by depth label false seq)])
@@ -568,7 +568,7 @@
     (local-select> [(keypath (k-root *root))] $$root-data :> *r)
     (local-select> [(keypath (k-signin *root *g))] $$root-data :> *sig)
     (local-select> [(keypath (k-session *root *s))] $$root-data :> *sess)
-    (hash-map :own-layer (get *r :own-layer) :ended? (get *sig :ended?) :closed? (get *sess :closed?) :> *res)
+    (hash-map :own-lane (get *r :own-lane) :ended? (get *sig :ended?) :closed? (get *sess :closed?) :> *res)
     (|origin))
 
   (<<query-topology topologies "ping-task" [*task-id :> *tid]
@@ -704,20 +704,20 @@
 (def seek-counter (atom 0))
 (defn bump-seek! [x] (swap! seek-counter inc) x)
 
-(defrecord ERoot [state own-layer own-layer-made?])
-(defrecord ESignIn [actor kind hash until prev-hash prev-until ended? own-layer own-layer-made-at-begin?])
+(defrecord ERoot [state own-lane own-lane-made?])
+(defrecord ESignIn [actor kind hash until prev-hash prev-until ended? own-lane own-lane-made-at-begin?])
 (defrecord ESession [sign-in until closed? driven-by])
 (defrecord EActor [ended?])
 
 (defn assemble-who-is [root r sig sess actor-ended?]
   (let [entered? (and (some? r) (= :entered (:state r)))
-        own-layer (cond
-                    (some? sig) (:own-layer sig)
-                    entered? (:own-layer r)
+        own-lane (cond
+                    (some? sig) (:own-lane sig)
+                    entered? (:own-lane r)
                     :else nil)
         made? (cond
-                (and (some? sig) (:own-layer-made-at-begin? sig)) true
-                entered? (boolean (:own-layer-made? r))
+                (and (some? sig) (:own-lane-made-at-begin? sig)) true
+                entered? (boolean (:own-lane-made? r))
                 :else false)]
     {:sign-in (when (some? sig)
                 {:actor (:actor sig)
@@ -732,8 +732,8 @@
                  :until (:until sess)
                  :closed? (boolean (:closed? sess))
                  :driven-by (:driven-by sess)})
-     :own-layer own-layer
-     :own-layer-made? made?}))
+     :own-lane own-lane
+     :own-lane-made? made?}))
 
 (defmodule WhoIs2SeekProbeMod [setup topologies]
   (declare-depot setup *d (hash-by :root))
@@ -772,12 +772,12 @@
 
   ;; Constructed 2-seek query topology:
   ;; Reads g:<G> FIRST; skips reading "<P>\0r" whenever g:<G> exists AND had
-  ;; own-layer-made?=true at begin-sign-in (99.99%+ of requests)!
+  ;; own-lane-made?=true at begin-sign-in (99.99%+ of requests)!
   (<<query-topology topologies "who-is-2seek" [*root *g *s :> *out]
     (|hash *root)
     (local-select> [(keypath (k-signin *root *g))] $$rd :> *sig0)
     (bump-seek! *sig0 :> *sig)
-    (<<if (and> (some? *sig) (get *sig :own-layer-made-at-begin?))
+    (<<if (and> (some? *sig) (get *sig :own-lane-made-at-begin?))
       (identity nil :> *r)
       (identity true :> *known-entered?)
       (else>)
@@ -846,9 +846,9 @@
             c2 (run-who-case q-plan q-2seek "2. waiting root (S=S1)" P-wait G-miss S1)
             c3 (run-who-case q-plan q-2seek "3. entered (made?=false), missing G" P-unmade G-miss nil)
             c4 (run-who-case q-plan q-2seek "4. entered (made?=false), G begun before made" P-unmade G-early nil)
-            ;; Now flip P-unmade's own-layer-made? to true on r ONLY (0 updates to G-early!):
+            ;; Now flip P-unmade's own-lane-made? to true on r ONLY (0 updates to G-early!):
             _ (put! P-unmade (k-root P-unmade) (->ERoot :entered L1 true))
-            c5 (run-who-case q-plan q-2seek "5. G begun before made, AFTER own-layer-made" P-unmade G-early nil)
+            c5 (run-who-case q-plan q-2seek "5. G begun before made, AFTER own-lane-made" P-unmade G-early nil)
             c6 (run-who-case q-plan q-2seek "6. dominant S=nil (entered made?=true, live G)" P-made G-live nil)
             c7 (run-who-case q-plan q-2seek "7. dominant HTTP S=S1 (entered made?=true, live G)" P-made G-live S1)
             c8 (run-who-case q-plan q-2seek "8. ended agent G (A!=P), S=S1" P-made G-ended-ag S1)

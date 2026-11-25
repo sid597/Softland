@@ -9,7 +9,7 @@
 
     {:word :who-am-i :wait-ms n}                    who the credential
                                                     stands for
-    {:word :act-ids  :layer layer :count n}         n act-ids of a layer
+    {:word :act-ids  :lane lane :count n}         n act-ids of a lane
     {:word :send     :act act :act-id act-id}       one act -> a receipt
     {:word :send-all :acts [[act-id act] ...]}      acts of one maker, in
                                                     order -> their receipts
@@ -22,7 +22,7 @@
                                                     credential that says it
 
   There is no word for a feature. A new thing that a system can do is a new
-  key in a layer, written with `:send` and read with `:read`. A word that
+  key in a lane, written with `:send` and read with `:read`. A word that
   does not exist yet is one entry of `words` and one case of the seam.
 
   The forms that a word carries are the store's, less the parts that the
@@ -120,7 +120,7 @@
   person, and whether its result is one thing or a stream."
   {:who-am-i {:says "who the credential stands for; with a wait, the answer comes when the credential stands for somebody, or when the wait is over"
               :carries nil :needs-a-who false :gives :one}
-   :act-ids  {:says "act-ids of one layer, ahead of sending"
+   :act-ids  {:says "act-ids of one lane, ahead of sending"
               :carries nil :needs-a-who true :gives :one}
    :send     {:says "one act into its depot; the result is the door's receipt, {:act-id :digest :ack}"
               :carries :act :needs-a-who true :gives :one}
@@ -147,7 +147,7 @@
                     [:wait-ms [:int {:min 0}] {:optional true :default 0 :reason :wait-is-no-span}]]
          :act-ids  [:parts
                     [:word  [:enum :act-ids]]
-                    [:layer :id {:absent :layer-not-named :reason :layer-not-named}]
+                    [:lane :id {:absent :lane-not-named :reason :lane-not-named}]
                     [:count [:int {:min 1 :below (inc max-act-ids)}]
                      {:optional true :default 1 :reason :count-out-of-range}]]
          :send     [:parts

@@ -11,7 +11,7 @@ pass shows, what state it changes, and what it does not reach.
 |---|---|---|
 | [proof.clj](proof.clj) | Nothing: it is what the three proofs share, one way to say a check and to end the process with a status. | The counts of the run, in memory. |
 | [pure_proof.clj](pure_proof.clj) | By cases, with no cluster: a session's record, the feed, a credential, the words and their check, one frame, what waits for a slow reader, and the check of an ID token against tokens that a stand-in signs. Then it reads the source under `src-server` for what the tree may hold. | None. |
-| [seam_proof.clj](seam_proof.clj) | On the in-process cluster, with two copies of what a server holds over one store: what sign-in writes; a credential to an actor; the tasks; a watch, a slow reader of it, and its leaving; a session that ends through one copy and is seen at the other; a session whose time passes; her no. | People, layers and acts in the store that it started. |
+| [seam_proof.clj](seam_proof.clj) | On the in-process cluster, with two copies of what a server holds over one store: what sign-in writes; a credential to an actor; the tasks; a watch, a slow reader of it, and its leaving; a session that ends through one copy and is seen at the other; a session whose time passes; her no. | People, lanes and acts in the store that it started. |
 | [http_proof.clj](http_proof.clj) | Through real requests to a Jetty that runs the handler: the frame and the word, sign-in by Google's post and by the stand-in's, the cookie and the origin, a program's sign-in with her yes and her no, the words, the stream of a watch and its end, sign-out. | The same, and two servers on the loopback address. |
 
 Run each from the repository root:
@@ -76,8 +76,8 @@ Each is where a next check comes from.
   longest token, took 11.8 seconds of one thread to read; filled with strings,
   a third of a second.
 - **What the review of 20 November 2026 ran and no check holds:** a visitor who
-  opens some 900 watches on distinct places of a layer that is open to
-  everyone, after which nobody opens a live read of that layer; a person who
+  opens some 900 watches on distinct places of a lane that is open to
+  everyone, after which nobody opens a live read of that lane; a person who
   says yes on a link that somebody else made; a second person who says yes
   first on a program's link.
 - **A copy of the server whose push on the feed Rama ends,** and one whose

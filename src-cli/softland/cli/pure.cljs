@@ -137,9 +137,9 @@
               :says "ends the session of the saved credential and forgets it"}
    :who      {:args [] :options #{}
               :says "who the saved credential stands for"}
-   :act-ids  {:args [:layer :count] :optional #{:count} :options #{}
-              :edn #{:layer} :int #{:count}
-              :says "<layer> [<count>]: act-ids of a layer"}
+   :act-ids  {:args [:lane :count] :optional #{:count} :options #{}
+              :edn #{:lane} :int #{:count}
+              :says "<lane> [<count>]: act-ids of a lane"}
    :send     {:args [:act] :options #{:act-id} :edn #{:act :act-id}
               :says "<act> [--act-id <act-id>]: sends one act; prints the receipt"}
    :answer   {:args [:act-id :digest] :options #{:wait} :edn #{:act-id} :int #{:wait}
@@ -147,7 +147,7 @@
    :act      {:args [:act] :options #{} :edn #{:act}
               :says "<act>: asks an act-id, sends, and reads the answer"}
    :write    {:args [:entity :key :value] :options #{} :edn #{:entity :key :value}
-              :says "<entity> <key> <value>: one fact into her own layer, as `act` does"}
+              :says "<entity> <key> <value>: one fact into her own lane, as `act` does"}
    :read     {:args [:query] :options #{} :edn #{:query}
               :says "<query>: a read, once"}
    :watch    {:args [:query] :options #{} :edn #{:query}
@@ -310,7 +310,7 @@
   sign-in under way. Gives what it means:
 
     [:yes about]      she said yes; `about` is {:who :session :until
-                      :own-layer}
+                      :own-lane}
     [:not-yet]        the wait passed with no yes
     [:no]             she said no, or the credential ended
     [:try-again text] the server could not be reached or could not read
@@ -328,7 +328,7 @@
 
 (defn saved-entry
   "Takes what the credentials file gave, as a map, and the server's URL.
-  Gives the entry saved for that server, {:token :who :own-layer}, or nil
+  Gives the entry saved for that server, {:token :who :own-lane}, or nil
   when there is none or it holds no token."
   [credentials server]
   (let [entry (get credentials server)]
@@ -338,15 +338,15 @@
 ;; -------------------------------------------------------------- the words
 
 (defn write-act
-  "Takes a saved credential, {:who :own-layer}, and an entity, a key and a
-  value. Gives the act that writes that one fact into her own layer under
-  her first permission, `[who own-layer own-layer]`, or nil when the
-  credential holds no own layer."
-  [{:keys [who own-layer]} entity k v]
-  (when (and who own-layer)
+  "Takes a saved credential, {:who :own-lane}, and an entity, a key and a
+  value. Gives the act that writes that one fact into her own lane under
+  her first permission, `[who own-lane own-lane]`, or nil when the
+  credential holds no own lane."
+  [{:keys [who own-lane]} entity k v]
+  (when (and who own-lane)
     {:version 1
-     :layer own-layer
-     :permission [who own-layer own-layer]
+     :lane own-lane
+     :permission [who own-lane own-lane]
      :facts [{:e entity :k k :v v}]}))
 
 (defn first-act-id

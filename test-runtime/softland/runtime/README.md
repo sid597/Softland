@@ -10,7 +10,7 @@ what state it changes, and what it does not reach.
 |---|---|---|
 | [pure_proof.clj](pure_proof.clj) | The check of an ID token against tokens that a stand-in signs. Then it reads the source of the runtime, the wire and the command line for what each tree may hold. | None. |
 | [drive.clj](drive.clj) | Nothing: it drives a runtime as a browser and as a program would, for the two proofs below. | None. |
-| [checks.clj](checks.clj) | The runtime as a system outside it meets it, over real requests and over the line with the command line's own client: who may become a person, the name box, a program's sign-in, the two carriers, an act and its repeat, nobody acting for another, a series, many watches on one connection, a session and a sign-in that end at another copy, an agent, an invitation, a secret that is replaced, a session's time, the bounds. It is handed addresses, and both proofs below run it. | People, layers and acts in the store and Auth that the copies stand on. |
+| [checks.clj](checks.clj) | The runtime as a system outside it meets it, over real requests and over the line with the command line's own client: who may become a person, the name box, a program's sign-in, the two carriers, an act and its repeat, nobody acting for another, a series, many watches on one connection, a session and a sign-in that end at another copy, an agent, an invitation, a secret that is replaced, a session's time, the bounds. It is handed addresses, and both proofs below run it. | People, lanes and acts in the store and Auth that the copies stand on. |
 | [proof.clj](proof.clj) | A store that is not born, the setup, and then `checks.clj`, on Rama's in-process cluster with three copies of the runtime in one JVM. | A cluster that is thrown away at the end. |
 | [command_proof.clj](command_proof.clj) | The command line as a program: each command run as a process with the command line's own classpath, against one copy of the runtime on the in-process cluster. | A cluster that is thrown away; a folder for the command line's file, under the JVM's temporary folder. |
 | [cluster_proof.clj](cluster_proof.clj) | The setup and `checks.clj` across three processes on a cluster that stays up; then a copy of the runtime killed while an act is on its way, Rama's worker of the store's module killed during a series of acts, Rama's worker of Auth killed while a connection is held, and six thousand roots watched at once. A check of what follows a kill fails when no worker was found to kill. | The cluster's store and Auth, which keep it; the logs of the copies. |
@@ -49,7 +49,7 @@ Each is where a next check comes from.
   waits for a slow reader is merged by place (the wire's pure proof); no check
   holds it through a socket.
 - **A watch that ends when its permission ends.** The two-lines proof holds
-  what the store's read path does: the watch is told anew that the layer is
+  what the store's read path does: the watch is told anew that the lane is
   left out, and stays open. The runtime's page wrote "a watch closes when its
   permission ends"; which of the two is meant is open.
 - **What a frame costs to read,** but by one case of a token over the bound.

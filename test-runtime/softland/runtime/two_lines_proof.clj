@@ -3,15 +3,15 @@
   meet: a watch that is open on two copies of the runtime, when its
   permission in the store is ended — directly, via a permission above it in
   the chain, or via a run-scoped permission — is told anew an answer that
-  leaves its layer out (`:may-not-see`) and holds no fact, and stays open:
+  leaves its lane out (`:may-not-see`) and holds no fact, and stays open:
   the store's read path ends no watch for that, and a later write in the
-  layer reaches it not.
+  lane reaches it not.
 
   Runs either on an in-process cluster (no arguments) or against a real Rama
   cluster with two runtime processes (`--conductor HOST --conductor-port PORT`,
   as `softland.runtime.cluster-proof` does).
 
-  State. Writes persons, layers and acts into the cluster's store and Auth."
+  State. Writes persons, lanes and acts into the cluster's store and Auth."
   (:require [clojure.java.io :as io]
             [softland.command.client :as client]
             [softland.runtime.drive :as drive]
@@ -63,25 +63,25 @@
         (reverse seen)))
 
 (defn- may-not-see?
-  "Takes what a watch was told and a layer. Gives true when the last thing
-  is an answer anew that leaves the layer out because the asker may not see
+  "Takes what a watch was told and a lane. Gives true when the last thing
+  is an answer anew that leaves the lane out because the asker may not see
   it and holds no fact, and nothing told was an end: the watch is open."
-  [seen layer]
+  [seen lane]
   (let [last-msg (last seen)
         anew (:anew last-msg)]
     (and (some? anew)
          (not-any? #(contains? % :ended) seen)
          (= :no-fact (get-in anew [:place :holds]))
-         (boolean (some #(and (= layer (:layer %)) (= :may-not-see (:why %)))
+         (boolean (some #(and (= lane (:lane %)) (= :may-not-see (:why %)))
                         (:left-out anew))))))
 
-(defn- send-facts! [opened layer perm facts & [subjects]]
+(defn- send-facts! [opened lane perm facts & [subjects]]
   (let [hello (:hello opened)]
     (say opened {:word :send
                  :act (cond-> {:version 1
                                :who (:who hello)
                                :session (:session hello)
-                               :layer layer
+                               :lane lane
                                :permission perm
                                :facts facts}
                         subjects (assoc :subjects subjects))
@@ -94,8 +94,8 @@
         ada-a (line url-a (:credential ada-prog) nil)
         ada-b (line url-b (:credential ada-prog) nil)
         ada-who (:who (:hello ada-a))
-        layer (:own-layer (:hello ada-a))
-        ada-own [ada-who layer layer]
+        lane (:own-lane (:hello ada-a))
+        ada-own [ada-who lane lane]
         ;; Make two agents beneath Ada: Bea and Cal
         bea-secret (credential/make-secret)
         bea-made (say ada-a {:word :make-agent :uuid (UUID/randomUUID) :label "bea"
@@ -111,34 +111,34 @@
         bea-b (line url-b bea-cred nil)
         cal-a (line url-a cal-cred nil)
         cal-b (line url-b cal-cred nil)
-        bea-perm [bea-who layer layer ada-own :see-and-act]
-        cal-perm [cal-who layer layer bea-perm :see]]
+        bea-perm [bea-who lane lane ada-own :see-and-act]
+        cal-perm [cal-who lane lane bea-perm :see]]
     (try
-      ;; Seed fact and grant Bea :see-and-act on Ada's layer
-      (send-facts! ada-a layer ada-own [{:e :secret :k :note :v "v0"}])
-      (send-facts! ada-a layer ada-own [{:e bea-who :k :softland.store/permission :v bea-perm}] #{bea-who})
+      ;; Seed fact and grant Bea :see-and-act on Ada's lane
+      (send-facts! ada-a lane ada-own [{:e :secret :k :note :v "v0"}])
+      (send-facts! ada-a lane ada-own [{:e bea-who :k :softland.store/permission :v bea-perm}] #{bea-who})
       ;; 1. Direct permission ending across two copies
-      (let [ada-watch (watching ada-a {:asks [:place :secret :note] :asker ada-who :layers [layer]})
-            bea-q {:asks [:place :secret :note] :asker bea-who :layers [layer]}
+      (let [ada-watch (watching ada-a {:asks [:place :secret :note] :asker ada-who :lanes [lane]})
+            bea-q {:asks [:place :secret :note] :asker bea-who :lanes [lane]}
             w-a (watching bea-a bea-q)
             w-b (watching bea-b bea-q)
             _ (wait-for #(= "v0" (value-of @(:seen w-a))) 10000)
             _ (wait-for #(= "v0" (value-of @(:seen w-b))) 10000)
-            _ (send-facts! ada-a layer ada-own [{:e :secret :k :note :v "v1"}])
+            _ (send-facts! ada-a lane ada-own [{:e :secret :k :note :v "v1"}])
             got-v1-a (wait-for #(= "v1" (value-of @(:seen w-a))) 10000)
             got-v1-b (wait-for #(= "v1" (value-of @(:seen w-b))) 10000)
             ;; End Bea's permission through copy B
-            ended (send-facts! ada-b layer ada-own [{:e bea-who :k :softland.store/permission}] #{bea-who})
-            revoked-a (wait-for #(may-not-see? @(:seen w-a) layer) 10000)
-            revoked-b (wait-for #(may-not-see? @(:seen w-b) layer) 10000)
+            ended (send-facts! ada-b lane ada-own [{:e bea-who :k :softland.store/permission}] #{bea-who})
+            revoked-a (wait-for #(may-not-see? @(:seen w-a) lane) 10000)
+            revoked-b (wait-for #(may-not-see? @(:seen w-b) lane) 10000)
             cnt-a (count @(:seen w-a))
             cnt-b (count @(:seen w-b))
             ;; Write after permission ended: Ada's watch sees v2, Bea's two watches see nothing more
-            _ (send-facts! ada-a layer ada-own [{:e :secret :k :note :v "v2"}])
+            _ (send-facts! ada-a lane ada-own [{:e :secret :k :note :v "v2"}])
             ada-saw-v2 (wait-for #(= "v2" (value-of @(:seen ada-watch))) 10000)
             _ (Thread/sleep 600)
-            bea-act-after (send-facts! bea-a layer bea-perm [{:e :secret :k :note :v "intrude"}])]
-        (check "A watch open on two copies of the runtime sees live changes while its permission stands; when its permission is ended in the store, it is told anew on both copies an answer that leaves the layer out (:may-not-see) and holds no fact, and stays open with no end; a later write in the layer reaches neither; and an act under the ended permission is refused."
+            bea-act-after (send-facts! bea-a lane bea-perm [{:e :secret :k :note :v "intrude"}])]
+        (check "A watch open on two copies of the runtime sees live changes while its permission stands; when its permission is ended in the store, it is told anew on both copies an answer that leaves the lane out (:may-not-see) and holds no fact, and stays open with no end; a later write in the lane reaches neither; and an act under the ended permission is refused."
                (and got-v1-a got-v1-b
                     (= :accepted (get-in ended [:answer :answer]))
                     revoked-a revoked-b
@@ -157,23 +157,23 @@
         (client/leave (:line bea-a) (:id w-a))
         (client/leave (:line bea-b) (:id w-b))
 
-        ;; 2. Chain revocation: Ada grants Bea again, Bea grants Cal, Ada ends Bea -> Cal's watches on both copies close off the layer
-        (send-facts! ada-a layer ada-own [{:e bea-who :k :softland.store/permission :v bea-perm}] #{bea-who})
-        (send-facts! bea-a layer bea-perm [{:e cal-who :k :softland.store/permission :v cal-perm}] #{cal-who})
-        (let [cal-q {:asks [:place :secret :note] :asker cal-who :layers [layer]}
+        ;; 2. Chain revocation: Ada grants Bea again, Bea grants Cal, Ada ends Bea -> Cal's watches on both copies close off the lane
+        (send-facts! ada-a lane ada-own [{:e bea-who :k :softland.store/permission :v bea-perm}] #{bea-who})
+        (send-facts! bea-a lane bea-perm [{:e cal-who :k :softland.store/permission :v cal-perm}] #{cal-who})
+        (let [cal-q {:asks [:place :secret :note] :asker cal-who :lanes [lane]}
               cw-a (watching cal-a cal-q)
               cw-b (watching cal-b cal-q)
               got-c-a (wait-for #(= "v2" (value-of @(:seen cw-a))) 10000)
               got-c-b (wait-for #(= "v2" (value-of @(:seen cw-b))) 10000)
-              end-above (send-facts! ada-b layer ada-own [{:e bea-who :k :softland.store/permission}] #{bea-who})
-              c-rev-a (wait-for #(may-not-see? @(:seen cw-a) layer) 10000)
-              c-rev-b (wait-for #(may-not-see? @(:seen cw-b) layer) 10000)
+              end-above (send-facts! ada-b lane ada-own [{:e bea-who :k :softland.store/permission}] #{bea-who})
+              c-rev-a (wait-for #(may-not-see? @(:seen cw-a) lane) 10000)
+              c-rev-b (wait-for #(may-not-see? @(:seen cw-b) lane) 10000)
               cc-a (count @(:seen cw-a))
               cc-b (count @(:seen cw-b))
-              _ (send-facts! ada-a layer ada-own [{:e :secret :k :note :v "v3"}])
+              _ (send-facts! ada-a lane ada-own [{:e :secret :k :note :v "v3"}])
               ada-saw-v3 (wait-for #(= "v3" (value-of @(:seen ada-watch))) 10000)
               _ (Thread/sleep 600)]
-          (check "When a permission above a watcher's own ends in the store, the watcher's watches on both copies of the runtime are told anew an answer that leaves the layer out (:may-not-see) and stay open with no end, and a later write in the layer reaches neither."
+          (check "When a permission above a watcher's own ends in the store, the watcher's watches on both copies of the runtime are told anew an answer that leaves the lane out (:may-not-see) and stay open with no end, and a later write in the lane reaches neither."
                  (and got-c-a got-c-b
                       (= :accepted (get-in end-above [:answer :answer]))
                       c-rev-a c-rev-b
@@ -188,26 +188,26 @@
         ;; 3. Run-scoped permission ending across two copies sharing one session
         (let [run-sess (:session (:hello cal-a))
               cal-b-same (line url-b cal-cred run-sess)
-              run-perm [cal-who layer layer ada-own :see [:run run-sess]]
-              _ (send-facts! ada-a layer ada-own
+              run-perm [cal-who lane lane ada-own :see [:run run-sess]]
+              _ (send-facts! ada-a lane ada-own
                              [{:e run-sess :k :softland.store/run-permission :v run-perm}]
                              #{cal-who})
-              rq {:asks [:place :secret :note] :asker cal-who :session run-sess :layers [layer]}
+              rq {:asks [:place :secret :note] :asker cal-who :session run-sess :lanes [lane]}
               rw-a (watching cal-a rq)
               rw-b (watching cal-b-same rq)
               got-r-a (wait-for #(= "v3" (value-of @(:seen rw-a))) 10000)
               got-r-b (wait-for #(= "v3" (value-of @(:seen rw-b))) 10000)
-              end-run (send-facts! ada-b layer ada-own
+              end-run (send-facts! ada-b lane ada-own
                                    [{:e run-sess :k :softland.store/run-permission}]
                                    #{cal-who})
-              r-rev-a (wait-for #(may-not-see? @(:seen rw-a) layer) 10000)
-              r-rev-b (wait-for #(may-not-see? @(:seen rw-b) layer) 10000)
+              r-rev-a (wait-for #(may-not-see? @(:seen rw-a) lane) 10000)
+              r-rev-b (wait-for #(may-not-see? @(:seen rw-b) lane) 10000)
               rc-a (count @(:seen rw-a))
               rc-b (count @(:seen rw-b))
-              _ (send-facts! ada-a layer ada-own [{:e :secret :k :note :v "v4"}])
+              _ (send-facts! ada-a lane ada-own [{:e :secret :k :note :v "v4"}])
               ada-saw-v4 (wait-for #(= "v4" (value-of @(:seen ada-watch))) 10000)
               _ (Thread/sleep 600)]
-          (check "A watch held under a run-scoped permission on two copies of the runtime, when that run permission ends in the store, is told anew on both copies an answer that leaves the layer out (:may-not-see) and stays open with no end, and a later write in the layer reaches neither."
+          (check "A watch held under a run-scoped permission on two copies of the runtime, when that run permission ends in the store, is told anew on both copies an answer that leaves the lane out (:may-not-see) and stays open with no end, and a later write in the lane reaches neither."
                  (and got-r-a got-r-b
                       (= :accepted (get-in end-run [:answer :answer]))
                       r-rev-a r-rev-b

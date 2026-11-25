@@ -23,7 +23,7 @@
                begun, or a word
     sign-out   an actor -> a task: her own session ended, or a word
     refuse     an actor and a hash -> a task: [:ok] or a word
-    act-ids    an actor, a layer, a count -> a task of the door's act-ids
+    act-ids    an actor, a lane, a count -> a task of the door's act-ids
     send       an actor, an act without `:who` and `:session`, and an
                act-id or nil -> a task of the door's receipt
     send-all   an actor and [[act-id act] ...] -> a task of the receipts
@@ -525,18 +525,18 @@
 ;; ---------------------------------------------------------------- the tasks
 
 (defn act-ids
-  "Gives act-ids of one layer, ahead of sending. Takes the seam, an actor, a
-  layer and a count. Gives a task of what
+  "Gives act-ids of one lane, ahead of sending. Takes the seam, an actor, a
+  lane and a count. Gives a task of what
   `softland.store.door/act-ids-for` gives: a vector of that many act-ids,
   or one of the door's words; or `:find-her-session` for a visitor. A maker
   that must not do an act twice asks for its act-id first and keeps it: a
   second send under the same act-id is the same act."
-  [^Seam seam actor layer n]
+  [^Seam seam actor lane n]
   (on-its-own-thread
    seam
    (fn []
      (or (needs-a-who actor)
-         (door/act-ids-for (.-door seam) layer n)))))
+         (door/act-ids-for (.-door seam) lane n)))))
 
 (defn- send-now
   "Sends one act as the actor: the one call of the door's `send-act` in the
@@ -576,7 +576,7 @@
   again under the same act-ids.
 
   The door returns from one append before the next begins, so the acts
-  reach a layer's depot in this order (`softland.store.door/send-act`,
+  reach a lane's depot in this order (`softland.store.door/send-act`,
   \"The order of two sends\")."
   [seam actor acts]
   (on-its-own-thread

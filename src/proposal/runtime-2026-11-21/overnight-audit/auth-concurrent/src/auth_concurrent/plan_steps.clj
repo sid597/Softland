@@ -3,7 +3,7 @@
   `invite` (PLAN.md §1A, lines 464-507), `enter` with 1 claim and with 2 claims
   (PLAN.md §1B, lines 508-575), `answer-ask` (PLAN.md §1C, lines 576-631),
   take-out on `:root` writes (PLAN.md §2, lines 639-653), plus single-task
-  `own-layer-made`, `end-actor`, and the four reads (`who-is`, `ask-of`,
+  `own-lane-made`, `end-actor`, and the four reads (`who-is`, `ask-of`,
   `under`, `watch-root` / `$$live`).
 
   Every step function executes atomically on ONE task (`(:task msg)`), mutates
@@ -59,7 +59,7 @@
     :ask {:depot :*asks
           :partition-key (:code input)
           :task (task-for :code (:code input))}
-    :own-layer-made {:depot :*root-events
+    :own-lane-made {:depot :*root-events
                      :partition-key (:person input)
                      :task (task-for :root (:person input))}
     (:begin-sign-in :replace-secret :end-sign-in
@@ -126,7 +126,7 @@
   [pstates {:keys [root sign-in session]}]
   (let [r (get-in pstates [:root-data root :r])]
     (if (or (nil? r) (not= :RootEntered (:state r)))
-      {:sign-in nil :session nil :own-layer nil :own-layer-made? false}
+      {:sign-in nil :session nil :own-lane nil :own-lane-made? false}
       (let [g (get-in pstates [:root-data root :sign-ins sign-in])
             s (when session (get-in pstates [:root-data root :sessions session]))
             actor-ended? (if (and g (:ended? g) (not= (:actor g) root))
@@ -146,8 +146,8 @@
                      :until (:until s)
                      :closed? (boolean (:closed? s))
                      :driven-by (:driven-by s)})
-         :own-layer (:own-layer r)
-         :own-layer-made? (boolean (:own-layer-made? r))}))))
+         :own-lane (:own-lane r)
+         :own-lane-made? (boolean (:own-lane-made? r))}))))
 
 (defn plan-ask-of
   "Executes PLAN.md lines 11, 20 (`ask-of` on H(U)).
@@ -221,19 +221,19 @@
 
 (defn seed-entered-person
   "Synchronously seeds an entered person `P` linked to `Acc` with claim `C`."
-  [pstates {:keys [person claim account own-layer making says at own-layer-made?]}]
+  [pstates {:keys [person claim account own-lane making says at own-lane-made?]}]
   (let [op-id [:seed-op person]]
     [(-> pstates
          (assoc-in [:claims claim] {:state :ClaimUsed :person person :invited-by :system :invited-at 0 :used-by-op op-id})
          (assoc-in [:root-data person :r]
                    {:state :RootEntered :claim claim :invited-by :system :invited-at 0
-                    :linked-account account :own-layer own-layer :making making
-                    :own-layer-made? (boolean own-layer-made?)
+                    :linked-account account :own-lane own-lane :making making
+                    :own-lane-made? (boolean own-lane-made?)
                     :next-actor-seq 0 :next-sign-in-seq 0})
          (assoc-in [:accounts account]
-                   {:state :AccountLinked :person person :own-layer own-layer :making making
+                   {:state :AccountLinked :person person :own-lane own-lane :making making
                     :says (or says {}) :says-at (or at 0)}))
-     {:person person :own-layer own-layer :making making :own-layer-made? (boolean own-layer-made?)}]))
+     {:person person :own-lane own-lane :making making :own-lane-made? (boolean own-lane-made?)}]))
 
 (defn seed-make-actor
   "Synchronously applies `make-actor` on H(P) (PLAN.md lines 43, 808)."
@@ -369,9 +369,9 @@
        :self-input input
        :rounds 0}
 
-      :own-layer-made
-      {:call-id call-id :attempt-id attempt-id :op :own-layer-made
-       :step :own-layer-made/step-1
+      :own-lane-made
+      {:call-id call-id :attempt-id attempt-id :op :own-lane-made
+       :step :own-lane-made/step-1
        :task task
        :input input}
 
@@ -575,7 +575,7 @@
 (defn- enter-step-1-at-account
   "Evaluates Step 1 of `enter` on H(Acc) (PLAN.md lines 512-519)."
   [pstates {:keys [self-op self-input] :as msg}]
-  (let [{:keys [account says own-layer making at]} self-input
+  (let [{:keys [account says own-lane making at]} self-input
         {:keys [code-claim email-claim]} (claims-of-enter self-input)
         acc (get-in pstates [:accounts account])]
     (cond
@@ -585,12 +585,12 @@
                     (assoc-in [:accounts account :says-at] at))]
         {:pstates ps1
          :plan-lines "PLAN.md:513"
-         :summary (str "H(Acc=" account ") sees AccountLinked(P=" (:person acc) ") -> overwrites :says/:says-at (at=" at "), hops |hash P for :own-layer-made?")
+         :summary (str "H(Acc=" account ") sees AccountLinked(P=" (:person acc) ") -> overwrites :says/:says-at (at=" at "), hops |hash P for :own-lane-made?")
          :next-msg (assoc msg
                           :step :enter/step-1b-returning-read-flag
                           :task (task-for :root (:person acc))
                           :linked-person (:person acc)
-                          :linked-layer (:own-layer acc)
+                          :linked-lane (:own-lane acc)
                           :linked-making (:making acc))})
 
       (nil? acc)
@@ -604,7 +604,7 @@
                        :account account
                        :code-claim code-claim
                        :email-claim email-claim
-                       :own-layer own-layer
+                       :own-lane own-lane
                        :making making
                        :says says
                        :at at}]
@@ -639,15 +639,15 @@
       (enter-step-1-at-account pstates msg)
 
       :enter/step-1b-returning-read-flag
-      (let [{:keys [linked-person linked-layer linked-making]} msg
-            flag (boolean (get-in pstates [:root-data linked-person :r :own-layer-made?]))]
+      (let [{:keys [linked-person linked-lane linked-making]} msg
+            flag (boolean (get-in pstates [:root-data linked-person :r :own-lane-made?]))]
         {:pstates pstates
          :plan-lines "PLAN.md:513"
-         :summary (str "H(P=" linked-person ") reads :own-layer-made?=" flag " -> ack-return {:person " linked-person " ...}")
+         :summary (str "H(P=" linked-person ") reads :own-lane-made?=" flag " -> ack-return {:person " linked-person " ...}")
          :ack-return {:person linked-person
-                      :own-layer linked-layer
+                      :own-lane linked-lane
                       :making linked-making
-                      :own-layer-made? flag}})
+                      :own-lane-made? flag}})
 
       ;; ---- 1-claim fast path (PLAN.md:521-526)
       :enter/step-2-1claim-acquire
@@ -968,24 +968,24 @@
                              :invited-by (:invited-by r)
                              :invited-at (:invited-at r)
                              :linked-account account
-                             :own-layer (:own-layer target)
+                             :own-lane (:own-lane target)
                              :making (:making target)
-                             :own-layer-made? false
+                             :own-lane-made? false
                              :next-actor-seq 0
                              :next-sign-in-seq 0}))
             r' (get-in ps1 [:root-data P :r])]
         {:pstates ps1
          :plan-lines "PLAN.md:544"
-         :summary (str "H(P=" P ") Step 3a ensures RootEntered (fixed L'=" (:own-layer r') ", made?=" (:own-layer-made? r') ") -> hops |hash Acc")
+         :summary (str "H(P=" P ") Step 3a ensures RootEntered (fixed L'=" (:own-lane r') ", made?=" (:own-lane-made? r') ") -> hops |hash Acc")
          :next-msg (assoc msg
-                          :fixed-layer (:own-layer r')
+                          :fixed-lane (:own-lane r')
                           :fixed-making (:making r')
-                          :present-flag (boolean (:own-layer-made? r'))
+                          :present-flag (boolean (:own-lane-made? r'))
                           :step :enter/step-3b-link-account
                           :task (task-for :account account))})
 
       :enter/step-3b-link-account
-      (let [{:keys [won-person fixed-layer fixed-making present-flag]} msg
+      (let [{:keys [won-person fixed-lane fixed-making present-flag]} msg
             acc (get-in pstates [:accounts account])
             helping? (not= op self-op)
             ps1 (cond
@@ -993,7 +993,7 @@
                   (assoc-in pstates [:accounts account]
                             {:state :AccountLinked
                              :person won-person
-                             :own-layer fixed-layer
+                             :own-lane fixed-lane
                              :making fixed-making
                              :says (if helping? (:says self-input) (:says target))
                              :says-at (if helping? (:at self-input) (:at target))})
@@ -1010,7 +1010,7 @@
                   (assoc-in pstates [:accounts account]
                             {:state :AccountLinked
                              :person won-person
-                             :own-layer fixed-layer
+                             :own-lane fixed-lane
                              :making fixed-making
                              :says (:says target)
                              :says-at (:at target)})
@@ -1018,11 +1018,11 @@
                   :else pstates)]
         {:pstates ps1
          :plan-lines "PLAN.md:545-546,519"
-         :summary (str "H(Acc=" account ") Step 3b finalizes AccountLinked -> ack-return {:person " won-person " :own-layer " fixed-layer " :own-layer-made? " present-flag "}")
+         :summary (str "H(Acc=" account ") Step 3b finalizes AccountLinked -> ack-return {:person " won-person " :own-lane " fixed-lane " :own-lane-made? " present-flag "}")
          :ack-return {:person won-person
-                      :own-layer fixed-layer
+                      :own-lane fixed-lane
                       :making fixed-making
-                      :own-layer-made? present-flag}}))))
+                      :own-lane-made? present-flag}}))))
 
 ;; ---- 1C. answer-ask steps (PLAN.md lines 576-610)
 
@@ -1290,15 +1290,15 @@
                :summary (str "H(U=" code ") restores AskWaiting (if still op) -> ack-return {:refused " (:reason out) "}")
                :ack-return {:refused (:reason out)}})))))))
 
-;; ---- Single-task companion writes (`own-layer-made`, `end-actor`)
+;; ---- Single-task companion writes (`own-lane-made`, `end-actor`)
 
-(defn- exec-own-layer-made [pstates {:keys [input]}]
+(defn- exec-own-lane-made [pstates {:keys [input]}]
   (let [{:keys [person]} input
         r (get-in pstates [:root-data person :r])]
     (if (= :RootEntered (:state r))
-      {:pstates (assoc-in pstates [:root-data person :r :own-layer-made?] true)
+      {:pstates (assoc-in pstates [:root-data person :r :own-lane-made?] true)
        :plan-lines "PLAN.md:39,804"
-       :summary (str "H(P=" person ") sets :own-layer-made? true -> ack-return {:made " person "}")
+       :summary (str "H(P=" person ") sets :own-lane-made? true -> ack-return {:made " person "}")
        :ack-return {:made person}}
       {:pstates pstates
        :plan-lines "PLAN.md:39,804"
@@ -1359,7 +1359,7 @@
     :invite (exec-invite-step pstates msg)
     :enter (exec-enter-step pstates msg)
     :answer-ask (exec-answer-ask-step pstates msg)
-    :own-layer-made (exec-own-layer-made pstates msg)
+    :own-lane-made (exec-own-lane-made pstates msg)
     :end-actor (exec-end-actor pstates msg)
     :make-actor (let [[ps1 res] (seed-make-actor pstates (:input msg))]
                   {:pstates ps1

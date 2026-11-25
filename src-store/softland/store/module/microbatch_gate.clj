@@ -11,12 +11,12 @@
 
   What it takes. Each thing that arrives on `*microbatch-depot`, which the
   module declares (`softland.store.module`) and which partitions by the
-  thing's `:layer`. So a layer is one partition of the depot, one line, and
+  thing's `:lane`. So a lane is one partition of the depot, one line, and
   its things have the depot's order. Anything can arrive: the door is not
   the only sender.
 
   What it changes. It owns six PStates, the record of the microbatch
-  layers, and it alone writes them (in Rama only the owning topology writes
+  lanes, and it alone writes them (in Rama only the owning topology writes
   a PState): `$$microbatch-answers`, `$$microbatch-facts`,
   `$$microbatch-facts-by-value`, `$$microbatch-task`, `$$microbatch-line`
   and `$$microbatch-things`. Their schemas are
@@ -25,23 +25,23 @@
   the cluster. The gate keeps nothing in the memory of a process. It
   declares no depot, appends to none, and borrows no PState.
 
-  What it is built for. The base: the layer that the system provides to
+  What it is built for. The base: the lane that the system provides to
   everyone, which few hands change and which does not need to be instant
-  (Sid, 13 October 2026). A microbatch layer that many people write into is
-  not designed. Whether such a layer is a layer apart from the base is not
+  (Sid, 13 October 2026). A microbatch lane that many people write into is
+  not designed. Whether such a lane is a lane apart from the base is not
   decided, and nothing here is built for it: every act of a microbatch
-  layer is decided on one task, one after the other.
+  lane is decided on one task, one after the other.
 
   Where a row lives.
 
     - The row of a fact, and a row of the facts by value: on every task.
-      The layer's task writes it in the decision, and the gate copies it to
-      each other task. So a read of a microbatch layer's facts needs one
+      The lane's task writes it in the decision, and the gate copies it to
+      each other task. So a read of a microbatch lane's facts needs one
       task, whichever it is.
-    - The answer of an act, and the layer's last stamp: on the layer's task
-      alone, the task of the layer's depot partition. A maker reads her
-      answer there, as in a streaming layer.
-    - The layer's line, its things and its rows by who: on the layer's task
+    - The answer of an act, and the lane's last stamp: on the lane's task
+      alone, the task of the lane's depot partition. A maker reads her
+      answer there, as in a streaming lane.
+    - The lane's line, its things and its rows by who: on the lane's task
       alone, with the answers and the last stamp, and no copy: the walk
       gives the gate no write of the line to copy
       (`softland.store.module.walk/copies-of`). So a read of the base's
@@ -51,19 +51,19 @@
       arrived, under its reason word.
 
   The walk. One task decides: Rama emits a record of partition p on task p,
-  which is the layer's task, and the gate decides it there, at once, with
+  which is the lane's task, and the gate decides it there, at once, with
   `softland.store.module.walk/decide`, the walk of one thing that the
   streaming gate calls too. The gate hands it its six tables and the word
   `:microbatch`. The walk's namespace docstring holds what a decision is
   made of, the steps, what each kind of thing costs, how a stamp is
-  counted in its layer, and the contract that the walk never gives its
+  counted in its lane, and the contract that the walk never gives its
   task back. A decision is made of the thing and of rows of this gate's
-  record on the layer's task. No gate reads a clock, and nothing of a
+  record on the lane's task. No gate reads a clock, and nothing of a
   batch is in a decision: not its id, not its size, not where it is cut.
   The next record of the partition is decided when this one's rows are
   written, so it reads them: an act that replaces the fact of the act
   before it in the same batch is accepted, a mark holds from the next act,
-  and the stamps of a layer go up in the depot's order.
+  and the stamps of a lane go up in the depot's order.
 
   The copy. The walk gives the rows of an accept that are a fact's or of
   the facts by value, in the order in which it wrote them. When there are
@@ -82,24 +82,24 @@
 
   The copies of one decision go out before the next record of the
   partition is decided, and Rama keeps the order of what one task sends to
-  another. So each task writes the copies of a layer in the order of the
-  decisions, and ends on the row that the layer's task ends on.
+  another. So each task writes the copies of a lane in the order of the
+  decisions, and ends on the row that the lane's task ends on.
 
   What the copy costs, in a module of N tasks: for an accept that wrote c
   rows of facts and of the facts by value, one message to each of the N
   tasks, and c writes on each of the N - 1 other tasks. No read. One
   accepted act with one value under a plain key that is not marked is
-  5 reads and 3 writes on the layer's task, by the walk and its count of a
+  5 reads and 3 writes on the lane's task, by the walk and its count of a
   read (`softland.store.module.walk`), and 1 write on each other task:
   3 + (N - 1) writes in all. Two costs are not in that count. Each message
   carries the c rows whole, so the bytes of an accept's rows are sent to
-  each other task. And each row of a microbatch layer's facts is stored
-  once on every task: N times what a streaming layer's row takes.
+  each other task. And each row of a microbatch lane's facts is stored
+  once on every task: N times what a streaming lane's row takes.
 
   A second attempt of a batch. When something throws while a batch runs,
   Rama sets each PState of the topology back to what it held before the
   batch, on every task, and processes the same records again. A failed
-  attempt leaves no row, on the layer's task or on a task that had written
+  attempt leaves no row, on the lane's task or on a task that had written
   a copy. The second attempt reads the rows that the first read, and a
   decision holds no clock and nothing of the attempt: it writes the same
   rows with the same stamps, and sends the same copies. So a row that a
@@ -124,27 +124,27 @@
   of a batch until the batch is committed on the task that it reads. Rama
   shows a batch task by task: each task commits its part of a batch by
   itself, and that task's writes of the batch become visible together. On
-  the layer's task that is an answer with each fact of its act, the entry
+  the lane's task that is an answer with each fact of its act, the entry
   that came into the facts by value and the entry that went out. Two tasks
   do not commit at one moment. So for the time of a commit a reader of
   another task can see the copy of a fact whose answer is not yet visible
-  on the layer's task, or not yet see the fact of an answer that is. Rama
+  on the lane's task, or not yet see the fact of an answer that is. Rama
   starts the next batch when every task has committed this one. This
   paragraph is from Rama's docs on the phases of a microbatch; no run here
   observed a commit from outside.
 
   What an ack means. An append to the depot does not wait for the gate: the
   ack of an append says that the depot holds the thing, and nothing about
-  the decision. The answer is read by act-id, on the layer's task, and it
+  the decision. The answer is read by act-id, on the lane's task, and it
   is there when the batch that decided the thing is committed on that
   task.
 
   What the gate rests on and does not test.
 
-    - The depot's partitioner puts a thing on its layer's task. A thing
+    - The depot's partitioner puts a thing on its lane's task. A thing
       that a topology appends to another partition is decided against that
       task's part of the record: its facts are on every task, and its
-      layer's last stamp and its answers are not. So an act of the base
+      lane's last stamp and its answers are not. So an act of the base
       on a wrong partition whose permission stands would be accepted
       there, with a stamp that follows nothing of the base's line, and its
       copies would write over the rows of the same places on every other
@@ -162,9 +162,9 @@
     - Rama keeps the order of what one task sends to another task.
     - The number of tasks of a module that reads this depot is the depot's
       number of partitions. A second module that mirrors the depot with
-      another number of tasks does not get a layer's partition on the task
-      that its own hash of the layer gives: its answers would be on a task
-      where a read by the layer does not look. Rama's own way to add tasks
+      another number of tasks does not get a lane's partition on the task
+      that its own hash of the lane gives: its answers would be on a task
+      where a read by the lane does not look. Rama's own way to add tasks
       has the new module copy the depots into depots of its own; that is
       not built here.
 
@@ -185,7 +185,7 @@
   or a fixed key taken out. The one partitioner of the dataflow stands
   behind the walk's last write. The source starts from the beginning of the
   depot. What must hold: the module declares the depot `*microbatch-depot`,
-  or a mirror of it under that name, partitioned by the thing's `:layer`,
+  or a mirror of it under that name, partitioned by the thing's `:lane`,
   and has as many tasks as that depot has partitions. The gate needs no
   other part of the module: it declares no depot and reads no PState of
   another topology."

@@ -61,24 +61,24 @@
           email1 "says1@example.com"
           ;; 1. Refused enter leaves $$accounts[acc-refused] == nil
           r-refused (client/enter c1 {:account acc-refused :says {"x" "no"} :email "missing@example.com"
-                                      :code-hash nil :own-layer L1 :making M1 :at 500})
+                                      :code-hash nil :own-lane L1 :making M1 :at 500})
           row-refused (read-account-row ipc mod-name acc-refused)
           ;; 2. Invite + first enter at t=200
           r-inv (client/invite c1 {:person P1 :claim {:by :email :email email1} :invited-by :system :at 10})
           r-e1 (client/enter c1 {:account acc1 :says {"name" "v200"} :email email1 :code-hash nil
-                                 :own-layer L1 :making M1 :at 200})
+                                 :own-lane L1 :making M1 :at 200})
           row-1 (read-account-row ipc mod-name acc1)
           ;; 3. Returning enter at equal t=200 -> leaves :says untouched!
           _ (client/enter c2 {:account acc1 :says {"name" "v200-tie"} :email nil :code-hash nil
-                              :own-layer (UUID/randomUUID) :making M1 :at 200})
+                              :own-lane (UUID/randomUUID) :making M1 :at 200})
           row-tie (read-account-row ipc mod-name acc1)
           ;; 4. Returning enter at earlier t=100 -> leaves :says untouched!
           _ (client/enter c1 {:account acc1 :says {"name" "v100-old"} :email nil :code-hash nil
-                              :own-layer (UUID/randomUUID) :making M1 :at 100})
+                              :own-lane (UUID/randomUUID) :making M1 :at 100})
           row-old (read-account-row ipc mod-name acc1)
           ;; 5. Returning enter at later t=350 -> replaces :says!
           _ (client/enter c2 {:account acc1 :says {"name" "v350-new"} :email nil :code-hash nil
-                              :own-layer (UUID/randomUUID) :making M1 :at 350})
+                              :own-lane (UUID/randomUUID) :making M1 :at 350})
           row-new (read-account-row ipc mod-name acc1)
           ;; 6. Four concurrent returning enters (t = 400, 700, 500, 600) -> settles on t=700!
           pool (Executors/newFixedThreadPool 4)
@@ -88,7 +88,7 @@
                                 (fn []
                                   (.await barrier 10 TimeUnit/SECONDS)
                                   (client/enter c1 {:account acc1 :says {"name" lbl} :email nil :code-hash nil
-                                                    :own-layer L1 :making M1 :at t}))))
+                                                    :own-lane L1 :making M1 :at t}))))
                      [[400 "v400"] [700 "v700-max"] [500 "v500"] [600 "v600"]])
           _ (doseq [f futs] (.get ^java.util.concurrent.Future f 15 TimeUnit/SECONDS))
           _ (.shutdownNow pool)
@@ -175,7 +175,7 @@
   agent chain + `:too-deep` at 33 + 2-scan `end-actor` cascade, take-out
   cascading expired sign-ins to longer-lived sessions, born-expired sign-ins/
   sessions/`replace-secret`, `:driven-by` preservation across close/repeat,
-  2-seek `who-is` (before and after `own-layer-made`), and live-only `under`."
+  2-seek `who-is` (before and after `own-lane-made`), and live-only `under`."
   []
   (let [ref-step (requiring-resolve 'softland.auth.reference/step)
         ref-who  (requiring-resolve 'softland.auth.reference/who-is)
@@ -198,11 +198,11 @@
                (concat
                 [[:invite {:person P :claim {:by :email :email "sliceb@example.com"} :invited-by :system :at 10}]
                  [:enter {:account [:google "sb-1"] :says {"k" "v"} :email "sliceb@example.com"
-                          :code-hash nil :own-layer L :making M :at 20}]
-                 ;; Sign-in begun BEFORE own-layer-made (tests who-is fallback path!)
+                          :code-hash nil :own-lane L :making M :at 20}]
+                 ;; Sign-in begun BEFORE own-lane-made (tests who-is fallback path!)
                  [:begin-sign-in {:root P :actor P :sign-in G-early :kind :browser :hash (h 1)
                                   :until 5000 :label "early" :at 25}]
-                 [:own-layer-made {:person P :at 30}]
+                 [:own-lane-made {:person P :at 30}]
                  [:begin-sign-in {:root P :actor P :sign-in G-exp :kind :browser :hash (h 2)
                                   :until 1000 :label "exp" :at 35}]
                  [:begin-sign-in {:root P :actor P :sign-in G-live :kind :program :hash (h 3)
@@ -236,7 +236,7 @@
       (let [mod-name (rama/get-module-name mod/Auth)
             _ (rtest/launch-module! ipc mod/Auth {:tasks 4 :threads 2})
             c (client/open ipc mod-name)
-            dispatch {:invite client/invite :enter client/enter :own-layer-made client/own-layer-made
+            dispatch {:invite client/invite :enter client/enter :own-lane-made client/own-lane-made
                       :begin-sign-in client/begin-sign-in :replace-secret client/replace-secret
                       :end-sign-in client/end-sign-in :make-actor client/make-actor
                       :end-actor client/end-actor :open-session client/open-session
@@ -294,8 +294,8 @@
           H2 (format "%064x" 102)
           _ (client/invite c1 {:person P :claim {:by :email :email "watch@example.com"} :invited-by :system :at 10})
           _ (client/enter c1 {:account [:google "watch-1"] :says {} :email "watch@example.com"
-                              :code-hash nil :own-layer L :making M :at 20})
-          _ (client/own-layer-made c1 {:person P :at 25})
+                              :code-hash nil :own-lane L :making M :at 20})
+          _ (client/own-lane-made c1 {:person P :at 25})
           ;; 1. Throwing callback + sibling watcher + re-entrant stop watcher
           throw-calls (atom 0)
           sib-vals (atom [])
@@ -376,8 +376,8 @@
   [c P G tag]
   (client/invite c {:person P :claim {:by :email :email (str tag "@example.com")} :invited-by :system :at 10})
   (client/enter c {:account [:google tag] :says {} :email (str tag "@example.com") :code-hash nil
-                   :own-layer (UUID/randomUUID) :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
-  (client/own-layer-made c {:person P :at 25})
+                   :own-lane (UUID/randomUUID) :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
+  (client/own-lane-made c {:person P :at 25})
   (client/begin-sign-in c {:root P :actor P :sign-in G :kind :browser :hash (format "%064x" 777)
                            :until 999999999 :label nil :at 30}))
 
@@ -566,7 +566,7 @@
                                                  ["not" "a" "map"] "unfit-2@example.com" nil (UUID/randomUUID)
                                                  (UUID/randomUUID) (UUID/randomUUID) 70))
           w5 (client/enter c {:account [:google "unfit-2"] :says {} :email "unfit-2@example.com" :code-hash nil
-                              :own-layer (UUID/randomUUID)
+                              :own-lane (UUID/randomUUID)
                               :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 80})
           ;; *asks: an ask whose :ends is nil, on the code's partition.
           r6 (appended "*asks" (s/->AskEvent "UNFIT001" (format "%064x" 6) "a program" nil 90))

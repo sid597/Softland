@@ -518,23 +518,23 @@
        (s/->InviteEvent person ck (:by claim) cv ib-kind ib-id at)))))
 
 (defn enter
-  "Enters an account (`{:account :says :email :code-hash :own-layer :making :at}`)."
+  "Enters an account (`{:account :says :email :code-hash :own-lane :making :at}`)."
   [client input]
   (guarded-write
    client :enter input #(.-d-enters ^Client %)
-   (fn [{:keys [account says email code-hash own-layer making at]}]
+   (fn [{:keys [account says email code-hash own-lane making at]}]
      (let [[provider subject] account
            ak (s/account-key provider subject)]
        (s/->EnterEvent (UUID/randomUUID) ak provider subject says email code-hash
-                       own-layer (:uuid making) (:session making) at)))))
+                       own-lane (:uuid making) (:session making) at)))))
 
-(defn own-layer-made
-  "Marks an entered person's own layer as made (`{:person :at}`)."
+(defn own-lane-made
+  "Marks an entered person's own lane as made (`{:person :at}`)."
   [client input]
   (guarded-write
-   client :own-layer-made input #(.-d-root-events ^Client %)
+   client :own-lane-made input #(.-d-root-events ^Client %)
    (fn [{:keys [person at]}]
-     (s/->OwnLayerMadeEvent person at))))
+     (s/->OwnLaneMadeEvent person at))))
 
 (defn begin-sign-in
   "Begins a sign-in under a root (`{:root :actor :sign-in :kind :hash :until :label :at}`)."

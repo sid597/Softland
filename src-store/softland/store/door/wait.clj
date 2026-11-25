@@ -40,7 +40,7 @@
         finds nothing, and each is a round trip and a read on a task whose
         one thread a gate also needs. At 200 ms an answer that is there
         after 0.9 s costs 6 reads and is learnt 100 ms late at the mean; at
-        20 ms it costs 46. A microbatch layer is not for what a person does
+        20 ms it costs 46. A microbatch lane is not for what a person does
         directly, so a tenth of a second there is a small price."
   {:read-every-ms 200})
 

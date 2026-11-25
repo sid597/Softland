@@ -17,7 +17,7 @@ which are trees of their own.
 | [frame.clj](frame.clj) | One frame of the wire: one EDN form, read and written. Pure. | None. |
 | [watching.clj](watching.clj) | What waits for a reader who is slower than the changes, merged by place; and an answer after a change. Pure. | None. |
 | [seam.clj](seam.clj) | The seam: a credential to an actor, and the actor in front of the door's calls and the read path's, as tasks and flows of Missionary. | In the memory of one process: its numbers, the id of the server's own session, its threads. Nothing between two calls. |
-| [sign_in.clj](sign_in.clj) | What sign-in writes into the store, as the system: the person of a Google account, found or registered, and her own layer. | None of its own; it writes acts through the seam. |
+| [sign_in.clj](sign_in.clj) | What sign-in writes into the store, as the system: the person of a Google account, found or registered, and her own lane. | None of its own; it writes acts through the seam. |
 | [google.clj](google.clj) | The check of Google's ID token, and the fetch of Google's public keys. | None; the fetch keeps nothing. |
 | [google_stand_in.clj](google_stand_in.clj) | A stand-in for Google that signs ID tokens with a key pair of its own, for the checks and for a run on one machine. | A key pair in the memory of the process. |
 | [http.clj](http.clj) | The face over HTTP: the words, the stream of a watch, and the pages of sign-in, as a Ring handler. | None. |
@@ -78,7 +78,7 @@ The pure proof reads the source for the first three and for the caller of
 `system` ([the verification map](../../../test-server/README.md)). A face
 cannot make the system's actor; it reaches the system's steps by calling the
 two functions of [sign_in.clj](sign_in.clj), each of which does one thing: the
-person of a checked token, and where her own layer is.
+person of a checked token, and where her own lane is.
 
 The server is not a check of an act, which is a gate's; not a guard of what a
 reader may see, which is the read path's; and not the network rule that keeps
@@ -96,7 +96,7 @@ with his words.
 | Only programs on machines that Sid runs may reach Rama's ports, and a program that is not trusted that far talks to the runtime (11 and 12 October, entry 4) | The server is that runtime's first form. It sets no rule of the network |
 | A read is done in the runtime, straight from the tables, with Rama's push (the same section, entry 3) | `read` and `watch` in [seam.clj](seam.clj) call the read path and keep no value |
 | A person's id is a UUID that says nothing, and her accounts are joined to it by links (9 October, entry 1) | [sign_in.clj](sign_in.clj): a random id, and Google's number as a fact on it |
-| A signed-in user has a personal layer and a permission in it, without asking (8 October, entry 2) | The making act of her own layer, in [sign_in.clj](sign_in.clj) |
+| A signed-in user has a personal lane and a permission in it, without asking (8 October, entry 2) | The making act of her own lane, in [sign_in.clj](sign_in.clj) |
 | An act from a maker who may not act is written to the log, and then refused (12 October, entry 7) | The server judges nothing of an act's form or standing: a wrong act goes to the door, and a gate refuses it in the record. What it turns away itself, with nothing written: a thing that is no plain map, and an act that already holds `:who` or `:session`, as the door turns away an act that holds one of the door's own parts |
 | Google's sign-in button, with no client secret; Google's number kept as it is (15 October, ‹bb59807f› and ‹5325b353›) | [google.clj](google.clj) checks an ID token; [sign_in.clj](sign_in.clj) keeps `sub` as given |
 
@@ -173,13 +173,13 @@ library for tokens is the other answer.
 | What sign-in writes | Built to the least form, on [its page](../../../src/proposal/server-2026-11-20/SIGN-IN-WRITES.md) for Sid's redline |
 | Who may become a person | Anybody whom Google proves. Due before a stranger can reach the server |
 | The keeping of reads | Sid decided whose reads are kept: a model's, always; a person's, until she turns it off (12 October, entry 4). This build keeps none; where a kept read lands is not decided |
-| A ration of acts and of live reads, and a block | Named at `ration` in [seam.clj](seam.clj); nothing is built. What that leaves open today, as the review of 20 November 2026 ran it: a visitor with no credential who opens some 900 watches on distinct places of a layer that is open to everyone takes every live read of that layer, its owner's too, since the read path holds 900 pushes on one layer; and anybody signed in can send one frame after another that each cost seconds to read |
+| A ration of acts and of live reads, and a block | Named at `ration` in [seam.clj](seam.clj); nothing is built. What that leaves open today, as the review of 20 November 2026 ran it: a visitor with no credential who opens some 900 watches on distinct places of a lane that is open to everyone takes every live read of that lane, its owner's too, since the read path holds 900 pushes on one lane; and anybody signed in can send one frame after another that each cost seconds to read |
 | A program's sign-in against somebody who means harm | The page warns her, and nothing else holds: whoever makes a link and gets her yes acts as her for the session's 30 days; whoever sees a program's link first can say yes first, and the program then acts as that person and is not told. She has no page that lists the programs that act as her, and a link does not grow old. Due before a stranger can reach the server |
 | The cookie on one host | A browser sends it to every server on the same host, whatever its port: on `localhost`, to each program that listens there |
 | The feed's one task | Every beginning and end of a session, of every person, is written on one task and pushed whole to every copy of the server. More feeds, each under a key of its own, is the way on when that task is the limit |
 | An agent's own who | Not built: every credential stands for a person. An act's `:session` tells a browser's acts from a program's |
 | Who may act as the system | The server's own steps of sign-in, and nothing that a system sends |
-| Following every act of a layer; signals that are not kept for ever | No word for either. The proposal's calls 5 and 6 |
+| Following every act of a lane; signals that are not kept for ever | No word for either. The proposal's calls 5 and 6 |
 | How long the events and the rows of ended sessions are kept | For ever, as built |
 | The network rule, and a cluster that keeps its data | Set and run by nothing here |
 
@@ -200,7 +200,7 @@ Inland's. "The seam", "a face" and "the words" are the proposal's.
 `:not-reached`, `:not-a-token`.
 
 **The words.** `:who-am-i`, `:act-ids`, `:send`, `:send-all`, `:answer`,
-`:read`, `:watch`, `:sign-out`; their parts `:word`, `:layer`, `:count`,
+`:read`, `:watch`, `:sign-out`; their parts `:word`, `:lane`, `:count`,
 `:act`, `:act-id`, `:acts`, `:digest`, `:wait-ms`, `:query`. The reasons of
 their check are in [words.clj](words.clj).
 
@@ -208,7 +208,7 @@ their check are in [words.clj](words.clj).
 `:find-her-session`, `:reach-the-sessions`, `:begin-her-session`, and
 `:write-her-sign-in` of [sign_in.clj](sign_in.clj); with `:why` and `:at`.
 
-**What sign-in writes.** The layer `:people`; the keys `:account/google`,
-`:account/google-says`, `:person/own-layer`.
+**What sign-in writes.** The lane `:people`; the keys `:account/google`,
+`:account/google-says`, `:person/own-lane`.
 
 **A token.** `sl1_`; the cookie `softland`.

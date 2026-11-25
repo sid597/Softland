@@ -102,12 +102,12 @@
         prog (drive/program url "slow-reader-test" (fn [code] (drive/yes url cookie code {})))
         me (client/connect {:url url :credential (:credential prog)})
         hello (client/hello me)
-        layer (:own-layer hello)
+        lane (:own-lane hello)
         who (:who hello)
         big-val (apply str (repeat 60000 "x"))
         _ (client/say me {:word :send
-                          :act {:version 1 :who who :session (:session hello) :layer layer
-                                :permission [who layer layer]
+                          :act {:version 1 :who who :session (:session hello) :lane lane
+                                :permission [who lane lane]
                                 :facts [{:e :blob :k :data :v big-val}]}
                           :act-id (UUID/randomUUID)})
         _ (client/close! me)
@@ -123,7 +123,7 @@
           (dotimes [i 120]
             (let [frame (ws-client-frame
                          (frame/write {:id i :word :read
-                                       :query {:asks [:place :blob :data] :asker who :layers [layer]}}))]
+                                       :query {:asks [:place :blob :data] :asker who :lanes [lane]}}))]
               (.write out frame)))
           (.flush out)))
       ;; Wait long enough for >40 ping ticks (40 * 4 = 160 pings > 24 carriers on old code).

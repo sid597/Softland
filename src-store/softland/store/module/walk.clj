@@ -25,8 +25,8 @@
   tasks, as a vector in the order in which
   `softland.store.gate.decision/writes` gave them and the walk wrote them:
   each [:fact key row], and each [:by-value key row], where a row that is
-  nil says that the key is taken out. The answer, the layer's last stamp
-  and the rows of the layer's line are never in it: they stay on the task
+  nil says that the key is taken out. The answer, the lane's last stamp
+  and the rows of the lane's line are never in it: they stay on the task
   of the decision. For a refusal,
   for a thing under an act-id that has an answer, and for a stray, it gives
   an empty vector. The walk copies nothing itself, and a gate may ignore
@@ -48,7 +48,7 @@
   The walk, for one thing:
 
     0. a stray?   A thing with no usable act-id, or whose act-id is of the
-                  other gate or of another layer, gets no answer. Its digest
+                  other gate or of another lane, gets no answer. Its digest
                   is added to the set of its reason word in the task's
                   table, and the walk ends.
     1. check (a)  Read the answer under the act-id. If one is there, the
@@ -77,21 +77,21 @@
     4. standing   Read the place of the permission that the act names:
                   on its holder, or on the run or the act that it covers
                   (`softland.store.gate.decision/permission-place`); only
-                  when it is empty, the place of the layer's depot; and
+                  when it is empty, the place of the lane's depot; and
                   only when it
                   holds the act's permission, the place of each permission
                   above that one, up its chain
                   (`softland.store.gate.decision/chain-needed`): a
                   permission stands only while each one above it stands
                   (`softland.store.gate.chain`). When both are
-                  empty and the layer starts with the other gate's depot,
-                  the act is refused `:layer-belongs-to-the-other-gate`,
-                  whether or not the other gate has made the layer: the
-                  check asks the layer id
+                  empty and the lane starts with the other gate's depot,
+                  the act is refused `:lane-belongs-to-the-other-gate`,
+                  whether or not the other gate has made the lane: the
+                  check asks the lane id
                   (`softland.store.gate.decision/standing`) and the walk
                   reads nothing for it. For the streaming gate such a
-                  layer is the base; for the microbatch gate it is every
-                  other layer. A permission that stands and says `:see` is
+                  lane is the base; for the microbatch gate it is every
+                  other lane. A permission that stands and says `:see` is
                   refused here, with no read more: an act needs \"act\".
                   An act under a permission for another run than its own,
                   or under a yes for another act, is refused here too, and
@@ -111,28 +111,28 @@
                   give is taken, and what a store key does not take.
     6. the marked keys   Only for an act that no check refused, and only
                   when it holds a fact under a plain key or under
-                  `:softland.store/marked-keys`: read the row at the layer's
+                  `:softland.store/marked-keys`: read the row at the lane's
                   marked-keys place, unless step 5 read it. Then read the
                   place of each fact under a key that the row marks, unless
                   step 5 read it: the row before gives the entry to take out
                   of the facts by value.
-    7. the stamp  Read the last stamp of the act's layer: the number under
-                  the layer's text in `:last-stamp` of the task's table.
+    7. the stamp  Read the last stamp of the act's lane: the number under
+                  the lane's text in `:last-stamp` of the task's table.
                   The stamp of the decision, an accept or a refusal, is
                   that last stamp plus one, or 0 with none
                   (`softland.store.gate.stamp/next-stamp`): nothing of the
                   thing is in it. A refusal writes the answer and the
-                  layer's last stamp and nothing else. An accept writes
+                  lane's last stamp and nothing else. An accept writes
                   the row of each fact, with the text of its value, who
                   wrote it, the permission that the act named and the time
                   on the act; for a fact under a marked key the entry of
                   its value in the facts by value, and the entry of the
-                  value before taken out; the answer and the layer's last
+                  value before taken out; the answer and the lane's last
                   stamp. An accept under a yes for one act writes the
                   yes's use too, an end at the yes's place, so that no act
                   is taken under it again. The answer holds the time when
                   the thing has a usable one. Every decision, an accept or
-                  a refusal, first writes the layer's line
+                  a refusal, first writes the lane's line
                   (`softland.store.gate.decision/line-writes`): its line row
                   at the stamp; the thing again, as it arrived, when its
                   weight is within the bound that its sender's standing
@@ -140,13 +140,13 @@
                   row by who, when the thing names a usable who. The last
                   write is the walk's last step before it gives its result.
 
-  The stamp is counted in the layer, in both gates. Each layer has its own
-  last stamp, so a decision in one layer does not raise the stamps of
-  another layer of the task, and two layers of one task can hold the same
-  stamp. In one layer the stamps are 0, 1, 2 and on, one for each
+  The stamp is counted in the lane, in both gates. Each lane has its own
+  last stamp, so a decision in one lane does not raise the stamps of
+  another lane of the task, and two lanes of one task can hold the same
+  stamp. In one lane the stamps are 0, 1, 2 and on, one for each
   decision, in the order in which the walk was called.
 
-  The marked keys. An act is decided with the layer's marks as they were
+  The marked keys. An act is decided with the lane's marks as they were
   before it. So a fact of the act that marks its own key is not in the order
   by value; the key gets the stamp of that act, in both gates; and every
   fact with a later stamp under that key is in the order. The order of the
@@ -157,8 +157,8 @@
 
   How a read is counted: as Rama's skill text counts a read on disk, one
   for each level of a path. A row of the answers or of the facts is one
-  key, so one read. A layer's last stamp is two: the number sits one level
-  down in its table, under a field and then the layer's key
+  key, so one read. A lane's last stamp is two: the number sits one level
+  down in its table, under a field and then the lane's key
   (`softland.store.record.tables` says why it is kept so). A write is one
   for each row, the last stamp too: each is a whole value at a fixed key,
   which reads nothing. Counted from the dataflow; no run here measured a
@@ -170,7 +170,7 @@
     - A thing under an act-id that has an answer: 1 read, no write.
     - A thing that the declaration refuses, one with no usable time or with
       a value over the bound among them: 3 reads, the answer and the two of
-      the layer's last stamp, and 2 writes, the answer and the layer's last
+      the lane's last stamp, and 2 writes, the answer and the lane's last
       stamp.
     - Each count below is for an act under a first permission. An act
       under a given permission reads one row more for each permission
@@ -178,7 +178,7 @@
       that. A permission is 32 deep at most
       (`softland.store.act`, `nesting`), so 31 rows more at most.
     - An act under a permission for one run reads what an act under a
-      given permission for the layer reads: the run's row where the
+      given permission for the lane reads: the run's row where the
       holder's was, and the rows above it. An act under a yes for one act
       reads the same, the yes's row on its own id where the holder's was;
       it costs one reading of the act's parts and one SHA-256 over its one
@@ -188,33 +188,33 @@
       either.
     - An act whose permission does not stand: 5 reads at most when the
       record does not hold it, whatever the act carries, the answer, the
-      two places of its standing and the two of the layer's last stamp,
-      and the same 2 writes. An act into a layer of the other gate is one
+      two places of its standing and the two of the lane's last stamp,
+      and the same 2 writes. An act into a lane of the other gate is one
       of these. An act whose permission the record holds, and which is
       refused because one above it ended, has read the rows of its chain.
     - A making act: those 5 reads, and 4 writes: its two facts, the answer
-      and the layer's last stamp.
+      and the lane's last stamp.
     - A give, one fact under one of the three keys of a permission, for
-      the layer, a run or an act: 5 reads, the
+      the lane, a run or an act: 5 reads, the
       answer, the giver's permission, the place of the permission given and
-      the two of the layer's last stamp, and 3 writes. An end costs the
-      same. A give at a place that holds a permission for the layer or for
+      the two of the lane's last stamp, and 3 writes. An end costs the
+      same. A give at a place that holds a permission for the lane or for
       a run reads the row of each permission above that one too, unless
       step 4 read it: they say whether what is there still stands. A give
       of a yes at a place that holds a row reads nothing more: a yes's
       place takes one give.
     - One accepted act with one value under a plain key: 5 reads and 3
       writes. The reads are the answer, the permission, the marked keys and
-      the two of the layer's last stamp; the writes are the fact, the
-      answer and the layer's last stamp. A fact that names something to
+      the two of the lane's last stamp; the writes are the fact, the
+      answer and the lane's last stamp. A fact that names something to
       replace costs the read of its place more. The read of the marked keys
       is paid by every accepted act that holds a fact under a plain key,
-      also in a layer that marks no key. When the fact's key is marked it
+      also in a lane that marks no key. When the fact's key is marked it
       costs 6 reads, and with them the row before, and 4 writes, or 5 when
       the entry of a value before goes out.
     - An act with no fact under a plain key, a give, a setting or a list,
       reads no marked keys.
-    - The layer's line: every decision, each kind above but a stray and a
+    - The lane's line: every decision, each kind above but a stray and a
       thing under an act-id that has an answer, writes one row more, its
       line row; one more when the gate keeps the thing again, the thing's
       own bytes a second time; and one more when the thing names a usable
@@ -234,7 +234,7 @@
   permission, a call makes 261 reads at most, the 256 places, the answer,
   the permission, the marked keys and the two of the last stamp, and 774
   writes at most, three for each fact, two more, the use of a yes for one
-  act, and the three of the layer's line. The chains add to the
+  act, and the three of the lane's line. The chains add to the
   reads and not to the writes: 31 rows at most for the act's own
   permission, and 31 at most for each give at a place that holds a
   permission, when no two of those chains share a holder. So the bound on
@@ -248,13 +248,13 @@
   stands no partitioner, no yield, no read that may yield and no append:
   every read and every write is on the task of the call, and the walk runs
   to its result in one stretch. This is a contract of the operation, and a
-  gate rests on it. A gate decides the things of a layer in the order of
-  the layer's depot partition, each against the rows that the things before
+  gate rests on it. A gate decides the things of a lane in the order of
+  the lane's depot partition, each against the rows that the things before
   it wrote. Rama runs other events of a task while one event waits at a
   partitioner or a yield. A walk that waited there would let the next thing
   of the partition be decided first, against a record that lacks this
   thing's rows: an act that replaces the fact of the act before it would be
-  refused, and the stamps of a layer would leave the depot's order. The
+  refused, and the stamps of a lane would leave the depot's order. The
   plan of this part (PLAN-the-bases-gate.md, claim 4) holds a run of a
   stand-in gate whose walk did yield: things were decided out of the
   depot's order and refused. So no change to this file may add one of the
@@ -272,7 +272,7 @@
     - A stream topology can process a record again, also after its writes
       were committed. A second run after a commit finds the answer at check
       (a), writes no row and gives an empty vector. So one act-id has one
-      answer, a layer's last stamp is not raised twice for one thing, and no
+      answer, a lane's last stamp is not raised twice for one thing, and no
       entry of the facts by value that a later act put back is taken out
       again. A second run after a discard is the first that counts.
     - A microbatch topology sets its tables back when an attempt of a batch
@@ -293,7 +293,7 @@
 
   What it rests on and does not test.
 
-    - The caller calls it on the task that holds the layer's rows, which is
+    - The caller calls it on the task that holds the lane's rows, which is
       the task of the thing's depot partition, with tables that the calling
       topology owns. On another task it decides against that task's record.
     - The caller calls it for the things of a partition in the depot's
@@ -336,7 +336,7 @@
   one, on the task of the call.
 
   What must hold: the caller's topology owns the six tables; the call is
-  on the task that holds the rows of the thing's layer; and the things of
+  on the task that holds the rows of the thing's lane; and the things of
   one partition are handed to it in the depot's order, one call ended
   before the next begins. Limits: it holds the task's thread from its
   first read to its last write, for 8,228 reads and 774 writes at most
@@ -357,9 +357,9 @@
     ;; 1. Check (a): an act-id that has an answer is not decided again.
     ;; The walk then writes nothing and ends.
     (get *thing :act-id :> *act-id)
-    (nth *act-id 0 :> *layer)
+    (nth *act-id 0 :> *lane)
     (nth *act-id 2 :> *act-uuid)
-    (record/answer-key *layer *act-uuid :> *answer-key)
+    (record/answer-key *lane *act-uuid :> *answer-key)
     (local-select> (keypath *answer-key) $$answers :> *answered)
     (<<if (some? *answered)
       (identity [] :> *copies)
@@ -374,12 +374,12 @@
       (digest/weighed *thing *weighing-bound :> {*digest :digest *weight :weight})
       (decision/time-on *thing :> *act-time)
 
-      ;; 4. Standing: checks (c) and (d), and the first act of a layer.
-      ;; Whether the layer is the other gate's is asked of the layer id, in
+      ;; 4. Standing: checks (c) and (d), and the first act of a lane.
+      ;; Whether the lane is the other gate's is asked of the lane id, in
       ;; `standing` itself, and no table of the other gate is read.
       (<<if *declarations-reason
         (identity *declarations-reason :> *refused-standing)
-        (identity false :> *makes-the-layer)
+        (identity false :> *makes-the-lane)
         (identity {} :> *standing-rows)
        (else>)
         (decision/permission-place *act :> *permission-key)
@@ -406,7 +406,7 @@
         (decision/hex-for-its-permission *thing *act :> *hex-of-the-act)
         (decision/standing *gate *act *permission-row *depot-row *chain-rows *hex-of-the-act
                            :> *refused-standing)
-        (decision/makes-the-layer? *gate *act *permission-row *depot-row :> *makes-the-layer)
+        (decision/makes-the-lane? *gate *act *permission-row *depot-row :> *makes-the-lane)
         ;; What step 4 read of the permissions, for step 5: the row of the
         ;; act's own and of each one above it.
         (assoc *chain-rows *permission-key *permission-row :> *standing-rows))
@@ -418,7 +418,7 @@
         (identity *refused-standing :> *refused)
         (identity {} :> *place-rows)
        (else>)
-        (decision/places-needed *act *makes-the-layer :> *place-keys)
+        (decision/places-needed *act *makes-the-lane :> *place-keys)
         (loop<- [*keys-left *place-keys
                  *rows-read {}
                  :> *first-place-rows]
@@ -431,7 +431,7 @@
         ;; A give at a place that holds a permission: the rows of the
         ;; permissions above the one that is there, unless step 4 read
         ;; them. They say whether what is there still stands.
-        (decision/chains-needed *act *makes-the-layer *first-place-rows *standing-rows :> *more-keys)
+        (decision/chains-needed *act *makes-the-lane *first-place-rows *standing-rows :> *more-keys)
         (loop<- [*more-left *more-keys
                  *more-read {}
                  :> *more-rows]
@@ -442,9 +442,9 @@
             (local-select> (keypath *more-key) $$facts :> *more-row)
             (continue> (rest *more-left) (assoc *more-read *more-key *more-row))))
         (merge *standing-rows *more-rows *first-place-rows :> *place-rows)
-        (decision/places *gate *act *makes-the-layer *place-rows :> *refused))
+        (decision/places *gate *act *makes-the-lane *place-rows :> *refused))
 
-      ;; 6. Only for an act that no check refused: the layer's marked
+      ;; 6. Only for an act that no check refused: the lane's marked
       ;; keys, and the row before of each place under a marked key. Each
       ;; row is read once: step 5 may have read it.
       (<<if (and> (nil? *refused) (decision/reads-marked-keys? *act))
@@ -469,10 +469,10 @@
         (identity {} :> *since-by-place)
         (identity *place-rows :> *rows-in-hand))
 
-      ;; 7. The stamp: the layer's last stamp, which is kept under the
-      ;; layer's text, plus one.
-      (declaration/id-text *layer :> *layer-text)
-      (local-select> (keypath :last-stamp *layer-text) $$task :> *last-stamp)
+      ;; 7. The stamp: the lane's last stamp, which is kept under the
+      ;; lane's text, plus one.
+      (declaration/id-text *lane :> *lane-text)
+      (local-select> (keypath :last-stamp *lane-text) $$task :> *last-stamp)
       (stamp/next-stamp *last-stamp :> *stamp)
       ;; What the walk has in hand for an accept; nothing for a refusal.
       ;; A key that this act newly marks gets the act's own stamp.
@@ -484,7 +484,7 @@
                   :level-from *stamp
                   :> *in-hand))
       (decision/writes *act-id *act *refused *stamp *act-time *digest *in-hand :> *record-writes)
-      ;; The layer's line, written first: the thing is kept again up to the
+      ;; The lane's line, written first: the thing is kept again up to the
       ;; bound that its sender's standing gives.
       (decision/kept-bound *declarations-reason *refused-standing :> *kept-bound)
       (decision/line-writes *act-id *thing *refused *stamp *act-time *digest *weight *kept-bound
@@ -514,7 +514,7 @@
             (local-transform> [(keypath *key) (termval *row)] $$answers)
 
             (case> (= *which :last-stamp))
-            (local-transform> [(keypath :last-stamp *layer-text) (termval *row)] $$task)
+            (local-transform> [(keypath :last-stamp *lane-text) (termval *row)] $$task)
 
             (case> (= *which :line))
             (local-transform> [(keypath *key) (termval *row)] $$line)

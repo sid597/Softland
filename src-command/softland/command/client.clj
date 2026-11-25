@@ -206,7 +206,7 @@
 
 (defn hello
   "Takes a connection. Gives what the runtime said first: {:who :root
-  :sign-in :session :kind :own-layer :until}, or {:visitor true}; or a word
+  :sign-in :session :kind :own-lane :until}, or {:visitor true}; or a word
   when the line went before it said anything."
   [connection]
   (deref (:hello @(:state connection)) connect-ms {:could-not :hear-the-runtime}))

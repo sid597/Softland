@@ -11,33 +11,33 @@
 
   What it takes. Each thing that arrives on `*streaming-depot`, which the
   module declares (`softland.store.module`) and which partitions by the
-  thing's `:layer`. So a layer is one partition of the depot, and its
+  thing's `:lane`. So a lane is one partition of the depot, and its
   things have the depot's order. Anything can arrive: the door is not the
   only sender.
 
-  What it changes. It owns six PStates, the record of the streaming layers,
+  What it changes. It owns six PStates, the record of the streaming lanes,
   and it alone writes them (in Rama only the owning topology writes a
   PState): `$$streaming-answers`, `$$streaming-facts`,
   `$$streaming-facts-by-value`, `$$streaming-task`, `$$streaming-line` and
   `$$streaming-things`. Their schemas are
   `softland.store.record.tables`'s and their rows
   `softland.store.record.rows`'s. They are durable state of the cluster.
-  Every row of a streaming layer is on the layer's task, and on no other.
+  Every row of a streaming lane is on the lane's task, and on no other.
   The gate keeps nothing in the memory of a process. It declares no depot,
   appends to none, and borrows no PState.
 
   The walk. One event is one call of `softland.store.module.walk/decide`,
   the walk of one thing that the microbatch gate calls too, with the gate's
   six tables and the word `:streaming`, on the task of the depot's
-  partition, which is the layer's task. The walk's namespace docstring
+  partition, which is the lane's task. The walk's namespace docstring
   holds what a decision is made of, the steps, what each kind of thing
-  costs in reads and writes, how a stamp is counted in its layer, and what
+  costs in reads and writes, how a stamp is counted in its lane, and what
   holds of the marked keys. No gate reads a clock: the time of a decision
   is the time on the act, which the door writes, or whatever else appended
   the thing. What the walk gives back,
   the rows that a gate may copy to other tasks, is not used here: a
   streaming gate that copied would not hold the walk's limit for a gate
-  that copies, and a row of a streaming layer lives on one task.
+  that copies, and a row of a streaming lane lives on one task.
 
   So an event makes no hop to another task, appends nothing and waits for
   nothing. Between its first read and its last write stands nothing that
@@ -59,7 +59,7 @@
   again, also after its writes were committed. Each write of a decision
   stands behind the walk's check of the answer under the act-id, and the
   answer commits with the rest. So a second run after a commit writes no
-  row: one act-id has one answer, and a layer's last stamp is not raised
+  row: one act-id has one answer, and a lane's last stamp is not raised
   twice for one thing. A second run after a discard is the first that
   counts; the rows of the discarded run were never visible, and when the
   second run reads the rows that the discarded run read, it writes the
@@ -68,13 +68,13 @@
   \"all after\": when a record fails, each record after it on the partition
   is processed again, in order.
 
-  The order of a layer's acts after a failure. Without a failure, the acts
-  of a layer are decided in the depot's order. A throw is no quiet retry:
+  The order of a lane's acts after a failure. Without a failure, the acts
+  of a lane are decided in the depot's order. A throw is no quiet retry:
   Rama treats a throw in an event as fatal for the worker whose task
   thread ran it and starts that worker again. The writes of the failed
   batch are gone, and the records are then decided in the depot's order,
   an act behind the failed one once, after it. Whether any failure can
-  make acts of a layer that were on their way be decided in another order
+  make acts of a lane that were on their way be decided in another order
   than the depot's, so that their stamps and their answers differ from
   those of a run of the gate over the same depot that meets no failure,
   was run for Sid's decision 7 of 13 October 2026. What the runs found:
@@ -86,11 +86,11 @@
       stream timeout, a slow write of the batch, a module update under
       load.
     - On this gate, inside the run-again proof: after a throw in an act's
-      event, with the next act of the layer right behind it and with the
+      event, with the next act of the lane right behind it and with the
       next act in the depot before the event began, and after a stall
       with the thread held, a run again gave the same tables.
     - Not reached: a batch that Rama fails with no restart of the worker
-      and whose rows are dropped, while a later act of the layer is in
+      and whose rows are dropped, while a later act of the lane is in
       flight behind it. Computed with the stand-in gate's rule and not
       run: the later act would be decided before the failed one, and a run
       again would hold other answers for the two. No cheap way to close it
@@ -99,13 +99,13 @@
   The gate's own code does not throw on what arrives, so a failure needs a
   fault of the machine, of Rama or of this module. The store's map, one
   folder up, holds the runs in full, the setting of Rama that orders a
-  layer's acts after a failure and what it costs, and how the run-again
+  lane's acts after a failure and what it costs, and how the run-again
   proof names an act that is decided out of its line.
 
   What the gate rests on and does not test. The depot's partitioner puts a
-  thing on its layer's task, and the gate makes no hop. A thing that a
+  thing on its lane's task, and the gate makes no hop. A thing that a
   topology appends to another partition is decided against that task's
-  record, with that task's last stamp of the layer; the store's map, one
+  record, with that task's last stamp of the lane; the store's map, one
   folder up, says what follows. And the walk's own list, in its namespace
   docstring.
 
@@ -125,7 +125,7 @@
   no partitioner, no append and no wait. The source starts from the
   beginning of the depot, with the retry mode \"all after\". What must hold:
   the module declares the depot `*streaming-depot`, or a mirror of it under
-  that name, partitioned by the thing's `:layer`. The gate needs no other
+  that name, partitioned by the thing's `:lane`. The gate needs no other
   part of the module: it declares no depot and reads no PState of another
   topology."
   [topologies]
