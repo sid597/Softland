@@ -1,55 +1,26 @@
 (ns softland.store.door.words
   "Everything that the door says to a maker, declared as data: the door's own
-  seven words, the four answers, and the two acks. Pure code. It needs no
-  cluster, and it requires nothing outside Clojure.
+  seven words, the four answers, and the two acks. Pure code.
 
-  A call of the door gives its result, or one of the door's own words. A word
-  says what the door could not do. It is no judgment of the act: a gate
-  judges an act, and a gate's refusal is in the record. A word is kept in no
-  record.
-
-  A word, as a maker gets it, is a map:
-
-    :could-not  the word, one of the seven of `words`. Each reads after
-                \"the door could not\"
-    :appended   :nothing or :not-known, said of the maker's own act: nothing
-                was appended for it, or the door does not know whether the
-                depot holds it
-    and what the word carries, each under its own name (`carried`)
+  A word says what the door could not do. It is no judgment of the act: a
+  gate judges an act, and a gate's refusal is in the record. A word is kept
+  in no record.
 
   No other result of the door holds `:could-not`. A word holds no `:answer`
-  and no `:reason`, so it can never be read as a gate's refusal. A word
+  and no `:reason`, so it can never be read as a gate's refusal, and it
   carries no word of a gate: a maker learns a gate's reason from the answer
-  of her act, and from nothing else.
-
-  Inputs and results, by call:
-
-    word    one of the seven, and a map of what it carries -> the word as
-            a maker gets it, or nil for a word that `words` does not hold
-    answer  what the read by act-id gave, and the digest that the maker gave
-            -> one of the four answers
-
-  `acks` is a map from a depot word to the word of its ack.
-
-  State and effects. None. Each function is pure.
-
-  Callers. `softland.store.door` and `softland.store.door.additions`.
-
-  Not here. A gate's reason words: `softland.store.act/reasons` and
-  `softland.store.door.declaration/reasons`. The words of a stray:
-  `softland.store.door.declaration/stray-reasons`. No word of this
-  namespace is one of them, and the pure proof holds that.")
+  of her act, and from nothing else. No word of this namespace is a gate's
+  reason word or the word of a stray, and the pure proof holds that.")
 
 (def words
-  "The door's own seven words. Each has the calls that can give it, what it
-  says, and its `:appended`.
+  "The door's own seven words. Each reads after \"the door could not\".
+  `:appended` is said of the maker's own act: nothing was appended for it,
+  or the door does not know whether the depot holds it.
 
-  Why seven. One word names one thing that the door could not do: find the
-  module, make an act-id, read the lane's depot, read the act, add its
-  three parts, append, read the answer. With fewer words a maker would have to
-  read a second word inside the first to learn what to do next. Where in
-  the maker's thing the door stopped is no word of its own: it is carried
-  as data, under `:at`."
+  Why seven. One word names one thing that the door could not do. With
+  fewer words a maker would have to read a second word inside the first to
+  learn what to do next. Where in the maker's thing the door stopped is no
+  word of its own: it is carried as data, under `:at`."
   {:find-the-module
    {:from     #{:open}
     :says     "the cluster gave no depot or no query of the module under that name; no door is opened"
@@ -86,9 +57,8 @@
     :appended :nothing}})
 
 (def carried
-  "What a word can carry, by name, with what each is. A word carries no run
-  of bytes, no thing that was sent, and nothing that the door read of the
-  record."
+  "What a word can carry, by name. A word carries no run of bytes, no thing
+  that was sent, and nothing that the door read of the record."
   {:at     "the place in the maker's thing where the door stopped, by the thing's own part names: a part of the act, or :count for the count of a series"
    :module "the name of the module that the door was to be opened on"
    :lane  "the lane whose depot the door could not read"
@@ -98,13 +68,10 @@
    :said   "the message of what Rama's client threw"})
 
 (defn word
-  "Makes one of the door's own words as a maker gets it. Takes the word, one
-  of the seven, and a map of what it carries, or nil. Gives the map of
-  what is carried with `:could-not` and the word's `:appended` in it. An
-  `:answer` or a `:reason` among what is carried is left out, and
+  "An `:answer` or a `:reason` among what is carried is left out, and
   `:could-not` and `:appended` cannot be given: a word is never one of the
-  four answers. Gives nil for a word that `words` does not hold, so that no
-  word is made that is not declared."
+  four answers. nil for a word that `words` does not hold, so that no word
+  is made that is not declared."
   [the-word carries]
   (when-let [entry (get words the-word)]
     (assoc (dissoc (or carries {}) :answer :reason)
@@ -120,25 +87,16 @@
    :not-mine    "the record holds an answer under the act-id whose digest is not the digest given; it says nothing more"})
 
 (defn answer
-  "The answer that the door gives from one read by act-id. Takes what the
-  read gave, nil or {:verdict :reason :stamp :time :digest}, and the
-  digest that the maker gave, the hex text that the door gave it when it
-  sent. Gives:
-
-    {:answer :nothing-yet}                             the read gave nil
-    {:answer :not-mine}                                an answer with
-                                                       another digest
-    {:answer :accepted :stamp s :time t}               the maker's own act,
-                                                       accepted
-    {:answer :refused :reason word :stamp s :time t}   the maker's own act,
-                                                       refused
+  "`read` is what the read by act-id gave: nil, or
+  {:verdict :reason :stamp :time :digest}. `digest` is the hex text that
+  the door gave the maker when it sent.
 
   `:time` is absent when the answer holds none: a thing that held no usable
   time. It compares two hex texts and takes no digest of anything. A digest
   that is nil, or is no text, is the digest of no thing: \"not mine\" when
   an answer is there, \"nothing yet\" when none is. The stamp is part of
   the record's answer and no fact; a maker writes it in `:based-on` as what
-  it saw. The time is a label beside it."
+  it saw."
   [read digest]
   (cond
     (nil? read)
@@ -156,16 +114,14 @@
       (some? (:time read)) (assoc :time (:time read)))))
 
 (def acks
-  "The word of the ack of an append, by the depot word of the depot that
-  took it. The two acks say different things to a maker, so each has its own
-  word, and neither is ever the answer: a maker reads the answer by act-id.
+  "The word of the ack of an append, by the depot word. Neither is ever the
+  answer: a maker reads the answer by act-id.
 
-    :gate-ran     the streaming depot's ack, at the ack level :ack: the
-                  streaming gate has processed the thing and its rows are
-                  visible
-    :depot-holds  the microbatch depot's ack, at the ack level :append-ack:
-                  the depot holds the thing. It says nothing about the
-                  decision: the answer is there when the batch that decides
-                  the thing is committed on the lane's task"
+  `:gate-ran` is the streaming depot's ack, at the ack level :ack: the
+  streaming gate has processed the thing and its rows are visible.
+  `:depot-holds` is the microbatch depot's ack, at the ack level
+  :append-ack: the depot holds the thing. It says nothing about the
+  decision: the answer is there when the batch that decides the thing is
+  committed on the lane's task."
   {:streaming  :gate-ran
    :microbatch :depot-holds})

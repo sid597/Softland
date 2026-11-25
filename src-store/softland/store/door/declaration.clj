@@ -1,115 +1,59 @@
 (ns softland.store.door.declaration
-  "The door's declaration: what arrives on a depot, declared as data, and the
-  check of it. Pure code. It needs no cluster.
+  "The door's declaration: what arrives on a depot, declared as data in
+  `shapes` and `rules`, and `check`, the check of it. Pure code.
 
-  What arrives on a depot is the maker's act (`softland.store.act`) with the
-  three parts that the door adds: an act-id, the lane's depot, and the time
-  of the door's clock (`time-part`). Each value is plain, as its maker gave
-  it. Anything can append to a depot without the door, so a gate checks each
+  Anything can append to a depot without the door, so a gate checks each
   thing that arrives against this declaration, and the gate is the
-  authority.
+  authority. `stray-reason` and `check` never throw: a throw in a gate would
+  stop its partition (a finding of the rig on Rama).
 
-  It is made as `act.clj` is made, of the same three things in the same
-  order. Read `shapes` and `rules` first. `shapes` is `act.clj`'s own map of
-  shapes with the door's entries added; the maker's shapes are in it as
-  `act.clj` declares them and are not written a second time. `rules` is a list of
-  pairs, the name of a rule and its reason word, in the order in which they
-  are examined; `rule-checks` holds the code of each. `check` reads the two
-  and holds no knowledge of the form itself, so the order of the
-  declarations is the order of the reasons. The engine that reads a shape is
-  `act.clj`'s own, given this namespace's map by
-  `softland.store.act/as-shape`; no other way into `act.clj`'s check is
-  used. The engine reads every part of what arrived.
+  The maker's shapes are `act.clj`'s own, read from its map and not written
+  a second time, and the engine is `softland.store.act/as-shape`. The order
+  of the declarations is the order of the reasons.
 
   The check has three steps: the shape, the rules, and the values. The last
-  step makes the one text of each value (`softland.store.door.text`), once,
-  and holds two bounds on the bytes of those texts: `max-value-bytes` for
-  one value under a plain key, and `max-act-bytes` for the act. It is the
-  last because it is the most costly: a thing that the shape or a rule
-  refuses has no text made. The text rides in the act's one form, under a
-  fact's `:text`, and a fact's row takes it as it is.
+  makes the one text of each value, once, and holds the two bounds on the
+  bytes of those texts. It is the last because it is the most costly: a
+  thing that the shape or a rule refuses has no text made.
 
-  Inputs and results, by call:
-
-    stray-reason  a gate's depot, and anything -> nil, or the word of a stray
-    check         a thing that is no stray -> {:ok act} or {:refuse reason}
-    store-key?    a fact's key -> true for one of the store keys
-    id-text       an id or a fact's key -> its printed text
-    id-within-the-limit?  an id or a fact's key -> true or false
-    usable-id?    anything -> true for an id within the limit
-    usable-who    anything -> the who that a thing names, when it is an id
-                  within the limit, or nil
-    act-id-in-lane?  a lane id, and anything -> true for an act-id of it
-
-  The store's namespace, the store keys, the limits, the name and the bound
-  of the time on the act, and the words of a stray are declared here too,
-  each in one place. The store's keys are in the
-  namespace `softland.store`, and the store owns the whole of it: a fact
-  whose key is in that namespace and is no store key is refused. Any other
-  key is a plain key, a tool's own. `store-keys` is the table of the store
-  keys: it says which is a setting, and which takes a second write
-  (`second-write-keys`).
-
-  State and effects. None. Each function is pure, and `stray-reason` and
-  `check` never throw: a throw in a gate would stop its partition (a finding
-  of the rig on Rama).
-
-  Callers. `softland.store.gate.decision`, `softland.store.record.rows` and
-  the walk of one thing, which both gates call
-  (`softland.store.module.walk`).
-  The door's additions (`softland.store.door.additions`), for the tests of
-  an id and of an act-id, and for the name of the time's part. The digest
-  (`softland.store.door.digest`), for that name: it is the part that a
-  digest leaves out. The read path
-  (`softland.store.read-path.query` and the namespaces beside it) asks the
-  tests and the text of an id, `store-key?` and `max-builds-on`.
-  The door sends; it is the gate that checks.
-
-  Not here. Whether a thing's permission stands, and whether a fact that it
-  replaces is current: those need the record, and are
-  `softland.store.gate.decision`'s. A grammar check is not built."
+  It reads no record: whether a permission stands, and whether a replaced
+  fact is current, are `softland.store.gate.decision`'s. A grammar check is
+  not built."
   (:require [softland.store.act :as act]
             [softland.store.door.text :as text]))
 
 ;; ------------------------------------------------------------- the limits
 
 (def max-facts
-  "How many facts one act can hold. A number of the build, kept and not
-  decided; it bounds the rows that one event writes."
+  "It bounds the rows that one event writes."
   256)
 
 (def max-based-on
-  "How many entries the `:based-on` of one act can hold. A number of the
-  build, kept and not decided."
   1024)
 
 (def max-value-bytes
-  "How many bytes the value of one fact under a plain key can have: the
-  UTF-8 bytes of the one text of the value in its normal form, which are
-  the bytes that the fact's row holds for the value. A value under a store
-  key keeps the limits of its own key. A number of the build, kept and not
-  decided; it bounds the bytes of one row."
+  "For one fact under a plain key: the UTF-8 bytes of the one text of the
+  value in its normal form, which are the bytes that the fact's row holds
+  for the value. A value under a store key keeps the limits of its own key."
   65536)
 
 (def max-act-bytes
   "How many bytes of text an accept of one act can write into the rows of
   its facts. Counted for each fact: the UTF-8 bytes of the one text of its
-  value, under a plain key or a store key, and none for a fact with no
-  value; and the UTF-8 bytes of the one text of the act's `:who` and of its
-  permission, which each fact's row holds. So a deep permission with long
-  ids is counted once for each fact that is written under it.
+  value, under a plain key or a store key; and the UTF-8 bytes of the one
+  text of the act's `:who` and of its permission, which each fact's row
+  holds. So a deep permission with long ids is counted once for each fact
+  that is written under it.
 
   The number is 18 times 2^20, which is `max-facts` times
   (`max-value-bytes` + 8,192): 256 values at the bound of one value, and
   8,192 bytes of who and permission for each of 256 facts. A permission of
   depth 32 whose ids are like UUIDs is about 4,400 bytes with its who, so
-  an act that is full under such a permission passes. A number of the
-  build, kept and not decided.
+  an act that is full under such a permission passes.
 
-  Limit of the count: the rows of the facts by value hold who and
-  permission once more for each fact under a marked key, and the bound
-  does not count those. Which keys are marked is read from the record,
-  after this check. Nor does it count the use of a yes for one act, the
+  Not counted: the rows of the facts by value hold who and permission once
+  more for each fact under a marked key, and which keys are marked is read
+  from the record, after this check. Nor the use of a yes for one act, the
   one row more that an accept under a yes writes, which holds who and the
   yes once more (`softland.store.gate.decision`, `use-of-its-yes`)."
   18874368)
@@ -118,61 +62,43 @@
   "How many characters the printed text of an id, or of a fact's key, can
   have. A readable keyword has no greatest length in the form, and a row's
   key is made of two or three of these texts; so without this limit a key
-  had none. A number of the build, kept and not decided."
+  had none."
   256)
 
 (def max-builds-on
-  "How many lanes the fact under `:softland.store/builds-on` can name. A
-  number of the build, kept and not decided. Sid, 9 October 2026: \"if
-  someone is building like 50 lanes\". With each id at its limit the row of
-  that fact is about 16.5 KB."
+  "With each id at its limit the row of the fact under
+  `:softland.store/builds-on` is about 16.5 KB."
   64)
 
 (def max-marked-keys
-  "How many keys the fact under `:softland.store/marked-keys` can hold. A
-  number of the build, kept and not decided. A gate reads the row of that
-  fact for each act with a fact under a plain key, so the number bounds a
-  row that is read often: about 8.3 KB of keys and 9 KB of stamps at the
-  limits."
+  "A gate reads the row of the fact under `:softland.store/marked-keys` for
+  each act with a fact under a plain key, so the number bounds a row that
+  is read often: about 8.3 KB of keys and 9 KB of stamps at the limits."
   32)
 
 ;; ------------------------------------------------------- the time on the act
 
 (def time-part
-  "The name of the part of an arrived thing that holds the time on the act:
-  `:door-time`. The door writes the part (`softland.store.door/send-act`):
-  the clock of the server that runs the door, in milliseconds since 1970.
-  Anything else that appends a thing writes there what it will: a gate
-  knows that the part holds a whole number not below zero (`usable-time`),
-  and not who wrote it. The time is a label. Each gate puts it beside the
-  stamp, in the answer and in each row that an accepted act writes
-  (`softland.store.gate.decision/writes`); no rule reads it, and no stamp
-  holds it. The digest of a thing leaves it out
-  (`softland.store.door.digest`).
+  "The part of an arrived thing that holds the time on the act. This def is
+  the one place where the name is made; the reason word `:no-door-time` is
+  a word of its own and is not read from here.
 
-  Not decided: kept for now. What the time on the act is called is Sid's to
-  say; `:door-time` is a working name, a session's. This def is the one
-  place where the name is made: the shape `:arrived-act`, the door's
-  additions, the digest and `time-on` read it from here. The reason word
-  `:no-door-time` is a word of its own and is not read from here."
+  The door writes the clock of its server there, in milliseconds since
+  1970. Anything else that appends a thing writes there what it will: a
+  gate knows that the part holds a whole number not below zero, and not who
+  wrote it. The time is a label: no rule reads it, no stamp holds it, and
+  the digest of a thing leaves it out."
   :door-time)
 
 (defn usable-time
-  "Takes a thing as it arrived, which can be anything. Gives the time on it,
-  what it holds under `time-part`, when that is a time that the shape
-  `:arrived-act` takes: a fixed-width integer that is not below zero. Gives
-  nil for anything else: a thing that is no plain map, a thing with no
-  time, and a time that the shape refuses with `:no-door-time`. A gate
-  puts what this gives in the thing's answer
-  (`softland.store.gate.decision/time-on`). It gives the time also for a
-  thing that `check` refuses for another fault: the time is the thing's
-  own whatever else is wrong with it. It never throws: a thing that throws
-  when the part is read has no usable time.
+  "The time on a thing as it arrived, when it is one that the shape
+  `:arrived-act` takes; nil for anything else. It gives the time also for a
+  thing that `check` refuses for another fault: the time is the thing's own
+  whatever else is wrong with it. It never throws.
 
   No bound above. The time is a label that no rule reads and no sum takes,
   so a time far ahead of every clock is a wrong label and harms nothing
-  else. Order and time are apart, and order never uses the time (Sid's
-  decision of 14 October 2026)."
+  else. Order never uses the time."
   [thing]
   (let [t (try (when (and (map? thing) (not (record? thing))) (get thing time-part))
                (catch Throwable _ nil))]
@@ -182,17 +108,12 @@
 (declare usable-id?)
 
 (defn usable-who
-  "Takes a thing as it arrived, which can be anything. Gives what it holds
-  under `:who` when that is an id that a row's key can be made of
-  (`usable-id?`): the who that the thing names. Gives nil for anything
-  else: a thing that is no plain map, a thing with no `:who`, a who that is
-  a string, a symbol, a keyword that does not read back, or an id over the
-  limit. It gives the who also for a thing that `check` refuses for another
-  fault: the who is what the thing names, whatever else is wrong with it.
-  No gate holds it against a sender: it is what the sending program wrote.
-  A gate keeps it in the lane's line (`softland.store.gate.decision/line-writes`),
-  so that a read gives a thing whole to the who that it names. It never
-  throws: a thing that throws when the part is read names no usable who."
+  "The who that a thing names, when it is an id that a row's key can be made
+  of; nil for anything else. It gives the who also for a thing that `check`
+  refuses for another fault. No gate holds it against a sender: it is what
+  the sending program wrote. A gate keeps it in the lane's line
+  (`softland.store.gate.decision/line-writes`), so that a read gives a
+  thing whole to the who that it names. It never throws."
   [thing]
   (let [w (try (when (and (map? thing) (not (record? thing))) (get thing :who))
                (catch Throwable _ nil))]
@@ -201,81 +122,59 @@
 ;; --------------------------------------------------------- the store keys
 
 (def store-namespace
-  "The namespace of the store's own keys: `softland.store`. The word is
-  Sid's, of 9 October 2026 (src-store/README.md, K4 B). The store owns the
-  whole of it: a fact whose key has this namespace is under one of
-  `store-keys`, or a gate refuses it (the rule `:store-key-is-known`). A key
-  with another namespace, and a key with none, is a plain key and a tool's
-  own."
+  "The store owns the whole of it: a fact whose key has this namespace is
+  under one of `store-keys`, or a gate refuses it (the rule
+  `:store-key-is-known`). A key with another namespace, and a key with
+  none, is a plain key and a tool's own."
   "softland.store")
 
 (def store-keys
-  "The keys that the store itself reads, each with: why it is a store key;
-  the shape that its value must have, as a name of `shapes`; the entity that
-  its fact sits on; whether it is a setting; and whether its fact can be
-  written again. A fact under one of them keeps its value in the one form on
-  arrival, beside the value's text, for the rules and a gate's checks to
-  read. A setting is a key whose fact a gate takes only on the lane's own
-  entity. A key that is `:written-again` takes a second write on its place,
-  and a third, by the lane's first holder alone
+  "The keys that the store itself reads. `:value` is a name of `shapes`.
+  `:sits-on` is a word for the reader of this table; the rules of a
+  permission fact and the gate's check of a setting hold what it says.
+
+  A fact under a store key keeps its value in the one form on arrival,
+  beside the value's text, for the rules and a gate's checks to read. A
+  setting is a key whose fact a gate takes only on the lane's own entity.
+  A key that is `:written-again` takes a second write on its place, and a
+  third, by the lane's first holder alone
   (`softland.store.gate.decision/who-may-write-fault`). A lane's depot
-  takes one write. A permission's place takes a give when it is empty,
-  when it holds an end, and when the permission that it holds no longer
-  stands; a fact with no value there is the end of the permission that the
-  place holds (`softland.store.gate.decision`, `end-fault` and
+  takes one write. A permission's place takes a give when it is empty, when
+  it holds an end, and when the permission that it holds no longer stands;
+  a fact with no value there is the end of the permission that the place
+  holds (`softland.store.gate.decision`, `end-fault` and
   `give-over-fault`). A retract under any of the other five is refused.
 
-  Who may see a lane, what it builds on and the keys that it marks are of
-  the read build (src-store/README.md, decisions of 11 and 12 October 2026,
-  entries 1, 2 and 6). Who may see a lane:
-  `:members`, which is whoever holds a permission in it, or `:everyone`.
-  What a lane builds on: the lanes that a read looks through after it, in
-  the writer's order; an empty vector says \"nothing\". The keys that a
-  lane marks: for each of them a gate keeps every fact in one more order,
-  by value; the empty set says \"none\", and a mark is taken off by writing
-  the set again without it. Who may read the lane's acts whole: `:members`,
-  its holders and the who that a thing names, or `:everyone`, whoever may
-  see the lane (`softland.store.read-path.acts`). Sid, the runtime's page,
-  entry 9: a visitor of a lane that everyone may see reads no act whole
-  \"unless the layer turns it on\"; that the lane turns it on by this key is
-  a session's form. What each reads as when no fact says it is
-  `softland.store.gate.first-act/starts-with`. The four words of the keys
-  are a session's, and Sid's to change.
+  What the settings say. Who may see a lane: `:members`, which is whoever
+  holds a permission in it, or `:everyone`. What a lane builds on: the
+  lanes that a read looks through after it, in the writer's order; an empty
+  vector says \"nothing\". The keys that a lane marks: for each of them a
+  gate keeps every fact in one more order, by value; the empty set says
+  \"none\", and a mark is taken off by writing the set again without it.
+  Who may read the lane's acts whole: `:members`, its holders and the who
+  that a thing names, or `:everyone`, whoever may see the lane
+  (`softland.store.read-path.acts`). What each reads as when no fact says
+  it is `softland.store.gate.first-act/starts-with`.
 
-  Each is in the namespace `softland.store` (`store-namespace`). Sid decided
-  on 9 October 2026 that the store's keys carry a namespace
-  (src-store/README.md, K4 B), and gave the words: `softland.store` before
-  the slash, and \"depot\" for the kind of a lane, streaming or microbatch.
-  So a bare word is no store key. A fact of a tool under `:depot` or
+  A bare word is no store key. A fact of a tool under `:depot` or
   `:permission` is a fact under a plain key, and the store reads nothing
   from it.
 
-  `:sits-on` is a word for the reader of this table; the rules of a
-  permission fact, `:permission-fact-sits-on-its-holder` among them, and
-  the gate's check of a setting hold what it says.
-
-  A permission sits on what it covers, under a key of its own for each
-  kind (`softland.store.act/covers`): one that covers the lane on its
-  holder, under `:softland.store/permission`; one for a run on the run's
-  session, under `:softland.store/run-permission`; a yes for one act on the
-  yes's own id, the uuid that its giver made, under
-  `:softland.store/act-permission`. Three keys and not one: a holder, a
+  A permission sits on what it covers, under a key of its own for each kind
+  (`softland.store.act/covers`): one that covers the lane on its holder,
+  one for a run on the run's session, a yes for one act on the yes's own
+  id, the uuid that its giver made. Three keys and not one: a holder, a
   session and a yes are each named by an id of one kind, so under one key a
   give for a run whose session has the id of a holder would land on that
   holder's place. So a holder can have, beside her permission for the
   lane, one for each of any number of runs, and any number of yeses for
-  acts (Sid, 21 November 2026, src-store/README.md, entry 6 of 20 and 21
-  November); the two keys' words are a session's. The gate finds the
-  permission that an act names with one read, on the place that the
-  permission's own form names (`softland.store.gate.chain/place`). A yes's
-  place takes one give (`softland.store.gate.decision`, `store-key-fault`).
+  acts. The gate finds the permission that an act names with one read, on
+  the place that the permission's own form names
+  (`softland.store.gate.chain/place`). A yes's place takes one give
+  (`softland.store.gate.decision`, `store-key-fault`).
 
   A holder has one permission for the lane at a time: she cannot hold
-  \"see\" from one giver and \"see and act\" from another. That is not
-  decided, and is kept as built; the rule
-  `:permission-fact-sits-on-its-holder` and
-  `softland.store.gate.decision/permission-place` are where the other answer
-  would be made."
+  \"see\" from one giver and \"see and act\" from another."
   {:softland.store/depot
    {:why           "a gate must read which gate a lane belongs to"
     :value         :depot-word
@@ -326,76 +225,43 @@
     :written-again true}})
 
 (def permission-keys
-  "The three store keys under which a permission is given and ended, one for
-  each thing that a permission covers: the lane, one run, one act."
+  "One for each thing that a permission covers: the lane, one run, one act."
   #{:softland.store/permission :softland.store/run-permission :softland.store/act-permission})
 
 (def setting-keys
-  "The store keys that are settings, read from `store-keys`."
   (into #{} (keep (fn [[k entry]] (when (:setting entry) k))) store-keys))
 
 (def second-write-keys
-  "The store keys whose fact can be written again on its place, read from
-  `store-keys`: who may see a lane, what it builds on, and its marked
-  keys. A gate asks who may write each of them at one place
-  (`softland.store.gate.decision/who-may-write-fault`)."
   (into #{} (keep (fn [[k entry]] (when (:written-again entry) k))) store-keys))
 
 (defn store-key?
-  "Takes a fact's key. Gives true for one of the store keys. A key that is
-  none, and is not in the store's namespace, is a plain key: a tool's own.
-  A gate keeps the text of a value under it and reads nothing of the
-  value."
   [k]
   (contains? store-keys k))
 
 (defn- in-store-namespace?
-  "Takes a fact's key, a keyword. Gives true when its namespace is
-  `store-namespace`. The namespace is taken exactly: a key with no
-  namespace is not in it, and `softland.store.x` is another namespace.
-  Whether the store owns such longer namespaces too is not decided."
+  "The namespace is taken exactly: a key with no namespace is not in it, and
+  `softland.store.x` is another namespace."
   [k]
   (= store-namespace (namespace k)))
 
 ;; ------------------------------------------------------- the declared shape
 
 (def shapes
-  "The door's map of shapes: each entry of `softland.store.act/shapes`, as
-  `act.clj` declares it, and six more, in the same language.
+  "The door's map of shapes: each entry of `softland.store.act/shapes`, and
+  six more in the same language. `:arrived-act` is the three parts that the
+  door adds and then the ten parts of the maker's `:act`, read from
+  `act.clj`'s map in its order and with its options. `:lane-list` and
+  `:key-set` say no limit: a rule holds each, with a word of its own. A
+  value is never a list, so what fits `:lane-list` is a vector.
 
-    :arrived-act   an act as it arrives on a depot: the act-id, the lane's
-                   depot under `:depot`, the time on the act under
-                   `time-part`, then the ten parts of the maker's `:act`,
-                   read from `act.clj`'s map in its order and with its
-                   options. Its `:facts` are the maker's own: what arrives
-                   as a fact is `act.clj`'s `:fact`
-    :depot-word    one of the two depot words, `:streaming` and
-                   `:microbatch`
-    :who-may-see-word  one of the two words for who may see a lane,
-                   `:members` and `:everyone`
-    :who-may-read-acts-word  one of the two words for who may read a
-                   lane's acts whole, `:members` and `:everyone`
-    :lane-list    lane ids in an order. A value is never a list, so what
-                   fits is a vector
-    :key-set       a set of keys
+  The order of the parts is the order of the checks. A time that is absent,
+  nil, no fixed-width integer, or below zero gives `:no-door-time`: one word
+  for each of them. `:act-id` names no word: a thing whose act-id does not
+  fit is a stray and never reaches `check`.
 
-  The last two say no limit: a rule holds each, with a word of its own.
-
-  The order of the parts is the order of the checks, as in `act.clj`. A
-  `:depot` that is absent or no depot word gives
-  `:depot-not-the-act-ids-depot`. A time that is absent, nil, no
-  fixed-width integer, or below zero gives `:no-door-time`: one word for
-  each of them. Each of the maker's parts
-  gives the word that `act.clj` declares for it. A fact that carries a part
-  that `:fact` does not name gives `:unknown-part`, by the engine's rule for
-  such a part. `:act-id` names no word: a thing whose act-id does not fit is
-  a stray and never reaches `check`.
-
-  A record that arrives with no time is refused (Sid's decision of 14
-  October 2026), and the refusal is recorded under its act-id: such a
-  thing has a usable act-id, so it is no stray and a gate can answer it.
-  The entry of `time-part` in `:arrived-act` is the one place where another
-  answer would be made."
+  A record that arrives with no time is refused, and the refusal is
+  recorded under its act-id: such a thing has a usable act-id, so it is no
+  stray and a gate can answer it."
   (assoc act/shapes
          :arrived-act  (into [:parts
                               [:act-id :act-id]
@@ -409,37 +275,28 @@
          :key-set      [:set-of :key]))
 
 (def rules
-  "What a thing that has the shape `:arrived-act` must also keep, with the
-  reason for each, in the order in which they are examined. A rule relates
-  two places of what arrived, or holds a limit that no shape can say. The
-  first is the maker's own, read from `softland.store.act/rules`. Then: the
-  act as a whole; a key in the store's namespace; a fact under a store key;
-  what holds between the facts; the text of an id. `rule-checks` holds the
-  code of each. A rule about a fact is kept when each fact of the act keeps
-  it. No rule reads the value of a fact under a plain key: the bytes of
-  such a value are held by the last step of the check (`with-texts`).
+  "What a thing that has the shape `:arrived-act` must also keep, each with
+  its reason, in the order of the checks. The first is the maker's own,
+  read from `softland.store.act/rules`. `rule-checks` holds the code. No
+  rule reads the value of a fact under a plain key: the last step of the
+  check holds the bytes of such a value (`with-texts`).
 
-  The seven rules of the four keys that take a second write stand after the
-  rules of a permission fact: the value under each has its shape; a
-  builds-on fact names `max-builds-on` lanes at most and a marked-keys
-  fact holds `max-marked-keys` keys at most; and no marked key is in the
-  store's namespace, so the store's own facts are never kept by value. Each
-  keeps a fact with no value, as the rules beside them do; a gate refuses
-  the retract. The rule of who may read a lane's acts stands right behind
-  the rule of who may see it. So of a thing that was refused
-  `:store-key-not-known` for a fact under that key before the key was
-  known, and has another fault that a later rule names, the word is now the
-  later rule's: no place of the new rule keeps it otherwise
+  No marked key is in the store's namespace, so the store's own facts are
+  never kept by value. Each rule of a store key keeps a fact with no value;
+  a gate refuses the retract.
+
+  The rule of who may read a lane's acts stands right behind the rule of
+  who may see it. A thing that a gate refused `:store-key-not-known` for a
+  fact under that key, while the key was no store key, and that has another
+  fault that a later rule names, gets the later rule's word here
   (src/proposal/runtime-2026-11-21/store-piece-3/PLAN_VALIDATION-gates-keep-the-line.md,
   item d, traces it). A thing that an earlier rule or the shape refuses
   keeps its word.
 
-  `:store-key-is-known` holds the store's namespace. A fact whose key is in
-  `softland.store` and is not one of `store-keys` is refused
-  `:store-key-not-known`, whether it has a value or none. Sid
-  decided on 9 October 2026 that a gate refuses such a key
-  (src-store/README.md). The rule comes before the rules of a store key, so
-  such a fact gets this word and none of theirs. The word is a session's."
+  `:store-key-is-known` comes before the rules of a store key. So a fact
+  whose key is in `softland.store` and is not one of `store-keys` gets
+  `:store-key-not-known` and none of their words, whether it has a value or
+  none."
   (into (vec act/rules)
         [[:depot-is-the-act-ids-depot          :depot-not-the-act-ids-depot]
          [:facts-within-the-limit              :too-many-facts]
@@ -462,10 +319,9 @@
          [:ids-within-the-limit                :id-too-long]]))
 
 (def stray-reasons
-  "The words of a stray, in the order in which `stray-reason` tests them. A
-  stray is a thing that gets no answer; a gate keeps its digest under its
-  word. The set is closed: a gate's map of strays has these keys and no
-  other."
+  "In the order in which `stray-reason` tests them. A stray is a thing that
+  gets no answer; a gate keeps its digest under its word. The set is
+  closed: a gate's map of strays has these keys and no other."
   [:no-act-id
    :act-id-malformed
    :id-too-long
@@ -473,12 +329,7 @@
    :act-id-of-another-lane])
 
 (def reasons
-  "The words with which `check` refuses. Read from the two declarations:
-  each word that a part or a rule names, `act.clj`'s own among them, and
-  `:no-door-time`, the word of the time's part. And
-  four by name: the two that no part names, :malformed and :unknown-part,
-  and the two of the last step of the check, :value-too-large and
-  :act-too-large (`with-texts`)."
+  "Every word with which `check` refuses."
   (into #{:malformed :unknown-part :value-too-large :act-too-large}
         (concat (map second rules)
                 (for [shape (vals shapes)
@@ -490,31 +341,24 @@
 ;; ------------------------------------------------------------ the text of an id
 
 (defn id-text
-  "Takes an id or a fact's key: a readable keyword or a UUID. Gives its
-  printed text: a keyword with its colon and its namespace, a UUID as its 36
-  characters. It holds no space, and a keyword and a UUID never print alike.
-  A row's key is made of these texts, and `max-id-text` counts them."
+  "The printed text of an id or of a fact's key. It holds no space, and a
+  keyword and a UUID never print alike. A row's key is made of these texts,
+  and `max-id-text` counts them."
   [id]
   (str id))
 
 (defn id-within-the-limit?
-  "Takes an id or a fact's key. Gives true when its printed text has
-  `max-id-text` characters at most. A UUID always keeps the limit."
   [id]
   (<= (count (id-text id)) max-id-text))
 
 (defn usable-id?
-  "Takes anything. Gives true for an id that a row's key can be made of: a
-  readable keyword or a UUID, within the limit. A read tests what a caller
-  gave it with this before it builds a key. It never throws."
+  "True for an id that a row's key can be made of. It never throws."
   [x]
   (boolean (and (or (act/readable-keyword? x) (uuid? x))
                 (id-within-the-limit? x))))
 
 (defn act-id-in-lane?
-  "Takes a lane id and anything. Gives true when the thing has the shape of
-  an act-id, [lane depot uuid], and its lane slot is the lane given. A
-  read tests what a caller gave it with this. It never throws."
+  "It never throws, whatever x is."
   [lane x]
   (try (and (= :ok (first (act/as-shape shapes :act-id x)))
             (= lane (nth x 0)))
@@ -523,21 +367,15 @@
 ;; ------------------------------------------------------ the code of the rules
 
 (defn- plain-map?
-  "True for a map that is no record."
   [x]
   (and (map? x) (not (record? x))))
 
 (defn- each-fact?
-  "Takes a test of one fact, and an act in the one form that the engine
-  gave. Gives true when each fact of the act passes the test."
   [fact-ok? act]
   (every? fact-ok? (:facts act)))
 
 (defn- value-fits-its-key?
-  "Takes a store key and an act. Gives true when the value of each fact
-  under that key, when the fact has one, has the shape that `store-keys`
-  names for the key. The engine tests the value. A fact with no value keeps
-  the rule; a gate refuses it by its own step."
+  "A fact with no value keeps the rule; a gate refuses it by its own step."
   [k act]
   (let [shape (get-in store-keys [k :value])]
     (each-fact? (fn [fact]
@@ -547,10 +385,8 @@
                 act)))
 
 (defn- count-within?
-  "Takes a store key, a limit and an act. Gives true when the value of each
-  fact under that key, when the fact has one, holds that many parts at
-  most. What must hold: the rule of the value's shape passed, so the value
-  is a vector or a set."
+  "What must hold: the rule of the value's shape passed, so the value is a
+  vector or a set."
   [k most act]
   (each-fact? (fn [fact]
                 (or (not= k (:k fact))
@@ -559,11 +395,9 @@
               act))
 
 (defn- permission-ids
-  "Takes a permission id in its one form. Gives each id that it holds: who,
-  lane and granted-in, and the session of a permission for a run, of itself
-  and of each permission above it. The
-  permission above is the fourth slot of both given forms, with or without
-  the slot that says what the permission allows."
+  "Each id that a permission id holds: who, lane and granted-in, and the
+  session of a permission for a run, of itself and of each permission above
+  it."
   [permission]
   (when (vector? permission)
     (concat (take 3 permission)
@@ -571,14 +405,11 @@
             (when (<= 4 (count permission)) (permission-ids (nth permission 3))))))
 
 (defn- ids-of
-  "Takes an act in the one form that the engine gave. Gives each id that it
-  holds, wherever it sits, and each fact's key: who, the lane, the
-  session, each subject, each fact's entity, each id inside an act-id, a
-  fact id or a permission id, each lane that a builds-on fact names, and
-  each key that a marked-keys fact holds. A key of a row is built from each
-  of the last two kinds, so they are held to the limit with the rest. The
-  uuid of an act-id is not among them: it prints to 36 characters. What
-  must hold: the rules of the store keys' values passed."
+  "Each id that an act holds, wherever it sits, and each fact's key. A key
+  of a row is built from each lane that a builds-on fact names and each key
+  that a marked-keys fact holds, so they are held to the limit with the
+  rest. The uuid of an act-id is not among them: it prints to 36
+  characters. What must hold: the rules of the store keys' values passed."
   [act]
   (let [lane-of (fn [act-id] (when act-id [(nth act-id 0)]))]
     (concat [(:who act) (:lane act) (:session act)]
@@ -599,13 +430,11 @@
 
 (def ^:private rule-checks
   "The code of each rule of `rules`. Each takes an act that has the shape
-  `:arrived-act`, in the one form that the engine gave, and gives true when
-  the act keeps the rule. Each may rest on the rules before
-  it, since `check` stops at the first that is broken.
+  `:arrived-act`, in the one form that the engine gave, and may rest on the
+  rules before it: `check` stops at the first that is broken.
 
   The maker's rule is written here a second time, one line: its code is
-  private to `act.clj`. Its name and its word are read from
-  `softland.store.act/rules`."
+  private to `act.clj`."
   {:permission-is-in-the-acts-lane
    (fn [act] (= (:lane act) (nth (:permission act) 1)))
 
@@ -618,8 +447,6 @@
    :based-on-within-the-limit
    (fn [act] (<= (count (:based-on act)) max-based-on))
 
-   ;; The store owns its whole namespace: a key in it that is no store key is
-   ;; refused, whatever the fact holds.
    :store-key-is-known
    (fn [act] (each-fact? (fn [fact] (or (not (in-store-namespace? (:k fact)))
                                         (store-key? (:k fact))))
@@ -631,8 +458,6 @@
    :permission-fact-holds-a-permission
    (fn [act] (every? (fn [k] (value-fits-its-key? k act)) permission-keys))
 
-   ;; Under each of the three keys, the kind of permission that the key is
-   ;; for: one that covers the lane, one run, or one act.
    :permission-fact-is-of-its-key
    (fn [act] (each-fact? (fn [fact]
                            (or (not (contains? permission-keys (:k fact)))
@@ -701,25 +526,15 @@
 ;; -------------------------------------------------------- the test for a stray
 
 (defn stray-reason
-  "The test for a stray. Takes the depot of the gate where a thing arrived,
-  :streaming or :microbatch, and the thing, which can be anything. Gives nil
-  for a thing that the gate can answer under its act-id, or the word of a
-  stray, one of `stray-reasons`. In order:
+  "nil for a thing that the gate can answer under its act-id, or the word of
+  a stray. `:id-too-long`: an answer's key holds the lane of the act-id, so
+  such a thing can have no answer. `:act-id-of-another-lane` covers a thing
+  with no `:lane`.
 
-    :no-act-id                 the thing is no plain map, or holds no act-id
-    :act-id-malformed          its act-id is not [lane depot uuid]
-    :id-too-long               the lane slot of its act-id prints to more
-                               than `max-id-text` characters. An answer's
-                               key holds that lane, so such a thing can
-                               have no answer
-    :act-id-of-the-other-gate  the depot slot is not the gate's depot
-    :act-id-of-another-lane   the lane slot is not the thing's `:lane`.
-                               This covers a thing with no `:lane`
-
-  A thing that passes names one lane in its act-id and in its `:lane`, of
-  `max-id-text` characters at most. On either depot, when a client
-  appended it, it is on the task of that lane, which is where its gate
-  writes its answer and where a read by its act-id looks.
+  A thing that passes names one lane in its act-id and in its `:lane`. On
+  either depot, when a client appended it, it is on the task of that lane,
+  which is where its gate writes its answer and where a read by its act-id
+  looks.
 
   It reads no time. A thing with a usable act-id and no usable time is no
   stray: `check` refuses it, and the refusal is recorded under its act-id.
@@ -740,32 +555,20 @@
 ;; ------------------------------------------------------------------ the check
 
 (defn- with-texts
-  "The last step of the check: the values. Takes an act in the one form
-  that the engine gave, which kept each rule. Gives {:ok act}, the act in
-  its one form on arrival, or {:refuse :value-too-large}, or {:refuse
-  :act-too-large}.
+  "The last step of the check: the values. What must hold: the act is the
+  engine's one form and kept each rule, so each value is in its normal
+  form.
 
-  For each fact that has a value, in the act's order, it makes the one text
-  of the value, `softland.store.door.text/text` of the normal form that the
-  engine gave, and counts the UTF-8 bytes of that text. A fact under a
-  plain key whose count is over `max-value-bytes` gives `:value-too-large`,
-  and the step ends there: no text of a later value is made. The text goes
-  on the fact under `:text`, and the fact's row takes that String as it is.
   Under a plain key the fact's `:v` becomes nil: a gate reads nothing of a
   tool's value. Under a store key `:v` stays beside the text, for a gate's
-  checks. A fact with no value holds nil for both.
+  checks.
 
-  Then the bound on the act. The sum is the bytes of each value's text,
-  and, for each fact, the bytes of the one text of the act's `:who` and of
-  its permission (`max-act-bytes` says why those). A sum over
-  `max-act-bytes` gives `:act-too-large`. So of an act with both faults the
-  word is `:value-too-large`.
+  The step ends at the first value over `max-value-bytes`: no text of a
+  later value is made. So of an act with both faults the word is
+  `:value-too-large`. `max-act-bytes` says what the sum counts.
 
-  Cost: the text of each value is made once, and of the act's who and of
-  its permission once. The count of a text makes no array
-  (`softland.store.door.text/utf8-count`). What must hold: the act is the
-  engine's one form, so each value is a value of the form in its normal
-  form."
+  The text of each value is made once, and of the act's who and of its
+  permission once. The count of a text makes no array."
   [act]
   (let [texted (reduce (fn [[facts total] fact]
                          (let [v (:v fact)]
@@ -792,9 +595,6 @@
           {:ok (assoc act :facts facts)})))))
 
 (defn- check*
-  "The body of `check`, with no guard around it: the shape, then the rules,
-  then the values (`with-texts`). It can throw; `check` turns each throw
-  into a refusal."
   [thing]
   (let [[verdict got] (act/as-shape shapes :arrived-act thing)]
     (if (= :no verdict)
@@ -804,34 +604,26 @@
         (with-texts got)))))
 
 (defn check
-  "The check of what arrived. Takes a thing that is no stray
-  (`stray-reason` gave nil for it). Gives {:ok act}, with the act in its one
-  form on arrival, or {:refuse reason}, with one of `reasons`. It never
-  throws: as in `softland.store.act/parse`, each throw becomes :malformed.
+  "The check of what arrived: {:ok act}, with the act in its one form on
+  arrival, or {:refuse reason}, with one of `reasons`. What must hold: the
+  thing is no stray (`stray-reason` gave nil for it). It never throws: each
+  throw becomes :malformed.
 
-  First the shape: the thing must have the declared shape `:arrived-act`,
-  and the first part that is wrong, in the declared order, gives its reason.
-  Then the rules, in their order, and the first that the act breaks gives
-  its reason. So a fault of the maker's form comes out with `act.clj`'s own
-  word. Then the values: the text of each value is made and counted, and a
-  value or an act over its bound gives `:value-too-large` or
-  `:act-too-large` (`with-texts`). So of a thing with a fault that a rule
-  names and a value over the bound, the rule's word is the one given.
+  The shape, then the rules, then the values. So a fault of the maker's
+  form comes out with `act.clj`'s own word, and of a thing with a fault that
+  a rule names and a value over the bound, the rule's word is the one
+  given.
 
-  The one form on arrival. Each part of `:arrived-act` is there, as the
-  engine builds a one form: plain vectors and maps, each fixed-width integer
-  a long, nil or the declared default for a part that was left out. The
-  time on the act is there under `time-part`, as it arrived. Each
-  fact holds `:e`, `:k`, `:v`, `:replaces` and `:text`. `:text` is the one
-  text of the fact's value in its normal form, a String: what the fact's
-  row holds. `:v` is the value in its normal form for a fact under a store
-  key, and nil for a fact under a plain key. A fact with no value holds nil
-  for both. So a fact has a value exactly when its `:text` is not nil.
+  The one form on arrival. Each fact holds `:e`, `:k`, `:v`, `:replaces`
+  and `:text`. `:text` is the one text of the fact's value in its normal
+  form, a String: the fact's row takes it as it is. `:v` is the value for a
+  fact under a store key, and nil for a fact under a plain key. A fact with
+  no value holds nil for both. So a fact has a value exactly when its
+  `:text` is not nil.
 
-  Limits. It reads no record: the standing of a permission and a replaced
-  fact are the gate's. It reads a thing over a limit once before its rule
-  refuses it, and it makes the text of a value over the bound before it
-  refuses the value."
+  Limits. It reads no record. It reads a thing over a limit once before its
+  rule refuses it, and it makes the text of a value over the bound before
+  it refuses the value."
   [thing]
   (try (check* thing)
        (catch Throwable _ {:refuse :malformed})))

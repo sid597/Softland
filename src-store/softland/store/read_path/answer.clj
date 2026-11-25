@@ -1,102 +1,46 @@
 (ns softland.store.read-path.answer
-  "What a read gives: the lanes put together, and what a change tells a
-  live asker. Pure code. It needs no cluster.
+  "What a read gives: the lanes put together, and what a change tells a live
+  asker. Pure code.
 
   For each place the nearest lane that holds a fact wins, also when that
-  fact says \"nothing here\" (BUILD-reads.md, B3). Every function here
-  works that out from two things that it is handed at the moment of the
-  call: what `softland.store.read-path.sources/reading` gave for the read,
-  and `known`, the values that selects gave or that Rama's pushes hold now.
-  None keeps anything. The steps of a live read are handed one thing more,
-  the read's mark: whether the whole answer is owed, or what the last whole
-  answer said of each lane, seen or left out and why, and which lanes wait
-  (`mark-of`), and nothing of any fact. So what a live read gives is worked
-  out anew at each change, from the pushes' values, for the places that the
-  change names; and what it says of a lane that the asker may not see is
-  held against what she was told of it.
+  fact says \"nothing here\" (BUILD-reads.md, B3). Every function works that
+  out from what it is handed at the call: what
+  `softland.store.read-path.sources/reading` gave for the read, and `known`,
+  the values that selects gave or that Rama's pushes hold now. None keeps
+  anything. So what a live read gives is worked out anew at each change,
+  from the pushes' values, for the places that the change names.
 
-  An answer is a plain map. For every word of a query it holds
+  The steps of a live read are handed the read's mark too: true while the
+  whole answer is owed, or what the last whole answer said of each lane,
+  seen or left out and why, and which lanes wait (`mark-of`); nothing of any
+  fact. What a live read says of a lane that the asker may not see is held
+  against what she was told of it.
 
-    :lanes    the lanes that the read took, nearest first
-    :left-out  each of those lanes that gave nothing, with why:
-               {:lane lane :why :may-not-see} or {:lane lane :why
-               :not-made} (`softland.store.read-path.lanes/left-out`)
+  In a place-answer, `:fact` is the fact id `[[lane depot uuid] index]`,
+  which a writer names in `:replaces`; `:stamp` is the stamp of that fact's
+  decision, which a writer carries in `:based-on`; `:time` is the time on
+  the act that wrote the fact, a label. `:holds :not-a-value` says that the
+  nearest row's String is the text of no value of the form. No write of a
+  gate gives such a row (`softland.store.record.rows/read-value`); it is
+  there so that a read never throws on what a row holds.
 
-  and then, by the word:
+  One row is written by an act and by no fact of it: the use of a yes for
+  one act, at the yes's place, which a read asks for only with the store's
+  own facts. Its place-answer is `:nothing-here` with its lane and the stamp
+  of the act that used the yes, and no `:fact`.
 
-    :place          `:place`, one place-answer
-    :entity, :run   `:places`, a map from `[entity key]` to a place-answer,
-                    for each place of the run at which a lane that she may
-                    see holds a fact
-    :points-at      `:places`, the same, for each place that points at the
-                    thing; and `:orders`, for each lane that she may see,
-                    {:lane lane :level-since stamp} or {:lane lane
-                    :not-marked true}
-
-  A place-answer tells four things apart, and says which lane won:
-
-    {:holds :no-fact}                                  no lane that she may
-                                                       see holds a fact there
-    {:holds :nothing-here :lane l :fact f :stamp s}   the nearest fact says
-                                                       \"nothing here\"
-    {:holds :value :value v :lane l :fact f :stamp s} the nearest fact, with
-                                                       its value as its
-                                                       maker gave it
-    {:holds :not-a-value :lane l :fact f :stamp s}    the nearest row's
-                                                       String is the text of
-                                                       no value of the form
-
-  No write of a gate gives a row that earns the fourth
-  (`softland.store.record.rows/read-value`); it is there so that a read
-  never throws on what a row holds.
-
-  `:fact` is the fact id `[[lane depot uuid] index]`, which a writer names
-  in `:replaces`, and which names a fact that its act holds at that index;
-  `:stamp` is the stamp of that fact's decision, which a writer carries in
-  `:based-on`. One row is written by an act and by no fact of it: the use
-  of a yes for one act, at the yes's place, which a read asks for only with
-  the store's own facts. Its place-answer is `:nothing-here` with its
-  lane and the stamp of the act that used the yes, and no `:fact`. With `:writer` in the query's `:with` a
-  place-answer also holds `:writer`, with `:permission` it holds
-  `:permission`, and with `:time` it holds `:time`, the time on the act
-  that wrote the fact, a label; a read that asked for none is handed
-  none.
-
-  What points at a thing, through lanes. A place is found through an
-  order: the read looks at a place when the order by value of some lane
-  that she may see holds it. At such a place the nearest lane that she may
-  see and that holds a row wins: by its own order, or by the check of its
-  facts table. The place is given when the winner's value is the thing:
-  from the order's row, or from the check's row when that row holds the
-  thing. So a nearer fact that moves the thing, or takes it away, hides the
-  place; a nearer fact that says the same thing does not, and the place
-  comes from the nearer lane. What an asker must know of it: a place can
-  come from a lane whose entry in `:orders` says `:not-marked`, or with a
-  stamp that is not later than that lane's `:level-since`; and a place at
-  which a nearer lane says the thing, and which no order of a lane that
-  she may see holds, is not in the answer.
-
-  Inputs and results, by call:
-
-    counts?             a query, a key -> whether a row under that key counts
-    place-answer        a query, a lane, a row -> a place-answer
-    order-place-answer  a query, a lane, the thing, a row -> a place-answer
-    of-word             a map from each word to how its rows are put together
-    of-places           a query, a reading, `known`, places -> their
-                        place-answers, without the places that still wait
-    whole               a query, a reading, `known` -> the answer
-    told-by?            whether a change of a source at a place is to be told
-    meanings            what a rights source meant before and after a change
-    mark-of             a whole answer -> the mark of a read that was just
-                        given it
-    after-change        what a live read does at a change of a push
-    after-arrival       what a live read does when a push that it came to
-                        need is given
-
-  State and effects. None. Each function is pure.
-
-  Callers. `softland.store.read-path`. The read path's pure proof plays the
-  last two in every order of the callbacks."
+  What points at a thing, through lanes. A place is found through an order:
+  the read looks at a place when the order by value of some lane that she
+  may see holds it. At such a place the nearest lane that she may see and
+  that holds a row wins, by its own order or by the check of its facts
+  table, and the place is given when the winner's value is the thing. So a
+  nearer fact that moves the thing, or takes it away, hides the place; a
+  nearer fact that says the same thing does not, and the place comes from
+  the nearer lane. What an asker must know of it: a place can come from a
+  lane whose entry in `:orders` says `:not-marked`, or with a stamp that is
+  not later than that lane's `:level-since`; and a place at which a nearer
+  lane says the thing, and which no order of a lane that she may see holds,
+  is not in the answer."
   (:require [softland.store.door.declaration :as declaration]
             [softland.store.gate.first-act :as first-act]
             [softland.store.read-path.lanes :as lanes]
@@ -106,28 +50,19 @@
 ;; ------------------------------------------------------------ one place
 
 (defn counts?
-  "Takes a query in its one form and a fact's key. Gives false for a row
-  under one of the store's own keys
-  (`softland.store.door.declaration/store-key?`) when the query did not ask
-  for the store's own facts, and true for any other. A row that does not
-  count is no row for the read: it wins no place and is in no answer. So
-  the run of a holder's entity does not give her permission, and a run
-  across entities gives no fact of the store's own.
-
-  Not decided. That a tool's read leaves the store's own facts out unless
-  it asks, and that any asker who may see the lane may ask, is a working
-  answer, for Sid. This function is the one place where the other answer
-  would be made."
+  "False for a row under one of the store's own keys when the query did not
+  ask for the store's own facts. A row that does not count is no row for
+  the read: it wins no place and is in no answer. So the run of a holder's
+  entity does not give her permission, and a run across entities gives no
+  fact of the store's own."
   [query k]
   (or (boolean (:stores-own-facts query))
       (not (declaration/store-key? k))))
 
 (defn- with-asked-parts
-  "Takes a query, a row and a place-answer. Gives the place-answer with the
-  parts of the row that the query asked for: who wrote the fact, the
-  permission that its act named, and the time on that act. The one place
-  where any of them is put in. Rama sends the runtime the whole row either
-  way; a caller is handed a part only when she asked."
+  "The one place where a part of a row is put in a place-answer. Rama sends
+  the runtime the whole row either way; a caller is handed a part only when
+  she asked."
   [query row place-answer]
   (cond-> place-answer
     (contains? (:with query) :writer)     (assoc :writer (rows/who-of row))
@@ -135,22 +70,15 @@
     (contains? (:with query) :time)       (assoc :time (:time row))))
 
 (defn- fact-id
-  "Takes a lane and a row. Gives the id of the fact that wrote the row:
-  [[lane depot uuid] index], with the depot that the lane starts with; or
-  nil for a row that no fact wrote, which names no index: the use of a yes
+  "Nil for a row that no fact wrote, which names no index: the use of a yes
   for one act (`softland.store.record.rows/use-row`)."
   [lane row]
   (when (some? (:by-index row))
     [[lane (first-act/depot-at-making lane) (:by-act row)] (:by-index row)]))
 
 (defn place-answer
-  "Takes a query in its one form, the lane that won a place, and the row
-  that won it, or nil. Gives the place-answer: one of the four that the
-  namespace docstring lists, by `softland.store.record.rows/read-value`,
-  with the lane, the fact id and the stamp for a row that is there, and
-  the parts of the row that the query asked for. A row that no fact wrote
-  gives no `:fact`: it names no fact that a writer could replace or a
-  reader find in its act. It never throws on a row."
+  "A row that no fact wrote gives no `:fact`: it names no fact that a writer
+  could replace or a reader find in its act. It never throws on a row."
   [query lane row]
   (let [[kind v] (rows/read-value row)]
     (if (= :no-fact kind)
@@ -162,11 +90,9 @@
           (= :value kind) (assoc :value v))))))
 
 (defn order-place-answer
-  "Takes a query in its one form, the lane that won a place, the thing that
-  the query asks about, and the row that won the place: a row of the
-  lane's order by value, which holds no value, or a check's row that holds
-  the thing. Gives the place-answer, whose `:value` is the thing as the
-  asker gave it, in its one normal form."
+  "The row is one of the lane's order by value, which holds no value, or a
+  check's row that holds the thing. So `:value` is the thing as the asker
+  gave it, in its one normal form."
   [query lane thing row]
   (with-asked-parts
     query row
@@ -175,33 +101,24 @@
 ;; ------------------------------------------- how the rows of a word are put together
 
 (defn- known-fact
-  "Takes a reading, `known` and a lane. Gives the lane's fact source with
-  its value, as [source value]; or nil when the read wants no fact source
-  in the lane, or `known` does not hold it. A word of a query reads one
-  fact source in a lane (`softland.store.read-path.sources/of-word`)."
+  "The lane's fact source with its value, as [source value]. It rests on a
+  word of a query reading one fact source in a lane
+  (`softland.store.read-path.sources/of-word`)."
   [reading known lane]
   (let [source (first (get-in reading [:by-lane lane :facts]))]
     (when (and source (contains? known source))
       [source (get known source)])))
 
 (defn- fact-row-at
-  "Takes a lane's fact source with its value (`known-fact`) and the key of
-  a place in that lane. Gives the row there, or nil: the value of a source
-  of one row, or the row that a run holds under the key."
   [[source value] key-text]
   (if (= :row (first (:path source)))
     value
     (sources/row-in value key-text)))
 
 (defn- walk-facts
-  "The walk of a place for a place, an entity or a run. Takes the query, a
-  reading, `known` and a place. Goes through the lanes from the nearest:
-  the first lane of standing `:yes` whose fact source holds a row at the
-  place wins. Gives [:given place-answer]; [:none] when no lane holds a
-  row there, or the place's key does not count; or [:waits] when the walk
-  meets, before it stops, a lane whose standing is not known yet or a fact
-  source that `known` does not hold. A source behind the lane that wins is
-  not waited for."
+  "[:waits] when the walk meets, before it stops, a lane whose standing is
+  not known yet or a fact source that `known` does not hold. A source
+  behind the lane that wins is not waited for."
   [query reading known [entity k]]
   (if-not (counts? query k)
     [:none]
@@ -218,9 +135,6 @@
         [:none]))))
 
 (defn- order-row-at
-  "Takes the query, a reading, `known`, a lane and an entity. Gives the row
-  that the lane's order by value holds for that entity, or nil: nil too
-  when the lane marks no order or `known` does not hold it."
   [query reading known lane entity]
   (let [{:keys [facts since]} (get-in reading [:by-lane lane])
         order-source (first facts)
@@ -230,16 +144,11 @@
                       (rows/by-value-key lane k since (:digest reading) entity)))))
 
 (defn- walk-orders
-  "The walk of a place for what points at a thing. Takes the query, a
-  reading, `known` and a place. Goes through the lanes from the nearest.
-  The first lane of standing `:yes` that holds a row at the place wins: by
-  its own order, or by its check. A winner by its order gives the place
-  from the order's row. A winner by its check gives the place from the
-  check's row when that row holds the thing
-  (`softland.store.record.rows/holds-this-value?`, the test by which a gate
-  puts a fact in that thing's order), and gives [:none] when it says
-  \"nothing here\" or holds another thing. Gives [:given place-answer],
-  [:none], or [:waits] as `walk-facts` does: an order or a check that the
+  "A winner by its check gives the place only when the check's row holds the
+  thing (`softland.store.record.rows/holds-this-value?`, the test by which
+  a gate puts a fact in that thing's order). When that row says \"nothing
+  here\" or holds another thing, the place is not given, whatever a farther
+  lane holds. [:waits] as in `walk-facts`: an order or a check that the
   read wants and `known` does not hold, met before the walk stops."
   [query reading known [entity :as place]]
   (let [[_ _ thing] (:asks query)]
@@ -275,9 +184,6 @@
         [:none]))))
 
 (defn- places-of-runs
-  "Takes the query, a reading and `known`. Gives the set of the places,
-  `[entity key]`, at which a fact source of a lane of standing `:yes`
-  holds a row that counts."
   [query reading known]
   (into #{}
         (for [lane (:lanes reading)
@@ -290,9 +196,6 @@
           [entity k])))
 
 (defn- places-of-orders
-  "Takes the query, a reading and `known`. Gives the set of the places,
-  `[entity key]`, that the order by value of some lane of standing `:yes`
-  holds. A place is found through an order, and through nothing else."
   [query reading known]
   (let [[_ k] (:asks query)]
     (into #{}
@@ -305,39 +208,24 @@
             [entity k]))))
 
 (defn- holds-fact-row?
-  "Takes the query, a reading, `known`, a lane and a place. Gives true when
-  the lane's fact source, in `known`, holds a row at the place."
   [_query reading known lane [entity k]]
   (if-let [fact (known-fact reading known lane)]
     (some? (fact-row-at fact (rows/place-key lane entity k)))
     false))
 
 (defn- holds-order-or-check-row?
-  "Takes the query, a reading, `known`, a lane and a place. Gives true when
-  the lane holds a row at the place for what points at a thing: in its
-  order by value, or by a check that the read wants and `known` holds. A
-  source that the read no longer wants is not counted."
+  "A check counts only when the read wants it and `known` holds it
+  (`told-by?` says why)."
   [query reading known lane [entity :as place]]
   (let [check (get-in reading [:by-lane lane :checks place])]
     (boolean (or (order-row-at query reading known lane entity)
                  (and check (some? (get known check)))))))
 
 (def of-word
-  "How the rows of each word of a query are put together. A map from the
-  word to three functions and a name:
-
-    :walk    a query, a reading, `known`, a place -> [:given place-answer],
-             [:none] or [:waits]: the walk of one place from the nearest
-             lane
-    :places  a query, a reading, `known` -> the places that the answer
-             looks at
-    :holds?  a query, a reading, `known`, a lane, a place -> whether that
-             lane holds a row at the place now
-    :gives   `:place` when the answer holds one place-answer, `:places`
-             when it holds a map of them
-
-  A place, an entity and a run are put together from rows of the facts
-  table; what points at a thing from the orders by value and the checks."
+  "How the rows of each word of a query are put together. `:walk` is the
+  walk of one place from the nearest lane, and gives [:given place-answer],
+  [:none] or [:waits]. `:places` gives the places that the answer looks at.
+  `:holds?` says whether a lane holds a row at a place now."
   {:place     {:walk walk-facts
                :places (fn [query _reading _known] (let [[_ entity k] (:asks query)] #{[entity k]}))
                :holds? holds-fact-row?
@@ -347,20 +235,14 @@
    :points-at {:walk walk-orders :places places-of-orders :holds? holds-order-or-check-row? :gives :places}})
 
 (defn- word-of
-  "Takes a query in its one form. Gives the entry of `of-word` for its
-  word."
   [query]
   (get of-word (first (:asks query))))
 
 ;; ------------------------------------------------------------ what is given
 
 (defn of-places
-  "Takes a query in its one form, what `reading` gave, `known`, and places,
-  each `[entity key]`. Gives a map from each place to what the read gives
-  there now: a place-answer, with {:holds :no-fact} for a place that the
-  read does not give. A place that still waits is not in the map: its walk
-  met, before it stopped, a lane whose standing is not known yet or a
-  wanted source that `known` does not hold."
+  "A place that the read does not give holds {:holds :no-fact}. A place that
+  still waits is not in the map."
   [query reading known places]
   (let [walk (:walk (word-of query))]
     (into {}
@@ -373,11 +255,9 @@
           places)))
 
 (defn whole
-  "Takes a query in its one form, what `reading` gave, and `known`. Gives
-  the answer, as the namespace docstring has it. A lane whose standing is
-  `:may-not-see` or `:not-made` is in `:left-out`, and nothing of it is in
-  the answer, whatever `known` holds of it. What must hold: nothing is
-  missing (`reading`'s `:missing` is empty), so no place waits."
+  "What must hold: nothing is missing (`reading`'s `:missing` is empty), so
+  no place waits. Nothing of a lane whose standing is `:may-not-see` or
+  `:not-made` is in the answer, whatever `known` holds of it."
   [query reading known]
   (let [{:keys [walk places gives]} (word-of query)
         {:keys [lanes standing by-lane]} reading
@@ -408,19 +288,15 @@
 ;; ----------------------------------------------- what a change tells a live asker
 
 (defn told-by?
-  "Takes a query in its one form, what `reading` gave, `known`, the source
-  whose push changed, and a place that the change names. Gives true when
-  the change is to be told to this asker: the source's lane has the
-  standing `:yes` for her, the place's key counts, and no nearer lane of
-  standing `:yes` holds a row at the place now.
+  "Whether a change of a source at a place is to be told to this asker.
 
   It counts a nearer lane's row only in a source that `reading` wants and
-  `known` holds. So a step that has just left a check does not count it:
-  a change that such a check's push has taken and not yet called back
-  would never reach the read, and the place would stay with an answer that
-  the tables no longer give. A nearer row that is counted is safe to rest
-  on: the read still holds its source, so that source's own change is told
-  by its own step."
+  `known` holds. So a step that has just left a check does not count it: a
+  change that such a check's push has taken and not yet called back would
+  never reach the read, and the place would stay with an answer that the
+  tables no longer give. A nearer row that is counted is safe to rest on:
+  the read still holds its source, so that source's own change is told by
+  its own step."
   [query reading known source place]
   (let [lane (:lane source)
         {:keys [lanes standing]} reading
@@ -433,14 +309,8 @@
                             (take-while #(not= lane %) lanes))))))
 
 (defn meanings
-  "Takes a query in its one form, `known`, the source whose push changed,
-  and the push's value before and after. For the source of a lane's own
-  rows, of the asker's permission row, of the permission of the run that
-  she asks in, or of another row under a key of a permission in the lane,
-  which can be a row above one of hers, gives [before after]: what the rows
-  meant for this query before the change and after it
-  (`softland.store.read-path.lanes/meaning`), each beside what `known`
-  holds of the other sources. Gives nil for any other source.
+  "What a rights source meant for this query before a change and after it,
+  as [before after]; nil for any other source.
 
   Whether she holds a permission that stands is read from `known`
   (`softland.store.read-path.sources/permission-state`), with the changed
@@ -462,52 +332,42 @@
        (meant (assoc known source new))])))
 
 (defn- owes-for-a-move?
-  "Takes a query, and the sources that a step joined and left. Gives true
-  when one of them is no check: such a source is joined or left only when
-  what shapes the read has changed in the pushes' values."
+  "A source that is no check is joined or left only when what shapes the
+  read has changed in the pushes' values."
   [query joined left]
   (boolean (some #(not (sources/check? query %)) (concat joined left))))
 
 (defn mark-of
-  "Takes the whole answer that a live read was just given. Gives the read's
-  mark after it: {:told {lane standing}}, what the answer said of each of
-  its lanes, `:yes` for one that it gives, or the word of `:left-out`
-  (`:may-not-see`, `:not-made`). It is the read's one memory of what its
-  asker was told, a lane's standing and nothing of its facts, and it is
-  made again at each whole answer. `softland.store.read-path/read-live`
-  marks a read with it when it opens."
+  "The mark of a read that was just given a whole answer: the read's one
+  memory of what its asker was told, a lane's standing (`:yes`, or the word
+  of `:left-out`) and nothing of its facts. It is made again at each whole
+  answer."
   [answer]
   {:told (into (zipmap (:lanes answer) (repeat :yes))
                (map (fn [{:keys [lane why]}] [lane why]))
                (:left-out answer))})
 
 (defn- told-of
-  "Takes a read's mark. Gives what it holds of what the asker was told of
-  each lane, a map, empty for a mark that holds nothing of it."
   [mark]
   (or (when (map? mark) (:told mark)) {}))
 
 (defn- waiting-of
-  "Takes a read's mark. Gives the lanes that wait in it, a set."
   [mark]
   (or (when (map? mark) (:waiting mark)) #{}))
 
 (defn- marked
-  "Takes what the asker was told of each lane, a map, and the lanes that
-  wait, a set. Gives the read's mark: false when both are empty, as a read
-  that was never told a whole answer is marked."
+  "False when both are empty, as a read that was never told a whole answer
+  is marked."
   [told waiting]
   (if (and (empty? told) (empty? waiting))
     false
     (cond-> {:told told} (seq waiting) (assoc :waiting waiting))))
 
 (defn- only-rights-of?
-  "Takes a query, a set of lanes, and the sources that a step joined and
-  left. Gives true when each of them that is no check is a row of her
-  rights in one of those lanes other than its own rows: her permission,
-  her run's, or a row under a key of a permission
-  (`softland.store.read-path.sources/rights-kind`). A move of a lane's own
-  rows is a move of the read's list, and is never one of these."
+  "True when each source that the step joined or left, and that is no check,
+  is a row of her rights in one of those lanes other than its own rows. A
+  move of a lane's own rows is a move of the read's list, and is never one
+  of these."
   [query lanes joined left]
   (every? (fn [source]
             (or (sources/check? query source)
@@ -516,17 +376,16 @@
           (concat joined left)))
 
 (defn- unseen-lanes
-  "Takes what the asker was told of each lane (`told-of`) and what
-  `reading` gave after a step. Gives the lanes that she was told she may
-  not see and that she may not see now, or of which that is not known yet.
-  A change of her rights in such a lane, and the joining and the leaving
-  of its rights, tell her nothing: while she may not see a lane, the
-  answer says of it that it is left out, and nothing more, and an answer
-  that says what it said would tell her that something of the lane was
-  written (`softland.store.read-path.lanes/meaning`). One whose standing
-  is not known yet waits, in the mark, until it is: then she is owed the
-  whole answer if she may see it, and nothing if she may not
-  (`told-or-waiting`)."
+  "The lanes that she was told she may not see and that she may not see now,
+  or of which that is not known yet.
+
+  A change of her rights in such a lane, and the joining and the leaving of
+  its rights, tell her nothing: while she may not see a lane, the answer
+  says of it that it is left out, and nothing more, and an answer that says
+  what it said would tell her that something of the lane was written
+  (`softland.store.read-path.lanes/meaning`). One whose standing is not
+  known yet waits, in the mark, until it is: then she is owed the whole
+  answer if she may see it, and nothing if she may not (`told-or-waiting`)."
   [told reading]
   (into #{}
         (keep (fn [[lane standing]]
@@ -536,14 +395,12 @@
         told))
 
 (defn- with-the-meaning-before
-  "Takes a query, the source whose push changed, what it meant before the
-  change (`meanings`), and what the asker was told of each lane. Gives the
-  same map, with the source's lane as she was told it when the map holds
-  nothing of it: the standing that the lane's meaning had before the
-  change, for a source of her rights there. A read that the read path
-  opened holds what it told of each lane; another holds nothing of it, and
-  then the meaning before a change is what she was told only where each
-  change is handled before the next is taken, as in one order."
+  "For a mark that holds nothing of the source's lane, what she was told of
+  it is taken from the meaning that the lane had before the change. A read
+  that the read path opened holds what it told of each lane. Another holds
+  nothing of it, and then the meaning before a change is what she was told
+  only where each change is handled before the next is taken, as in one
+  order."
   [query source meant-before told]
   (let [lane (:lane source)]
     (if (and (sources/rights-kind query source) (not (contains? told lane)))
@@ -553,11 +410,8 @@
       told)))
 
 (defn- whole-if-nothing-is-missing
-  "Takes a query, a reading and `known`, for a read that owes its asker the
-  whole answer. Gives {:tell {:anew answer} :owed? the mark of that answer}
-  when nothing is missing (`mark-of`); else {:tell nil :owed? true}: the
-  mark stays, and the step in which the last missing source is given gives
-  the whole answer."
+  "While something is missing the mark stays true, and the step in which the
+  last missing source is given gives the whole answer."
   [query reading known]
   (if (empty? (:missing reading))
     (let [answer (whole query reading known)]
@@ -565,10 +419,7 @@
     {:tell nil :owed? true}))
 
 (defn- told-or-waiting
-  "Takes a query, a reading, `known`, what the asker was told of each lane,
-  the lanes that wait (a set, empty for none), and the places to tell, a
-  map of place-answers. Gives {:tell :owed?}: the places, and the mark.
-  While something is missing the lanes still wait, and the places are told
+  "While something is missing the lanes still wait, and the places are told
   now, since none of them waits. When nothing is missing, each lane that
   waited and is one that she may not see stops waiting, and she is told the
   places alone; a lane that waited and that she may now see, or that left
@@ -582,43 +433,32 @@
       :else (whole-if-nothing-is-missing query reading known))))
 
 (defn after-change
-  "What a live read does at a change of one of its pushes, once the joining
-  and the leaving of the step are done and `known` is made again of the
-  sources that the read still holds and that are given. Takes the query in
-  its one form; what `reading` gave on that `known`; `known`; the source
-  whose push changed; the places that the change names
-  (`softland.store.read-path.sources/places-of`); what the source meant
-  before and after
-  (`meanings`; nil and nil for a source that is no rights source); the
-  sources that the step joined and left; and the read's mark: true when the
-  whole answer is owed; else what the asker was told of each lane and the
-  lanes that wait (`mark-of`), or false for a read that holds nothing of
-  it. Gives {:tell :owed?}: what to hand the asker's function, nil for
-  nothing, {:changed {place place-answer}} or {:anew answer}; and the mark
-  after the step.
+  "What a live read does at a change of one of its pushes. What must hold:
+  the joining and the leaving of the step are done, and `known` is made
+  again of the sources that the read still holds and that are given;
+  `reading` is what was given on that `known`. `places` are what the change
+  names (`softland.store.read-path.sources/places-of`). `meant-before` and
+  `meant-after` are what `meanings` gave. `owed?` is the read's mark: true
+  when the whole answer is owed; else what the asker was told of each lane
+  and the lanes that wait (`mark-of`), or false for a read that holds
+  nothing of it. Gives {:tell :owed?}: what to hand the asker's function,
+  nil for nothing, {:changed {place place-answer}} or {:anew answer}; and
+  the mark after the step.
 
   The whole answer is owed from this step on in two cases: the source is one
-  of her rights in a lane, its own rows, her permission, her run's, or a
-  row above one of those (`softland.store.read-path.sources/rights-kind`),
+  of her rights in a lane (`softland.store.read-path.sources/rights-kind`)
   and what it means for this query differs; or the step joined or left a
-  source that is no check, whatever source called. Neither counts when it
-  is of her rights in a lane that she was told she may not see and that she
-  may not see now, or of which that is not known yet (`unseen-lanes`):
-  nothing of such a lane is told, and one whose standing is not known yet
-  waits, in the mark, until its rows are given (`after-arrival`). While the
-  whole answer is owed, no single place is told: the asker gets {:anew
-  answer} when nothing is missing. While a lane waits, a place that the
-  change names is told when it does not wait; one that waits makes the
-  whole answer owed.
+  source that is no check, whatever source called. Neither counts when it is
+  of her rights in one of `unseen-lanes`: nothing of such a lane is told.
+  While the whole answer is owed, no single place is told. While a lane
+  waits, a place that the change names and that waits makes the whole answer
+  owed.
 
-  Else each place that the change names is told when `told-by?` says so,
-  with what the read gives there now; a place that waits is left out, and
-  is told when the source that it waits for is given.
+  Else a place that waits is left out, and is told when the source that it
+  waits for is given.
 
-  What the read keeps between two changes is its mark: what its asker was
-  told of each lane, and nothing of the facts. This function compares no
-  place with what the asker was told before: a place can so be told a
-  second time with the answer that it already had."
+  No place is compared with what the asker was told before: a place can so
+  be told a second time with the answer that it already had."
   [query reading known source places meant-before meant-after joined left owed?]
   (if (true? owed?)
     (whole-if-nothing-is-missing query reading known)
@@ -636,24 +476,14 @@
             (told-or-waiting query reading known told waiting given)))))))
 
 (defn after-arrival
-  "What a live read does when a push that it came to need is given, once the
-  joining and the leaving of the step are done and `known` is made again.
-  Takes the query in its one form; what `reading` gave on that `known`;
-  `known`; the source that was given; the sources that the step joined and
-  left; and the read's mark, as `after-change` takes it. Gives {:tell
-  :owed?} as `after-change` does.
+  "What a live read does when a push that it came to need is given. It takes
+  the read's mark and gives {:tell :owed?} as `after-change` does, and the
+  same must hold.
 
-  A step that joins or leaves a source that is no check owes the whole
-  answer, unless each such source is of her rights in a lane that she was
-  told she may not see and that she may not see now, or of which that is not
-  known yet (`unseen-lanes`). When it is owed, the asker gets {:anew
-  answer} if nothing is missing any more, whatever kind of source arrived.
-  While lanes wait, the step says, once nothing is missing, whether each
-  is still one that she may not see: then it stops waiting and she is told
-  nothing of it; else she is given the whole answer (`told-or-waiting`).
-  Else a check that arrives tells its place, with no test, unless the place
-  still waits. Any other source that arrives with nothing owed tells
-  nothing."
+  When the whole answer is owed, the asker gets it if nothing is missing any
+  more, whatever kind of source arrived. Else a check that arrives tells its
+  place, with no test, unless the place still waits. Any other source that
+  arrives with nothing owed tells nothing."
   [query reading known source joined left owed?]
   (if (true? owed?)
     (whole-if-nothing-is-missing query reading known)

@@ -1,109 +1,52 @@
 (ns softland.store.read-path.lanes
-  "The lanes of a read: which lanes a read looks through and in what
-  order, whether a lane is made, whether an asker may see it, and what a
-  read says of a lane that it left out. Pure code. It needs no cluster.
+  "The lanes of a read: which lanes a read looks through and in what order,
+  whether a lane is made, whether an asker may see it, and what a read says
+  of a lane that it left out. Pure code.
 
-  Everything here is read from two kinds of row of the facts table
-  (`softland.store.record.rows`, the namespace docstring):
+  What the functions take, read from the facts table:
 
-    the lane's own rows  the rows of the lane's own entity under the
-                          store's own keys: its depot, who may see it, what
-                          it builds on and its marked keys. They are
-                          neighbours in the table, so one read, or one push,
-                          gives the four together
-                          (`softland.store.record.rows/own-rows-run`). Here
-                          they are a map from a row's key to the row; nil
-                          says that they are not known yet
-    her permission row    the row at the asker's place under
-                          `:softland.store/permission`; nil says that she
-                          holds none, and `:not-known-yet` that it is not
-                          read. A row with no value is an end
-    her run's row         for a query that names the run that it is asked
-                          in, the row at the run's place under
-                          `:softland.store/run-permission`, read as hers
-                          only when its permission names her as its holder
-    the rows above them   the rows at the places of the permissions above
-                          the one that her row holds, or her run's, as a
-                          map from the key of a place to its row;
-                          `:not-known-yet` says that one of them is not
-                          read. A permission stands only while each one
-                          above it stands (`softland.store.gate.chain`)
-
-  Inputs and results, by call:
-
-    own-row       own rows, a lane, a store key -> the row, or nil
-    made?         own rows, a lane -> true when the lane is made
-    who-may-see   own rows, a lane -> `:members` or `:everyone`
-    who-may-read-acts
-                  own rows, a lane -> `:members` or `:everyone`
-    builds-on     own rows, a lane -> the lanes that it builds on
-    marked-since  own rows, a lane, a key -> the stamp of the key's mark
-    permission-state
-                  a lane, her permission row, the rows above it ->
-                  `:stands`, `:none` or `:not-known-yet`
-    run-permission-state
-                  a lane, the asker, the row of the run that she asks in,
-                  the rows above it -> the same three words
-    either        two of those words -> one: whether she holds a
-                  permission that stands, of either kind
-    standing      a lane, its own rows, whether she holds a permission
-                  that stands, whether she is signed in -> `:yes`,
-                  `:may-not-see`, `:not-made` or `:not-known-yet`
-    in-order      a query, the start lane's own rows and standing -> the
-                  lanes of the read, nearest first, or nil
-    home          a query -> the lane that the read starts from
-    left-out      a lane and why -> what an answer says of it
-    meaning       a query, a lane, its own rows, whether she holds a
-                  permission that stands, whether she is signed in -> what
-                  the rows mean for this query, as a value that `=` compares
+    a lane's own rows   a map from a row's key to the row; nil says that
+                        they are not known yet. They are neighbours in the
+                        table, so one read, or one push, gives them together
+                        (`softland.store.record.rows/own-rows-run`)
+    her permission row  nil says that she holds none, and `:not-known-yet`
+                        that it is not read. A row with no value is an end
+    her run's row       the row of the run that a query is asked in; hers
+                        only when its permission names her as its holder
+    the rows above      a map from the key of a place to its row;
+                        `:not-known-yet` says that one of them is not read.
+                        A permission stands only while each one above it
+                        stands (`softland.store.gate.chain`)
 
   \"Standing\" here is whether an asker may see a lane, as the read path
-  knows it now. `softland.store.gate.decision` uses the same word for a
+  knows it. `softland.store.gate.decision` uses the same word for a
   permission that stands at a gate; the two are different questions.
 
-  State and effects. None. Each function is pure, and none throws on a row.
-
-  Callers. `softland.store.read-path.sources` and
-  `softland.store.read-path.answer`.
-
   What the read path does not read. What a permission allows: any
-  permission that stands allows seeing (src-store/README.md, decisions of
-  11 and 12 October 2026, entry 1). Whether it stands is the gates' own
+  permission that stands allows seeing. Whether it stands is the gates' own
   rule, read from the same rows (`softland.store.gate.chain/stands?`): a
   permission that has ended, or beneath one that has, lets nobody see. A
-  permission for one act is not read: it lets nobody see. So the one thing
-  about a permission that is kept as built and not decided, one permission
-  for the lane for each holder at a time, is no code here."
+  permission for one act is not read: it lets nobody see."
   (:require [softland.store.door.declaration :as declaration]
             [softland.store.gate.chain :as chain]
             [softland.store.gate.first-act :as first-act]
             [softland.store.record.rows :as rows]))
 
 (defn own-row
-  "Takes a lane's own rows, the lane, and one of the store's own keys that
-  sit on the lane's own entity. Gives the row under that key, or nil when
-  the rows hold none or are not known. What must hold: the lane is an id
-  within the limit."
   [own-rows lane k]
   (get own-rows (rows/place-key lane lane k)))
 
 (defn made?
-  "Takes a lane's own rows and the lane. Gives true when the lane is
-  made: its own rows hold its depot fact. The rows are those of the record
-  that `softland.store.gate.first-act/depot-at-making` names for the lane,
-  since that is the table that the read path reads them from."
+  "A lane is made when its own rows hold its depot fact. What must hold: the
+  rows are of the record that
+  `softland.store.gate.first-act/depot-at-making` names for the lane."
   [own-rows lane]
   (some? (own-row own-rows lane :softland.store/depot)))
 
 (defn who-may-see
-  "Takes a lane's own rows and the lane. Gives who may see the lane:
-  `:everyone` or `:members`. With no row it is what the lane starts with
+  "With no row it is what the lane starts with
   (`softland.store.gate.first-act/starts-with`). A row whose value is
-  neither word reads as `:members`, the answer that shows less.
-
-  Not decided. What a lane starts with is kept only so that the build can
-  run; `starts-with` is the one place where the other answer would be
-  made, and this function is its one caller in the read path."
+  neither word reads as `:members`, the answer that shows less."
   [own-rows lane]
   (let [row (own-row own-rows lane :softland.store/who-may-see)
         [kind v] (rows/read-value row)]
@@ -113,14 +56,10 @@
       :else :members)))
 
 (defn who-may-read-acts
-  "Takes a lane's own rows and the lane. Gives who may read the lane's
-  acts whole: `:everyone` or `:members`. With no row it is what the lane
-  starts with, `:members` for every lane, the base too
-  (`softland.store.gate.first-act/starts-with`). A row whose value is
-  neither word reads as `:members`, the answer that shows less, as
-  `who-may-see` reads its own. Only a read of a lane's acts asks it
-  (`softland.store.read-path.acts`): a read of facts reads a lane's facts
-  as it did, whatever the setting says."
+  "Who may read the lane's acts whole. A row whose value is neither word
+  reads as `:members`, the answer that shows less. Only a read of a lane's
+  acts asks it (`softland.store.read-path.acts`): a read of facts reads a
+  lane's facts whatever the setting says."
   [own-rows lane]
   (let [row (own-row own-rows lane :softland.store/who-may-read-acts)
         [kind v] (rows/read-value row)]
@@ -130,12 +69,9 @@
       :else :members)))
 
 (defn builds-on
-  "Takes a lane's own rows and the lane. Gives the lanes that the lane
-  builds on, in the order of the fact, as a vector. With no row it is what
-  the lane starts with, nothing. An id of the list comes from a row and
-  not from a caller, so each is tested here
-  (`softland.store.door.declaration/usable-id?`) and one that fails is left
-  out: a key is made of each. A row whose value is no vector gives nothing."
+  "An id of the list comes from a row and not from a caller, so each is
+  tested here (`softland.store.door.declaration/usable-id?`) and one that
+  fails is left out: a key is made of each."
   [own-rows lane]
   (let [row (own-row own-rows lane :softland.store/builds-on)
         [kind v] (rows/read-value row)]
@@ -145,27 +81,14 @@
       :else [])))
 
 (defn marked-since
-  "Takes a lane's own rows, the lane and a key. Gives the stamp since
-  which the lane's order by value is level for that key
-  (`softland.store.record.rows/marked-keys-of`), or nil when the lane does
-  not mark the key."
   [own-rows lane k]
   (get (rows/marked-keys-of (own-row own-rows lane :softland.store/marked-keys)) k))
 
 (defn permission-state
-  "Does the asker hold a permission that stands in a lane. Takes the lane;
-  her permission row in it (a row, nil for none, or `:not-known-yet`); and
-  the rows above it, a map from the key of a place to its row, or
-  `:not-known-yet`. Gives one of three words:
-
-    :not-known-yet  her row is not read; or it holds a permission, and a
-                    row above it is not read
-    :stands         her row holds a permission, and it stands by the gates'
-                    rule (`softland.store.gate.chain/stands?`): each
-                    permission above it stands, with an older row
-    :none           she holds no permission that stands: no row, an end, a
-                    row that holds no permission, or a permission beneath
-                    one that ended or was given again later
+  "Whether the asker holds a permission that stands in a lane, by the
+  gates' rule (`softland.store.gate.chain/stands?`). `:none` also for an
+  end, for a row that holds no permission, and for a permission beneath one
+  that ended or was given again later.
 
   It reads the permission from her row and not from a caller: what is
   asked is whether the permission that the record holds for her stands."
@@ -180,16 +103,11 @@
       :none)))
 
 (defn run-permission-state
-  "Does the run that the asker asks in hold a permission of hers that
-  stands in a lane. Takes the lane; the asker; the row at the place of
-  the run's permission, the run being the query's `:session` (a row, nil
-  for none, or `:not-known-yet`); and the rows above it, as
-  `permission-state` takes them. Gives the three words of
-  `permission-state`. `:stands` only when the row holds a permission whose
-  holder is the asker, and it stands by the gates' rule: a run's permission
-  is its holder's, and another who that asks in a run of the same id is
-  given nothing by it. What the permission allows is not read: `:see` is
-  enough for a read."
+  "As `permission-state`, for the row of the run that she asks in, the
+  query's `:session`. `:stands` only when the row's permission names the
+  asker as its holder: a run's permission is its holder's, and another who
+  that asks in a run of the same id is given nothing by it. What the
+  permission allows is not read: `:see` is enough for a read."
   [lane asker run-row chain-rows]
   (if (= :not-known-yet run-row)
     :not-known-yet
@@ -201,14 +119,10 @@
         :else :none))))
 
 (defn either
-  "Takes what `permission-state` gave for the asker's permission for the
-  lane, and what `run-permission-state` gave for the run that she asks in.
-  Gives whether she holds a permission that stands, of either kind:
-  `:stands` when one does; else `:not-known-yet` when one is not known;
-  else `:none`. An asker may see a lane that is open to its members under
-  her permission for the lane, or under the permission of the run that she
-  asks in (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md, R8). A
-  permission for one act lets nobody see, and is not read here."
+  "An asker may see a lane that is open to its members under her permission
+  for the lane, or under the permission of the run that she asks in
+  (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md, R8). A permission
+  for one act lets nobody see, and is not read here."
   [for-the-lane for-the-run]
   (cond
     (or (= :stands for-the-lane) (= :stands for-the-run)) :stands
@@ -216,28 +130,12 @@
     :else :none))
 
 (defn standing
-  "Is a lane made, and may this asker see it. Takes the lane; its own
-  rows, or nil when they are not known; whether she holds a permission that
-  stands in it, as `either` gives it (`:stands`, `:none` or
-  `:not-known-yet`); and whether she is signed in. Gives one of four
-  words:
-
-    the lane's own rows   its setting   her permission        it gives
-    not known yet                                              :not-known-yet
-    no depot row                                               :not-made
-    a depot row            :everyone     any, or not read      :yes
-    a depot row            :members      she is not signed in  :may-not-see
-    a depot row            :members      not known yet         :not-known-yet
-    a depot row            :members      one stands            :yes
-    a depot row            :members      none that stands      :may-not-see
+  "Is a lane made, and may this asker see it. The one function of who may
+  see a lane. `permission-state` is what `either` gives. For a lane that is
+  open to everyone her permission is not read.
 
   Any permission that stands allows seeing; what it allows beyond that is
-  not read. `:system` is a who like any other. The one function of who may
-  see a lane (src-store/README.md, entry 1 of 11 and 12 October 2026).
-
-  Not decided. What a lane starts with (`who-may-see`), and that
-  \"members\" is whoever holds a permission in the lane, are kept only so
-  that the build can run."
+  not read. `:system` is a who like any other."
   [lane own-rows permission-state signed-in?]
   (cond
     (nil? own-rows) :not-known-yet
@@ -250,13 +148,10 @@
             :may-not-see)))
 
 (defn meaning-standing
-  "Takes what `meaning` gave for a lane, or nil for a source that is no
-  rights source. Gives the standing that the meaning holds, by the table of
-  `standing`: `:not-known-yet` for rows that are not known, or for a
-  permission whose standing is not known; `:not-made`; `:yes`; or
-  `:may-not-see`. nil for nil. A meaning holds what `standing` reads: an
-  asker who is not signed in holds no permission that stands, so the
-  meaning of her rights is `:none`."
+  "The standing that a meaning of `meaning` holds, as `standing` gives it;
+  nil for nil, a source that is no rights source. What must hold: the
+  meaning holds what `standing` reads. An asker who is not signed in holds
+  no permission that stands, so the meaning of her rights is `:none`."
   [meant]
   (cond
     (nil? meant) nil
@@ -268,27 +163,13 @@
     :else :may-not-see))
 
 (defn in-order
-  "Which lanes a read looks through, nearest first. Takes a query in its
-  one form; and, for a query that names `:from-lane`, the start lane's own
-  rows (nil when they are not known) and the asker's standing in it. Gives
-  a vector of lanes, each once, at its first place; or nil while the list
-  cannot be said yet.
+  "The lanes that a read looks through, nearest first, each once; nil while
+  the list cannot be said yet.
 
-    :lanes [..]     the list as given
-    :from-lane s    s, then the lanes of s's builds-on fact, in the fact's
-                     order; s itself never a second time. No further: the
-                     lists of those lanes are not read. With no fact the
-                     list is s alone. While s's own rows or her standing in
-                     s are not known: nil. When she may not see s, or s is
-                     not made: s alone, since the list is a fact of a lane
-                     that she may not see, and the read does not use it
-
-  Not decided. How far a read walks from a lane is a working answer, for
-  Sid (the one list, and no further), and so is what a read does when the
-  asker may not see the start lane. This function is the one place where
-  the walk would be made; a walk would also make the own rows of each
-  walked lane a thing that `softland.store.read-path.sources/reading`
-  wants before the list is known."
+  For `:from-lane` s: s, then the lanes of s's builds-on fact, and no
+  further: the lists of those lanes are not read. When she may not see s,
+  or s is not made: s alone, since the list is a fact of a lane that she
+  may not see, and the read does not use it."
   [query start-own-rows start-standing]
   (if-let [given (:lanes query)]
     (vec (distinct given))
@@ -299,44 +180,27 @@
         nil))))
 
 (defn home
-  "Takes a query in its one form. Gives the home of the read: the lane that
-  the read starts from, which is `:from-lane`, or the first lane of
-  `:lanes`. It is read from the query alone, so it is the same in every
-  round of a read and for as long as a read is kept live, whatever the
-  tables hold: a home that is not made, or that the asker may not see, is
-  the home all the same.
+  "The lane that a read starts from. It is read from the query alone, so it
+  is the same in every round of a read and for as long as a read is kept
+  live, whatever the tables hold: a home that is not made, or that the
+  asker may not see, is the home all the same.
 
   The home says where a microbatch lane is read, and nothing else
-  (`softland.store.read-path.sources`). Which lanes a read goes through,
-  and in what order, is `in-order`'s."
+  (`softland.store.read-path.sources`)."
   [query]
   (or (:from-lane query) (first (:lanes query))))
 
 (defn left-out
-  "What an answer says of a lane that gave nothing. Takes the lane and
-  why, `:may-not-see` or `:not-made`
-  (`softland.store.read-path.words/left-out-words`). Gives
-  {:lane lane :why why}. It says nothing of the lane's facts.
-
-  Not decided. That a read says which lane it left out, and tells a lane
-  that she may not see from one that is not made, is a working answer, for
-  Sid. This function is the one place where a read would say less."
+  "What an answer says of a lane that gave nothing. `why` is `:may-not-see`
+  or `:not-made` (`softland.store.read-path.words/left-out-words`)."
   [lane why]
   {:lane lane :why why})
 
 (defn meaning
   "What a lane's own rows and the asker's rights in it mean for one query,
-  as a value that `=` compares: her rights as one word, whether a
-  permission of hers that stands is there, for the lane or for her run
-  (`either`). Takes the query in its one form, the
-  lane, its own rows (nil when not known), whether she holds a permission
-  that stands in it (`either`), and whether she is signed in. Gives a map:
-  whether the lane is made; who may see it; whether she holds a permission
-  that stands;
-  and, only when her standing with these rows is `:yes`, the list that the
-  lane builds on when it is the query's start lane, and the stamp of the
-  asked key's mark when the query asks what points at a thing. For rows
-  that are not known it gives `:not-known-yet`.
+  as a value that `=` compares. The list that the lane builds on, and the
+  stamp of the asked key's mark, are in it only when her standing with
+  these rows is `:yes`.
 
   A live read compares the meaning of the rows before and after a change. A
   setting that is written again with the same word means the same, so the

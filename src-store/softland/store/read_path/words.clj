@@ -1,45 +1,19 @@
 (ns softland.store.read-path.words
   "Everything that the read path says to a caller in place of an answer,
-  declared as data: its own ten words, the six reasons for which a live
-  read ends, and the two words for a lane that gave nothing. Pure code. It
-  needs no cluster, and it requires nothing outside Clojure.
+  declared as data. Pure code.
 
-  A call of the read path gives its result, or one of the read path's own
-  words. A word says what the read path could not do. It is no judgment of
-  a fact and no answer: an answer says what the tables hold, and a word says
-  that the read path does not know. A read that failed has never said \"no
-  fact\". A word is kept in no record.
+  A word says what the read path could not do. It is no judgment of a fact
+  and no answer: a read that failed has never said \"no fact\". No answer
+  holds `:could-not`, and no word holds a part of an answer. A word is kept
+  in no record.
 
-  A word, as a caller gets it, is a map:
-
-    :could-not  the word, one of the ten of `words`. Each reads after
-                \"the read path could not\"
-    and what the word carries, each under its own name (`carried`)
-
-  No answer holds `:could-not`, and no word holds a part of an answer.
-
-  Inputs and results, by call:
-
-    word  one of the ten, and a map of what it carries -> the word as a
-          caller gets it, or nil for a word that `words` does not hold
-
-  State and effects. None. `word` is pure.
-
-  Callers. `softland.store.read-path`.
-
-  Not here. The words with which the check of a query turns a thing away:
-  `softland.store.read-path.query/reasons`; a word of this namespace,
-  `:read-the-query`, carries one of them under `:why`. A gate's reason
-  words, the words of a stray and the door's own words are other sets, and
-  the read path's pure proof holds that no word of this namespace is one of
-  them, but for `:find-the-module`: the door has a word of that spelling for
-  its own opening, and the read path's is its own.")
+  The door has a word spelled `:find-the-module` for its own opening; the
+  read path's is its own. The read path's pure proof holds that no other
+  word here is a gate's reason word, a word of a stray or one of the door's.")
 
 (def words
-  "The read path's own ten words. Each has the calls that can give it and
-  what it says. `:keep-the-read-live` is given to an asker's function, under
-  `:ended`, and by no call. The last two are of a read of a lane's acts
-  (`softland.store.read-path.acts`)."
+  "Each word reads after \"the read path could not\". `:keep-the-read-live`
+  is given to an asker's function, under `:ended`, and by no call."
   {:find-the-module
    {:from #{:open}
     :says "the cluster gave no table of the module under that name; no read path is opened"}
@@ -81,8 +55,8 @@
     :says "a read of a lane's acts is asked once and is not kept live; the caller asks again from where the last read ended"}})
 
 (def carried
-  "What a word can carry, by name, with what each is. A word carries no row,
-  no value and no place of a lane."
+  "What a word can carry. A word carries no row, no value and no place of a
+  lane."
   {:module    "the name of the module that the read path was to be opened on"
    :why       "the word with which the check of a query turned the thing away, one of `softland.store.read-path.query/reasons`"
    :at        "the part of the query where the check stopped"
@@ -95,8 +69,8 @@
    :stamp     "the first stamp of a lane's line that the read did not find whole"})
 
 (def because
-  "The six reasons for which a live read ends, each with what it says. A
-  caller gets one under `:because`, in the word `:keep-the-read-live`."
+  "Why a live read ends. A caller gets one under `:because`, in the word
+  `:keep-the-read-live`."
   {:the-store-ended-a-push
    "Rama ended a push that the read holds"
    :a-step-did-not-settle
@@ -111,21 +85,15 @@
    "the asker's function threw while it was given a change"})
 
 (def left-out-words
-  "The two words for why a lane of a read gave nothing, each with what it
-  says. An answer holds one under `:why`, for each lane that it left out
-  (`softland.store.read-path.lanes/left-out`)."
+  "Why a lane of a read gave nothing. An answer holds one under `:why`, for
+  each lane that it left out."
   {:may-not-see "the lane is made, and the asker may not see it"
    :not-made    "the lane is not made"})
 
 (defn word
-  "Makes one of the read path's own words as a caller gets it. Takes the
-  word, one of the ten, and a map of what it carries, or nil. Gives the
-  map of what is carried with `:could-not` in it. A part of an answer among
-  what is carried is left out (`:lanes`, `:left-out`, `:place`, `:places`,
-  `:orders`, `:acts`, `:next`, `:last-stamp`), and `:could-not` cannot be
-  given: a word is never an answer.
-  Gives nil for a word that `words` does not hold, so that no word is made
-  that is not declared."
+  "Nil for a word that `words` does not hold, so that no word is made that
+  is not declared. A part of an answer among what is carried is dropped,
+  and `:could-not` cannot be given: a word is never an answer."
   [the-word carries]
   (when (contains? words the-word)
     (assoc (dissoc (or carries {}) :lanes :left-out :place :places :orders :acts :next :last-stamp)

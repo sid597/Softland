@@ -1,183 +1,25 @@
 (ns softland.store.record.rows
   "The record's rows: the text of each key, the making of each row, and the
-  reading of each row. Pure code. It needs no cluster, and it holds no
-  record: the record is in a gate's PStates
-  (`softland.store.record.tables`), and a gate reads and writes it.
-
-  The record has three kinds of row, each under a string key that begins
-  with its lane, and one value for each task; and the lane's line, the
-  decisions of the lane by stamp, which the section \"The line\" below
-  says.
-
-    an answer   key \"<lane> <act uuid>\"
-                {:refused the reason word, absent when the act was accepted
-                 :stamp   the stamp of the decision: its position in the
-                          lane
-                 :time    the time on the thing, a label that no rule
-                          reads; absent when the thing held no usable time
-                 :digest  32 bytes, the digest of the thing that was decided}
-    a fact      key \"<lane> <entity> <key>\": the current fact of a place
-                {:value       the value, plain, as a String: the one text of
-                              the value in its normal form
-                              (`softland.store.door.text`), as the
-                              declaration's check made it
-                              (`softland.store.door.declaration/check`).
-                              Absent for a retract
-                 :by-act      the fact that wrote this row, as the uuid of
-                 :by-index    its act and its index in that act. The row
-                              of the use of a yes names the act that used
-                              it and no index: no fact wrote it (`use-row`)
-                 :stamp       the stamp of that act's decision
-                 :time        the time on that act, a label that no rule
-                              reads
-                 :who         the one text of the act's `:who`
-                 :permission  the one text of the permission that the act
-                              named
-                 :level-since only in the row of the fact under
-                              `:softland.store/marked-keys`: the one text of
-                              a map from each marked key to the stamp since
-                              which its order by value is level}
-    a fact by value
-                key \"<lane> <key> <since> <value digest> <entity>\": one
-                place under a marked key, in the order of its value
-                {:by-act :by-index :stamp :time :who :permission}: the
-                fact's row without its value. The value is the one whose digest the key
-                holds
-
-  Every accepted fact is a row of the second kind, under a store key or a
-  plain key: the depot of a lane at
-  \"<lane> <lane> :softland.store/depot\", a permission on what it
-  covers (`softland.store.gate.chain/place`), at
-  \"<lane> <holder> :softland.store/permission\" for the lane,
-  \"<lane> <session> :softland.store/run-permission\" for one run and
-  \"<lane> <yes> :softland.store/act-permission\" for a yes for one act,
-  on the yes's own id; the use of a yes is an end there; and
-  at the lane's own entity who may see it, what it builds on and its
-  marked keys. A value is
-  held as one String, its one text, so the field has one class, a push on
-  the row is told each change of it, and \"is this the permission that the
-  act names\" is a comparison of two Strings that are equal only when the
-  values are. `plain-bytes` gives the plain bytes of a value, the UTF-8 of
-  that String, over which the digest of the order by value is taken. Why
-  the field is a String and no byte array is with its schema
-  (`softland.store.record.tables/facts`).
-
-  The third kind, the facts by value. A lane marks a key by a fact
-  (`softland.store.door.declaration/store-keys`). For a marked key a gate
-  keeps each fact that has a value in this order too, so that every place
-  that holds one value under one key is a run of neighbouring keys: the keys
-  that begin with \"<lane> <key> <since> <value digest> \" (`by-value-run`).
-  The value digest is the SHA-256 of the plain bytes of the row's value, as 64 hex
-  characters: a key then has a bound whatever the value is, a value's text
-  may hold a space, and two values share a run only by a collision of the
-  hash. <since> is the stamp that the marks row gives for the key
-  (`marked-keys-of`): the order of a marked key holds every fact under that
-  key whose stamp is later than it, and no other. A mark that is taken off
-  and put on again gets another stamp, so it names other keys, and the rows
-  of the earlier marking stay where they are and no read names them. A
-  retract has no row in this order.
-
-  Where a row lives. The rows are the same for both gates; the tasks are
-  not. The lane's task is the task of the lane's partition in its depot:
-  each depot partitions by the hash of the thing's `:lane`
-  (`softland.store.module`).
-
-    a streaming lane    each answer, each fact and each fact by value on
-                         the lane's task, and on no other
-    a microbatch lane   each fact and each fact by value on every task:
-                         the lane's task writes the row when it decides,
-                         and the gate copies it to each other task
-                         (`softland.store.module.microbatch-gate`). Each
-                         answer on the lane's task, and on no other
-
-  So a read by act-id goes to the lane's task for either depot
-  (`routing-id`), and a read of a microbatch lane's facts finds each row
-  on whichever task it runs. No row names a task.
-
-  The line. For each decision a gate writes a row of the lane's line under
-  \"<lane> <stamp>\", the stamp in 19 digits (`line-key`, `line-row`): the
-  uuid of the act-id, the answer's three fields again, the who that the
-  thing names, and the thing's weight, or the word of why the gate keeps no
-  copy of the thing. Under the same key, in a table of its own, the thing
-  as it arrived, when the gate keeps it. And, when the thing names a usable
-  who, a row by who under \"<lane> <who> <stamp>\" (`by-who-key`), whose
-  value is the stamp: in what a gate keeps for a task, beside the lane's
-  last stamp. So a lane's decisions are one run of neighbouring keys in the
-  order of their stamps (`line-run`), and one who's decisions in a lane are
-  another (`by-who-run`). All three are on the lane's task alone, in both
-  gates: the base's too, which no gate copies to another task
-  (`softland.store.gate.decision/line-writes` says what is written, and
-  why each row is made of the thing, the digest and the stamp alone).
+  reading of each row. Pure code. The record is in a gate's PStates
+  (`softland.store.record.tables`), which says on which task a row lives.
 
   Why the keys are strings. A key is a pair or a triple of ids, and an id is
   a keyword or a UUID: two classes. A string made of the parts' printed
   texts is one class, equal keys are equal strings, and Rama gives the order
-  of string keys, on which the run of one value in the facts by value, and
-  each run of places that a read names, rest. No
-  printed text of an id holds a space, so one space parts the parts. The
-  lane and the depot of an id are in no row: the key says the lane, and
-  the gate that owns the PState says the depot.
+  of string keys, on which each run that a read names rests. No printed
+  text of an id holds a space, so one space parts the parts. The lane and
+  the depot of an id are in no row: the key says the lane, and the gate
+  that owns the PState says the depot.
+
+  A fact's value is held as one String, its one text. So the field has one
+  class, a push on the row is told each change of it, and \"is this the
+  permission that the act names\" is a comparison of two Strings that are
+  equal only when the values are.
 
   The functions that make a row give exactly the classes that the schemas
-  declare: a Long, a UUID, a Keyword, a String, a byte array. A row of another class
-  throws in a topology, and a throw there stops the partition. So a gate
-  writes no row that these functions did not make.
-
-  Inputs and results, by group:
-
-    answer-key, place-key, by-value-key, line-key, by-who-key
-                                      -> the text of a key
-    by-value-run                      a lane, a key, a stamp, a value
-                                      -> the two ends of that value's run
-    line-run, by-who-run              a lane, a who, a stamp -> the two
-                                      ends of the line, or of one who's
-                                      decisions, from that stamp on
-    stamp-of-line-key, stamp-of-by-who-key
-                                      the text of a key -> its stamp
-    line-row                          -> a row of the line to write
-    line-answer                       a stamp and its line row -> the
-                                      answer, as the read by act-id gives it
-    entity-run, own-rows-run, run-of-ends
-                                      a lane, and an entity or two ends
-                                      -> the two ends of a run of places
-    before?                           two texts -> whether the first is
-                                      before the second in the table's order
-    plain-bytes                       the String that a fact's row holds for
-                                      its value -> the value's plain bytes
-    value-digest, value-digest-of     bytes, or a value -> 64 hex characters
-    place-of-key, by-value-entity, id-of-text,
-    answer-key-parts                  the text of a key -> its parts
-    answer-row, fact-row, use-row, with-level-since, by-value-row
-                                      -> a row to write
-    answer-of, written-by?, holds-value?, value-of, read-value,
-    plain-bytes-of, who-of,
-    permission-of, marked-keys-of,
-    held-permission, ended?           a row -> what it says
-    same-row?, holds-this-value?      a row, and a row or a value
-                                      -> true or false
-    routing-id                        an act-id -> its lane, the first
-                                      argument of a read by that act-id
-    answer-read, depot-read, answer-read-by-routing-id
-                                      what a caller gave a read
-                                      -> the keys to read, or nil
-
-  State and effects. None. Each function is pure.
-
-  Callers. `softland.store.gate.decision`, the walk of one thing, which
-  both gates call (`softland.store.module.walk`), and
-  `softland.store.module.door-reads`. The door (`softland.store.door`) and
-  the proof's hand call `routing-id` and the `-read` functions to test what
-  they pass before they call a query. `read-value`, `who-of`,
-  `permission-of`, `marked-keys-of`, `by-value-run`, `by-value-entity`,
-  `place-of-key` and `value-digest-of` are for a reader of the tables; no
-  gate calls `who-of` or `permission-of`, and a gate calls `read-value`
-  only through `held-permission`, for the row at a permission's place that
-  an end or a give would write over. `held-permission` and `ended?` serve
-  both the gates' check of a permission and the read path's. The reader is the
-  read path: its pure namespaces under `softland.store.read-path` call
-  those, and six that only a read needs, which no gate calls:
-  `entity-run`, `own-rows-run`, `run-of-ends`, `before?`, `same-row?` and
-  `holds-this-value?`.
+  declare. A row of another class throws in a topology, and a throw there
+  stops the partition. So a gate writes no row that these functions did not
+  make.
 
   What must hold before a key is made. The functions that make a key, or
   the two ends of a run, test nothing of what they are given. A thing that
@@ -198,42 +40,32 @@
 ;; ----------------------------------------------------------------- the keys
 
 (defn answer-key
-  "Takes a lane id and the uuid of an act-id. Gives the key of that act's
-  answer: \"<lane> <uuid>\". The depot slot of the act-id is not in it: a
-  gate answers only under an act-id of its own depot. The lane is in it,
-  although the uuid alone is random, so that a uuid used in two lanes of
-  one task is two rows. What must hold: the lane is an id within the
-  limit."
+  "The depot slot of the act-id is not in the key: a gate answers only under
+  an act-id of its own depot. The lane is in it, although the uuid alone is
+  random, so that a uuid used in two lanes of one task is two rows."
   [lane uuid]
   (str (declaration/id-text lane) " " uuid))
 
 (defn place-key
-  "Takes a lane id, an entity id and a fact's key. Gives the key of that
-  place: \"<lane> <entity> <key>\". The keys of one entity are neighbours in
-  the order, and the entities of one lane too. What must hold: each of the
-  three is within the limit."
+  "The keys of one entity are neighbours in the order, and the entities of
+  one lane too."
   [lane entity k]
   (str (declaration/id-text lane) " " (declaration/id-text entity) " " (declaration/id-text k)))
 
 ;; ------------------------------------------------------------------ answers
 
 (defn answer-row
-  "Takes the reason word of a refusal, or nil for an accepted act; the stamp
-  of the decision; the time on the thing, or nil for a thing with no usable
-  time; and the digest of the thing, 32 bytes. Gives the answer's row. An
-  accepted act has no `:refused`, and a thing with no time no `:time`:
-  there is one row for every act for ever, so the row keeps the smaller
-  form."
+  "An accepted act has no `:refused`, and a thing with no usable time no
+  `:time`: there is one row for every act for ever, so the row keeps the
+  smaller form. The time is the time on the thing, a label that no rule
+  reads. The digest is the 32 bytes of the thing that was decided."
   [refused stamp time-millis digest]
   (cond-> {:stamp (long stamp) :digest digest}
     (some? time-millis) (assoc :time (long time-millis))
     refused (assoc :refused refused)))
 
 (defn answer-of
-  "Takes an answer's row, or nil. Gives the answer as a caller gets it:
-  {:verdict :accepted or :refused, :reason the word or nil, :stamp the
-  stamp, :time the time or nil, :digest the digest as hex text}; or nil for
-  no row, which is \"nothing yet\"."
+  "nil, for no row, says \"nothing yet\"."
   [row]
   (when row
     {:verdict (if (:refused row) :refused :accepted)
@@ -245,37 +77,29 @@
 ;; -------------------------------------------------------------------- facts
 
 (defn plain-bytes
-  "Takes the String that a fact's row holds as its value. Gives the plain
-  bytes of the value, as a new array: the UTF-8 of the String. In a row that
-  a gate wrote the String is the one text of the value in its normal form,
-  so these are the bytes of that text. What must hold: the thing is a
-  String. Cost: one encoding of the String."
+  "The plain bytes of a value: the UTF-8 of the String that a fact's row
+  holds for it, which in a row that a gate wrote is the one text of the
+  value in its normal form. The digest of the order by value is taken over
+  them."
   [held]
   (.getBytes ^String held StandardCharsets/UTF_8))
 
 (defn plain-bytes-of
-  "Takes a fact's row or nil. Gives the plain bytes of the row's value
-  (`plain-bytes`), or nil when there is no row or the row holds no value. A
-  gate asks it of a row to take the digest of the row's value."
   [row]
   (when-let [held (:value row)]
     (plain-bytes held)))
 
 (defn fact-row
-  "Takes one fact of an act, in the act's one form on arrival; the uuid of
-  the act's act-id; the fact's index in the act; the stamp of the act's
-  decision; the time on the act; the one text of the act's `:who`; and the
-  one text of the permission that the act named. Gives the row of the
-  fact's place. Its
-  `:value` is the fact's `:text`, a String: the one text of the value in its
-  normal form, as the declaration's check made it
+  "`:value` is the fact's `:text`: the one text of the value in its normal
+  form, as the declaration's check made it
   (`softland.store.door.declaration/check`), under a plain key and under a
-  store key alike. A fact with no value, a retract, has no `:text`: the row
-  holds no value, and is there all the same, so that a later fact can
-  replace the retract. Each row holds who wrote it and the permission that
-  the act named, each as its one text: a UUID has two texts, and the one
-  text reads back as a UUID. The two texts are given, and not made here, so
-  that a caller makes them once for an act and not once for each fact.
+  store key alike. A retract has no `:text`: its row holds no value, and is
+  there all the same, so that a later fact can replace the retract.
+
+  `:who` and `:permission` are each the one text: a UUID has two texts, and
+  the one text reads back as a UUID. The two texts are given, and not made
+  here, so that a caller makes them once for an act and not once for each
+  fact.
 
   What must hold: the act passed the declaration's check, so the time is a
   whole number not below zero; and the two texts are
@@ -288,33 +112,23 @@
 
 (defn use-row
   "The row of the use of a yes for one act, at the yes's place
-  (`softland.store.gate.decision`, `use-of-its-yes`). Takes the uuid of the
-  act-id of the act that was taken under the yes, the stamp of its
-  decision, the time on it, and the one texts of its `:who` and of the yes.
-  Gives a row with no `:value`, so that it is an end (`ended?`), and with no
-  `:by-index`: no fact of the act wrote it, so it names the act and no fact
-  of it, and no fact id can be made of it (`written-by?` holds it to none).
-  Every other field is the field of a fact's row. What must hold: as for
-  `fact-row`."
+  (`softland.store.gate.decision`, `use-of-its-yes`). It has no `:value`,
+  so that it is an end (`ended?`), and no `:by-index`: no fact of the act
+  wrote it, so no fact id can be made of it (`written-by?` holds it to
+  none). What must hold: as for `fact-row`."
   [act-uuid stamp time-millis who-text permission-text]
   {:by-act act-uuid :stamp (long stamp) :time (long time-millis) :who who-text :permission permission-text})
 
 (defn with-level-since
-  "Takes the row of a fact under `:softland.store/marked-keys`, as `fact-row`
-  gives it, and a map from each key that the fact marks to the stamp since
-  which the order of that key is level. Gives the row with `:level-since`,
-  the one text of the map. A gate derives the map at the write
-  (`softland.store.gate.decision/writes`): no maker can write a gate's
-  stamp. `marked-keys-of` reads it back."
+  "For the row of a fact under `:softland.store/marked-keys`. `:level-since`
+  is the one text of a map from each key that the fact marks to the stamp
+  since which the order of that key is level. A gate derives the map at the
+  write (`softland.store.gate.decision/writes`): no maker can write a
+  gate's stamp."
   [row since-by-key]
   (assoc row :level-since (text/text since-by-key)))
 
 (defn written-by?
-  "Takes the depot of the gate that owns the record, the lane, a fact's row
-  or nil, and a fact id, [[lane depot uuid] index]. Gives true when the
-  fact that wrote the row is the one named: the fact id is of this lane and
-  this depot, and its uuid and index are the row's. False for no row, for a
-  fact of another lane or depot, and for any other fact."
   [gate-depot lane row fact-id]
   (let [[[named-lane named-depot named-uuid] named-index] fact-id]
     (boolean (and row
@@ -324,56 +138,41 @@
                   (= (:by-index row) named-index)))))
 
 (defn holds-value?
-  "Takes a fact's row or nil, and a value in its one normal form. Gives true
-  when the row's value is that value: it compares the row's String with the
-  one text of the value given, and two values of the form have one text
-  only when they are one value. The row's value is not read as a form. The
-  gates ask it of the row at a permission's place, where only a fact under
-  that store key can be. Cost: one making of the value's text."
+  "The row's value is not read as a form: the row's String is compared with
+  the one text of the value given, and two values of the normal form have
+  one text only when they are one value. What must hold: the value is in
+  its one normal form."
   [row v]
   (boolean (and row
                 (some? (:value row))
                 (= (:value row) (text/text v)))))
 
 (defn- first-form
-  "Takes a string. Gives the first EDN form that it holds, or nil when it
-  holds none or does not read. It never throws. nil is also what the text
-  `nil` reads as; a caller that must tell the two apart compares the text."
+  "nil is also what the text `nil` reads as; a caller that must tell the two
+  apart compares the text."
   [s]
   (try (edn/read-string s)
        (catch Throwable _ nil)))
 
 (defn value-of
-  "Takes a fact's row or nil. Gives the first form that the plain bytes of
-  the row's value read as (`plain-bytes-of`), or nil when there is no row,
-  the row holds no value, or its bytes do not read. It never throws.
-  `softland.store.module.door-reads` asks it of the row at a depot's place
-  and gets the depot word. It tests nothing of the form that it gives: a
-  reader of a tool's fact calls `read-value`."
+  "It tests nothing of the form that it gives: a reader of a tool's fact
+  calls `read-value`."
   [row]
   (when-let [plain (plain-bytes-of row)]
     (first-form (String. ^bytes plain StandardCharsets/UTF_8))))
 
 (defn read-value
-  "What a fact's row says of its value, for a reader of the tables. Takes a
-  fact's row, or nil. Gives one of four:
+  "`[:no-fact]`: no fact was ever accepted at the place. `[:nothing-here]`:
+  the current fact is a retract.
 
-    [:no-fact]       no row: no fact was ever accepted at the place
-    [:nothing-here]  a row with no value: the current fact is a retract
-    [:value v]       the value, as its maker gave it
-    [:not-a-value]   the row's bytes are no value of the form
+  `[:value v]` only when the UTF-8 of the one text of the normal form of
+  `v` is exactly the row's bytes: so nothing stands after the form. A gate
+  writes a fact's row only with the text that the declaration's check made,
+  so no write of a gate earns `[:not-a-value]`: that answer is for a row
+  that came to the table by another hand.
 
-  The row's bytes are the plain bytes of its value (`plain-bytes-of`).
-  `[:value v]` only when the bytes read as one EDN form `v`, `v` is a value
-  that a fact can hold (`softland.store.act/value?`), and the UTF-8 of the
-  one text of its normal form is exactly the row's bytes: so nothing stands
-  after the form, and the row's String is the one text of the value. A gate
-  writes a fact's row only with the text that the declaration's check made
-  of a value of the form, so no write of a gate gives a row that earns the
-  fourth: that answer is for a row that came to the table by another hand.
-  The bytes of the text `nil` read as the value nil; no gate writes that
-  text, since a fact with no value is a retract and its row holds no value.
-  It never throws."
+  The text `nil` reads as the value nil; no gate writes that text, since a
+  fact with no value is a retract and its row holds no value."
   [row]
   (cond
     (nil? row) [:no-fact]
@@ -389,61 +188,43 @@
       (catch Throwable _ [:not-a-value]))))
 
 (defn who-of
-  "Takes a fact's row or a row of the facts by value, or nil. Gives the id
-  that the act which wrote the row gave as its `:who`, read back from its
-  one text: a keyword or a UUID. nil when there is no row or the text does
-  not read as an id. It never throws. The id is what the program that sent
-  the act said: a gate checked no sender
-  (src-store/softland/store/README.md, \"What the gate does not check, said
-  plainly\")."
+  "The id is what the program that sent the act said: a gate checked no
+  sender (src-store/softland/store/README.md, \"What the gate does not
+  check, said plainly\")."
   [row]
   (when-let [held (:who row)]
     (let [id (first-form held)]
       (when (or (act/readable-keyword? id) (uuid? id)) id))))
 
 (defn permission-of
-  "Takes a fact's row or a row of the facts by value, or nil. Gives the
-  permission that the act which wrote the row named, read back from its one
-  text, in its one form. That permission stood when the act was decided.
-  nil when there is no row or the text does not read as a permission id. It
-  never throws. What the permission allows is
-  `softland.store.act/allows` of it."
+  "The permission that the act which wrote the row named. It stood when the
+  act was decided. What it allows is `softland.store.act/allows` of it."
   [row]
   (when-let [held (:permission row)]
     (let [permission (first-form held)]
       (when (act/has-shape? :permission-id permission) permission))))
 
 (defn held-permission
-  "Takes the row at a permission's place, or nil. Gives the permission that
-  the row holds as its value, in its one form: the permission that the fact
-  which wrote the row gave at that place, to a holder for the lane, to a
-  run, or as a yes on its own id. nil when there is no row, when the row
-  holds no value, which is an end of a permission or the use of a yes, and
-  when its value does not read as a permission id; a gate writes no such
-  row under that key. It never throws. `permission-of` is another thing: the
-  permission that the writing act named, which for a give is the giver's."
+  "The permission that the row at a permission's place holds as its value.
+  nil also for a row with no value, which is an end of a permission or the
+  use of a yes. `permission-of` is another thing: the permission that the
+  writing act named, which for a give is the giver's."
   [row]
   (let [[kind v] (read-value row)]
     (when (and (= :value kind) (act/has-shape? :permission-id v))
       v)))
 
 (defn ended?
-  "Takes the row at a permission's place, or nil. Gives true when the row is
-  an end: a row with no value, which a taken fact with no value wrote under
-  one of the three keys of a permission
-  (`softland.store.door.declaration/permission-keys`). False for no row and
-  for a row with a value."
+  "An end is a row with no value, which a taken fact with no value wrote
+  under one of the three keys of a permission
+  (`softland.store.door.declaration/permission-keys`). What must hold: the
+  row is at a permission's place."
   [row]
   (boolean (and row (nil? (:value row)))))
 
 (defn marked-keys-of
-  "Takes the row at a lane's marked-keys place, or nil. Gives a map from
-  each key that the lane marks to the stamp since which the order of that
-  key is level: the row's `:level-since`, read back. `{}` for no row, for a
-  row with no such field, and for a text that does not read as a map from
-  readable keywords to integers. It never throws. A gate reads it where an
-  act is decided, and a read of \"what points at a thing\" reads it first:
-  the stamp is a part of each key of that order."
+  "For the row at a lane's marked-keys place. A read of \"what points at a
+  thing\" reads it first: the stamp is a part of each key of that order."
   [row]
   (let [held (when-let [text (:level-since row)] (first-form text))]
     (if (and (map? held)
@@ -454,78 +235,67 @@
 ;; ------------------------------------------------------- the facts by value
 
 (defn value-digest
-  "Takes the plain bytes of a value, as `plain-bytes-of` gives them for a
-  fact's row. Gives the value's
-  text in the order by value: the SHA-256 of the bytes, as 64 lower-case hex
-  characters. Every JVM has the algorithm. Cost: one hash over the bytes,
-  65,536 at most for a value that a gate accepted under a plain key
+  "The SHA-256 of a value's plain bytes, as 64 hex characters. So a key has a
+  bound whatever the value is, a value's text may hold a space, and two
+  values share a run only by a collision of the hash. Every JVM has the
+  algorithm. Cost: one hash over the bytes, 65,536 at most for a value that
+  a gate accepted under a plain key
   (`softland.store.door.declaration/max-value-bytes`)."
   [value-bytes]
   (text/hex (.digest (MessageDigest/getInstance "SHA-256") ^bytes value-bytes)))
 
 (defn value-digest-of
-  "Takes a value, as a maker would give it. Gives `value-digest` of the plain
-  bytes that a row holds for it: the UTF-8 of the one text of its normal form. So
-  a UUID is always taken as `#uuid \"...\"`, never as its 36 characters,
-  and no caller chooses a text. What must hold: the thing is a value
+  "A UUID is always taken as `#uuid \"...\"`, never as its 36 characters, and
+  no caller chooses a text. What must hold: the thing is a value
   (`softland.store.act/value?`)."
   [v]
   (value-digest (text/utf8 (act/normal-value v))))
 
 (defn by-value-key
-  "Takes a lane id, a fact's key, the stamp since which the key's order is
-  level, a value digest and an entity id. Gives the key of that place in the
-  facts by value: \"<lane> <key> <since> <value digest> <entity>\". The
-  entity is last, so the places that hold one value under one key are
+  "The entity is last, so the places that hold one value under one key are
   neighbours. No part before the entity holds a space, and the digest has a
   fixed length, so a key begins with a run's text only when its lane, key,
-  stamp and digest are that run's. What must hold: each id is within the
-  limit, and the digest is `value-digest`'s."
+  stamp and digest are that run's.
+
+  `since` is the stamp that the marks row gives for the key
+  (`marked-keys-of`): the order of a marked key holds every fact under that
+  key whose stamp is later than it, and no other. A mark that is taken off
+  and put on again gets another stamp, so it names other keys; the rows of
+  the earlier marking stay where they are and no read names them. A retract
+  has no row in this order.
+
+  What must hold: the digest is `value-digest`'s."
   [lane k since digest entity]
   (str (declaration/id-text lane) " " (declaration/id-text k) " " (long since) " " digest " "
        (declaration/id-text entity)))
 
 (defn by-value-run
-  "Takes a lane id, a marked key, the key's stamp as the marks row gives it
-  (`marked-keys-of`), and a value. Gives [from to], the two ends of the run
-  of that value in the facts by value: every key from `from` up to `to`,
-  with `to` not in the run, is a place of that lane whose current fact
-  under that key has that value and was written since that stamp. `from` is
-  the run's text with a space at its end; `to` is the same text with `!` in
-  the place of that space. `!` is the character after a space, so the range
-  holds the keys that begin with `from` and no other. What must hold: the
-  ids are within the limit and the thing is a value; see the namespace
-  docstring."
+  "Every key from `from` up to `to`, with `to` not in the run, is a place of
+  that lane whose current fact under that key has that value and was
+  written since that stamp. `to` is the run's text with `!` in the place of
+  the space at its end: `!` is the character after a space, so the range
+  holds the keys that begin with `from` and no other. `since` is the key's
+  stamp as the marks row gives it (`marked-keys-of`)."
   [lane k since v]
   (let [run (str (declaration/id-text lane) " " (declaration/id-text k) " " (long since) " "
                  (value-digest-of v))]
     [(str run " ") (str run "!")]))
 
 (defn- parts-of-key
-  "Takes the text of a key. Gives its parts, the texts between its spaces,
-  as a vector. No printed text of an id holds a space."
   [k]
   (vec (.split ^String k " " -1)))
 
 (defn by-value-row
-  "Takes the one text of an act's `:who`; the one text of the permission
-  that the act named; the uuid of the act's act-id; the index of one of its
-  facts; the stamp of the act's decision; and the time on the act. Gives
-  the row of that fact in the facts by value: the fact's row without its
-  value. A read of a run then gets who wrote each place, under which
-  permission and at what time with no second read, and a fact that is
-  written again with the same value changes the row. What must hold: the
-  two texts and the time are those that the fact's row holds (`fact-row`)."
+  "The fact's row without its value. So a read of a run gets who wrote each
+  place, under which permission and at what time with no second read, and a
+  fact that is written again with the same value changes the row. What must
+  hold: the two texts and the time are those that the fact's row holds
+  (`fact-row`)."
   [who-text permission-text act-uuid index stamp time-millis]
   {:by-act act-uuid :by-index (long index) :stamp (long stamp)
    :time (long time-millis) :who who-text :permission permission-text})
 
 (defn id-of-text
-  "Takes the printed text of an id or of a fact's key
-  (`softland.store.door.declaration/id-text`). Gives the id: a keyword for a
-  text that begins with a colon, else a UUID. nil for a text that is
-  neither, and for one whose id does not print back as that text. It never
-  throws."
   [id-text]
   (try
     (if (and (string? id-text) (.startsWith ^String id-text ":"))
@@ -536,11 +306,6 @@
     (catch Throwable _ nil)))
 
 (defn place-of-key
-  "Takes a key of the facts table, the text of a place. Gives
-  [lane entity key], each as an id; or nil for a text that is no place's
-  key. It never throws. A row of a run is under one of the store's own keys
-  when `softland.store.door.declaration/store-key?` of the third part is
-  true."
   [place-key-text]
   (try
     (let [parts (mapv id-of-text (parts-of-key place-key-text))]
@@ -549,10 +314,6 @@
     (catch Throwable _ nil)))
 
 (defn by-value-entity
-  "Takes a key of the facts by value. Gives the entity of its place, the
-  last part, as an id; nil for a text that is no such key. It never throws.
-  The place is then [lane entity key], with the lane and the key that the
-  run was asked for."
   [k]
   (try
     (let [parts (parts-of-key k)]
@@ -560,12 +321,6 @@
     (catch Throwable _ nil)))
 
 (defn answer-key-parts
-  "Takes a key of the answers, as `answer-key` makes it. Gives
-  [lane-text uuid]: the printed text of the lane, and the uuid of the
-  act-id as a UUID; nil for a text that is no such key. It never throws.
-  `id-of-text` of the first gives the lane back, a keyword or a UUID. It
-  is for a reader of the answers' keys: no gate and no read of the store
-  calls it."
   [answer-key-text]
   (try
     (let [parts (parts-of-key answer-key-text)]
@@ -578,60 +333,43 @@
 ;; ----------------------------------------------------------------- the line
 
 (def ^:private stamp-zeros
-  "Nineteen zeros: a stamp in a key of the line is written with zeros in
-  front to 19 digits, the digits of 2^63 - 1, the greatest stamp
-  (`softland.store.gate.stamp`). Rama keeps the String keys of a table in
-  the order of their bytes, where \"10\" is before \"9\"; with a fixed width
-  the order of the keys of one lane is the order of its stamps."
+  "A stamp in a key is written with zeros in front to 19 digits, the digits
+  of 2^63 - 1, the greatest stamp (`softland.store.gate.stamp`). Rama keeps
+  the String keys of a table in the order of their bytes, where \"10\" is
+  before \"9\"; with a fixed width the order of the keys of one lane is the
+  order of its stamps."
   "0000000000000000000")
 
 (defn- stamp-text
-  "Takes a stamp, a whole number from 0 to 2^63 - 1. Gives its 19 digits."
+  "What must hold: the stamp is a whole number from 0 to 2^63 - 1."
   [stamp]
   (let [s (Long/toString (long stamp))]
     (str (subs stamp-zeros (count s)) s)))
 
 (defn line-key
-  "Takes a lane id and a stamp. Gives the key of the decision at that
-  stamp in the lane's line, and of its thing: \"<lane> <stamp>\", the
-  stamp in 19 digits. What must hold: the lane is an id within the limit,
-  and the stamp is a whole number from 0 to 2^63 - 1."
+  "The key of a decision in the lane's line, and of its thing."
   [lane stamp]
   (str (declaration/id-text lane) " " (stamp-text stamp)))
 
 (defn line-run
-  "Takes a lane id and a stamp. Gives [from to], the two ends of the run of
-  the lane's line from that stamp on: every key from `from` up to `to`,
-  with `to` not in the run, is a decision of that lane at that stamp or a
-  later one, in the order of the stamps. `to` is the lane's text and `!`,
-  the character after a space. What must hold: as for `line-key`."
+  "The lane's line from that stamp on, in the order of the stamps; `to` is
+  not in the run."
   [lane stamp]
   [(line-key lane stamp) (str (declaration/id-text lane) "!")])
 
 (defn by-who-key
-  "Takes a lane id, a who and a stamp. Gives the key of a row by who:
-  \"<lane> <who> <stamp>\", the who as the printed text of its id and the
-  stamp in 19 digits. The rows by who of one who in one lane are
-  neighbours, in the order of their stamps. What must hold: the lane and
-  the who are ids within the limit (`softland.store.door.declaration/usable-id?`),
-  and the stamp is as for `line-key`."
   [lane who stamp]
   (str (declaration/id-text lane) " " (declaration/id-text who) " " (stamp-text stamp)))
 
 (defn by-who-run
-  "Takes a lane id, a who and a stamp. Gives [from to], the two ends of the
-  run of that who's rows by who in that lane from that stamp on, `to` not
-  in it: the run's text, then `!` in the place of the space before the
-  stamp. No printed text of an id holds a space, so the run holds no row of
-  another who whose text begins with this one's. What must hold: as for
-  `by-who-key`."
+  "One who's rows by who in a lane from that stamp on; `to` is not in the
+  run. No printed text of an id holds a space, so the run holds no row of
+  another who whose text begins with this one's."
   [lane who stamp]
   (let [run (str (declaration/id-text lane) " " (declaration/id-text who))]
     [(str run " " (stamp-text stamp)) (str run "!")]))
 
 (defn- stamp-at-the-end
-  "Takes the text of a key. Gives the stamp of its last part, when that part
-  is 19 digits; nil for any other text. It never throws."
   [k]
   (try
     (let [^String k k
@@ -643,40 +381,24 @@
     (catch Throwable _ nil)))
 
 (defn stamp-of-line-key
-  "Takes a key of the line, or of the things. Gives its stamp; nil for a
-  text that is no such key. It never throws."
+  "Also for a key of the things."
   [k]
   (stamp-at-the-end k))
 
 (defn stamp-of-by-who-key
-  "Takes a key of the rows by who. Gives its stamp; nil for a text that is
-  no such key. It never throws."
   [k]
   (stamp-at-the-end k))
 
 (defn line-row
-  "Takes the uuid of the act-id under which the thing arrived; the reason
-  word of a refusal, or nil for an accept; the time on the thing, or nil;
-  the digest of the thing, 32 bytes; the who that the thing names, an id
-  that is usable (`softland.store.door.declaration/usable-id?`), or nil;
-  the thing's weight when the gate keeps the thing, or nil; and the word of
-  why the gate keeps no thing, or nil. Gives the line row:
+  "`:digest` is hex text, where the answer's row holds the 32 bytes given:
+  no field of the line is a byte array
+  (`softland.store.record.tables/line`). `:weight` only when the gate
+  keeps the thing; `:not-kept`, `:too-heavy` or `:not-weighed`, only when it
+  does not. The other fields are those of the answer's row under the
+  act-id, made of the same values in the same decision.
 
-    {:act      the uuid of the act-id; the key says the lane, and the gate
-               that owns the table says the depot
-     :refused  the reason word; absent for an accept
-     :time     the time on the thing; absent when it held no usable one
-     :digest   the digest as 64 hex characters, the form in which a caller
-               gets it: a String, so that no field of the line is a byte
-               array (`softland.store.record.tables/line`)
-     :who      the printed text of the who that the thing names; absent
-               when it names no usable one
-     :weight   the thing's weight; only when the thing is kept
-     :not-kept `:too-heavy` or `:not-weighed`; only when it is not}
-
-  The answer's four fields are those of the answer's row under the
-  act-id, made of the same values in the same decision
-  (`line-answer`)."
+  What must hold: the who is nil or a usable id
+  (`softland.store.door.declaration/usable-id?`)."
   [act-uuid refused time-millis digest who weight not-kept]
   (cond-> {:act act-uuid :digest (text/hex digest)}
     refused (assoc :refused refused)
@@ -686,10 +408,7 @@
     not-kept (assoc :not-kept not-kept)))
 
 (defn line-answer
-  "Takes a stamp and the line row at it. Gives the answer of the decision
-  as the read by act-id gives it (`answer-of` of the answer's row): its
-  verdict, the reason of a refusal or nil, the stamp, the time or nil, and
-  the digest as hex text."
+  "The answer as `answer-of` gives it of the answer's row."
   [stamp row]
   {:verdict (if (:refused row) :refused :accepted)
    :reason  (:refused row)
@@ -700,47 +419,40 @@
 ;; ------------------------------------------------ the runs that a read names
 
 (defn entity-run
-  "Takes a lane id and an entity id. Gives [from to], the two ends of the
-  run of that entity's places in the facts table: every key from `from` up
-  to `to`, with `to` not in the run, is a place of that entity in that
-  lane. `from` is \"<lane> <entity> \"; `to` is the same text with `!` in
-  the place of its last space. `!` is the character after a space, so the
-  range holds the keys that begin with `from` and no other: not a place of
-  an entity whose text only begins with this entity's text. What must hold:
-  both are ids within the limit."
+  "`to` is `from` with `!` in the place of its last space: `!` is the
+  character after a space, so the run holds no place of an entity whose
+  text only begins with this entity's text. `to` is not in the run."
   [lane entity]
   (let [run (str (declaration/id-text lane) " " (declaration/id-text entity))]
     [(str run " ") (str run "!")]))
 
 (defn own-rows-run
-  "Takes a lane id. Gives [from to], the two ends of the run of the lane's
-  own rows in the facts table: the rows of the lane's own entity under the
-  keys of the store's namespace
-  (`softland.store.door.declaration/store-namespace`), `to` not in the run.
-  Those are the lane's depot, who may see it, what it builds on and its
+  "The lane's own rows: those of the lane's own entity under the keys of the
+  store's namespace (`softland.store.door.declaration/store-namespace`).
+  They are the lane's depot, who may see it, what it builds on and its
   marked keys; and a permission at the lane's own entity, when the lane's
   id is also the id of what that permission sits on: a holder's permission
   for the lane, a run's when a session has the lane's id, a yes's when its
-  own id is the lane's. Every key of that namespace prints as `:softland.store/...`,
-  so `from` is \"<lane> <lane> :softland.store/\", and `to` is the same
-  text with `0`, the character after `/`, in the place of its last
-  character. What must hold: the lane is an id within the limit."
+  own id is the lane's.
+
+  `to` is `from` with `0`, the character after `/`, in the place of its
+  last character, and is not in the run."
   [lane]
   (let [run (str (declaration/id-text lane) " " (declaration/id-text lane) " :" declaration/store-namespace)]
     [(str run "/") (str run "0")]))
 
 (defn before?
-  "Takes two texts. Gives true when the first is before the second in the
-  order in which Rama keeps the String keys of a table: by code point,
-  which is the order of the bytes of UTF-8. A text that is the start of
-  another is before it; a text is not before itself. Not by Java's
-  `compareTo`, which compares UTF-16 units and so puts a letter outside the
-  first plane before U+E000. That a table goes through its keys in this
-  order was run on a probe's table and on the store's own. For a key that
-  holds a letter from U+E000 on, or one outside the first plane, Rama was
-  also seen to use Java's order: at the end of a range, and in the map that
-  its client makes of a run. A reader guards against that where it reads
-  (`softland.store.read-path.sources`). What must hold: both are Strings."
+  "The order in which Rama keeps the String keys of a table: by code point,
+  which is the order of the bytes of UTF-8. Not Java's `compareTo`, which
+  compares UTF-16 units and so puts a letter outside the first plane before
+  U+E000.
+
+  That a table goes through its keys in this order was run on a probe's
+  table and on the store's own. For a key that holds a letter from U+E000
+  on, or one outside the first plane, Rama was also seen to use Java's
+  order: at the end of a range, and in the map that its client makes of a
+  run. A reader guards against that where it reads
+  (`softland.store.read-path.sources`)."
   [a b]
   (let [^String a a
         ^String b b
@@ -758,23 +470,10 @@
                   :else (recur (+ i (Character/charCount ca)) (+ j (Character/charCount cb)))))))))
 
 (defn run-of-ends
-  "Takes a lane id and the two ends of a run of its places, as a query
-  names them. Gives [from to], the two texts between which the run lies in
-  the facts table, `to` not in the run; or nil when the first end is after
-  the last, or an end is none of these:
-
-    as the first end   :first         from the lane's first place
-                       [entity]       from the entity's first place
-                       [entity key]   from that place
-    as the last end    [entity]       to the entity's last place
-                       [entity key]   to that place: the place's key and
-                                      one space, so that the place is in
-                                      the run
-                       :last          to the lane's last place
-
-  Both texts begin with the lane's text and a space or `!`, so a run never
-  leaves its lane. What must hold: each id is within the limit and each
-  key a readable keyword within it."
+  "The two ends are as a query names them. A place as the last end gives the
+  place's key and one space, so that the place is in the run; `to` is not
+  in it. Both texts begin with the lane's text and a space or `!`, so a run
+  never leaves its lane."
   [lane first-end last-end]
   (let [l (declaration/id-text lane)
         from (cond
@@ -791,29 +490,21 @@
 ;; ------------------------------------------------- one row against another
 
 (defn same-row?
-  "Takes two rows, each a row of the facts table or of the facts by value,
-  or nil. Gives true when both are nil, or each field of one equals the
-  same field of the other. False when one is nil, or a field differs or is
-  in one only. Each field of such a row is a Long, a UUID or a String, and
-  none a byte array, so the equality of the two maps says it. It never
-  throws. A reader of the tables asks it of the row before and the row
-  after a change: a row that a second attempt of a batch wrote again is the
-  same row."
+  "Each field of a row of the facts or of the facts by value is a Long, a
+  UUID or a String, and none a byte array, so the equality of the two maps
+  says it. A reader asks it of the row before and the row after a change: a
+  row that a second attempt of a batch wrote again is the same row."
   [row-a row-b]
   (try
     (= row-a row-b)
     (catch Throwable _ false)))
 
 (defn holds-this-value?
-  "Takes a fact's row or nil, and a value as a maker would give it. Gives
-  true when the row holds a value and `value-digest` of its plain bytes is
-  `value-digest-of` of the value: the test by which a gate puts a fact in
-  that value's order by value. False for no row and for a retract. A reader
+  "The test by which a gate puts a fact in a value's order by value. A reader
   asks it of a nearer lane's row at a place that a farther lane's order
   gives: the place is given from the nearer row exactly when a mark would
-  have put that row in the nearer lane's own order for the value. What
-  must hold: the value passes `softland.store.act/value?`. It never
-  throws."
+  have put that row in the nearer lane's own order for the value. What must
+  hold: the value passes `softland.store.act/value?`."
   [row v]
   (try
     (boolean (and row
@@ -824,42 +515,32 @@
 ;; ------------------------------------------- what a caller gave a read
 
 (defn answer-read
-  "The test at the head of the read by act-id. Takes what a caller gave: a
-  lane and an act-id. Gives [depot key]: the depot slot of the act-id, and
-  the key of its answer; or nil when no read is to be made: the lane is no
-  id within the limit, the thing is no act-id, or its lane slot is not the
-  lane given. It never throws."
+  "The test at the head of the read by act-id: nil when no read is to be
+  made."
   [lane act-id]
   (when (and (declaration/usable-id? lane)
              (declaration/act-id-in-lane? lane act-id))
     [(nth act-id 1) (answer-key lane (nth act-id 2))]))
 
 (defn depot-read
-  "The test at the head of the read of a lane's depot. Takes what a caller
-  gave as a lane. Gives the key of the lane's depot fact, the place of the
-  lane as entity under `:softland.store/depot`; or nil when the thing is no
-  id within the limit. It never throws."
+  "The test at the head of the read of a lane's depot: nil when the thing is
+  no id within the limit."
   [lane]
   (when (declaration/usable-id? lane)
     (place-key lane lane :softland.store/depot)))
 
 (defn routing-id
-  "Takes an act-id. Gives its routing id, the first argument of the read by
-  act-id: the act-id's lane, for a streaming act-id and for a microbatch
-  one. Rama's client hashes it, so the read goes straight to the lane's
-  task, where the answer is in either gate's record. Gives nil for a thing
-  that is no act-id. It never throws."
+  "The first argument of the read by act-id: the act-id's lane, for either
+  depot. Rama's client hashes it, so the read goes straight to the lane's
+  task, where the answer is in either gate's record."
   [act-id]
   (when (and (vector? act-id)
              (declaration/act-id-in-lane? (nth act-id 0 nil) act-id))
     (nth act-id 0)))
 
 (defn answer-read-by-routing-id
-  "The test at the head of the query by act-id. Takes what a caller gave: a
-  routing id and an act-id. Gives what `answer-read` gives for the act-id
-  and its own lane slot, [depot key]; or nil when no read is to be made:
-  the thing is no act-id, the routing id is not the act-id's lane, or the
-  lane is over the limit. It never throws."
+  "The test at the head of the query by act-id: nil also when the routing id
+  is not the act-id's lane."
   [given act-id]
   (let [own (routing-id act-id)]
     (when (and (some? own) (= own given))
