@@ -33,8 +33,9 @@ from the repository root; W is this folder.
   held against the prose of its file: what was left over said who chose a
   thing or that nobody had, and no why, trap or limit stood in an entry
   alone. The five files are in `W/as-files/`.
-- **The code is the same.** `python3 -I W/same_code.py 4369cfd <file>` prints
-  "same code" for each of the 46 files. Every proof ran once on this tree:
+- **The code is the same.** The cut's checker, which compares a file with
+  itself at a commit once docstrings and comments are taken out, said "same
+  code" against 4369cfd for each of the 46 files. Every proof ran once on this tree:
   `W/proofs-after-the-review.txt`.
 
 ## What Sid answered, 25 November 2026, in a session's chat
@@ -119,8 +120,11 @@ from the cloud, and the first two need it.
    - That a row reader does not throw, and that a caller prints as a word and
      nothing else (it holds the hash of the secret), are held by a sentence
      and by no check.
-   - `W/as-files/`, `W/calls/` and `assemble_calls.py` are superseded and
-     kept. Deleting them is his word to give.
+   - `W/as-files/` and `W/calls/` are superseded and kept. Deleting them is
+     his word to give.
+   - The Python files of the proposal folders are gone, 31 of them, on his
+     word of 25 November 2026; the four of this folder among them (the
+     rename's map, the checker, and two more). They are in git's history.
 
 For a cloud session to run the proofs: the "Softland" environment allows the
 four hosts that Clojure and Rama are fetched from. Clojure's tools are not
@@ -144,8 +148,8 @@ busy; the next try goes through.
        - The sections above this one are left as typed. Where an entry there
          says "layer" for what one gate decides in one line, read "lane".
        - Built: the word was changed in code, checks and pages by one map,
-         with no change of behaviour (9d08cf5; `rename.py` and the records of
-         the proofs are in `src/proposal/lane-2026-11-25/`). Quoted lines
+         with no change of behaviour (9d08cf5; the records of the proofs are
+         in `src/proposal/lane-2026-11-25/`). Quoted lines
          that the map reached were put back as typed (62c3656).
     2. **Code is the truth of what happens, and a check is the truth of what
        must hold. Prose beside the code stays only where it is the one home
