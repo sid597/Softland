@@ -29,26 +29,6 @@
 
   Cost: to know that a permission stands takes one row for each permission
   of its chain. The depth has a bound (`softland.store.act`, `nesting`)."
-  {:softland/whose-call
-   [{:state :decided
-     :what "A permission is ended by its giver or by anyone above; what was
-            given beneath ends with it; and a holder can be given a
-            permission again."
-     :source "Sid, 20 and 21 November 2026;
-              src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6"}
-    {:state :not-decided
-     :what "The end of what is beneath a permission is read at each decision,
-            up the chain, and written nowhere. His to turn. The other way
-            writes an end on each place beneath at the end itself: it needs a
-            table of who gave to whom, and one end then writes a row for each
-            holder beneath, with no bound, in one decision of the lane's one
-            line."
-     :source "a session, 21 November 2026"}
-    {:state :not-decided
-     :what "The stamp tells a second give of a permission from the first. His
-            to turn. The other way is one more part of the id; it can be
-            added later as a slot was (`softland.store.act`)."
-     :source "a session, 21 November 2026"}]}
   (:require [softland.store.act :as act]
             [softland.store.record.rows :as record]))
 

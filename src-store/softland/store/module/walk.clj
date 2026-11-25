@@ -134,11 +134,6 @@
       word every thing of the depot is a stray.
     - No function that it calls throws on what arrives. A throw in the walk
       fails the event or the attempt of the batch that called it."
-  {:softland/whose-call
-   [{:state :not-decided
-     :what "The depth of a permission is not decided (`softland.store.act`,
-            `nesting`). The bound on the reads of one call of the walk, 8,228
-            for a depth of 32, comes down with it."}]}
   (:require [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]
             [softland.store.door.declaration :as declaration]

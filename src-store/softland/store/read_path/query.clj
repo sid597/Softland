@@ -26,20 +26,6 @@
   none.
 
   `check` never throws."
-  {:softland/whose-call
-   [{:state :decided
-     :what "Nobody decides what a tool asks; what is decided is the few words
-            that a query is made of."
-     :source "src-store/README.md, decisions of 11 and 12 October 2026, entry
-              6"}
-    {:state :not-decided
-     :what "The form of the map of a query, and each word of it, is the
-            builder's and is Sid's to change."}
-    {:state :not-decided
-     :what "Who asks is what the caller says: the check takes `:asker` as
-            given. Sign-in would stand in front of the read path and change
-            none of this."
-     :source "BUILD-reads.md, B2"}]}
   (:require [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.store.read-path.sources :as sources]
@@ -47,28 +33,11 @@
 
 ;; ------------------------------------------------------------- the numbers
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "How many lanes one read can go through, the start lane and
-                the lanes that a builds-on fact can name
-                (`softland.store.door.declaration/max-builds-on`), is a
-                number of the build, kept and not decided."}]}
-  max-lanes-of-one-read
+(def max-lanes-of-one-read
   "The start lane and the lanes that a builds-on fact can name."
   (inc declaration/max-builds-on))
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "Each of the read path's nine numbers is the builder's, kept
-                and not decided, and an opener can give another at
-                `softland.store.read-path/open`: `:run-start-places` 256,
-                `:max-places-of-one-run` 20,000, `:max-checks-of-one-read`
-                40,000, `:max-checks-of-one-live-read` 250,
-                `:max-pushes-under-one-routing-id` 900,
-                `:max-paths-in-one-call` 2,000, `:wait-ms` 10,000,
-                `:max-acts-of-one-read` 1,000,
-                `:max-thing-weight-of-one-read` 33,554,432."}]}
-  default-numbers
+(def default-numbers
   "The read path's numbers. An opener can give another at
   `softland.store.read-path/open`.
 

@@ -55,30 +55,16 @@
     (writeFailed [_ _] nil)
     (writeSuccess [_] nil)))
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "The server pings each open connection of the line every 20000
-                ms. A number of the build, kept and not decided."}]}
-  ping-ms
+(def ping-ms
   "How often the server pings each open connection of the line."
   20000)
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "A connection of the line is closed after 60000 ms with
-                nothing received, a pong included. A number of the build,
-                kept and not decided."}]}
-  idle-ms
+(def idle-ms
   "After how long with nothing received, a pong included, a connection of
   the line is closed."
   60000)
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "One write of a frame to a connection of the line may wait
-                30000 ms for the system to read it before the write is a
-                failure. A number of the build, kept and not decided."}]}
-  send-ms
+(def send-ms
   "How long one write of a frame to a connection of the line may wait for
   the system to read it before the write is a failure."
   30000)

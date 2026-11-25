@@ -169,32 +169,6 @@
   the read path rests on and does not test at a read: that every task holds
   the rows. A task that held fewer would give the askers of its homes fewer,
   and no read would notice."
-  {:softland/whose-call
-   [{:state :decided
-     :what "Each program that can open Rama's ports is trusted with the whole
-            store."
-     :source "src-store/README.md, decisions of 11 and 12 October 2026, entry
-              4"}
-    {:state :not-decided
-     :what "The read path's 900 (`:max-pushes-under-one-routing-id`) stands
-            under the default of Rama's option `pstate.proxy.limit`, 1,000.
-            To raise that option, and this number with it, is a setting for
-            Sid to weigh. The read path sets none of Rama's options."}
-    {:state :not-decided
-     :what "The read path's two bounds on pushes,
-            `:max-pushes-under-one-routing-id` and
-            `:max-checks-of-one-live-read`, are the build's, kept and not
-            decided, and so is the way of the checks that needs a push for
-            each."}
-    {:state :not-decided
-     :what "Room that the read path leaves, each a thing that is not in this
-            build and that it decides nothing of: sign-in, in front of the
-            read path (who asks is what the caller says, and `:system` is a
-            who like any other); a network edge, a screen, a view, a tool, an
-            agent; a record of who read what (nothing is kept of a read); a
-            new word of a query (finding by text, looking back, what stands
-            on a fact, everything one person wrote), which is one entry in
-            each of three maps (`softland.store.read-path.query/words`)."}]}
   (:require [com.rpl.rama :as rama]
             [com.rpl.rama.path :as path]
             [softland.store.read-path.acts :as acts]
@@ -262,15 +236,7 @@
   path that opened the read, so that a handle of another read path is told
   apart.")
 
-(def ^:private
-  ^{:softland/whose-call
-    [{:state :not-decided
-      :what "A live read opens within 8 rounds on tables that do not change
-             while it opens, and is given 8 more, 16 in all, for writes that
-             make a part of it wanted anew while it opens. The 8 more are the
-             builder's choice, and not decided: a read that writes keep from
-             settling is turned away, and its caller asks again."}]}
-  max-rounds
+(def ^:private max-rounds
   "How many rounds a read is given, by how it is asked, before it stops with
   `:get-an-answer-within-its-wait`. Set from the chains of a read's sources
   (`softland.store.read-path.sources` derives them).

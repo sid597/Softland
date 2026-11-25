@@ -44,16 +44,6 @@
   answer of an act from the record, by the query, and never from a log. It
   borrows four handles of Rama's client; the opener owns the cluster
   handle, and nothing closes the door."
-  {:softland/whose-call
-   [{:state :not-decided
-     :what "Sign-in, in front of the door, is an open row of the queue, and
-            the door decides nothing of it: it stands before this code runs,
-            and changes none of it."
-     :source "K7 to K10, Q16"}
-    {:state :not-decided
-     :what "Who may act as the system is an open row of the queue, and the
-            door decides nothing of it: `:system` is treated as any who."
-     :source "K9"}]}
   (:require [com.rpl.rama :as rama]
             [softland.store.door.additions :as additions]
             [softland.store.door.digest :as digest]
@@ -159,13 +149,6 @@
   made all the same, and it is what leaves room for a lane whose depot can
   change. The door remembers no lane's depot between two calls: that would
   be a kept copy of what the cluster holds."
-  {:softland/whose-call
-   [{:state :not-decided
-     :what "A lane whose depot changes is an open row of the queue, and the
-            door decides nothing of it. The door reads the lane's depot for
-            each act-id that it makes and remembers none, which is the room
-            that it leaves."
-     :source "?9"}]}
   [^Door door lane]
   (let [[outcome got] (attempt (fn [] (rama/foreign-invoke-query (.-depot-query door) lane)))]
     (if (= :threw outcome)
@@ -358,22 +341,6 @@
   door has no bound on the count of facts, on the size of a value or on how
   deep a thing goes: each is a gate's to judge, of a thing that is on its
   depot by then."
-  {:softland/whose-call
-   [{:state :decided
-     :what "The time on the act is a label that no rule reads: the stamp is
-            the lane's count of decisions and holds no time."
-     :source "`softland.store.gate.stamp`; Sid's decision of 14 October 2026"}
-    {:state :not-decided
-     :what "What a second send of the same act carries as its time is Sid's
-            to say. Kept for now: it carries the door's clock of the second
-            send. Another answer would be made in three places:
-            `softland.store.door/send-act`, which reads the clock at every
-            send; the door's test of its own parts
-            (`softland.store.door.additions/reading`), which ends in
-            `:add-its-parts` for an act that already holds a time, so a maker
-            cannot hand the time of her first send in; and the digest's
-            leaving the time out (`softland.store.door.digest`), which is
-            what makes two sends with two times one thing."}]}
   ([door act] (send-act door act nil))
   ([^Door door act act-id]
    (let [reading (additions/reading act act-id)]

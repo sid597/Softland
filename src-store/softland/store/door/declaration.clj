@@ -24,38 +24,20 @@
 
 ;; ------------------------------------------------------------- the limits
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "How many facts one act can hold: 256. A number of the build,
-                kept and not decided."}]}
-  max-facts
+(def max-facts
   "It bounds the rows that one event writes."
   256)
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "How many entries the `:based-on` of one act can hold: 1024. A
-                number of the build, kept and not decided."}]}
-  max-based-on
+(def max-based-on
   1024)
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "How many bytes the value of one fact under a plain key can
-                have: 65536. A number of the build, kept and not decided; it
-                bounds the bytes of one row."}]}
-  max-value-bytes
+(def max-value-bytes
   "For one fact under a plain key: the UTF-8 bytes of the one text of the
   value in its normal form, which are the bytes that the fact's row holds
   for the value. A value under a store key keeps the limits of its own key."
   65536)
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "How many bytes of text an accept of one act can write into
-                the rows of its facts: 18874368, which is 18 times 2^20. A
-                number of the build, kept and not decided."}]}
-  max-act-bytes
+(def max-act-bytes
   "How many bytes of text an accept of one act can write into the rows of
   its facts. Counted for each fact: the UTF-8 bytes of the one text of its
   value, under a plain key or a store key; and the UTF-8 bytes of the one
@@ -76,33 +58,19 @@
   yes once more (`softland.store.gate.decision`, `use-of-its-yes`)."
   18874368)
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "How many characters the printed text of an id, or of a fact's
-                key, can have: 256. A number of the build, kept and not
-                decided."}]}
-  max-id-text
+(def max-id-text
   "How many characters the printed text of an id, or of a fact's key, can
   have. A readable keyword has no greatest length in the form, and a row's
   key is made of two or three of these texts; so without this limit a key
   had none."
   256)
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "How many lanes the fact under `:softland.store/builds-on` can
-                name: 64. A number of the build, kept and not decided. Sid, 9
-                October 2026: \"if someone is building like 50 layers\"."}]}
-  max-builds-on
+(def max-builds-on
   "With each id at its limit the row of the fact under
   `:softland.store/builds-on` is about 16.5 KB."
   64)
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "How many keys the fact under `:softland.store/marked-keys`
-                can hold: 32. A number of the build, kept and not decided."}]}
-  max-marked-keys
+(def max-marked-keys
   "A gate reads the row of the fact under `:softland.store/marked-keys` for
   each act with a fact under a plain key, so the number bounds a row that
   is read often: about 8.3 KB of keys and 9 KB of stamps at the limits."
@@ -110,15 +78,7 @@
 
 ;; ------------------------------------------------------- the time on the act
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "What the time on the act is called is Sid's to say; kept for
-                now. `:door-time` is a working name, a session's. `time-part`
-                is the one place where the name is made: the shape
-                `:arrived-act`, the door's additions, the digest and
-                `time-on` read it from there. The reason word `:no-door-time`
-                is a word of its own and is not read from there."}]}
-  time-part
+(def time-part
   "The part of an arrived thing that holds the time on the act. This def is
   the one place where the name is made; the reason word `:no-door-time` is
   a word of its own and is not read from here.
@@ -139,10 +99,6 @@
   No bound above. The time is a label that no rule reads and no sum takes,
   so a time far ahead of every clock is a wrong label and harms nothing
   else. Order never uses the time."
-  {:softland/whose-call
-   [{:state :decided
-     :what "Order and time are apart, and order never uses the time."
-     :source "Sid's decision of 14 October 2026"}]}
   [thing]
   (let [t (try (when (and (map? thing) (not (record? thing))) (get thing time-part))
                (catch Throwable _ nil))]
@@ -165,57 +121,14 @@
 
 ;; --------------------------------------------------------- the store keys
 
-(def ^{:softland/whose-call
-       [{:state :decided
-         :what "The word `softland.store`, the namespace of the store's own
-                keys, is Sid's."
-         :source "Sid, 9 October 2026 (src-store/README.md, K4 B)"}]}
-  store-namespace
+(def store-namespace
   "The store owns the whole of it: a fact whose key has this namespace is
   under one of `store-keys`, or a gate refuses it (the rule
   `:store-key-is-known`). A key with another namespace, and a key with
   none, is a plain key and a tool's own."
   "softland.store")
 
-(def ^{:softland/whose-call
-       [{:state :decided
-         :what "The store's keys carry a namespace, and Sid gave the words:
-                `softland.store` before the slash, and \"depot\" for the kind
-                of a lane, streaming or microbatch."
-         :source "Sid, 9 October 2026 (src-store/README.md, K4 B)"}
-        {:state :decided
-         :what "Who may see a lane, what it builds on and the keys that it
-                marks are of the read build."
-         :source "src-store/README.md, decisions of 11 and 12 October 2026,
-                  entries 1, 2 and 6"}
-        {:state :decided
-         :what "A visitor of a lane that everyone may see reads no act whole
-                \"unless the layer turns it on\"."
-         :source "Sid, the runtime's page, entry 9"}
-        {:state :not-decided
-         :what "That the lane turns on the reading of its acts whole by the
-                key `:softland.store/who-may-read-acts` is a session's form."}
-        {:state :not-decided
-         :what "The four words of the keys are a session's, and Sid's to
-                change: who may see a lane, who may read its acts whole, what
-                it builds on, and its marked keys."}
-        {:state :decided
-         :what "A holder can have, beside her permission for the lane, one
-                for each of any number of runs, and any number of yeses for
-                acts."
-         :source "Sid, 21 November 2026, src-store/README.md, entry 6 of 20
-                  and 21 November"}
-        {:state :not-decided
-         :what "The words of the two keys `:softland.store/run-permission`
-                and `:softland.store/act-permission` are a session's."}
-        {:state :not-decided
-         :what "A holder has one permission for the lane at a time: she
-                cannot hold \"see\" from one giver and \"see and act\" from
-                another. That is not decided, and is kept as built. The rule
-                `:permission-fact-sits-on-its-holder` and
-                `softland.store.gate.decision/permission-place` are where the
-                other answer would be made."}]}
-  store-keys
+(def store-keys
   "The keys that the store itself reads. `:value` is a name of `shapes`.
   `:sits-on` is a word for the reader of this table; the rules of a
   permission fact and the gate's check of a setting hold what it says.
@@ -328,23 +241,12 @@
 (defn- in-store-namespace?
   "The namespace is taken exactly: a key with no namespace is not in it, and
   `softland.store.x` is another namespace."
-  {:softland/whose-call
-   [{:state :not-decided
-     :what "Whether the store owns longer namespaces such as
-            `softland.store.x` too is not decided. Kept: the namespace is
-            taken exactly, so `softland.store.x` is another namespace."}]}
   [k]
   (= store-namespace (namespace k)))
 
 ;; ------------------------------------------------------- the declared shape
 
-(def ^{:softland/whose-call
-       [{:state :decided
-         :what "A record that arrives with no time is refused. The entry of
-                `time-part` in `:arrived-act` is the one place where another
-                answer would be made."
-         :source "Sid's decision of 14 October 2026"}]}
-  shapes
+(def shapes
   "The door's map of shapes: each entry of `softland.store.act/shapes`, and
   six more in the same language. `:arrived-act` is the three parts that the
   door adds and then the ten parts of the maker's `:act`, read from
@@ -372,14 +274,7 @@
          :lane-list   [:seq-of :id]
          :key-set      [:set-of :key]))
 
-(def ^{:softland/whose-call
-       [{:state :decided
-         :what "A gate refuses a fact whose key is in `softland.store` and is
-                not one of `store-keys`."
-         :source "Sid, 9 October 2026 (src-store/README.md)"}
-        {:state :not-decided
-         :what "The word `:store-key-not-known` is a session's."}]}
-  rules
+(def rules
   "What a thing that has the shape `:arrived-act` must also keep, each with
   its reason, in the order of the checks. The first is the maker's own,
   read from `softland.store.act/rules`. `rule-checks` holds the code. No

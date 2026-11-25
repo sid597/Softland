@@ -56,23 +56,6 @@
   caller between two calls. Pacing is in this copy's memory. `call` and
   `watch` write nothing of a read: the keeping of reads is the trail's (the
   runtime's page, piece 5)."
-  {:softland/whose-call
-   [{:state :decided
-     :what "Nobody acts for another (\"so 1-A it is\"). The whole act
-            arrives, with its `:who` and its `:session` (\"3A\")."
-     :source "Sid, 20 November 2026"}
-    {:state :not-decided
-     :what "That the runtime refuses an act whose `:who` or `:session` is not
-            the caller's, and a query whose `:asker` is not, and does not
-            write the try into a log, is a session's choice. The ground: an
-            act under a who that did not send it would be a false line in a
-            log that is never trimmed."}
-    {:state :not-decided
-     :what "Who may act as the system is not decided.
-            `softland.runtime.sign-in` sends the acts that only the system
-            sends, the making of a person's own lane and the first acts of a
-            deployment, through `send-as-system`, the one way in."
-     :source "src-store/README.md, 9 October 2026, K9"}]}
   (:refer-clojure :exclude [read send])
   (:require [clojure.string :as str]
             [missionary.core :as m]
@@ -92,19 +75,7 @@
 
 ;; ------------------------------------------------------------- the numbers
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "Each of the seam's numbers is the builder's, kept and not
-                decided, marked for Sid to turn: :secret-ms 7 days;
-                :previous-ms one minute; :session-ms one day, with a session
-                in use moved on when less than half of that is left;
-                :sign-in-window-ms 10 seconds; :max-sign-in-posts-per-address
-                30; :max-watches-per-root 256; :max-visitor-watches 64;
-                :max-watches-per-connection 128;
-                :max-visitor-watches-per-connection 8; :max-polls-per-ask 20;
-                :session-window-ms one minute;
-                :max-sessions-opened-per-sign-in 30."}]}
-  default-numbers
+(def default-numbers
   "The seam's numbers, each with its default. An opener can give another at
   `open`.
 

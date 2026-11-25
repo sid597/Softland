@@ -3,22 +3,13 @@
   (`softland.store.door/answer-of`): how long the wait sleeps between two
   reads, and the longest wait that the door counts. Pure code.")
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "The longest wait that the door counts, about 73 years in
-                milliseconds, is a number of the build."}]}
-  longest-wait-ms
+(def longest-wait-ms
   "In milliseconds: about 73 years. A wait is counted in nanoseconds of a
   clock that never goes back, and a longer one would leave the range of a
   long there."
   (quot Long/MAX_VALUE 4000000))
 
-(def ^{:softland/whose-call
-       [{:state :not-decided
-         :what "The default of `:read-every-ms`, 200, is not measured, and it
-                is no decision of Sid's. The opener of the door may give
-                another for it (`numbers`)."}]}
-  default-numbers
+(def default-numbers
   "`:read-every-ms` is how long a maker's wait in `answer-of` sleeps between
   two reads of an answer. Each read of a wait but the last finds nothing,
   and each is a round trip and a read on a task whose one thread a gate

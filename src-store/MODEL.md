@@ -404,8 +404,7 @@ Each is said in full where its code is.
 - What a new lane reads as: its members for a lane, everyone for the base
   ([gate/first_act.clj](softland/store/gate/first_act.clj), `starts-with`).
 - How deep a permission can be ([act.clj](softland/store/act.clj), `nesting`).
-- The numbers of the build: the call on each says whether it is decided
-  (`:softland/whose-call`, in its metadata).
+- The numbers of the build.
 - A gate's check of a key's grammar. Sid decided that each lane holds a copy of
   each grammar that it uses, and that a gate reads it on its own task
   ([decisions of 7 October](README.md#decisions-of-7-october-2026--the-stores-module),

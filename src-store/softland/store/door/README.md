@@ -73,8 +73,7 @@ Sid sent the first of these as his decision on 13 October 2026: the clock comes
 before the depot, the door writes the time on the act, and the clock is the
 clock of the server that runs the door. On 14 October he decided that order and
 time are apart, and that a thing with no time is refused. Two things beside
-them are not decided, and each is kept for now in one place, whose call
-(`:softland/whose-call`, in its metadata) says so:
+them are not decided, and each is kept for now in one place:
 
 | Not decided | The answer kept for now | Where |
 |---|---|---|

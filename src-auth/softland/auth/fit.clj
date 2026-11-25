@@ -9,12 +9,6 @@
 
   Every check catches `Throwable`, so that an exotic map (such as a sorted
   map whose comparator throws on keyword keys) counts as unfit."
-  {:softland/whose-call
-   [{:state :decided
-     :what "The input forms that `softland.auth.fit` checks match Auth's
-            contract."
-     :source "`src/proposal/runtime-2026-11-21/spine/auth/SPEC.md` and Sid's
-              calls of 22 November"}]}
   (:import [java.util Locale]))
 
 ;; ------------------------------------------------------------------- bounds
@@ -54,14 +48,6 @@
   string as UTF-8, so a string that holds one would be kept changed (the
   unpaired surrogate becomes `?`), and two accounts whose subjects differ
   only there would be one."
-  {:softland/whose-call
-   [{:state :not-decided
-     :what "A string that holds a surrogate `char` without its pair does not
-            fit wherever the contract takes a string. Rama keeps a string as
-            UTF-8, so such a string would be kept changed (the unpaired
-            surrogate becomes `?`), and two accounts whose subjects differ
-            only there would be one. For Sid to turn."
-     :source "the build's default of 23 November; SPEC.md"}]}
   [^String s]
   (let [n (.length s)]
     (loop [i 0]

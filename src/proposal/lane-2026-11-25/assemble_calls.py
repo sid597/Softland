@@ -1,9 +1,9 @@
 """assemble_calls.py [--check]
 
-Superseded on 25 November 2026: the calls are on their vars
-(`calls_to_vars.py` moved them, `calls.py` lists them), and the five files
-that this wrote are in `as-files/`. Kept as the record of how they were made;
-a run of it would write the five files again.
+Superseded on 25 November 2026: Sid took whose call a thing is out of the
+code. The five files that this wrote are in `as-files/`. Kept as the record of
+how they were made; a run of it would write the five files into the trees
+again.
 
 Reads every `calls/*.edn` beside this file and writes one `whose-call.edn` per
 tree, beside that tree's code. An entry goes to the tree of its `:at`. Inside a

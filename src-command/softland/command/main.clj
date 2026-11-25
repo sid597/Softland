@@ -73,21 +73,10 @@
 (def default-url
   "http://localhost:8500")
 
-(def ^:private
-  ^{:softland/whose-call
-    [{:state :not-decided
-      :what "With less than two days left of a secret's time, a command
-             replaces the secret before it does its work. A number of the
-             build."}]}
-  replace-under-ms
+(def ^:private replace-under-ms
   (* 2 24 60 60 1000))
 
-(def ^:private
-  ^{:softland/whose-call
-    [{:state :not-decided
-      :what "`sign-in` waits three seconds before it asks again about its ask
-             when the runtime said `:take-more`. A number of the build."}]}
-  paced-wait-ms
+(def ^:private paced-wait-ms
   3000)
 
 ;; ------------------------------------------------------------------- the file

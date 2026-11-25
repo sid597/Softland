@@ -55,13 +55,6 @@
   through the door under the same act-id. That is derived from this
   function and the walk's check of the answer under the act-id; no run
   made it."
-  {:softland/whose-call
-   [{:state :not-decided
-     :what "That a digest leaves the time out is one of the three places of
-            the working answer on a second send
-            (`softland.store.door/send-act` names the three). Kept for now;
-            what a second send of the same act carries as its time is Sid's
-            to say."}]}
   [x]
   (if (and (map? x) (not (record? x)))
     (try (dissoc x declaration/time-part)

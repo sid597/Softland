@@ -131,17 +131,6 @@
 
   The source starts from the beginning of the depot, so no thing that is in
   the depot is skipped whenever the topology first runs on a partition."
-  {:softland/whose-call
-   [{:state :decided
-     :what "The microbatch gate is built for the base: the lane that the
-            system provides to everyone, which few hands change and which
-            does not need to be instant."
-     :source "Sid, 13 October 2026"}
-    {:state :not-decided
-     :what "A microbatch lane that many people write into is not designed.
-            Whether such a lane is a lane apart from the base is not decided,
-            and nothing in the microbatch gate is built for it: every act of
-            a microbatch lane is decided on one task, one after the other."}]}
   (:require [com.rpl.rama :refer :all]
             [com.rpl.rama.ops :as ops]
             [com.rpl.rama.path :refer :all]

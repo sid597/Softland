@@ -21,46 +21,6 @@
   act has an act-id, and the act goes under any act-id of its maker's. A yes
   covers its act once: a gate uses it up when it takes the act, and a try
   that is refused uses nothing. A yes that said `:see` would allow nothing."
-  {:softland/whose-call
-   [{:state :decided
-     :what "The form of an act is the maker's act: what a maker gives, with
-            plain values, before the door touches it. Whatever made an act,
-            it has one form."
-     :source "Sid's decision of 6 October 2026. The twelve decisions are
-              listed in src-store/README.md, which marks the two that wait
-              for his word"}
-    {:state :decided
-     :what "A permission says what it allows: `:see`, or `:see-and-act`."
-     :source "Sid's decision of 11 and 12 October 2026 (src-store/README.md,
-              entry 1)"}
-    {:state :not-decided
-     :what "That a permission says what it allows in a slot of its own id is
-            the builder's."}
-    {:state :decided
-     :what "A permission covers an act, or a run, and a holder can have more
-            than one in a lane."
-     :source "Sid's decisions of 21 November 2026 (src-store/README.md,
-              entries 4 to 6 of 20 and 21 November)"}
-    {:state :not-decided
-     :what "The form of a permission for a run, `[who lane granted-in parent
-            allows [:run session]]`, is a session's."
-     :source "src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md"}
-    {:state :not-decided
-     :what "The form of a yes, `[who lane granted-in parent :see-and-act
-            [:act yes digest]]`, with an id of its own and used once, is a
-            session's, and Sid's to turn."
-     :source "the prompt that Sid pasted on 22 November 2026 as his go for
-              the build"}
-    {:state :decided
-     :what "\"Depot\" is Sid's word for the depot that takes a lane's acts,
-            `:streaming` or `:microbatch`. His decisions before that day say
-            \"class\" for it."
-     :source "Sid, 9 October 2026"}
-    {:state :not-decided
-     :what "The word act-id is a session's, from Sid's \"act-uuid\" of 7
-            October 2026: the session wrote act-id, since the id holds more
-            than the UUID, and the word is his to change. The ruling of 24
-            September said \"name\"."}]}
   (:import [clojure.lang BigInt]
            [java.math BigDecimal BigInteger]))
 
@@ -145,18 +105,7 @@
    :carried-stamp
    [:int {:min 0}]})
 
-(def ^:private
-  ^{:softland/whose-call
-    [{:state :not-decided
-      :what "How deep a permission can be is Sid's to say. Kept: as deep as a
-             value can be, `max-depth`, 32. The entry of `:permission-id` in
-             `nesting` is the one place where another answer is made. A
-             smaller number ends both roads there, the act's own
-             `:permission` and the value of a fact that gives a permission. A
-             greater one needs a greater `max-depth` too, and must stay under
-             62: the one text of a thing (`softland.store.door.text`) writes
-             a given permission whole to depth 61 and no deeper."}]}
-  nesting
+(def ^:private nesting
   "For a named shape, how many times it can be around one place, the place's
   own counted. A name that is not here has the number 1, so no shape goes
   round. A permission whose count is over its number is `:malformed`.

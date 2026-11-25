@@ -23,15 +23,7 @@
   not raised above them. That an act came after the facts that it is based
   on is read from its `:based-on`, by their fact ids, and not from the size
   of two stamps. A stamp of one lane is no measure against a stamp of
-  another."
-  {:softland/whose-call
-   [{:state :decided
-     :what "Order and time are kept apart, and order never uses the time."
-     :source "Sid's decision of 14 October 2026"}
-    {:state :decided
-     :what "The stamps in an act's `:based-on` are what its maker saw, and no
-            gate reads them: an act's stamp is not raised above them."
-     :source "Sid's decision of 14 October 2026"}]})
+  another.")
 
 (defn next-stamp
   "Wraps after 2^63 - 1 decisions in one lane.
