@@ -1,9 +1,9 @@
 """same_code.py REV FILE...
 
 Exit 0 when each FILE holds the same code as it did at REV once docstrings and
-comments are taken out. A docstring is: the string in third place of an `ns` or
-`def...` form that has more after it; the last string of a protocol method; the
-string after `:doc`. Every other string is code. Whitespace and commas count for
+comments are taken out. A docstring is: the string in third place of an `ns`
+form; the string in third place of a `def...` form that has more after it; the
+last string of a protocol method; the string after `:doc`. Every other string is code. Whitespace and commas count for
 nothing.
 """
 import subprocess
@@ -118,7 +118,8 @@ def norm(f, in_protocol=False):
     head = bare(items[0]) if items else None
     hv = head[1] if isinstance(head, tuple) and head[0] == 'atom' else ''
     hv = hv.split('/')[-1]
-    if f[1] == '(' and (hv == 'ns' or hv.startswith('def')) and len(items) > 3 and is_str(items[2]):
+    if f[1] == '(' and len(items) > 2 and is_str(items[2]) and (
+            hv == 'ns' or (hv.startswith('def') and len(items) > 3)):
         items = items[:2] + items[3:]
     if f[1] == '(' and in_protocol and len(items) >= 3 and is_str(items[-1]):
         items = items[:-1]

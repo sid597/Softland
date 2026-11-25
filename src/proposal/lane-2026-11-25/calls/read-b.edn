@@ -1,0 +1,37 @@
+[{:at softland.store.record.tables/task
+  :state :decided
+  :what "The rows by who are a field of what a gate keeps for a task, and not a PState of their own. They are read only by an asker who may not see a lane, for her own things, so the one seek more that the field's level costs at that read saves a partition on every task."
+  :source "Sid's call of 22 November 2026, on the plan's check"}
+ {:at softland.store.read-path.lanes
+  :state :decided
+  :what "The read path does not read what a permission allows: any permission that stands allows seeing."
+  :source "src-store/README.md, decisions of 11 and 12 October 2026, entry 1"}
+ {:at softland.store.read-path.lanes
+  :state :not-decided
+  :what "The one thing about a permission that is kept as built and not decided, one permission for the lane for each holder at a time, is no code in this namespace."}
+ {:at softland.store.read-path.lanes/who-may-see
+  :state :not-decided
+  :what "What a lane starts with is kept only so that the build can run; `softland.store.gate.first-act/starts-with` is the one place where the other answer would be made, and this function is its one caller in the read path."}
+ {:at softland.store.read-path.lanes/standing
+  :state :decided
+  :what "Any permission that stands allows seeing; what it allows beyond that is not read. `:system` is a who like any other. `standing` is the one function of who may see a lane."
+  :source "src-store/README.md, entry 1 of 11 and 12 October 2026"}
+ {:at softland.store.read-path.lanes/standing
+  :state :not-decided
+  :what "What a lane starts with (`who-may-see`), and that \"members\" is whoever holds a permission in the lane, are kept only so that the build can run."}
+ {:at softland.store.read-path.lanes/in-order
+  :state :not-decided
+  :what "How far a read walks from a lane is a working answer, for Sid (the one list, and no further), and so is what a read does when the asker may not see the start lane. This function is the one place where the walk would be made; a walk would also make the own rows of each walked lane a thing that `softland.store.read-path.sources/reading` wants before the list is known."}
+ {:at softland.store.read-path.lanes/left-out
+  :state :not-decided
+  :what "That a read says which lane it left out, and tells a lane that she may not see from one that is not made, is a working answer, for Sid. This function is the one place where a read would say less."}
+ {:at softland.store.read-path.acts/reads-whole?
+  :state :a-sessions
+  :what "A taken act is held to the same rule of who reads a decision whole as a refused thing. This function is where the other reading would be made."
+  :source "SPEC.md, \"Who may read what\", a session's reading"}
+ {:at softland.store.read-path.sources/before-standing?
+  :state :a-sessions
+  :what "That a read asked once reads a place, or the first read of a run of the facts table, before it knows whether the asker may see the lane, is the builder's choice; this function is the one predicate of that choice. The other answer is this function giving false: then nothing of a lane is read for an asker who may not see it."}
+ {:at softland.store.read-path.sources/nearer-checks
+  :state :not-decided
+  :what "What \"what points at a thing\" means through a list of lanes is a working answer, for Sid: at a place that a farther lane's order gives, the nearest lane that holds a row wins. This function is the one place where the other answer would be made: left out (an empty map), a read finds no nearer row and the runs are joined."}]

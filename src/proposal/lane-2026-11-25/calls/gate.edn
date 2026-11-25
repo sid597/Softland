@@ -1,0 +1,86 @@
+[{:at softland.store.gate.stamp
+  :state :decided
+  :what "Order and time are kept apart, and order never uses the time."
+  :source "Sid's decision of 14 October 2026"}
+ {:at softland.store.gate.stamp
+  :state :decided
+  :what "The stamps in an act's `:based-on` are what its maker saw, and no gate reads them: an act's stamp is not raised above them."
+  :source "Sid's decision of 14 October 2026"}
+ {:at softland.store.gate.chain
+  :state :decided
+  :what "A permission is ended by its giver or by anyone above; what was given beneath ends with it; and a holder can be given a permission again."
+  :source "Sid, 20 and 21 November 2026; src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6"}
+ {:at softland.store.gate.chain
+  :state :a-sessions
+  :what "The end of what is beneath a permission is read at each decision, up the chain, and written nowhere. His to turn. The other way writes an end on each place beneath at the end itself: it needs a table of who gave to whom, and one end then writes a row for each holder beneath, with no bound, in one decision of the lane's one line."
+  :source "a session, 21 November 2026"}
+ {:at softland.store.gate.chain
+  :state :a-sessions
+  :what "The stamp tells a second give of a permission from the first. His to turn. The other way is one more part of the id; it can be added later as a slot was (`softland.store.act`)."
+  :source "a session, 21 November 2026"}
+ {:at softland.store.gate.decision/permission-place
+  :state :not-decided
+  :what "One place for a holder's permission for the lane is kept as built and not decided. This key is one of the two places where the other answer would be made (`softland.store.door.declaration/store-keys`)."}
+ {:at softland.store.gate.decision/standing
+  :state :a-sessions
+  :what "The word of an act for a lane of the other gate comes from the act alone: a session's rule, and no decision of Sid's. One half of the rule is forced by his line that the store comes out the same when it is run again: the word cannot follow the other gate's record, since a word that followed what the other gate had made by then would follow an order across two depots, which no second run gives again. The other half is the session's choice: which of the two words is then given, `:lane-belongs-to-the-other-gate`. `:lane-not-made` for every such act would hold his line as well."
+  :source "a session, 14 October 2026"}
+ {:at softland.store.gate.decision/permission-fact-fault
+  :state :a-sessions
+  :what "A permission for a run or for an act gives nothing. The other way, a run that may give, would be one more word in the sixth slot."
+  :source "a session, 21 November 2026; src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md, R10"}
+ {:at softland.store.gate.decision/who-may-write-fault
+  :state :decided
+  :what "Only the lane's root holder writes its settings."
+  :source "Sid, 20 November 2026; src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6"}
+ {:at softland.store.gate.decision/who-may-write-fault
+  :state :a-sessions
+  :what "Sid's earlier word for the root holder is \"the owner\". No lane names an owner as a fact; that the first holder, the holder of the lane's first permission, is the one is a session's reading."}
+ {:at softland.store.gate.decision/end-fault
+  :state :decided
+  :what "The giver of a permission, or anyone above, ends it."
+  :source "Sid's decision of 20 November 2026; src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6"}
+ {:at softland.store.gate.decision/end-fault
+  :state :a-sessions
+  :what "A holder ends her own permission, and the first permission does not end. His to turn."
+  :source "a session, 21 November 2026"}
+ {:at softland.store.gate.decision/give-over-fault
+  :state :decided
+  :what "A holder is given a permission again after an end, and each holder beneath an end is given one again by an act of its own."
+  :source "Sid's decision of 21 November 2026; src/proposal/runtime-2026-11-21/PROPOSAL.md, entry 6"}
+ {:at softland.store.gate.decision/store-key-fault
+  :state :not-decided
+  :what "A change of a lane's depot is not decided: a depot fact with the other depot, in a lane that is made, is refused `:changing-a-depot-not-decided`."}
+ {:at softland.store.gate.decision/by-value-writes
+  :state :not-decided
+  :what "What a marked key may hold is not decided. Every value is kept, whatever it is, by the digest of its bytes. This function is the one place where \"kept in no run\" would be made."
+  :source "the queue's K5"}
+ {:at softland.store.gate.decision/use-of-its-yes
+  :state :a-sessions
+  :what "A yes for one act is used once: the form of 22 November 2026, a session's, in the prompt that Sid pasted that day as his go for the build. His to turn."
+  :source "src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md"}
+ {:at softland.store.gate.decision/use-of-its-yes
+  :state :a-sessions
+  :what "The use of a yes is kept as an end at the yes's place, written by the accept in the one write of the decision: a session's choice. His to turn."}
+ {:at softland.store.gate.decision/max-kept-weight
+  :state :not-decided
+  :what "33,554,432, 32 MiB in weight, the heaviest thing that a gate keeps a second time when its sender has standing: Sid's call of 22 November 2026, the default of the plan's check. A number of the build, kept and not decided."
+  :source "Sid's call of 22 November 2026"}
+ {:at softland.store.gate.decision/max-kept-weight-with-no-standing
+  :state :not-decided
+  :what "262,144, 256 KiB, the heaviest thing that a gate keeps a second time when its sender has no standing in the lane, or the declaration refused it: Sid's call of 22 November 2026. A number of the build, kept and not decided."
+  :source "Sid's call of 22 November 2026"}
+ {:at softland.store.module.walk
+  :state :not-decided
+  :what "The depth of a permission is not decided (`softland.store.act`, `nesting`). The bound on the reads of one call of the walk, 8,228 for a depth of 32, comes down with it."}
+ {:at softland.store.module.microbatch-gate
+  :state :decided
+  :what "The microbatch gate is built for the base: the lane that the system provides to everyone, which few hands change and which does not need to be instant."
+  :source "Sid, 13 October 2026"}
+ {:at softland.store.module.microbatch-gate
+  :state :not-decided
+  :what "A microbatch lane that many people write into is not designed. Whether such a lane is a lane apart from the base is not decided, and nothing in the microbatch gate is built for it: every act of a microbatch lane is decided on one task, one after the other."}
+ {:at softland.store.module.door-reads
+  :state :not-decided
+  :what "A guard of the record is not built: any client of the cluster can call the two queries and read every value. ?11 is open."
+  :source "?11"}]

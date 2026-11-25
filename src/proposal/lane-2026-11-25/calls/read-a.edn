@@ -1,0 +1,40 @@
+[{:at softland.store.read-path
+  :state :decided
+  :what "Each program that can open Rama's ports is trusted with the whole store."
+  :source "src-store/README.md, decisions of 11 and 12 October 2026, entry 4"}
+ {:at softland.store.read-path
+  :state :decided
+  :what "The values that a live read gives are in Rama's pushes and nowhere else: each push holds the current value of its path, and Rama keeps it level. Sid: \"i also don't consider it a cache\"."
+  :source "Sid, 11 October 2026"}
+ {:at softland.store.read-path
+  :state :not-decided
+  :what "The read path's 900 (`:max-pushes-under-one-routing-id`) stands under the default of Rama's option `pstate.proxy.limit`, 1,000. To raise that option, and this number with it, is a setting for Sid to weigh. The read path sets none of Rama's options."}
+ {:at softland.store.read-path
+  :state :not-decided
+  :what "Both numbers of the read path's bound on pushes are the build's, kept and not decided, and so is the way of the checks that needs a push for each. The paragraph names 900 (`:max-pushes-under-one-routing-id`) and, before it, the 250 checks of nearer lanes of one live read of what points at a thing (`:max-checks-of-one-live-read`)."}
+ {:at softland.store.read-path
+  :state :not-decided
+  :what "Room that the read path leaves, and decides nothing of: sign-in, in front of the read path (who asks is what the caller says, and `:system` is a who like any other); a network edge, a screen, a view, a tool, an agent; a record of who read what (nothing is kept of a read); a new word of a query (finding by text, looking back, what stands on a fact, everything one person wrote), which is one entry in each of three maps (`softland.store.read-path.query/words`)."}
+ {:at softland.store.read-path/max-rounds
+  :state :not-decided
+  :what "A live read opens within 8 rounds on tables that do not change while it opens, and is given 8 more, 16 in all, for writes that make a part of it wanted anew while it opens. The 8 more are the builder's choice, and not decided: a read that writes keep from settling is turned away, and its caller asks again."}
+ {:at softland.store.read-path.query
+  :state :decided
+  :what "Nobody decides what a tool asks; what is decided is the few words that a query is made of."
+  :source "src-store/README.md, decisions of 11 and 12 October 2026, entry 6"}
+ {:at softland.store.read-path.query
+  :state :a-sessions
+  :what "The form of the map of a query, and each word of it, is the builder's and is Sid's to change."}
+ {:at softland.store.read-path.query
+  :state :not-decided
+  :what "Who asks is what the caller says: the check takes `:asker` as given. Sign-in would stand in front of the read path and change none of this."
+  :source "BUILD-reads.md, B2"}
+ {:at softland.store.read-path.query/max-lanes-of-one-read
+  :state :not-decided
+  :what "How many lanes one read can go through, the start lane and the lanes that a builds-on fact can name (`softland.store.door.declaration/max-builds-on`), is a number of the build, kept and not decided."}
+ {:at softland.store.read-path.query/default-numbers
+  :state :not-decided
+  :what "Each of the read path's nine numbers is the builder's, kept and not decided, and an opener can give another at `softland.store.read-path/open`: `:run-start-places` 256, `:max-places-of-one-run` 20,000, `:max-checks-of-one-read` 40,000, `:max-checks-of-one-live-read` 250, `:max-pushes-under-one-routing-id` 900, `:max-paths-in-one-call` 2,000, `:wait-ms` 10,000, `:max-acts-of-one-read` 1,000, `:max-thing-weight-of-one-read` 33,554,432."}
+ {:at softland.store.read-path.answer/counts?
+  :state :not-decided
+  :what "That a tool's read leaves the store's own facts out unless it asks, and that any asker who may see the lane may ask, is a working answer, for Sid. `counts?` is the one place where the other answer would be made."}]
