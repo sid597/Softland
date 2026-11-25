@@ -1162,3 +1162,14 @@ session's question whether his decisions of these two days go on this page.
    "We agree on 1,4,5,6,7". It serves his three uses of 12 October (entry 7
    of that day). Not built; the spec of the build is
    `src/proposal/runtime-2026-11-21/store-piece-3/SPEC.md`.
+
+## Decisions of 25 November 2026 — the lane
+
+Sid made this on 25 November 2026, in the chat of a Claude Code session, to a
+note that the session put to him: "yes lane is the name" and "yes put in
+readme" (‹d5172c3f›). The note stands below as he approved it.
+
+What one gate puts in order, and shows to its members, is a lane. "Layer"
+stays Sid's word, for a group of acts of any size; the store gives it no
+meaning. In the entries above, where "layer" means what one gate puts in
+order, read "lane".

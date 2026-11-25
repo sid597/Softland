@@ -75,9 +75,13 @@ from the cloud, and the first two need it.
    25 November 2026", is in a session's words. Find the lines he typed for
    the two decisions (the lane; code, checks and prose) and their ids. If he
    typed neither, say so before anything is written as his.
+   The lane is checked: no line he typed held the word until his yes of 25
+   November (‹d5172c3f›). Code, checks and prose is not checked.
 2. **Write the Decisions entry**, on his word, into `src-store/README.md`.
-   The draft is below; it has places for his typed lines. Two things that
-   only the record can settle belong with it:
+   The draft is below; it has places for his typed lines. Its entry 1 is
+   written, in a shorter note that he approved: the section "Decisions of 25
+   November 2026 — the lane". Its entry 2 is not. Two things that only the
+   record can settle belong with it:
    - The calls of 22 November 2026 have no Decisions section. The docstrings
      before the cut cited "Sid's call of 22 November 2026" for the two
      weights that a gate keeps
@@ -133,7 +137,7 @@ download.clojure.org by hand, and point Maven's resolver at the session's
 proxy in `~/.m2/settings.xml`. A fetch can answer 429 while the proxy is
 busy; the next try goes through.
 
-## Draft of the Decisions entry (not written into the README)
+## Draft of the Decisions entry (entry 1 is written, shorter; entry 2 is not)
 
     ## Decisions of 25 November 2026 — the lane, and what is written beside the code
 
