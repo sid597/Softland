@@ -60,6 +60,17 @@ life (many writers, many readers, years of data): "not needed today" is not a
 reason to drop or delay it. The rig, the server and Inland are examples, not
 sources for a new design (`.claude/rules/examples-not-sources.md`).
 
+Defaults, not conflations: when starting with a simple first slice, keep
+independent jobs apart in IDs, keys and stored shapes, and let the simple
+day-1 behaviour be a default value rather than a fused structure. Concerns
+that merely coincide in the first use case (write ordering vs. read grouping,
+provenance vs. cascade, identity vs. mutable state) should not share one
+identity or storage slot, and a floor mechanism should be named only for what
+it actually enforces — not for the richer product concept built on top of it.
+Keep rules and features lean: only split jobs with genuinely different
+lifecycles or cardinalities, and wire only the default behaviour until more
+is needed.
+
 This is how we work today, not a procedure to run. Sid: "the judgement is
 like sometimes (note sometimes) dynamic and requires to do smth while in the
 process". What does not bend: "Who decides what", nothing on disk while he
