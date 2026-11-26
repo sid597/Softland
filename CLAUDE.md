@@ -71,6 +71,19 @@ Keep rules and features lean: only split jobs with genuinely different
 lifecycles or cardinalities, and wire only the default behaviour until more
 is needed.
 
+The same holds between Sid and a session. A word of his and a thing a session
+builds can match at first and still be two things: "layer" is his word for a
+group of acts of any size, and when the store used it for its own unit, what
+he said about his was heard as being about the store's. When you put a word
+of his on something you build, say in an example what you mean by it; if
+yours is narrower, or only matches his today, it takes a word of its own. His
+yes covers what he was shown: a question put to him first answers his own,
+"what is being asked of me and why?", and what a session draws from his yes
+is written as a session's. Signs that two things share one name: a question
+reaches him as an either/or, he says a thing twice and it does not land, or
+one thing cannot be done without another (as when hiding one fact needs a
+whole new lane). When one shows, say so before building further.
+
 This is how we work today, not a procedure to run. Sid: "the judgement is
 like sometimes (note sometimes) dynamic and requires to do smth while in the
 process". What does not bend: "Who decides what", nothing on disk while he
