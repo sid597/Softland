@@ -12,9 +12,10 @@
   sentence says what must hold.
 
   What it does not reach. A gate's module that drives the walk against its
-  tables, and a read that is kept live: both need a cluster, and neither is
-  built on this form yet. The statement to prove of `PERMISSIONS.md`,
-  section 12, over generated histories: the judge under
+  tables, and a read that is kept live: both need a cluster, and are proved
+  in `softland.store.module-proof` and `softland.store.read-path-proof`. The
+  statement to prove of `PERMISSIONS.md`, section 12, over generated
+  histories: the judge under
   `src/proposal/runtime-2026-11-21/gate-histories/` holds it against this
   same code (`clojure -M:run fix`), and no check here says it a second
   time."
@@ -819,9 +820,13 @@
           (read-sources/lane-standing lane lane :live {lane see-asha} known-stale)
           (:refuse (read-query/check {:asks [:place :thing-1 :note] :asker :anyone :lanes [lane]}))
           (:refuse (read-query/check {:asks [:place :thing-1 :note] :asker :asha :lanes [lane]}))
+          (read-lanes/valid-rights-query? lane lane :see :anyone nil)
+          (read-lanes/valid-rights-query? lane lane :see :anyone-signed-in nil)
+          (read-lanes/valid-rights-query? lane lane :see :asha nil)
+          (:who-may-read-acts acts-zed)
           (some? ok)]))
      [true :yes :holder :visitor :outside :too-many-permissions :yes :not-known-yet
-      :asker-not-a-party :asker-not-a-party true]]]))
+      :asker-not-a-party :asker-not-a-party false false false :members true]]]))
 
 (defn test-ns-hook
   "Runs the checks in the order in which the proof tells them."

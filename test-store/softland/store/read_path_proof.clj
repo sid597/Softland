@@ -3208,6 +3208,41 @@
            "decisions (" (count refused-stamps) "refused) and" (count (:created audit))
            "gives in" lane "and" (count (:acts base-log)) "decisions in :base")))
 
+(deftest a-read-of-acts-reads-standing-and-setting-at-one-moment
+  (let [lane :acts-one-moment
+        alice (person :alice)
+        _ (put! (perm/making-act lane alice alice :s-acts))
+        p-owner (perm/first-permission alice lane)
+        _ (put! {:version 1 :who alice :lane lane :permission (perm/permission-id p-owner)
+                 :session :s-acts
+                 :facts [{:e lane :k :softland.store/who-may-read-acts :v :everyone}
+                         {:e :vault :k :secret :v "private-era-thing"}]})
+        lr-query (rama/foreign-query (:ipc @round) (:module @round) "lane-rights")
+        bad-askers (mapv #(rama/foreign-invoke-query lr-query lane lane :see % nil)
+                         [:anyone :anyone-signed-in :asha (UUID. 0 99)])
+        p-open (perm/given-permission :anyone lane p-owner
+                                      {:allows :see :lent-from nil :salt (swap! give-salt inc)})
+        real-invoke rama/foreign-invoke-query-async
+        torn-ans
+        (with-redefs [rama/foreign-invoke-query-async
+                      (fn [q & args]
+                        (CompletableFuture/supplyAsync
+                         (reify java.util.function.Supplier
+                           (get [_]
+                             (Thread/sleep 40)
+                             (put! {:version 1 :who alice :lane lane :permission (perm/permission-id p-owner)
+                                    :session :s-acts
+                                    :facts [{:e lane :k :softland.store/who-may-read-acts :v :members}
+                                            (perm/permission-fact p-open)]})
+                             (.get ^CompletableFuture (apply real-invoke q args))))))]
+          (read-path/read-once (the-rp) {:asks [:acts 1 10] :not-signed-in true :lanes [lane]}))]
+    (check "lane-rights rejects collective holders and non-party ids in *asker with nil"
+           [nil nil nil nil]
+           bad-askers)
+    (check "a read of acts reads standing and who-may-read-acts in the same lane-rights turn, so an atomic flip from private/:everyone to open/:members never leaks private-era things"
+           []
+           (filterv #(contains? % :thing) (:acts torn-ans)))))
+
 (defn- on-a-cluster
   "Starts an in-process cluster, launches the module `Store` in it, opens
   the proof's door and read paths, calls f, and closes the cluster."
@@ -3257,6 +3292,7 @@
   (the-pushes-a-live-viewer-holds)
   (a-transfer-in-one-act-never-shows-a-state-in-between)
   (the-statement-to-prove-with-its-named-exceptions)
+  (a-read-of-acts-reads-standing-and-setting-at-one-moment)
   (the-first-thing-a-function-is-given)
   (the-module-is-started-again))
 

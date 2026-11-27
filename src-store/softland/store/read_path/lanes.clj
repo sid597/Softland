@@ -92,7 +92,7 @@
           (or (= :microbatch (first-act/depot-at-making lane))
               (= routing-id lane))
           (contains? #{:see :acts} question)
-          (or (nil? asker) (declaration/usable-id? asker))
+          (or (nil? asker) (and (act/author-party? asker) (declaration/id-within-the-limit? asker)))
           (or (nil? session) (declaration/usable-id? session))))
     (catch Throwable _ false)))
 
@@ -173,6 +173,10 @@
   [lane]
   [:fact (rows/place-key lane lane :softland.store/depot)])
 
+(defn- acts-setting-read
+  [lane]
+  [:fact (rows/place-key lane lane :softland.store/who-may-read-acts)])
+
 (defn- sees-under?
   "True when the permission whose chain these values are lets the asker see
   the lane, asked in this sitting. `values` is
@@ -191,7 +195,9 @@
          :plan []
          :reads []
          :rights {:made? made? :sees? sees? :standing standing-word}
-         :snapshot {:standing standing-word :read-set (:read-set state)}))
+         :snapshot (cond-> {:standing standing-word :read-set (:read-set state)}
+                     (contains? state :who-may-read-acts)
+                     (assoc :who-may-read-acts (:who-may-read-acts state)))))
 
 (defn- advance-rights
   "Walks candidate permissions and remaining holder runs until a standing
@@ -253,7 +259,9 @@
       :asker asker
       :session effective-session
       :stage :depot
-      :reads [(depot-read lane)]
+      :reads (if (= :acts question)
+               [(depot-read lane) (acts-setting-read lane)]
+               [(depot-read lane)])
       :plan (holder-plan question asker effective-session)
       :ids []
       :match-standing nil
@@ -279,7 +287,14 @@
           state (assoc state :read-set (assoc (:read-set state) read (:stamp row)))]
       (if (nil? row)
         (finish-rights state false false (if (= :acts question) :outside :may-not-see))
-        (advance-rights (assoc state :stage :walk))))
+        (let [state (if (= :acts question)
+                      (let [s-read (acts-setting-read lane)
+                            s-row (get got s-read)]
+                        (-> state
+                            (update :read-set assoc s-read (:stamp s-row))
+                            (assoc :who-may-read-acts (who-may-read-acts {(second s-read) s-row} lane))))
+                      state)]
+          (advance-rights (assoc state :stage :walk)))))
 
     :walk
     (let [[which a b :as read] (first (:reads state))]

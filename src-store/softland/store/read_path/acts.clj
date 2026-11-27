@@ -355,7 +355,7 @@
              (if (= :too-many-permissions kind)
                (assoc (wants wanted known)
                       :too-many-permissions {:lane lane :most lanes/max-holder-permissions})
-               (let [setting (lanes/who-may-read-acts own-rows lane)
+               (let [setting (or (:who-may-read-acts snapshot) (lanes/who-may-read-acts own-rows lane))
                      asker-text (when signed-in? (declaration/id-text asker))
                      whole? (fn [row] (reads-whole? kind setting asker-text (:who row)))]
                  (if (= :outside kind)
