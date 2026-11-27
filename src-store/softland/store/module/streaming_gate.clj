@@ -7,10 +7,10 @@
 
 (ns softland.store.module.streaming-gate
   "The streaming gate: the stream topology that decides each thing of the
-  streaming depot, and the six PStates of its record. It requires Rama.
+  streaming depot, and the seven PStates of its record. It requires Rama.
 
   Anything can arrive on the depot: the door is not the only sender. The
-  gate alone writes its six PStates: in Rama only the owning topology
+  gate alone writes its seven PStates: in Rama only the owning topology
   writes a PState. Every row of a streaming lane is on the lane's task,
   and on no other.
 
@@ -97,10 +97,12 @@
     (declare-pstate gate $$streaming-answers (record-pstates/answers))
     (declare-pstate gate $$streaming-facts (record-pstates/facts))
     (declare-pstate gate $$streaming-facts-by-value (record-pstates/facts-by-value))
+    (declare-pstate gate $$streaming-permissions-by-holder (record-pstates/permissions-by-holder))
     (declare-pstate gate $$streaming-task (record-pstates/task))
     (declare-pstate gate $$streaming-line (record-pstates/line))
     (declare-pstate gate $$streaming-things (record-pstates/things))
     (<<sources gate
       (source> *streaming-depot {:start-from :beginning :retry-mode :all-after} :> *thing)
       (walk/decide $$streaming-answers $$streaming-facts $$streaming-facts-by-value
+                   $$streaming-permissions-by-holder
                    $$streaming-task $$streaming-line $$streaming-things :streaming *thing))))

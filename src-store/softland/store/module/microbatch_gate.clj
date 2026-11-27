@@ -6,11 +6,11 @@
 
 (ns softland.store.module.microbatch-gate
   "The microbatch gate: the microbatch topology that decides each thing of
-  the microbatch depot, and the six PStates of its record. It requires
+  the microbatch depot, and the seven PStates of its record. It requires
   Rama.
 
   Anything can arrive on the depot: the door is not the only sender. The
-  gate alone writes its six PStates: in Rama only the owning topology
+  gate alone writes its seven PStates: in Rama only the owning topology
   writes a PState.
 
   Built for the base: a lane that few hands change and that does not need
@@ -20,14 +20,14 @@
 
   Where a row lives.
 
-    - The row of a fact, and a row of the facts by value: on every task.
-      So a read of a microbatch lane's facts needs one task, whichever it
-      is.
-    - The answer of an act, the lane's last stamp, the lane's line, its
-      things and its rows by who: on the lane's task alone, the task of
-      the lane's depot partition, with no copy. So a read of the base's
-      acts reads the base's task, and the base's bytes are not held once
-      on every task.
+    - The row of a fact, a row of the facts by value, and a row of the
+      permissions by holder: on every task. So a read of a microbatch
+      lane's facts and rights needs one task, whichever it is.
+    - The answer of an act, the lane's last stamp, its owners, the lane's
+      line, its things and its rows by who: on the lane's task alone, the
+      task of the lane's depot partition, with no copy. So a read of the
+      base's acts reads the base's task, and the base's bytes are not held
+      once on every task.
     - The digest of a stray: on the task of the partition where the stray
       arrived.
 
@@ -147,6 +147,7 @@
     (declare-pstate gate $$microbatch-answers (record-pstates/answers))
     (declare-pstate gate $$microbatch-facts (record-pstates/facts))
     (declare-pstate gate $$microbatch-facts-by-value (record-pstates/facts-by-value))
+    (declare-pstate gate $$microbatch-permissions-by-holder (record-pstates/permissions-by-holder))
     (declare-pstate gate $$microbatch-task (record-pstates/task))
     (declare-pstate gate $$microbatch-line (record-pstates/line))
     (declare-pstate gate $$microbatch-things (record-pstates/things))
@@ -157,6 +158,7 @@
       (%things :> *thing)
 
       (walk/decide $$microbatch-answers $$microbatch-facts $$microbatch-facts-by-value
+                   $$microbatch-permissions-by-holder
                    $$microbatch-task $$microbatch-line $$microbatch-things :microbatch *thing
                    :> *copies)
 
@@ -177,6 +179,12 @@
 
             (case> (= *which :by-value))
             (local-transform> [(keypath *key) (termval *row)] $$microbatch-facts-by-value)
+
+            (case> (and> (= *which :holder-permission) (nil? *row)))
+            (local-transform> [(keypath *key) NONE>] $$microbatch-permissions-by-holder)
+
+            (case> (= *which :holder-permission))
+            (local-transform> [(keypath *key) (termval *row)] $$microbatch-permissions-by-holder)
 
             (default>)
             (identity nil :> *no-row)))))))

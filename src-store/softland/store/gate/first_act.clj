@@ -75,13 +75,15 @@
   by the act's author under nothing, to a person or to the system. The base
   is the system's."
   [act v]
-  (let [lane (:lane act)
+  (let [v (declaration/permission-value v)
+        lane (:lane act)
         holder (:holder v)]
     (boolean
-     (and (contains? #{:person :system} (act/party-kind holder))
+     (and v
+          (contains? #{:person :system} (act/party-kind holder))
           (or (not= base lane) (= system holder))
           (or (= (:who act) holder) (= (:who act) system))
-          (:owner (:allows v))
+          (= declaration/owner-allows (:allows v))
           (= [:default-group lane] (:covers v))
           (nil? (:session v))
           (= (:who act) (:given-by v))

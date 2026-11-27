@@ -312,24 +312,24 @@
   "What a rights source meant for this query before a change and after it,
   as [before after]; nil for any other source.
 
-  Whether she holds a permission that stands is read from `known`
-  (`softland.store.read-path.sources/permission-state`), with the changed
-  source's value before, and then after, in its place. So the end of a
-  permission above hers, or of her run's, means another thing before and
-  after, and a change of a permission row that is neither hers nor above
-  hers means the same."
-  [query known source old new]
-  (let [lane (:lane source)
-        home (lanes/home query)
-        signed-in? (some? (:asker query))
-        own-source (sources/own-rows-source home lane)
-        meant (fn [known]
-                (lanes/meaning query lane (get known own-source)
-                                (sources/permission-state query home lane known)
-                                signed-in?))]
-    (when (sources/rights-kind query source)
-      [(meant (assoc known source old))
-       (meant (assoc known source new))])))
+  Standing in `:live` mode holds only while `snapshots` matches `known`
+  entry-for-entry (`softland.store.read-path.sources/lane-standing`); so a
+  change to any row or holder run in `:read-set` turns the meaning after the
+  change into `:not-known-yet` until a fresh `lane-rights` snapshot settles."
+  ([query known source old new]
+   (meanings query nil known source old new))
+  ([query snapshots known source old new]
+   (let [lane (:lane source)
+         home (lanes/home query)
+         own-source (sources/own-rows-source home lane)
+         meant (fn [k]
+                 (if (contains? k own-source)
+                   (lanes/meaning query lane (get k own-source)
+                                  (sources/lane-standing home lane :live snapshots k))
+                   :not-known-yet))]
+     (when (sources/rights-kind query source)
+       [(meant (assoc known source old))
+        (meant (assoc known source new))]))))
 
 (defn- owes-for-a-move?
   "A source that is no check is joined or left only when what shapes the
@@ -365,14 +365,13 @@
 
 (defn- only-rights-of?
   "True when each source that the step joined or left, and that is no check,
-  is a row of her rights in one of those lanes other than its own rows. A
-  move of a lane's own rows is a move of the read's list, and is never one
-  of these."
+  is a rights watch of one of those lanes other than its own rows. A move of
+  a lane's own rows is a move of the read's list, and is never one of these."
   [query lanes joined left]
   (every? (fn [source]
             (or (sources/check? query source)
                 (and (contains? lanes (:lane source))
-                     (contains? #{:permission :run-permission :above} (sources/rights-kind query source)))))
+                     (contains? #{:holders :permission} (sources/rights-kind query source)))))
           (concat joined left)))
 
 (defn- unseen-lanes
@@ -410,25 +409,26 @@
       told)))
 
 (defn- whole-if-nothing-is-missing
-  "While something is missing the mark stays true, and the step in which the
-  last missing source is given gives the whole answer."
+  "While anything is missing or a lane's standing is `:not-known-yet`, the
+  mark stays true, and the step in which the read settles gives the whole
+  answer."
   [query reading known]
-  (if (empty? (:missing reading))
+  (if (sources/settled? reading)
     (let [answer (whole query reading known)]
       {:tell {:anew answer} :owed? (mark-of answer)})
     {:tell nil :owed? true}))
 
 (defn- told-or-waiting
-  "While something is missing the lanes still wait, and the places are told
-  now, since none of them waits. When nothing is missing, each lane that
-  waited and is one that she may not see stops waiting, and she is told the
-  places alone; a lane that waited and that she may now see, or that left
-  the read, gives her the whole answer."
+  "While the read has not settled the lanes still wait, and the places are
+  told now, since none of them waits. When settled, each lane that waited
+  and is one that she may not see stops waiting, and she is told the places
+  alone; a lane that waited and that she may now see, or that left the read,
+  gives her the whole answer."
   [query reading known told waiting given]
   (let [tell (when (seq given) {:changed given})]
     (cond
       (empty? waiting) {:tell tell :owed? (marked told #{})}
-      (seq (:missing reading)) {:tell tell :owed? (marked told waiting)}
+      (not (sources/settled? reading)) {:tell tell :owed? (marked told waiting)}
       (every? #(= :may-not-see (get-in reading [:standing %])) waiting) {:tell tell :owed? (marked told #{})}
       :else (whole-if-nothing-is-missing query reading known))))
 
@@ -504,3 +504,29 @@
 
         :else
         {:tell (when (seq given) {:changed given}) :owed? (marked told #{})}))))
+
+(defn after-rights
+  "What a live read does when a `lane-rights` query for `lane` returns. When
+  the whole answer is owed, or `lane`'s standing differs from what the asker
+  was told, or the step joined or left a source outside unseen lanes' rights
+  and checks, the whole answer is given once the read settles."
+  [query reading known lane joined left owed?]
+  (if (true? owed?)
+    (whole-if-nothing-is-missing query reading known)
+    (let [told (told-of owed?)
+          unseen (unseen-lanes told reading)
+          waiting (into (waiting-of owed?)
+                        (filter #(= :not-known-yet (get-in reading [:standing %])))
+                        unseen)
+          was (get told lane)
+          now (get-in reading [:standing lane])]
+      (cond
+        (or (and (some? was) (not (contains? unseen lane)) (not= was now))
+            (not (only-rights-of? query unseen joined left)))
+        (whole-if-nothing-is-missing query reading known)
+
+        (seq waiting)
+        (told-or-waiting query reading known told waiting {})
+
+        :else
+        {:tell nil :owed? (marked told #{})}))))

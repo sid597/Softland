@@ -26,6 +26,11 @@
             [softland.store.gate.chain :as chain]
             [softland.store.gate.first-act :as first-act]
             [softland.store.gate.walk :as walk]
+            [softland.store.read-path.acts :as read-acts]
+            [softland.store.read-path.answer :as read-answer]
+            [softland.store.read-path.lanes :as read-lanes]
+            [softland.store.read-path.query :as read-query]
+            [softland.store.read-path.sources :as read-sources]
             [softland.store.record.in-memory :as memory]
             [softland.store.record.rows :as record])
   (:import [java.util UUID]))
@@ -69,7 +74,8 @@
 (def ^:private see {:see true})
 (def ^:private see-write {:see true :write :all})
 (def ^:private member {:see true :write :all :give #{:see :write :give}})
-(def ^:private owner {:see true :write :all :give #{:see :write :give :owner} :owner true})
+(def ^:private publisher {:see true :write :all :give #{:see :write :give :everyone}})
+(def ^:private owner {:see true :write :all :give #{:see :write :give :owner :everyone} :owner true})
 
 (defn- says
   "What a permission says: to whom, what it allows, who gave it and under
@@ -355,9 +361,27 @@
      [["its holder ends a permission, and nobody who is none of the four does"
        (fn [] (then (by dee (g 5) (ends (g 2))) (by cal nil (ends (g 2)))))
        [:may-not-end-the-permission :accepted]]
-      ["whoever gave it ends it, in an act under the permission that she gave it under, and under no other of hers"
-       (fn [] (then (by ben (g 6) (ends (g 2))) (by ben (g 1) (ends (g 2)))))
+      ["whoever gave it ends it, in an act under the permission that she gave it under, while it still lets her pass what the permission holds to its holder, and under no other of hers"
+       (fn [] (then (by ben (g 6) (ends (g 2)))
+                    (by ben (g 1) (ends (g 2)))))
        [:may-not-end-the-permission :accepted]]
+      ["a giver who was lowered in place cannot end or lower what she can no longer pass on, while she still ends what she can still pass and what is lent from her"
+       (fn [] (let [more [(by ben (g 1) (gives (g 7) (says dee see ben (g 1))))
+                          (by ben (g 1) (gives (g 8) (says ada see-write ben (g 1) :lent-from (g 1))))
+                          (by asha g0 (gives (g 1) (says ben {:see true :give #{:see}} asha g0)))]
+                    after-lower (fn [& acts] (subvec (apply verdicts (concat setup more acts)) (+ (count setup) (count more))))]
+                [(after-lower (by ben (g 1) (ends (g 2)))
+                              (by ben (g 1) (gives (g 2) (says cal see ben (g 1))))
+                              (by ben (g 1) (ends (g 7)))
+                              (by ben (g 1) (gives (g 8) (says ada see ben (g 1) :lent-from (g 1))))
+                              (by ben (g 1) (ends (g 8))))
+                 (verdicts (by asha g0 (gives (g 1) (says ben owner asha g0)))
+                           (by ben (g 1) (gives (g 2) (says cal owner ben (g 1))))
+                           (by cal (g 2) (gives (g 1) (says ben member asha g0)))
+                           (by ben (g 1) (ends (g 2)))
+                           (by ben (g 1) (gives (g 2) (says cal see ben (g 1)))))]))
+       [[:may-not-end-the-permission :may-not-lower-the-permission :accepted :accepted :accepted]
+        [:accepted :accepted :accepted :may-not-end-the-permission :may-not-lower-the-permission]]]
       ["the holder of a permission that it is lent from ends it, directly and further up"
        (fn [] (then (by ada (g 3) (ends (g 4))) (by ben (g 1) (ends (g 3)))))
        [:accepted :accepted]]
@@ -479,17 +503,25 @@
                         (settings asha g0)
                         (settings cal (g 2))))
        [:accepted :accepted :accepted :accepted :only-an-owner-writes-a-setting]]
-      ["owning holds everything over a lane: a permission that allows owning and less than everything is no permission, at a give, at a change and in a making act"
-       (fn [] [(verdicts (by asha g0 (gives (g 1) (says ben {:owner true} asha g0)))
-                         (by asha g0 (gives (g 1) (says ben (dissoc owner :see) asha g0)))
-                         (by asha g0 (gives (g 1) (says ben (assoc owner :give #{:see :write :give}) asha g0)))
-                         (by asha g0 (gives g0 (says asha {:owner true} asha nil))))
-               (:verdicts (played [(by asha nil
-                                       {:e lane :k :softland.store/depot :v :streaming}
-                                       (gives g0 (says asha {:owner true} asha nil)))]))])
+      ["owning holds everything over a lane, giving to everyone among it: a permission that allows owning and less than everything is no permission, at a give, at a change and in a making act"
+       (fn [] (let [without-everyone (assoc owner :give #{:see :write :give :owner})]
+                [(verdicts (by asha g0 (gives (g 1) (says ben {:owner true} asha g0)))
+                           (by asha g0 (gives (g 1) (says ben (dissoc owner :see) asha g0)))
+                           (by asha g0 (gives (g 1) (says ben (assoc owner :give #{:see :write :give}) asha g0)))
+                           (by asha g0 (gives (g 1) (says ben without-everyone asha g0)))
+                           (by asha g0 (gives g0 (says asha {:owner true} asha nil))))
+                 (:verdicts (played [(by asha nil
+                                         {:e lane :k :softland.store/depot :v :streaming}
+                                         (gives g0 (says asha without-everyone asha nil)))]))
+                 (first-act/making-act? :streaming
+                                        (by asha nil
+                                            {:e lane :k :softland.store/depot :v :streaming}
+                                            (gives g0 (says asha without-everyone asha nil))))]))
        [[:permission-fact-not-a-permission :permission-fact-not-a-permission
-         :permission-fact-not-a-permission :permission-fact-not-a-permission]
-        [:permission-fact-not-a-permission]]]
+         :permission-fact-not-a-permission :permission-fact-not-a-permission
+         :permission-fact-not-a-permission]
+        [:permission-fact-not-a-permission]
+        false]]
       ["an act that would leave a lane with no owner's permission that stands on its own is refused: by an end, and by a change that takes owning away"
        (fn [] (verdicts (by asha g0 (ends g0))
                         (by asha nil (ends g0))
@@ -568,6 +600,34 @@
                           (by zed (g 1) (ends (g 4)))
                           (by asha g0 (ends (g 5))))))
        [:accepted :accepted :accepted :accepted :may-not-end-the-permission :accepted :accepted :accepted]]
+      ["giving or raising a permission held by everyone needs :everyone in the giver's right to give, beside the right passed; inviting a person does not, and :everyone in :give is passed on only with both :give and :everyone"
+       (fn [] (verdicts (by asha g0 (gives (g 3) (says ben member asha g0)))
+                        (by ben (g 3) (gives (g 4) (says cal see ben (g 3))))
+                        (by ben (g 3) (gives (g 5) (says :anyone see ben (g 3))))
+                        (by ben (g 3) (gives (g 5) (says :anyone-signed-in see ben (g 3))))
+                        (by ben (g 3) (gives (g 5) (says dee publisher ben (g 3))))
+                        (by asha g0 (gives (g 5) (says :anyone-signed-in see asha g0)))
+                        (by ben (g 3) (gives (g 5) (says :anyone-signed-in see-write asha g0)))
+                        (by asha g0 (gives (g 6) (says dee {:see true :give #{:everyone}} asha g0)))
+                        (by dee (g 6) (gives (g 7) (says :anyone see dee (g 6))))
+                        (by dee (g 6) (gives (g 7) (says cal {:see true :give #{:everyone}} dee (g 6))))
+                        (by asha g0 (gives (g 8) (says ben publisher asha g0)))
+                        (by ben (g 8) (gives (g 5) (says :anyone-signed-in see-write asha g0)))
+                        (by ben (g 8) (gives (g 9) (says :anyone see ben (g 8))))
+                        (by ben (g 8) (gives (g 10) (says cal publisher ben (g 8))))
+                        (by asha g0 (gives (g 8) (says ben member asha g0)))
+                        (by ben (g 8) (ends (g 9)))))
+       [:accepted :accepted
+        :permission-gives-more-than-its-giver-may
+        :permission-gives-more-than-its-giver-may
+        :permission-gives-more-than-its-giver-may
+        :accepted
+        :permission-gives-more-than-its-giver-may
+        :accepted
+        :permission-gives-more-than-its-giver-may
+        :permission-gives-more-than-its-giver-may
+        :accepted :accepted :accepted :accepted
+        :accepted :may-not-end-the-permission]]
       ["a maker opens her lane as she makes it: the making act holds the depot, the first permission, and a permission of seeing to anyone at all under it"
        (fn [] (let [opening (fn [who value]
                               (by who nil
@@ -621,15 +681,25 @@
 
 (deftest what-a-decision-reads-and-writes
   (holds
-   [["a give puts the permission in the order by holder, an end takes it out, and a permission for one sitting has its sitting in the key"
-     (fn [] (let [acts [(by asha g0 (gives (g 1) (says ben see asha g0)))
+   [["a give puts the permission in the order by holder with the decision's stamp, an in-place change writes the new decision's stamp there, an end takes it out, and a permission for one sitting has its sitting in the key"
+     (fn [] (let [k1 (record/by-holder-key lane ben nil (g 1))
+                  k2 (record/by-holder-key lane ben :sit-7 (g 2))
+                  acts [(by asha g0 (gives (g 1) (says ben see asha g0)))
                         (by asha g0 (gives (g 2) (says ben see asha g0 :session :sit-7)))]
-                  keys-of (fn [record] (vec (keys (:by-holder record))))]
-              [(keys-of (apply after acts))
-               (keys-of (apply after (conj acts (by ben nil (ends (g 1))))))]))
+                  r-given (apply after acts)
+                  r-changed (apply after (conj acts (by asha g0 (gives (g 1) (says ben member asha g0)))))
+                  r-ended (apply after (conj acts
+                                             (by asha g0 (gives (g 1) (says ben member asha g0)))
+                                             (by ben nil (ends (g 1)))))]
+              [(vec (keys (:by-holder r-given)))
+               (get (:by-holder r-given) k1)
+               (get (:by-holder r-changed) k1)
+               (vec (keys (:by-holder r-ended)))]))
      [[(record/by-holder-key lane asha nil g0)
        (record/by-holder-key lane ben nil (g 1))
        (record/by-holder-key lane ben :sit-7 (g 2))]
+      1
+      3
       [(record/by-holder-key lane asha nil g0)
        (record/by-holder-key lane ben :sit-7 (g 2))]]]
     ["the use of a permission for one exact act is a row with no value that no fact wrote, where an end is a row that a fact wrote"
@@ -711,7 +781,47 @@
              (mapv act/holder-party? [asha :anyone :anyone-signed-in :asha])])
      [[:person :agent :run :system :everyone :everyone nil nil nil nil]
       [true true true false]
-      [true true true false]]]]))
+      [true true true false]]]
+    ["lane-rights snapshots read :anyone first on :see, distinguish :holder, :visitor and :outside on :acts, return :too-many-permissions at the 32 holder-scan or chain bound, and gate live standing on entry-for-entry read-set stamp equality"
+     (fn []
+       (let [run-snapshot (fn [record question who session]
+                            (loop [st (read-lanes/rights-begin lane question who session)]
+                              (if-let [rs (seq (read-lanes/rights-reads st))]
+                                (recur (read-lanes/rights-resume st (into {} (map (fn [r] [r (memory/read-one record r)])) rs)))
+                                (read-lanes/rights-snapshot st))))
+             open-rec (after (by asha g0 (gives (g 1) (says :anyone see asha g0))))
+             see-asha (run-snapshot open-rec :see asha :sit-1)
+             see-anon (run-snapshot open-rec :see nil nil)
+             acts-asha (run-snapshot open-rec :acts asha :sit-1)
+             acts-zed (run-snapshot open-rec :acts zed :sit-1)
+             acts-ada (run-snapshot open-rec :acts ada :sit-1)
+             flood-rec (apply after (for [i (range 1 34)]
+                                      (by asha g0 (gives (g i) (says ada {:write :all} asha g0 :lent-from g0)))))
+             flood-snap (run-snapshot flood-rec :see ada :sit-1)
+             own-src (read-sources/own-rows-source lane lane)
+             known-match {own-src {(record/place-key lane lane :softland.store/depot)
+                                   (get (:facts open-rec) (record/place-key lane lane :softland.store/depot))}
+                          (read-sources/holders-source lane lane (str lane " :anyone * ") (str lane " :anyone *!"))
+                          {(record/by-holder-key lane :anyone nil (g 1)) 1}
+                          (read-sources/permission-row-source lane lane (chain/place lane (g 1)))
+                          (get (:facts open-rec) (chain/place lane (g 1)))}
+             known-stale (assoc-in known-match
+                                   [(read-sources/permission-row-source lane lane (chain/place lane (g 1))) :stamp]
+                                   99)
+             {:keys [ok]} (read-query/check {:asks [:place :thing-1 :note] :asker zed :lanes [lane]})]
+         [(= see-asha see-anon)
+          (:standing see-asha)
+          (:standing acts-asha)
+          (:standing acts-zed)
+          (:standing acts-ada)
+          (:standing flood-snap)
+          (read-sources/lane-standing lane lane :live {lane see-asha} known-match)
+          (read-sources/lane-standing lane lane :live {lane see-asha} known-stale)
+          (:refuse (read-query/check {:asks [:place :thing-1 :note] :asker :anyone :lanes [lane]}))
+          (:refuse (read-query/check {:asks [:place :thing-1 :note] :asker :asha :lanes [lane]}))
+          (some? ok)]))
+     [true :yes :holder :visitor :outside :too-many-permissions :yes :not-known-yet
+      :asker-not-a-party :asker-not-a-party true]]]))
 
 (defn test-ns-hook
   "Runs the checks in the order in which the proof tells them."

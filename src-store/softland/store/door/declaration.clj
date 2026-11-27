@@ -237,7 +237,8 @@
   `:permission-value` is what a permission says. `:allows` holds some of
   four rights, each there or absent: `:see`; `:write`, whose one value
   today is `:all`; `:give`, the rights that its holder may pass on to
-  another, `:give` itself among them when she may pass the right to give;
+  another, `:give` itself among them when she may pass the right to give,
+  and `:everyone` when she may give or raise a permission held by everyone;
   and `:owner`. `:covers` is the default group of a lane, or one exact act
   by the digest of the act as its maker made it
   (`softland.store.door.digest/hex-for-a-yes`). `:session`, when it is
@@ -267,21 +268,22 @@
           [:given-by  :author-party]
           [:under     :uuid          {:optional true :left-out true}]
           [:lent-from :uuid          {:optional true :left-out true}]]
-         :allows
-         [:parts
-          [:see   [:enum true]                               {:optional true :left-out true}]
-          [:write [:enum :all]                               {:optional true :left-out true}]
-          [:give  [:set-of [:enum :see :write :give :owner]] {:optional true :left-out true :empty :malformed}]
-          [:owner [:enum true]                               {:optional true :left-out true}]]
-         :covers
-         [:or [:tuple [:enum :default-group] :id]
-              [:tuple [:enum :exact-act] :digest-hex]]))
+          :allows
+          [:parts
+           [:see   [:enum true]                                         {:optional true :left-out true}]
+           [:write [:enum :all]                                         {:optional true :left-out true}]
+           [:give  [:set-of [:enum :see :write :give :owner :everyone]] {:optional true :left-out true :empty :malformed}]
+           [:owner [:enum true]                                         {:optional true :left-out true}]]
+          :covers
+          [:or [:tuple [:enum :default-group] :id]
+               [:tuple [:enum :exact-act] :digest-hex]]))
 
 (def owner-allows
   "What an owner's permission allows: everything over a lane. Seeing,
-  writing, giving each right on, the right to give and owning among them,
-  and with `:owner` its settings and the end of any permission over it."
-  {:see true :write :all :give #{:see :write :give :owner} :owner true})
+  writing, giving each right on, to named parties and to everyone, the
+  right to give and owning among them, and with `:owner` its settings and
+  the end of any permission over it."
+  {:see true :write :all :give #{:see :write :give :owner :everyone} :owner true})
 
 (defn permission-value
   "The one form of what a permission says, or nil for a thing that is no

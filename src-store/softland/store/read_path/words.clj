@@ -52,7 +52,11 @@
 
    :keep-a-read-of-acts-live
    {:from #{:read-live}
-    :says "a read of a lane's acts is asked once and is not kept live; the caller asks again from where the last read ended"}})
+    :says "a read of a lane's acts is asked once and is not kept live; the caller asks again from where the last read ended"}
+
+   :too-many-permissions
+   {:from #{:read-once :read-live}
+    :says "a lane of the read holds more permissions for one holder or in one chain than one read examines, so the read stopped at its bound rather than say that the asker may not see"}})
 
 (def carried
   "What a word can carry. A word carries no row, no value and no place of a
@@ -65,6 +69,7 @@
    :waited-ms "how long the call waited, in milliseconds"
    :what      "what was too many: `:places-of-one-run`, `:checks-of-one-read`, or `:pushes-under-one-routing-id`"
    :most      "the greatest number of them that one read may hold, or for the pushes that the read path may hold"
+   :lane      "the lane whose permissions passed the bound"
    :because   "why a live read ended, one of `because`"
    :stamp     "the first stamp of a lane's line that the read did not find whole"})
 
@@ -78,9 +83,11 @@
    :a-run-grew-too-large
    "a run of the read came to hold more places than one read may, or the read came to need more checks than one read may; the word carries `:what` and `:most`"
    :a-read-it-came-to-need-failed
-   "a push that the open read came to need was not given: its opening threw, or its wait passed; the word carries what that carried"
+   "a push or a query of rights that the open read came to need was not given: it threw, or its wait passed; the word carries what that carried"
    :no-room-for-a-push-it-came-to-need
    "the open read came to need a push where the read path already holds as many pushes as it may; none was opened, and the word carries `:what` and `:most`"
+   :too-many-permissions
+   "a lane of the read came to hold more permissions for one holder or in one chain than one read examines; the word carries `:lane` and `:most`"
    :its-function-threw
    "the asker's function threw while it was given a change"})
 

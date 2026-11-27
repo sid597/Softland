@@ -3,19 +3,23 @@
   whether a lane is made, whether an asker may see it, and what a read says
   of a lane that it left out. Pure code.
 
-  Whether an asker may see a lane is the asker's rights in it, read as one
-  thing from the rows of one moment (`rights-begin`, `rights`): the
-  lane's depot; the permissions that she holds there, her own and
-  everyone's, found by holder
-  (`softland.store.record.rows/by-holder-key`); and the rows above each
-  that is lent. She sees a lane exactly when one of those permissions
-  stands, allows seeing at that moment, and covers the lane's default
-  group in the sitting that she asks in. Whether a permission stands and
-  what it allows are the gates' own rule, read from the same rows
-  (`softland.store.gate.chain`), so a gate and a read never differ on
-  either. No setting of a lane and no value in code lets anyone see.
+  Whether an asker may see a lane, or what she is in a read of its acts, is
+  her rights in it, read in one turn on the task from the rows of one moment
+  (`rights-begin`, `rights-snapshot`): the lane's depot; the permissions by
+  holder, bounded at `max-holder-permissions`; and the rows above each that
+  is lent, bounded at `softland.store.gate.chain/max-lent-depth`. For `:see`
+  it reads `:anyone` first and stops at the first permission that stands,
+  allows seeing now, and covers the lane's default group in the sitting
+  asked, so public viewers share pushes. For `:acts` it reads the asker's
+  own runs first (`:holder`), and then everyone's (`:visitor`), else
+  `:outside`. Every row and holder run read in the turn is returned in
+  `:read-set` with its stamp or stamps; a cut at either bound gives
+  `:too-many-permissions` and never a false `:may-not-see`.
 
-  A permission for one exact act lets nobody see the lane.
+  Whether a permission stands and what it allows are the gates' own rule,
+  read from the same rows (`softland.store.gate.chain`), so a gate and a
+  read never differ on either. No setting of a lane and no value in code
+  lets anyone see. A permission for one exact act lets nobody see the lane.
 
   The other functions take a lane's own rows, a map from a row's key to the
   row, nil while they are not known: they are neighbours in the table, so
@@ -28,6 +32,69 @@
             [softland.store.gate.chain :as chain]
             [softland.store.gate.first-act :as first-act]
             [softland.store.record.rows :as rows]))
+
+(def max-holder-permissions
+  "The most permissions in one holder run, or distinct candidate permissions
+  across an asker's holder runs in one turn, that `lane-rights` examines
+  before giving `:too-many-permissions`."
+  32)
+
+(defn outside-the-agreed-range?
+  "True for a text that holds a UTF-16 unit from U+D800 on: a letter outside
+  the first plane, or one from U+E000 on. Only for such a text can Java's
+  order of Strings and the order by code point give two answers."
+  [^String k]
+  (let [n (.length k)]
+    (loop [i 0]
+      (cond (>= i n) false
+            (>= (int (.charAt k i)) 0xD800) true
+            :else (recur (inc i))))))
+
+(defn holder-range-agreed?
+  "True when both ends of a holder run lie below U+D800, so Rama's two-ended
+  `sorted-map-range` cut agrees with the table's code-point order."
+  [from to]
+  (and (string? from)
+       (string? to)
+       (not (outside-the-agreed-range? from))
+       (not (outside-the-agreed-range? to))))
+
+(defn clean-holder-run
+  "A plain `{String Long}` map of the entries of `raw-run` whose keys lie in
+  `[from, to)` under the table's code-point order. Iterates `(seq raw-run)`
+  directly so a client submap with characters from U+D800 on never misses a
+  key by UTF-16 lookup."
+  [from to raw-run]
+  (if (empty? raw-run)
+    {}
+    (let [check-bounds? (not (holder-range-agreed? from to))]
+      (persistent!
+       (reduce (fn [acc [k v]]
+                 (if (and (string? k)
+                          (int? v)
+                          (or (not check-bounds?)
+                              (and (not (rows/before? k from))
+                                   (rows/before? k to))))
+                   (assoc! acc k (long v))
+                   acc))
+               (transient {})
+               raw-run)))))
+
+(defn valid-rights-query?
+  "The test at the head of the `lane-rights` query topology: nil/false when
+  any argument is outside the declared domain or routes a streaming lane to
+  another task. It never throws."
+  [routing-id lane question asker session]
+  (try
+    (boolean
+     (and (declaration/usable-id? routing-id)
+          (declaration/usable-id? lane)
+          (or (= :microbatch (first-act/depot-at-making lane))
+              (= routing-id lane))
+          (contains? #{:see :acts} question)
+          (or (nil? asker) (declaration/usable-id? asker))
+          (or (nil? session) (declaration/usable-id? session))))
+    (catch Throwable _ false)))
 
 (defn own-row
   [own-rows lane k]
@@ -71,27 +138,36 @@
 
 ;; ------------------------------------------------------ an asker's rights
 
-(defn- holders-for
-  "The holders whose permissions an asker holds: herself; anyone at all,
-  when she is a person or is not signed in, which `asker` nil says; anyone
-  signed in, when she is a person (`softland.store.gate.chain/held-by?`).
-  None for an asker that is no party that can act: everyone holds and
-  never asks, so no read is answered for `:anyone` as if it were somebody."
-  [asker]
-  (cond
-    (nil? asker) [:anyone]
-    (= :person (act/party-kind asker)) [asker :anyone :anyone-signed-in]
-    (act/author-party? asker) [asker]
-    :else []))
+(defn- holder-plan
+  "Ordered `[holder sitting match-standing]` triples for one turn of
+  `lane-rights`. On `:see`, `:anyone` comes first (with `nil` sitting before
+  `session`) so all viewers of an open lane short-circuit on the same shared
+  runs; `:anyone-signed-in` comes next for a person, then `asker`. On
+  `:acts`, `asker` comes first (`:holder`), then everyone (`:visitor`), so
+  a member of an open lane is never mistaken for a visitor."
+  [question asker session]
+  (let [sittings (if (and (some? asker) (some? session)) [nil session] [nil])
+        runs-of (fn [holders match]
+                  (for [h holders
+                        s (if (and (= :anyone h) (nil? asker)) [nil] sittings)]
+                    [h s match]))]
+    (case question
+      :see
+      (cond
+        (nil? asker) (vec (runs-of [:anyone] :yes))
+        (= :person (act/party-kind asker)) (vec (runs-of [:anyone :anyone-signed-in asker] :yes))
+        (act/author-party? asker) (vec (runs-of [asker] :yes))
+        :else [])
 
-(defn- holder-reads
-  "The runs of the order by holder that hold every permission which could
-  let the asker see the lane: for each holder that she holds as, those good
-  in every sitting, and those good in the sitting that she asks in."
-  [lane asker session]
-  (vec (for [holder (holders-for asker)
-             sitting (if (some? session) [nil session] [nil])]
-         (into [:holders] (rows/by-holder-run lane holder sitting)))))
+      :acts
+      (cond
+        (nil? asker) (vec (runs-of [:anyone] :visitor))
+        (= :person (act/party-kind asker)) (into (vec (runs-of [asker] :holder))
+                                                 (runs-of [:anyone :anyone-signed-in] :visitor))
+        (act/author-party? asker) (vec (runs-of [asker] :holder))
+        :else [])
+
+      [])))
 
 (defn- depot-read
   [lane]
@@ -108,43 +184,83 @@
                   (or (nil? (:session says)) (= session (:session says)))
                   (:see (chain/allows-now values))))))
 
-(defn- rights-step
-  "Goes through the permissions that are left, in order, until one lets the
-  asker see, one needs a row that is not read, or none is left."
-  [{:keys [lane asker session rows] :as state}]
-  (loop [ids (:ids state)]
+(defn- finish-rights
+  [state made? sees? standing-word]
+  (assoc state
+         :ids []
+         :plan []
+         :reads []
+         :rights {:made? made? :sees? sees? :standing standing-word}
+         :snapshot {:standing standing-word :read-set (:read-set state)}))
+
+(defn- advance-rights
+  "Walks candidate permissions and remaining holder runs until a standing
+  permission answers the question, a row or holder run must be read next, a
+  bound is hit, or nothing is left."
+  [state]
+  (loop [{:keys [lane question asker session ids plan seen-ids cut-chain? rows] :as st} state]
     (if-let [id (first ids)]
-      (let [{:keys [values wants whole?]} (chain/climb lane id rows)]
-        (cond
-          wants (assoc state :ids ids :reads [[:fact wants]])
-          (and whole? (sees-under? lane asker session values))
-          (assoc state :ids [] :reads [] :rights {:made? true :sees? true})
-          :else (recur (rest ids))))
-      (assoc state :ids [] :reads [] :rights {:made? true :sees? false}))))
+      (cond
+        (and (not (contains? seen-ids id))
+             (<= max-holder-permissions (count seen-ids)))
+        (finish-rights st true false :too-many-permissions)
+
+        :else
+        (let [seen-ids (conj seen-ids id)
+              st (assoc st :seen-ids seen-ids)
+              {:keys [values wants whole?]} (chain/climb lane id rows)]
+          (cond
+            wants
+            (assoc st :ids ids :reads [[:fact wants]])
+
+            (and whole? (sees-under? lane asker session values))
+            (finish-rights st true true (:match-standing st))
+
+            :else
+            (let [chain-cut? (and (not whole?) (<= chain/max-lent-depth (count values)))]
+              (recur (assoc st
+                            :ids (subvec ids 1)
+                            :cut-chain? (or cut-chain? chain-cut?)))))))
+      (if-let [[holder sitting match-standing] (first plan)]
+        (let [[from to] (rows/by-holder-run lane holder sitting)]
+          (assoc st
+                 :match-standing match-standing
+                 :plan (subvec plan 1)
+                 :reads [[:holders from to]]))
+        (if cut-chain?
+          (finish-rights st true false :too-many-permissions)
+          (finish-rights st true false (if (= :acts question) :outside :may-not-see)))))))
 
 (defn rights-begin
   "The read of an asker's rights in a lane, as a walk in steps, like the
   walk of a gate (`softland.store.gate.walk`): `rights-reads` says what it
   wants read now, `rights-resume` takes what those reads gave, and when it
-  wants nothing `rights` says what she holds. `asker` is nil for one who
-  is not signed in; `session` is the sitting that she asks in, or nil.
+  wants nothing `rights` and `rights-snapshot` say what she holds and which
+  rows and holder runs the answer rests on.
+
+  `question` is `:see` (default in the 3-argument form) or `:acts`. `asker`
+  is nil for one who is not signed in; `session` is the sitting that she
+  asks in, or nil.
 
   A read is `[:fact key]`, a row of the facts, or `[:holders from to]`, a
-  run of the order by holder, `to` not in it, which gives a map from key
-  to stamp.
-
-  First the lane's depot and the holder runs, together. Then, in a lane
-  that is made, one row at a time: the row of a permission that the runs
-  name, and each row above one that is lent, until a permission lets her
-  see or none is left. So every row that the answer rests on is one that
-  the reader was asked for, and a reader that makes every read in one turn
-  on the lane's task holds them as of one moment.
-
-  Limit: the number of permissions that the runs name has no bound here."
-  [lane asker session]
-  {:lane lane :asker asker :session session :rows {}
-   :stage :first
-   :reads (into [(depot-read lane)] (holder-reads lane asker session))})
+  run of the order by holder, `to` not in it, which gives `{key stamp}`."
+  ([lane asker session]
+   (rights-begin lane :see asker session))
+  ([lane question asker session]
+   (let [effective-session (when (some? asker) session)]
+     {:lane lane
+      :question question
+      :asker asker
+      :session effective-session
+      :stage :depot
+      :reads [(depot-read lane)]
+      :plan (holder-plan question asker effective-session)
+      :ids []
+      :match-standing nil
+      :seen-ids #{}
+      :cut-chain? false
+      :rows {}
+      :read-set {}})))
 
 (defn rights-reads
   "What the read of an asker's rights wants read now. Empty when it is
@@ -155,29 +271,50 @@
 (defn rights-resume
   "Takes the state and a map from each read that `rights-reads` named to
   what it gave. Gives the state after."
-  [{:keys [lane asker session] :as state} got]
+  [{:keys [lane question] :as state} got]
   (case (:stage state)
-    :first
-    (if (nil? (get got (depot-read lane)))
-      (assoc state :reads [] :rights {:made? false :sees? false})
-      (rights-step (assoc state
-                          :stage :permissions
-                          :ids (into []
-                                     (comp (mapcat (fn [read] (sort (keys (get got read)))))
-                                           (keep rows/permission-of-by-holder-key)
-                                           (distinct))
-                                     (holder-reads lane asker session)))))
+    :depot
+    (let [read (depot-read lane)
+          row (get got read)
+          state (assoc state :read-set (assoc (:read-set state) read (:stamp row)))]
+      (if (nil? row)
+        (finish-rights state false false (if (= :acts question) :outside :may-not-see))
+        (advance-rights (assoc state :stage :walk))))
 
-    :permissions
-    (rights-step (update state :rows into
-                         (map (fn [[_ k :as read]] [k (rows/read-as-a-permission (get got read))]))
-                         (:reads state)))))
+    :walk
+    (let [[which a b :as read] (first (:reads state))]
+      (case which
+        :holders
+        (let [run-map (clean-holder-run a b (get got read))
+              state (assoc state :read-set (assoc (:read-set state) read run-map))]
+          (if (< max-holder-permissions (count run-map))
+            (finish-rights state true false :too-many-permissions)
+            (let [new-ids (into []
+                                (comp (keep rows/permission-of-by-holder-key)
+                                      (remove (:seen-ids state))
+                                      (distinct))
+                                (sort (keys run-map)))]
+              (advance-rights (assoc state :ids new-ids)))))
+
+        :fact
+        (let [raw-row (get got read)
+              state (-> state
+                        (update :rows assoc a (rows/read-as-a-permission raw-row))
+                        (update :read-set assoc read (:stamp raw-row)))]
+          (advance-rights state))))))
 
 (defn rights
-  "An asker's rights in a lane, `{:made? :sees?}`, for a read that is done;
-  nil for one that is not."
+  "An asker's rights in a lane, `{:made? :sees? :standing}`, for a read that
+  is done; nil for one that is not."
   [state]
   (:rights state))
+
+(defn rights-snapshot
+  "`{:standing ... :read-set ...}` as returned by the `lane-rights` query
+  topology (`CONTRACT.md` §2.4), for a read that is done; nil for one that
+  is not."
+  [state]
+  (:snapshot state))
 
 (defn standing
   "Is a lane made, and may this asker see it. The one function of who may
@@ -186,6 +323,7 @@
   [rights]
   (cond
     (nil? rights) :not-known-yet
+    (= :too-many-permissions (:standing rights)) :too-many-permissions
     (not (:made? rights)) :not-made
     (:sees? rights) :yes
     :else :may-not-see))
@@ -236,23 +374,29 @@
   {:lane lane :why why})
 
 (defn meaning
-  "What a lane's own rows and the asker's rights in it mean for one query,
-  as a value that `=` compares. The list that the lane builds on, and the
-  stamp of the asked key's mark, are in it only when she may see the lane.
+  "What a lane's own rows and the asker's standing in it mean for one query,
+  as a value that `=` compares. `rights-or-standing` is `rights`'s map or a
+  standing word (`:yes`, `:may-not-see`, `:not-made`, `:not-known-yet`). The
+  list that the lane builds on, and the stamp of the asked key's mark, are
+  in it only when she may see the lane.
 
   A reader that is kept live compares the meaning before and after a
   change. A list or a mark that is written in a lane that she may not see
   means the same: not even an answer that says what it said is given,
   which would tell her that something of that lane was written."
-  [query lane own-rows rights]
-  (if (or (nil? own-rows) (nil? rights))
-    :not-known-yet
-    (let [seen? (= :yes (standing rights))
-          [word k] (:asks query)]
-      (cond-> {:made? (boolean (:made? rights))
-               :sees? (boolean (:sees? rights))}
-        (and seen? (= lane (:from-lane query)))
-        (assoc :builds-on (builds-on own-rows lane))
+  [query lane own-rows rights-or-standing]
+  (let [st (if (keyword? rights-or-standing)
+             rights-or-standing
+             (standing rights-or-standing))]
+    (if (or (nil? own-rows) (nil? st) (= :not-known-yet st) (= :too-many-permissions st))
+      :not-known-yet
+      (let [made? (not= :not-made st)
+            seen? (= :yes st)
+            [word k] (:asks query)]
+        (cond-> {:made? made?
+                 :sees? seen?}
+          (and seen? (= lane (:from-lane query)))
+          (assoc :builds-on (builds-on own-rows lane))
 
-        (and seen? (= :points-at word))
-        (assoc :marked-since (marked-since own-rows lane k))))))
+          (and seen? (= :points-at word))
+          (assoc :marked-since (marked-since own-rows lane k)))))))

@@ -7,9 +7,10 @@
   data.
 
   `:lanes` is nearest first; `:from-lane` takes the list from the lane.
-  `:session` is the run that the read is asked in, as an act names its
-  `:session`. The check takes `:asker` as given: who asks is what the caller
-  says.
+  `:session` is the login sitting that the read is asked in, as an act names
+  its `:session`. `:asker` is a party that can act (`:person.<id>`,
+  `:agent.<id>`, `:run.<id>` or `:system`), when the asker is signed in: who
+  asks is what the caller says.
 
   A run is every place of one lane from one end to the other, both ends in
   the run, in the order in which the table keeps its keys: the printed text
@@ -128,7 +129,7 @@
   (assoc act/shapes
          :query   [:parts
                    [:asks             :value          {:absent :asks-no-word-known :reason :asks-no-word-known}]
-                   [:asker            :id             {:optional true :reason :asker-is-no-id}]
+                   [:asker            :author-party   {:optional true :reason :asker-not-a-party}]
                    [:not-signed-in    [:enum true]    {:optional true :reason :no-one-asker}]
                    [:session          :id             {:optional true :reason :session-is-no-id}]
                    [:lanes           [:seq-of :id]   {:optional true :reason :lanes-not-a-list-of-lanes}]

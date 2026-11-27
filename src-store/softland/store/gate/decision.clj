@@ -310,15 +310,19 @@
 (defn- may-pass?
   "Whether one who holds `held` at this moment may pass `rights` on to `to`.
   To see and to write: she holds it, and `to` is an agent or a run, which
-  only borrows; or her right to give names it. The right to give: her own
-  names the right to give, and names everything that the new one names. To
-  own: she is an owner, and her right to give names owning. So nobody
-  gives what she does not hold, and what a holder may pass to another
-  person is what her right to give says."
+  only borrows; or her right to give names it. Passing to everyone, anyone
+  at all or anyone signed in, also needs `:everyone` in her right to give.
+  The right to give: her own names the right to give, and names everything
+  that the new one names, `:everyone` among them. To own: she is an owner,
+  and her right to give names owning. So nobody gives what she does not
+  hold, and what a holder may pass to another person or to everyone is what
+  her right to give says."
   [held rights to]
   (let [may-give (:give held #{})]
     (boolean
      (and (seq rights)
+          (or (not (contains? act/everyone to))
+              (contains? may-give :everyone))
           (every? (fn [[right value]]
                     (case right
                       (:see :write) (and (get held right)
@@ -340,12 +344,16 @@
   "Three of the four who may end a permission, each read from what the
   permission says and from the act's own: its holder, the party that it
   names, whatever the act names; whoever gave it, in an act under the
-  permission that she gave it under, which stands; an owner over what it
+  permission that she gave it under, while it stands and still lets her
+  pass what the permission holds to its holder; an owner over what it
   covers, in an act under her owner's permission."
   [act acts-own target]
   (let [who (:who act)]
     (boolean (or (= who (:holder target))
-                 (and acts-own (= who (:given-by target)) (= (:id acts-own) (:under target)))
+                 (and acts-own
+                      (= who (:given-by target))
+                      (= (:id acts-own) (:under target))
+                      (may-pass? (:allows acts-own) (:allows target) (:holder target)))
                  (owner-over? acts-own target)))))
 
 (defn- lender-above
@@ -550,7 +558,8 @@
 
   Four may end a permission, and nobody else: its holder, whatever it
   allows and whatever her act names; whoever gave it, in an act under the
-  permission that she gave it under; the holder of a permission that it is
+  permission that she gave it under, while it still lets her pass what the
+  permission holds to its holder; the holder of a permission that it is
   lent from, directly or further up, in an act under that permission; an
   owner over what it covers, in an act under her owner's permission. The
   act's own permission has passed its standing, so each of the last three
@@ -765,11 +774,11 @@
 
   `[:holder-permission key stamp]` puts a permission that covers a lane's
   default group in the order by holder
-  (`softland.store.record.rows/by-holder-key`), with the stamp of the act
-  that gave it, and `[:holder-permission key nil]` takes it out at its
-  end. So a read finds the permissions of a holder that were not ended
-  with no id in hand. A change moves nothing there: it keeps the holder,
-  the cover and the sitting.
+  (`softland.store.record.rows/by-holder-key`), with the decision's stamp
+  at both its give and each change of it, and `[:holder-permission key nil]`
+  takes it out at its end. So a read finds the permissions of a holder that
+  were not ended with no id in hand, and a push on the holder's run sees an
+  in-place change too.
 
   `[:owner id true]` puts a permission among the owners of the act's lane
   and `[:owner id nil]` takes it out (`owners-key`). Each is the same write
@@ -787,7 +796,7 @@
                             was-owner? (owner-of-the-lane? lane was)
                             is-owner? (owner-of-the-lane? lane is)]
                         (cond-> []
-                          (and is (nil? row) (in-a-group? is)) (conj [:holder-permission (by-holder is) (long stamp)])
+                          (and is (in-a-group? is)) (conj [:holder-permission (by-holder is) (long stamp)])
                           (and was (nil? is) (in-a-group? was)) (conj [:holder-permission (by-holder was) nil])
                           (and is-owner? (not was-owner?)) (conj [:owner (:e fact) true])
                           (and was-owner? (not is-owner?)) (conj [:owner (:e fact) nil]))))))

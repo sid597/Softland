@@ -1,24 +1,26 @@
 (ns softland.store.record.tables
   "The record as PStates: the schemas, written once. It declares nothing: a
-  gate declares six PStates with these schemas under its own names, because
+  gate declares seven PStates with these schemas under its own names, because
   in Rama only the topology that owns a PState can write it. Each is one
   schema for both gates, so one walk of one thing
-  (`softland.store.module.walk`) reads and writes either gate's six.
+  (`softland.store.module.walk`) reads and writes either gate's seven.
 
   Why flat maps and not one PState keyed by the lane. An answer is found by
   an act's uuid, a fact by its place, a row of the facts by value by the
-  digest of its value: they share no key. With the lane as the top-level
-  key and three subindexed maps under it, each row would cost two seeks to
-  read and one more to write, where each costs one here.
+  digest of its value, a permission by holder by its holder and sitting:
+  they share no key. With the lane as the top-level key and subindexed maps
+  under it, each row would cost two seeks to read and one more to write,
+  where each costs one here.
 
   A row is placed by the task on which its gate writes it, not by a hash of
   its whole key. So nothing may route by a whole key. The streaming gate
   writes each row of a lane on the lane's task. The microbatch gate writes
-  an answer, a lane's last stamp, its line, its things and its rows by who
-  on the lane's task, and each row of the facts and of the facts by value
-  on every task: a read of a microbatch lane's facts finds each row on
-  whichever task it runs. A read of an answer, or of the line, routes by
-  the lane for either gate.
+  an answer, a lane's last stamp, its owners, its line, its things and its
+  rows by who on the lane's task, and each row of the facts, of the facts by
+  value, and of the permissions by holder on every task: a read of a
+  microbatch lane's facts and rights finds each row on whichever task it
+  runs. A read of an answer, or of the line, routes by the lane for either
+  gate.
 
   No row holds a collection, and no position is of the class Object: each
   field has one class, and a field that a row does not have is absent. A
@@ -85,6 +87,15 @@
                               :who        String
                               :permission String})})
 
+(defn permissions-by-holder
+  "For each permission that covers a lane's default group and has not been
+  ended, its key by holder (`softland.store.record.rows/by-holder-key`) to
+  the stamp of the last decision that gave it or changed it in place.
+  Removed via `NONE>` on end. Top-level `{String Long}` so a holder-sitting
+  prefix is one sorted range scan and one reactive push."
+  []
+  {String Long})
+
 (defn line
   "One row for each decision, under \"<lane> <stamp>\" with the stamp in 19
   digits. So a lane's decisions are one run of neighbouring keys in the
@@ -149,6 +160,12 @@
   for her own things, so the one seek more that the field's level costs at
   that read saves a partition on every task.
 
+  `:owners`, by the printed text of a lane id: the UUIDs of the owner
+  permissions of that lane that stand on their own. Kept on the deciding
+  task alone (zero `|all` copy). The outer map tracks no size; the inner set
+  is subindexed with size tracking on so `[(keypath :owners lane-text)
+  (view count)]` reads how many non-lent owners remain in O(1).
+
   `:strays`: by reason word, the digests, as hex text, of the strays seen
   on the task. The outer map is not subindexed: its keys are the words of
   `softland.store.door.declaration/stray-reasons`, a closed set. Each
@@ -157,11 +174,13 @@
   same write however often Rama runs the event, and a counter would count
   a stray again at each retry.
 
-  Not checked here: a key of `:last-stamp` is a String of
+  Not checked here: a key of `:last-stamp` or `:owners` is a String of
   `softland.store.door.declaration/max-id-text` characters at most, which
   the lane of a thing that is no stray keeps; a key of `:by-who` is made
   of two such ids and a stamp."
   []
   (fixed-keys-schema {:last-stamp (map-schema String Long {:subindex-options {:track-size? false}})
+                      :owners     (map-schema String (set-schema UUID {:subindex? true})
+                                              {:subindex-options {:track-size? false}})
                       :by-who     (map-schema String Long {:subindex-options {:track-size? false}})
                       :strays     (map-schema Keyword (set-schema String {:subindex? true}))}))

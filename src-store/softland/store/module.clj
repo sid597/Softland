@@ -8,7 +8,7 @@
 
 (ns softland.store.module
   "The Rama module `Store`: its two depots of acts, and the call that adds
-  the two gates and the door's two reads. It requires Rama. For a client,
+  the two gates and the three query reads. It requires Rama. For a client,
   the name of the module is `(get-module-name Store)`.
 
   `add-gates-and-reads` adds everything but the two depots, so a second
@@ -76,4 +76,4 @@
 
 (alter-meta! #'Store assoc
              :doc "The store's module: the two depots of acts, the two gates and the
-  door's two reads.")
+  three query reads.")

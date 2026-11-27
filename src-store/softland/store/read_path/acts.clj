@@ -90,22 +90,20 @@
 ;; ------------------------------------------------- who reads what whole
 
 (defn asker-kind
-  "What the asker is in the lane, for this read. A holder: her permission
-  for the lane, or the run that she asks in, stands
-  (`softland.store.read-path.lanes/either`). A visitor: she may see the
-  lane, which is open to everyone, and is no holder; signed in or not.
-  Outside: she may not see the lane, or it is not made.
+  "What the asker is in the lane, for this read. A holder: a permission of
+  hers in the lane stands and allows seeing now. A visitor: she sees the
+  lane through everyone (`:anyone` or `:anyone-signed-in`) and holds none of
+  her own. Outside: she may not see the lane, or it is not made.
 
-  Unlike a read of facts, it reads her permission in a lane that everyone
-  may see too: there it decides between whole and withheld
-  (IMPLICIT_SPEC.md R4)."
-  [lane own-rows permission-state signed-in?]
+  `own-rows` is the lane's own rows, nil while not read; `snapshot` is what
+  `lane-rights` gave for `:acts`, nil while not asked."
+  [lane own-rows snapshot]
   (cond
     (nil? own-rows) :not-known-yet
     (not (lanes/made? own-rows lane)) :outside
-    (= :stands permission-state) :holder
-    (= :not-known-yet permission-state) :not-known-yet
-    (= :everyone (lanes/who-may-see own-rows lane)) :visitor
+    (nil? snapshot) :not-known-yet
+    (= :too-many-permissions (:standing snapshot)) :too-many-permissions
+    (contains? #{:holder :visitor :outside} (:standing snapshot)) (:standing snapshot)
     :else :outside))
 
 (defn reads-whole?
@@ -322,48 +320,45 @@
 
 (defn reading
   "What a read of acts wants now, or its answer. `known` is a map from a
-  source to the value that a select gave. Gives {:wanted :missing} while
-  the read needs more; else that with `:answer`, or with `:fault`.
+  source to the value that a select gave; `snapshot` is what `lane-rights`
+  gave for `[lane lane :acts asker session]`, or nil while not asked yet.
+  Gives `{:wanted :missing}` (with `:needs-rights true` when `lane-rights`
+  is needed) while the read needs more; else that with `:answer`, `:fault`,
+  or `:too-many-permissions`.
 
-  `:fault` is {:stamp s}, the first stamp at which the line is not whole: a
-  stamp up to the last stamp with no line row in the window, a stamp of her
-  own with no line row, or a thing that the line says is kept and is not
-  there. The read then gives a word, never an answer that ends there.
-
-  At most six rounds, for an asker outside whose permission's rows above
-  must be read, and five for one who may see the lane. A kind that is not
-  known when every source of the rights is known cannot be reached; it is
-  read as outside, which shows the least."
-  [query known numbers]
-  (let [[_ start most] (:asks query)
-        start (long start)
-        lane (lanes/home query)
-        n (min (long most) (long (:max-acts-of-one-read numbers)))
-        asker (:asker query)
-        session (:session query)
-        signed-in? (some? asker)
-        last-source (last-stamp-source lane)]
-    (if-not (contains? known last-source)
-      (wants [last-source] known)
-      (let [own (sources/own-rows-source lane lane)
-            permission (when signed-in? (sources/permission-source lane lane asker))
-            run-permission (when (and signed-in? session) (sources/run-permission-source lane lane session))
-            rights [last-source own permission run-permission]]
-        (if (some #(and % (not (contains? known %))) rights)
-          (wants rights known)
-          (let [above (into (if permission (sources/chain-sources lane lane (get known permission)) [])
-                            (when run-permission
-                              (sources/chain-sources lane lane (sources/askers-run-row (get known run-permission) asker))))
-                wanted (into rights above)]
-            (if (some #(not (contains? known %)) above)
-              (wants wanted known)
-              (let [own-rows (get known own)
-                    kind (let [k (asker-kind lane own-rows (sources/permission-state query lane lane known) signed-in?)]
-                           (if (= :not-known-yet k) :outside k))
-                    setting (lanes/who-may-read-acts own-rows lane)
-                    asker-text (when signed-in? (declaration/id-text asker))
-                    whole? (fn [row] (reads-whole? kind setting asker-text (:who row)))]
-                (if (= :outside kind)
-                  (outside-reading lane asker wanted known numbers start n own-rows)
-                  (inside-reading lane kind whole? wanted known numbers start n
-                                  (get known last-source) own-rows))))))))))
+  `:fault` is `{:stamp s}`, the first stamp at which the line is not whole:
+  a stamp up to the last stamp with no line row in the window, a stamp of
+  her own with no line row, or a thing that the line says is kept and is not
+  there. The read then gives a word, never an answer that ends there."
+  ([query known numbers]
+   (reading query known numbers nil))
+  ([query known numbers snapshot]
+   (let [[_ start most] (:asks query)
+         start (long start)
+         lane (lanes/home query)
+         n (min (long most) (long (:max-acts-of-one-read numbers)))
+         asker (:asker query)
+         signed-in? (some? asker)
+         last-source (last-stamp-source lane)]
+     (if-not (contains? known last-source)
+       (wants [last-source] known)
+       (let [own (sources/own-rows-source lane lane)
+             wanted [last-source own]
+             own-known? (contains? known own)
+             own-rows (get known own)
+             needs-rights? (and (nil? snapshot)
+                                (or (not own-known?) (lanes/made? own-rows lane)))]
+         (if (or (not own-known?) needs-rights?)
+           (cond-> (wants wanted known)
+             needs-rights? (assoc :needs-rights true))
+           (let [kind (asker-kind lane own-rows snapshot)]
+             (if (= :too-many-permissions kind)
+               (assoc (wants wanted known)
+                      :too-many-permissions {:lane lane :most lanes/max-holder-permissions})
+               (let [setting (lanes/who-may-read-acts own-rows lane)
+                     asker-text (when signed-in? (declaration/id-text asker))
+                     whole? (fn [row] (reads-whole? kind setting asker-text (:who row)))]
+                 (if (= :outside kind)
+                   (outside-reading lane asker (set wanted) known numbers start n own-rows)
+                   (inside-reading lane kind whole? (set wanted) known numbers start n
+                                   (get known last-source) own-rows)))))))))))
