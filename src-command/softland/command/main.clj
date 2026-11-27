@@ -44,7 +44,9 @@
   What it keeps. One file, `sign-in.edn` under `$SOFTLAND_HOME` or
   `~/.config/softland`: the runtime's address, the credential, and the id
   of the session that it is in. Who it is and where the person's own lane
-  is come from the runtime's hello each time.
+  is come from the runtime's hello each time. For `send`, a journal beside
+  the file that is sent, `<file>.sent.edn`: who sent each act, the act, and
+  its UUID.
 
   Two commands at once. Each change of the file is made while the command
   holds the file (`with-file-lock`), and is made to what the file holds
@@ -279,7 +281,10 @@
 
 (defn- connect-held
   "`:next-credential` is tried first, so that a replacement whose answer
-  was lost is recovered even after the old secret expires."
+  was lost is recovered even after the old secret expires. The kept
+  credential is tried after it only when the runtime says that the waiting
+  one stands for nobody: the two are of one sign-in, so a session that is
+  not open under one is not open under the other."
   [{:keys [url credential next-credential session]}]
   (if next-credential
     (let [trying (client/connect {:url url :credential next-credential :session session})]
@@ -287,7 +292,7 @@
         (not (:could-not trying))
         {:connection trying :credential next-credential :promoted? true}
 
-        (and (= 401 (:status trying)) credential)
+        (and (= :find-her-sign-in (:could-not trying)) credential)
         (let [fallback (client/connect {:url url :credential credential :session session})]
           (if (:could-not fallback)
             {:error fallback}
@@ -308,7 +313,8 @@
       (let [{:keys [connection error promoted?] active-cred :credential} (connect-held held)]
         (if error
           (cond-> error
-            (= 401 (:status error)) (assoc :said "The sign-in stands for nobody now, or its session is closed. Run: sign-in"))
+            (= :find-her-sign-in (:could-not error)) (assoc :said "The sign-in stands for nobody now. Run: sign-in")
+            (= :find-her-session (:could-not error)) (assoc :said "The session is not open. Run: new-session"))
           (let [hello (client/hello connection)]
             (try
               (if (:could-not hello)
@@ -533,7 +539,7 @@
         "end" (with-line flags
                 (fn [connection _hello]
                   (client/say connection {:word :end-agent :agent (value-of b)})))
-        {:could-not :read-the-command :said "agent new name | agent end uuid"})
+        {:could-not :read-the-command :said (second (get typed "agent"))})
 
       "under" (with-line flags (fn [connection _] (client/say connection {:word :under})))
 
@@ -571,7 +577,7 @@
                                 (client/say connection {:word :close-session})
                                 opened))))))
                   opened (let [first-try (open-then-close)]
-                           (if (and (:could-not first-try) (= 401 (:status first-try)))
+                           (if (= :find-her-session (:could-not first-try))
                              (do (drop-session!)
                                  (open-then-close))
                              first-try))]
@@ -584,9 +590,9 @@
                                                   (when (and now (= (:session hello) (:session now)))
                                                     (dissoc now :session))))
                              (client/say connection {:word :close-session})))]
-              (if (and (:could-not closed) (not= 401 (:status closed)))
+              (if (and (:could-not closed) (not= :find-her-session (:could-not closed)))
                 closed
-                (do (when (= 401 (:status closed)) (drop-session!))
+                (do (when (= :find-her-session (:could-not closed)) (drop-session!))
                     (with-line flags (fn [_ hello] hello))))))))
 
       "sign-out" (with-line flags (fn [connection _] (client/say connection {:word :sign-out})))

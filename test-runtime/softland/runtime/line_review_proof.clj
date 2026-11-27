@@ -1,7 +1,7 @@
 (ns softland.runtime.line-review-proof
   "The proof of what the review of 26 November 2026 found in what the line
-  answers when it does not take a word, and in what the library does with
-  the answer. One command, from the repository root:
+  answers when it does not take a word, and in what the library and the
+  command line do with the answer. One command, from the repository root:
 
     clojure -M:runtime -m softland.runtime.line-review-proof
 
@@ -12,11 +12,16 @@
   WebSocket of the JDK's that the proof opens and that keeps each frame as
   it came; the bound on the words that wait is staged on a connection that
   the proof opens with the line's own `open`. What the library does is seen
-  through the library.
+  through the library. The command line's commands run inside the proof,
+  through the var of its `run`, each with a file of its own.
 
-  State. A cluster that is thrown away at the end."
-  (:require [missionary.core :as m]
+  State. A cluster that is thrown away at the end; a folder for the command
+  line's files, under the JVM's temporary folder."
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
+            [missionary.core :as m]
             [softland.command.client :as client]
+            [softland.command.main]
             [softland.runtime.attacks.harness :as h]
             [softland.runtime.drive :as drive]
             [softland.runtime.line :as line]
@@ -26,6 +31,8 @@
             [softland.wire.proof :refer [check finish]])
   (:import [java.net URI]
            [java.net.http HttpClient WebSocket WebSocket$Listener]
+           [java.nio.file Files]
+           [java.nio.file.attribute FileAttribute]
            [java.util UUID]
            [java.util.concurrent CompletableFuture CountDownLatch]))
 
@@ -236,6 +243,89 @@
            {:watching? (boolean watching?) :ended ended :bye bye :seen (filterv :ended @seen) :after after})
     (h/close-line! opened)))
 
+;; --------------------------------------------------------------- the command
+
+(def ^:private status-of @#'softland.command.main/status-of)
+
+(defn- command
+  "Runs one command of the command line inside the proof, with the file
+  that holds its sign-in. Gives the command's result."
+  [file which & args]
+  (#'softland.command.main/run which (into (vec args) ["--as" (.getPath ^java.io.File file)])))
+
+(defn- kept
+  [file]
+  (second (frame/read-one (slurp file))))
+
+(defn- a-session-that-is-not-open
+  [{:keys [url cookie home]}]
+  (let [program (drive/program url "a command line whose session is closed" (fn [code] (drive/yes url cookie code {})))
+        file (io/file home "closed-session.edn")
+        _ (spit file (frame/write {:url url :credential (:credential program)}))
+        before (command file "who")
+        twin (h/line url (:credential program) (:session before))
+        ;; The result of `:close-session` is not held here: the session's end
+        ;; closes the connection that said the word, and can come first.
+        closed (h/say twin {:word :close-session})
+        _ (h/close-line! twin)
+        _ (h/wait-for (fn [] (refused url (:credential program) (:session before))) 10000)
+        after (command file "who")
+        fresh (command file "new-session")
+        then (command file "who")]
+    (check "A command whose kept session is not open gives the runtime's own word, `:find-her-session`, says to run `new-session`, and ends with 1; `new-session` then leaves that session and starts another, and the next command is in it. The commands run here inside the proof."
+           (and (uuid? (:session before))
+                (= :find-her-session (:could-not after))
+                (str/includes? (str (:said after)) "new-session")
+                (= 1 (status-of after))
+                (uuid? (:session fresh))
+                (not= (:session before) (:session fresh))
+                (= (:session fresh) (:session then)))
+           {:before before :closed closed :after after :fresh fresh :then then})))
+
+(defn- a-sign-in-that-stands-for-nobody
+  [{:keys [url cookie home me]}]
+  (let [program (drive/program url "a command line whose sign-in is ended" (fn [code] (drive/yes url cookie code {})))
+        file (io/file home "ended-sign-in.edn")
+        _ (spit file (frame/write {:url url :credential (:credential program)}))
+        before (command file "who")
+        ended (h/say me {:word :end-sign-in :sign-in (:sign-in program)})
+        _ (h/wait-for (fn [] (refused url (:credential program) nil)) 10000)
+        after (command file "who")
+        fresh (command file "new-session")]
+    (check "A command whose sign-in stands for nobody gives the runtime's own word, `:find-her-sign-in`, and says to run `sign-in`; `new-session` gives the same word and leaves the file in the session that it held: the session is left only when the runtime says that it is not open. The commands run here inside the proof."
+           (and (uuid? (:session before))
+                (= {:ended (:sign-in program)} ended)
+                (= :find-her-sign-in (:could-not after))
+                (str/includes? (str (:said after)) "sign-in")
+                (= :find-her-sign-in (:could-not fresh))
+                (= (:session before) (:session (kept file))))
+           {:before before :ended ended :after after :fresh fresh :kept-session (:session (kept file))})))
+
+(defn- the-credential-that-waits
+  []
+  (let [held {:url "http://localhost:1" :credential "the kept one" :next-credential "the waiting one" :session nil}
+        tried (fn [word]
+                (let [credentials (atom [])
+                      got (with-redefs [client/connect (fn [{:keys [credential]}]
+                                                         (swap! credentials conj credential)
+                                                         word)]
+                            (#'softland.command.main/connect-held held))]
+                  [@credentials (:could-not (:error got))]))
+        no-session (tried {:could-not :find-her-session :why :closed :status 401})
+        nobody (tried {:could-not :find-her-sign-in :why :not-known :status 401})]
+    (check "With a credential that waits beside the kept one, the command tries the kept one only when the runtime says that the waiting one stands for nobody; when the runtime says that the session is not open, nothing more is tried and that word is the result. The library's `connect` is replaced here by one that gives the word."
+           (and (= [["the waiting one"] :find-her-session] no-session)
+                (= [["the waiting one" "the kept one"] :find-her-sign-in] nobody))
+           {:session-not-open no-session :stands-for-nobody nobody})))
+
+(defn- how-agent-is-typed
+  []
+  (let [got (#'softland.command.main/run "agent" ["rename" "importer"])
+        [_ how] (get @#'softland.command.main/typed "agent")]
+    (check "`agent` with a first argument that is neither `new` nor `end` could not be read, and says how `agent` is typed in the words of the command line's table of its commands."
+           (and (= :read-the-command (:could-not got)) (string? how) (= how (:said got)))
+           got)))
+
 ;; ---------------------------------------------------------------------- main
 
 (defn -main
@@ -246,19 +336,24 @@
       (let [copy (h/start-copy! {:cluster cluster :stand-in stand-in})
             small (h/start-copy! {:cluster cluster :stand-in stand-in
                                   :numbers {:max-watches-per-connection 2}})
-            url (:url copy)]
+            url (:url copy)
+            home (.toFile (Files/createTempDirectory "softland-line-review-proof" (make-array FileAttribute 0)))]
         (try
           (h/setup-first-person! copy)
           (let [cookie (:cookie (drive/sign-in url (assoc h/first-person :call-her "Sid")))
                 program (drive/program url "the proof of the line's answers" (fn [code] (drive/yes url cookie code {})))
                 me (h/line url (:credential program) nil)
                 with {:url url :small (:url small) :the-seam (:the-seam copy) :cookie cookie
-                      :credential (:credential program) :me me}]
+                      :credential (:credential program) :me me :home home}]
             (a-number-in-use with)
             (over-the-connections-limit with)
             (a-watch-that-was-not-opened with)
             (a-refused-opening with)
             (a-sign-in-that-ends with)
+            (a-session-that-is-not-open with)
+            (a-sign-in-that-stands-for-nobody with)
+            (the-credential-that-waits)
+            (how-agent-is-typed)
             (h/close-line! me)
             (too-many-words-waiting with))
           (check "The proof ran to its end without a throw." true)
