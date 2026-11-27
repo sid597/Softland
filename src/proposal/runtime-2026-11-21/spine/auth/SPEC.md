@@ -92,7 +92,7 @@ Rules for every call:
   from a memory of calls (Sid's call of 22 November). The second call gives
   the result of the first, which says that the write was taken; it does not
   say how the thing stands now, which a read says. One part is the
-  exception: an `enter` gives `:own-layer-made?` as it stands at that
+  exception: an `enter` gives `:own-lane-made?` as it stands at that
   enter. Two writes are the same write when the
   parts that say what is bound are the same: for `invite`, the person and
   the claim; for `begin-sign-in`, the root, the actor, the kind and the
@@ -108,7 +108,7 @@ Rules for every call:
   write as `:at`, milliseconds since 1970. Where a rule below depends on a
   time, it names the time in the event that it is held against.
 - Times are fixed-width integers. Ids of persons, actors, sign-ins and
-  sessions are UUIDs, and so are `:own-layer` and the two ids of a
+  sessions are UUIDs, and so are `:own-lane` and the two ids of a
   `:making`, its `:uuid` and its `:session`. A hash is 64 lower-case hex
   characters. A code is a string of 8 characters, compared exactly. A text
   (`:label`, `:asks`, an email, a provider's subject, a `:driven-by`
@@ -121,7 +121,7 @@ Rules for every call:
 - What fits (Sid's call of 22 November): every part that the contract
   names is there, a part written `-or-nil` as nil when it holds nothing,
   each in its stated form, and nothing that the contract does not name.
-  `:driven-by` alone may be left out. A provider's name and `:own-layer`
+  `:driven-by` alone may be left out. A provider's name and `:own-lane`
   are forms like the others, and Auth checks them. The parts of a write
   that it does not judge, as those of a no, must fit all the same. A write
   or a read whose input does not fit gives `{:could-not :read-the-event}`,
@@ -160,13 +160,13 @@ invite            {:person P :claim C :invited-by B :at t}
                      {:refused :person-in-use}      the person has another claim
 
 enter             {:account [provider subject] :says {...} :email text-or-nil
-                   :code-hash H-or-nil :own-layer L :making {:uuid U :session M}
+                   :code-hash H-or-nil :own-lane L :making {:uuid U :session M}
                    :at t}
-                  -> {:person P :own-layer L' :making {:uuid U' :session M'}
-                      :own-layer-made? bool}
+                  -> {:person P :own-lane L' :making {:uuid U' :session M'}
+                      :own-lane-made? bool}
                      {:refused :not-invited}
 
-own-layer-made    {:person P :at t}
+own-lane-made     {:person P :at t}
                   -> {:made P}   {:refused :no-such-person}
 
 begin-sign-in     {:root P :actor A :sign-in G :kind K :hash H :until t1
@@ -224,7 +224,7 @@ reads
                                 :ended? bool :actor-ended? bool}-or-nil
                       :session {:sign-in G' :until t3 :closed? bool
                                 :driven-by D-or-nil}-or-nil
-                      :own-layer L-or-nil :own-layer-made? bool}
+                      :own-lane L-or-nil :own-lane-made? bool}
 
 (ask-of client U) -> {:hash H :asks text :ends t1 :state :waiting|:yes|:no
                       :answer {:root P :actor A :sign-in G}-or-nil}, or nil
@@ -272,8 +272,8 @@ checked the provider's token before it calls; Auth takes the account as
 proven.
 
 - An account that has a link gives its person, whatever claim came with it,
-  with the own layer and the `:making` that were fixed, and
-  `:own-layer-made?` as it stands at that enter (Sid's call of 22
+  with the own lane and the `:making` that were fixed, and
+  `:own-lane-made?` as it stands at that enter (Sid's call of 22
   November). An enter that is sent again is answered so like any other:
   Auth keeps no memory of what an enter gave.
 - An account that has none takes the person of the claim that it proves: the
@@ -282,7 +282,7 @@ proven.
   up, and the person becomes an actor, her own root.
 - An account that has none and proves no claim is refused, and nothing of it
   is kept but the event.
-- `:own-layer` and `:making` are what the runtime offers for a person who
+- `:own-lane` and `:making` are what the runtime offers for a person who
   has none yet. The first enter that makes her an actor fixes them; every
   later enter gives the ones that were fixed, and its own offer is dropped.
 - `:says` is kept with the link from the enter with the latest `:at`, with
@@ -292,25 +292,25 @@ proven.
   grow with every sign-in.
 
 What must hold: two enters of one new account at the same moment, through
-two copies of the runtime, give one person, one own layer and one `:making`.
+two copies of the runtime, give one person, one own lane and one `:making`.
 Two accounts that prove one claim at the same moment: one becomes the person
 and the other is refused. An enter that is run again after a failure gives
-the person, the own layer and the `:making` that it gave, and
-`:own-layer-made?` as it stands.
+the person, the own lane and the `:making` that it gave, and
+`:own-lane-made?` as it stands.
 
-`:own-layer` and `:making` are how a break between Auth and the store is
+`:own-lane` and `:making` are how a break between Auth and the store is
 met. The runtime writes Auth first. Then it sends the act that makes her own
-layer. That act is the system's: its who is the store's `system`, and
+lane. That act is the system's: its who is the store's `system`, and
 `:making` holds its UUID and the id that it names as its session. Auth keeps
 the two and gives them back, and nothing more: that session is no session of
 Auth's. The act is built from nothing but what the enter gave, so that any
 copy sends the same act with the same digest. Then the runtime calls
-`own-layer-made`. Until that call every enter says `:own-layer-made? false`,
+`own-lane-made`. Until that call every enter says `:own-lane-made? false`,
 and the copy that made that enter sends the act again. From that call on,
 every enter says true, one that is sent again among them. Only an enter does:
-no sign-in of hers begins before her layer is made, so the flag of `who-is`
-informs and nothing acts on it. `own-layer-made` of a person who waits is
-refused with `:no-such-person`: she has no layer yet.
+no sign-in of hers begins before her lane is made, so the flag of `who-is`
+informs and nothing acts on it. `own-lane-made` of a person who waits is
+refused with `:no-such-person`: she has no lane yet.
 
 **begin-sign-in.** From now on the secret whose hash is `H` stands for the
 actor `A`, until `t1`. `A` is under the root `P` and is live. A sign-in id is
@@ -407,7 +407,7 @@ is watched for ever. So:
   taken, is a repeat, or is refused. A sign-in that is taken out so is
   ended, as by `end-sign-in`, with its sessions; a session, as by
   `close-session`. Neither is taken back. `invite`, `enter`,
-  `own-layer-made` and `ask` name no root and take nothing out. "The same
+  `own-lane-made` and `ask` name no root and take nothing out. "The same
   state as once" is said of a write's own effect: what a repeat takes out
   follows its time.
 - A sign-in's time is its present secret's `:until` alone. The secret
@@ -428,10 +428,10 @@ is watched for ever. So:
 
 ## What the runtime does, and Auth does not check
 
-- No sign-in of a person begins before her own layer is made. That is the
-  runtime's order of calls: an enter whose `own-layer-made` did not go
+- No sign-in of a person begins before her own lane is made. That is the
+  runtime's order of calls: an enter whose `own-lane-made` did not go
   through ends with no sign-in. Auth refuses nothing for a person whose
-  layer is not marked as made.
+  lane is not marked as made.
 - How often the runtime calls. `who-is` is made for each request and each
   opening of a connection. `open-session` is made once for a new session,
   and then at most once in half of a session's span for each session that
