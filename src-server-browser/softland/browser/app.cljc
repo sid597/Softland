@@ -104,7 +104,7 @@
      [actor lane entity k v]
      {:version 1
       :lane lane
-      :permission [(seam/who-of actor) lane lane]
+      :permission (sign-in/permission-id (sign-in/first-permission (seam/who-of actor) lane))
       :facts [{:e entity :k k :v v}]}))
 
 #?(:clj

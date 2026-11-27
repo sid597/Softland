@@ -24,6 +24,7 @@
             [softland.runtime.google-stand-in :as stand-in]
             [softland.runtime.jetty :as jetty]
             [softland.runtime.main :as main]
+            [softland.runtime.permissions :as perm]
             [softland.runtime.sign-in :as sign-in]
             [softland.wire.frame :as frame]
             [softland.wire.proof :refer [check finish]])
@@ -110,6 +111,7 @@
             signed (sign-in! home url cookie nil)
             who (:who (:out signed))
             lane (:own-lane (:out signed))
+            own (perm/first-permission who lane)
             file (io/file home "sign-in.edn")]
         (check "The command line's own classpath holds no Rama: the program that a person runs can open no cluster."
                (let [cmd (into (into ["clojure"] (command-sdeps)) ["-Spath" "-A:command"])
@@ -138,7 +140,7 @@
                  [(:out wrote-big) (:out read-big)])
           (check "A bare word on the command line is a text."
                  (= "oak" (get-in (soft home "read" ":chair-7" ":label") [:out :place :value])) word))
-        (let [refused (soft home "write" ":chair-7" ":colour" ":red" "--permission" (pr-str [who lane lane [who lane lane] :see]))]
+        (let [refused (soft home "write" ":chair-7" ":colour" ":red" "--permission" (pr-str (perm/permission-id (perm/given-permission who lane own :see))))]
           (check "An act that a gate refuses ends the command with 3, and the answer says refused: a script can tell it from a command that could not be done."
                  (and (= 3 (:exit refused)) (= :refused (get-in refused [:out :answer :answer])))
                  refused))
@@ -166,8 +168,8 @@
               agent (:made (:out made))
               as-agent (:out (soft agent-home "who"))
               before (soft agent-home "write" ":crate-1" ":packed" "true" "--lane" (str lane)
-                           "--permission" (pr-str [agent lane lane]))
-              given (pr-str [agent lane lane [who lane lane] :see-and-act])
+                           "--permission" (pr-str (perm/permission-id (perm/first-permission (perm/agent agent) lane))))
+              given (pr-str (perm/permission-id (perm/given-permission (perm/agent agent) lane own :see-and-act)))
               gave (soft home "give" (str agent) (str lane) "act")
               after (soft agent-home "write" ":crate-1" ":packed" "true" "--lane" (str lane)
                           "--permission" given)]
@@ -185,7 +187,7 @@
                       (= 1 (:exit (soft agent-home "who"))))))
         (let [acts (io/file home "acts.edn")
               _ (spit acts (str/join "\n" (for [n (range 3)]
-                                            (pr-str {:version 1 :lane lane :permission [who lane lane]
+                                            (pr-str {:version 1 :lane lane :permission (perm/permission-id own)
                                                      :facts [{:e :shelf :k (keyword (str "slot-" n)) :v n}]}))))
               first-run (soft home "send" (.getPath acts))
               second-run (soft home "send" (.getPath acts))]

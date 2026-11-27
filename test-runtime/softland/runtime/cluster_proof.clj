@@ -49,6 +49,7 @@
             [softland.runtime.checks :as checks]
             [softland.runtime.drive :as drive]
             [softland.runtime.main :as main]
+            [softland.runtime.permissions :as perm]
             [softland.runtime.seam :as seam]
             [softland.runtime.sign-in :as sign-in]
             [softland.store.module :as store]
@@ -156,7 +157,8 @@
   [hello e k v]
   (let [lane (:own-lane hello)]
     {:version 1 :who (:who hello) :session (:session hello) :lane lane
-     :permission [(:who hello) lane lane] :facts [{:e e :k k :v v}]}))
+     :permission (perm/permission-id (perm/first-permission (:who hello) lane))
+     :facts [{:e e :k k :v v}]}))
 
 (defn- arguments
   "Takes the arguments of the command line. Gives a map of them."

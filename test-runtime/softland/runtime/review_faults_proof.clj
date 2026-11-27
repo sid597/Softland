@@ -12,6 +12,7 @@
             [softland.runtime.jetty :as jetty]
             [softland.runtime.line :as line]
             [softland.runtime.main :as main]
+            [softland.runtime.permissions :as perm]
             [softland.runtime.seam :as seam]
             [softland.runtime.sign-in :as sign-in]
             [softland.runtime.standing :as standing]
@@ -104,10 +105,11 @@
         hello (client/hello me)
         lane (:own-lane hello)
         who (:who hello)
+        own (perm/first-permission who lane)
         big-val (apply str (repeat 60000 "x"))
         _ (client/say me {:word :send
                           :act {:version 1 :who who :session (:session hello) :lane lane
-                                :permission [who lane lane]
+                                :permission (perm/permission-id own)
                                 :facts [{:e :blob :k :data :v big-val}]}
                           :act-id (UUID/randomUUID)})
         _ (client/close! me)

@@ -85,6 +85,7 @@
   log, marked ERROR, that are no failed checks.
 
   What it does not reach is in the folder's README."
+  (:refer-clojure :exclude [agent])
   (:require [clojure.java.io :as io]
             [clojure.pprint :as pprint]
             [clojure.string :as str]
@@ -97,6 +98,7 @@
             [softland.store.door.digest :as digest]
             [softland.store.gate.decision :as decision]
             [softland.store.module :as module]
+            [softland.store.permissions :as perm :refer [person agent run]]
             [softland.store.read-path :as read-path]
             [softland.store.read-path.query :as query]
             [softland.store.read-path.sources :as sources]
@@ -184,47 +186,51 @@
   (get @permissions [who lane]))
 
 (defn- act!
-  "Sends one act of a who into a lane through the door, under the
-  permission that the proof made for that who, and reads its answer: at
+  "Sends one act through the door (or builds one of a who into a lane under
+  the permission that the proof made for that who) and reads its answer: at
   once for a streaming act, with a bounded wait for an act of the base.
   Gives {:act-id :stamp :accepted? :answer :sent}."
-  [who lane facts]
-  (let [sent (door/send-act (the-door) {:version 1 :who who :lane lane :permission (perm who lane)
-                                        :session :read-path-proof :facts facts})]
-    (if (:could-not sent)
-      {:sent sent :accepted? false}
-      (let [answer (if (= :depot-holds (:ack sent))
-                     (door/answer-of (the-door) (:act-id sent) (:digest sent) 30000)
-                     (door/answer-of (the-door) (:act-id sent) (:digest sent)))]
-        (swap! sent-things assoc (:act-id sent) sent)
-        {:sent sent :answer answer :act-id (:act-id sent) :stamp (:stamp answer)
-         :accepted? (= :accepted (:answer answer))}))))
+  ([an-act]
+   (let [sent (door/send-act (the-door) an-act)]
+     (if (:could-not sent)
+       {:sent sent :accepted? false}
+       (let [answer (if (= :depot-holds (:ack sent))
+                      (door/answer-of (the-door) (:act-id sent) (:digest sent) 30000)
+                      (door/answer-of (the-door) (:act-id sent) (:digest sent)))]
+         (swap! sent-things assoc (:act-id sent) sent)
+         {:sent sent :answer answer :act-id (:act-id sent) :stamp (:stamp answer)
+          :accepted? (= :accepted (:answer answer))}))))
+  ([who lane facts]
+   (act! {:version 1 :who who :lane lane :permission (perm/permission-id (perm who lane))
+          :session :read-path-proof :facts facts})))
 
 (defn- put!
   "Sends one act that must be accepted, and holds that it was. Gives what
   `act!` gives."
-  [who lane facts]
-  (let [got (act! who lane facts)]
-    (is (:accepted? got) (str "an act of " who " into " lane " is accepted: " (pr-str (or (:answer got) (:sent got)))))
-    got))
+  ([an-act]
+   (let [got (act! an-act)]
+     (is (:accepted? got) (str "an act of " (:who an-act) " into " (:lane an-act) " is accepted: " (pr-str (or (:answer got) (:sent got)))))
+     got))
+  ([who lane facts]
+   (put! {:version 1 :who who :lane lane :permission (perm/permission-id (perm who lane))
+          :session :read-path-proof :facts facts})))
 
 (defn- make!
   "Makes a lane through the door, with a holder: a streaming lane by its
   holder, the base by the system. Keeps the holder's permission."
   [lane holder]
-  (let [own [holder lane lane]]
+  (let [own (perm/first-permission holder lane)]
     (swap! permissions assoc [holder lane] own)
-    (put! holder lane [{:e lane :k :softland.store/depot :v (if (= :base lane) :microbatch :streaming)}
-                        {:e holder :k :softland.store/permission :v own}])))
+    (put! (perm/making-act lane holder holder :read-path-proof))))
 
 (defn- give!
   "A holder of a lane gives another who a permission in it, beneath her
   own; with a word, the permission says what it allows. Keeps it."
   ([lane giver who] (give! lane giver who nil))
   ([lane giver who allows]
-   (let [given (cond-> [who lane lane (perm giver lane)] allows (conj allows))]
+   (let [given (perm/given-permission who lane (perm giver lane) allows)]
      (swap! permissions assoc [who lane] given)
-     (put! giver lane [{:e who :k :softland.store/permission :v given}]))))
+     (put! giver lane [(perm/permission-fact given)]))))
 
 (defn- fact "A fact with a value, as a maker gives it." [e k v] {:e e :k k :v v})
 
@@ -496,7 +502,7 @@
     (shown "an opened read path prints as" (pr-str rp) "and holds" (pr-str (read-path/open-count rp)))))
 
 (deftest a-thing-that-is-no-query
-  (let [good {:asks [:place :note-41 :text] :asker :alice :lanes [:main]}
+  (let [good {:asks [:place :note-41 :text] :asker (person :alice) :lanes [:main]}
         faults [[5 :not-a-query]
                 [(assoc good :live true) :part-not-known]
                 [(assoc good :asks [:find "text"]) :asks-no-word-known]
@@ -520,15 +526,15 @@
            (pr-str (mapv second faults)) "| calls of Rama's client, counted by a function of the proof's in their place: 0")))
 
 (deftest each-word-once-for-each-gate
-  (let [_ (make! :main :alice)
+  (let [_ (make! :main (person :alice))
         _ (make! :base :system)
-        main-marked (mark! :main :alice #{:parent})
+        main-marked (mark! :main (person :alice) #{:parent})
         base-marked (mark! :base :system #{:parent})
         facts (vec (concat [(fact :note-41 :text "a note")]
                            (for [i (range 1 6)] (fact :doc (keyword (str "k" i)) i))
                            (for [i (range 1 13)] (fact (keyword (format "e-%02d" i)) :size i))
                            (for [i (range 1 4)] (fact (keyword (str "block-" i)) :parent :canvas-1))))
-        observed (for [[who lane marked] [[:alice :main main-marked] [:system :base base-marked]]]
+        observed (for [[who lane marked] [[(person :alice) :main main-marked] [:system :base base-marked]]]
                    (let [wrote (put! who lane facts)
                          id (:act-id wrote)
                          base {:asker who :lanes [lane]}
@@ -571,11 +577,11 @@
   (let [uuid (UUID/randomUUID)
         long-text (apply str (repeat 60000 "x"))
         values {:spaces "a string with  two spaces" :map {:a 1 :b #{:x "y"} :c [1.5M nil]} :uuid uuid :long long-text}
-        _ (put! :alice :main (vec (for [[e v] values] (fact e :text v))))
-        _ (put! :alice :main [(fact :gone :text "soon gone")])
-        retract (put! :alice :main [{:e :gone :k :text}])
-        place (fn [e] (:place (ask {:asks [:place e :text] :asker :alice :lanes [:main]})))
-        value-live (live {:asks [:place :map :text] :asker :alice :lanes [:main]})
+        _ (put! (person :alice) :main (vec (for [[e v] values] (fact e :text v))))
+        _ (put! (person :alice) :main [(fact :gone :text "soon gone")])
+        retract (put! (person :alice) :main [{:e :gone :k :text}])
+        place (fn [e] (:place (ask {:asks [:place e :text] :asker (person :alice) :lanes [:main]})))
+        value-live (live {:asks [:place :map :text] :asker (person :alice) :lanes [:main]})
         value-now (:place (:now value-live))
         _ (leave! value-live)]
     (check "a place with no fact" {:holds :no-fact} (place :nobody))
@@ -591,37 +597,34 @@
            "| not reached here: a row that holds no value of the form, which no gate's write makes; the read path's pure proof holds what a reader is told of one")))
 
 (deftest a-part-of-a-row-is-given-only-when-asked
-  (let [place (fn [with] (:place (ask {:asks [:place :note-41 :text] :asker :alice :lanes [:main] :with with})))
-        _ (swap! permissions assoc [:dora :dora] [:dora :dora :dora])
-        made (let [sent (door/send-act (the-door) {:version 1 :who :system :lane :dora :permission [:dora :dora :dora]
-                                                   :session :read-path-proof
-                                                   :facts [{:e :dora :k :softland.store/depot :v :streaming}
-                                                           {:e :dora :k :softland.store/permission :v [:dora :dora :dora]}]})]
+  (let [place (fn [with] (:place (ask {:asks [:place :note-41 :text] :asker (person :alice) :lanes [:main] :with with})))
+        _ (swap! permissions assoc [(person :dora) :dora] (perm/first-permission (person :dora) :dora {:given-by :system}))
+        made (let [sent (door/send-act (the-door) (perm/making-act :dora :system (person :dora) :read-path-proof))]
                (door/answer-of (the-door) (:act-id sent) (:digest sent)))
-        depot (:place (ask {:asks [:place :dora :softland.store/depot] :asker :dora :lanes [:dora]
+        depot (:place (ask {:asks [:place :dora :softland.store/depot] :asker (person :dora) :lanes [:dora]
                             :stores-own-facts true :with #{:writer :permission}}))]
     (check "the system's making of a personal lane for its person is accepted" :accepted (:answer made))
     (check "a place asked with no part of its row: the place-answer holds neither who wrote it nor the permission"
            #{:holds :value :lane :fact :stamp} (set (keys (place #{}))))
-    (check "asked with the writer: who wrote it, and no permission" [:alice false]
+    (check "asked with the writer: who wrote it, and no permission" [(person :alice) false]
            [(:writer (place #{:writer})) (contains? (place #{:writer}) :permission)])
     (check "asked with both: they are the act's who and the permission that it named"
-           [:alice (perm :alice :main)] ((juxt :writer :permission) (place #{:writer :permission})))
+           [(person :alice) (perm/permission-id (perm (person :alice) :main))] ((juxt :writer :permission) (place #{:writer :permission})))
     (check "for the system's making of a personal lane the two differ: the system wrote the fact, under the person's permission"
-           [:system [:dora :dora :dora]] ((juxt :writer :permission) depot))
+           [:system (perm/permission-id (perm (person :dora) :dora))] ((juxt :writer :permission) depot))
     (shown "a part of a row is handed over only when the query asks: with no :with the place-answer's parts are" (pr-str (sort (keys (place #{}))))
            "| with :writer it holds" (pr-str (:writer (place #{:writer}))) "| with both, the act's who and its permission"
            "| the depot fact of a personal lane that the system made:" (pr-str (select-keys depot [:writer :permission])))))
 
 (deftest the-stores-own-facts
-  (let [places (fn [asks own?] (:places (ask (cond-> {:asks asks :asker :alice :lanes [:main]} own? (assoc :stores-own-facts true)))))
+  (let [places (fn [asks own?] (:places (ask (cond-> {:asks asks :asker (person :alice) :lanes [:main]} own? (assoc :stores-own-facts true)))))
         store-key? (fn [[_ k]] (= "softland.store" (namespace k)))
-        refused (counting #(ask {:asks [:place :main :softland.store/depot] :asker :alice :lanes [:main]}))
+        refused (counting #(ask {:asks [:place :main :softland.store/depot] :asker (person :alice) :lanes [:main]}))
         all (places [:run :first :last] false)
         all-own (places [:run :first :last] true)]
     (check "the entity of a holder, asked without the store's own facts: nothing; with them: her permission"
            [{} #{:softland.store/permission}]
-           [(places [:entity :alice] false) (set (map second (keys (places [:entity :alice] true))))])
+           [(places [:entity (person :alice)] false) (set (map second (keys (places [:entity (person :alice)] true))))])
     (check "the entity of the lane itself: nothing; with the store's own facts: its depot and its marked keys"
            [{} #{:softland.store/depot :softland.store/marked-keys}]
            [(places [:entity :main] false) (set (map second (keys (places [:entity :main] true))))])
@@ -636,21 +639,21 @@
            (pr-str (select-keys (:result refused) [:could-not :why])) "with no call to Rama")))
 
 (deftest through-lanes
-  (let [_ (doseq [lane [:n7 :m7 :f7]] (make! lane :alice))
-        through (fn [asks lanes] (ask {:asks asks :asker :alice :lanes lanes}))
-        from (fn [asks] (ask {:asks asks :asker :alice :from-lane :n7}))
+  (let [_ (doseq [lane [:n7 :m7 :f7]] (make! lane (person :alice)))
+        through (fn [asks lanes] (ask {:asks asks :asker (person :alice) :lanes lanes}))
+        from (fn [asks] (ask {:asks asks :asker (person :alice) :from-lane :n7}))
         winner (fn [answer] ((juxt :holds :lane :value) (:place answer)))
-        far (put! :alice :f7 [(fact :p7 :text "from the farthest") (fact :q7 :text "f") (fact :r7-b :n "hidden") (fact :r7-c :n "c")])
+        far (put! (person :alice) :f7 [(fact :p7 :text "from the farthest") (fact :q7 :text "f") (fact :r7-b :n "hidden") (fact :r7-c :n "c")])
         only-far (through [:place :p7 :text] [:n7 :m7 :f7])
-        _ (put! :alice :m7 [(fact :p7 :text "from the middle") (fact :q7 :text "m") (fact :r7-b :n "b")])
+        _ (put! (person :alice) :m7 [(fact :p7 :text "from the middle") (fact :q7 :text "m") (fact :r7-b :n "b")])
         with-middle (through [:place :p7 :text] [:n7 :m7 :f7])
-        retract (do (put! :alice :n7 [(fact :p7 :text "soon gone") (fact :r7-a :n "a")])
-                    (put! :alice :n7 [{:e :p7 :k :text}]))
+        retract (do (put! (person :alice) :n7 [(fact :p7 :text "soon gone") (fact :r7-a :n "a")])
+                    (put! (person :alice) :n7 [{:e :p7 :k :text}]))
         with-retract (through [:place :p7 :text] [:n7 :m7 :f7])
         run (through [:run [:r7-a] [:r7-c]] [:n7 :m7 :f7])
-        _ (list! :n7 :alice [:m7 :f7])
+        _ (list! :n7 (person :alice) [:m7 :f7])
         first-list (from [:place :q7 :text])
-        _ (list! :n7 :alice [:f7])
+        _ (list! :n7 (person :alice) [:f7])
         second-list (from [:place :q7 :text])
         twice (through [:place :q7 :text] [:n7 :m7 :n7 :f7 :m7])]
     (check "a place that only the farthest lane holds comes from there, and the answer says which lane won"
@@ -673,9 +676,9 @@
            (pr-str (:lanes second-list)) "| a list that names a lane twice is read as" (pr-str (:lanes twice)))))
 
 (deftest a-lane-that-is-left-out
-  (let [_ (give! :n7 :alice :bob)
-        _ (give! :f7 :alice :bob)
-        bob (fn [m] (ask (merge {:asker :bob} m)))
+  (let [_ (give! :n7 (person :alice) (person :bob))
+        _ (give! :f7 (person :alice) (person :bob))
+        bob (fn [m] (ask (merge {:asker (person :bob)} m)))
         with (bob {:asks [:run [:r7-a] [:r7-c]] :lanes [:n7 :m7 :f7]})
         without (bob {:asks [:run [:r7-a] [:r7-c]] :lanes [:n7 :f7]})
         not-made (bob {:asks [:place :q7 :text] :lanes [:n7 :nowhere :f7]})
@@ -697,18 +700,18 @@
         system (ask {:asks [:place :note-41 :text] :asker :system :lanes [:main :base]})
         turned-away (mapv (fn [thing] ((juxt :could-not :why) (ask thing)))
                           [{:asks [:place :note-41 :text] :lanes [:main]}
-                           {:asks [:place :note-41 :text] :asker :alice :not-signed-in true :lanes [:main]}
+                           {:asks [:place :note-41 :text] :asker (person :alice) :not-signed-in true :lanes [:main]}
                            {:asks [:place :note-41 :text] :asker (keyword (apply str (repeat 300 "a"))) :lanes [:main]}])
         ;; the store's own facts, asked for by a person who is not signed in
         own-in-base (ask {:asks [:place :system :softland.store/permission] :not-signed-in true :lanes [:base]
                           :stores-own-facts true})
-        own-in-main (ask {:asks [:place :alice :softland.store/permission] :not-signed-in true :lanes [:main]
+        own-in-main (ask {:asks [:place (person :alice) :softland.store/permission] :not-signed-in true :lanes [:main]
                           :stores-own-facts true})]
     (check "a person who is not signed in sees the base, which is everyone, and nothing of a members lane"
            [[{:lane :main :why :may-not-see}] [:value :base "a note"]]
            [(:left-out not-signed-in) ((juxt :holds :lane :value) (:place not-signed-in))])
     (check "what the working answer for the store's own facts gives a person who is not signed in, when she asks for them: in the base, which is everyone, a holder's permission; in a members lane nothing, and the lane is left out"
-           [[:value :base [:system :base :base]] [:no-fact [{:lane :main :why :may-not-see}]]]
+           [[:value :base (perm/first-permission :system :base)] [:no-fact [{:lane :main :why :may-not-see}]]]
            [((juxt :holds :lane :value) (:place own-in-base))
             [(:holds (:place own-in-main)) (:left-out own-in-main)]])
     (check "the system is a who like any other: it holds no permission in a person's lane, and sees the base"
@@ -721,39 +724,39 @@
            ", and nothing of a permission in a members lane")))
 
 (deftest what-points-at-a-thing-through-lanes
-  (let [_ (doseq [lane [:near10 :plain10 :late10 :far10]] (make! lane :alice))
-        points (fn [thing lanes] (ask {:asks [:points-at :parent thing] :asker :alice :lanes lanes}))
+  (let [_ (doseq [lane [:near10 :plain10 :late10 :far10]] (make! lane (person :alice)))
+        points (fn [thing lanes] (ask {:asks [:points-at :parent thing] :asker (person :alice) :lanes lanes}))
         at (fn [answer e] (when-let [a (get (:places answer) [e :parent])] ((juxt :lane :stamp) a)))
-        far-mark (mark! :far10 :alice #{:parent})
-        near-mark (mark! :near10 :alice #{:parent})
+        far-mark (mark! :far10 (person :alice) #{:parent})
+        near-mark (mark! :near10 (person :alice) #{:parent})
         ;; a farther lane points, a nearer one moves, takes away, moves back
-        far-7 (put! :alice :far10 [(fact :block-7 :parent :canvas-1)])
+        far-7 (put! (person :alice) :far10 [(fact :block-7 :parent :canvas-1)])
         from-far (points :canvas-1 [:near10 :far10])
-        moved (put! :alice :near10 [(fact :block-7 :parent :canvas-2)])
+        moved (put! (person :alice) :near10 [(fact :block-7 :parent :canvas-2)])
         after-move [(points :canvas-1 [:near10 :far10]) (points :canvas-2 [:near10 :far10])]
-        _ (put! :alice :near10 [{:e :block-7 :k :parent}])
+        _ (put! (person :alice) :near10 [{:e :block-7 :k :parent}])
         after-retract (points :canvas-1 [:near10 :far10])
-        back (put! :alice :near10 [(fact :block-7 :parent :canvas-1)])
+        back (put! (person :alice) :near10 [(fact :block-7 :parent :canvas-1)])
         after-back (points :canvas-1 [:near10 :far10])
         ;; a nearer lane that does not mark the key
-        _ (put! :alice :far10 [(fact :block-8 :parent :canvas-1)])
-        _ (put! :alice :plain10 [(fact :block-8 :parent :canvas-2)])
+        _ (put! (person :alice) :far10 [(fact :block-8 :parent :canvas-1)])
+        _ (put! (person :alice) :plain10 [(fact :block-8 :parent :canvas-2)])
         plain-other (points :canvas-1 [:plain10 :far10])
-        plain-same-act (put! :alice :plain10 [(fact :block-8 :parent :canvas-1)])
+        plain-same-act (put! (person :alice) :plain10 [(fact :block-8 :parent :canvas-1)])
         plain-same (points :canvas-1 [:plain10 :far10])
         ;; a nearer fact that says the same thing and was written before its lane's mark
-        early (put! :alice :late10 [(fact :block-9 :parent :canvas-1)])
-        late-mark (mark! :late10 :alice #{:parent})
-        _ (put! :alice :far10 [(fact :block-9 :parent :canvas-1)])
+        early (put! (person :alice) :late10 [(fact :block-9 :parent :canvas-1)])
+        late-mark (mark! :late10 (person :alice) #{:parent})
+        _ (put! (person :alice) :far10 [(fact :block-9 :parent :canvas-1)])
         before-mark (points :canvas-1 [:late10 :far10])
-        _ (put! :alice :far10 [(fact :block-9 :parent :canvas-3)])
+        _ (put! (person :alice) :far10 [(fact :block-9 :parent :canvas-3)])
         far-moved-away (points :canvas-1 [:late10 :far10])
         alone (points :canvas-1 [:late10])
         ;; the mark off and on
-        _ (mark! :late10 :alice #{})
+        _ (mark! :late10 (person :alice) #{})
         off (points :canvas-1 [:late10])
-        again-mark (mark! :late10 :alice #{:parent})
-        in-new-order (put! :alice :late10 [(fact :block-10 :parent :canvas-1)])
+        again-mark (mark! :late10 (person :alice) #{:parent})
+        in-new-order (put! (person :alice) :late10 [(fact :block-10 :parent :canvas-1)])
         on-again (points :canvas-1 [:late10])]
     (check "a farther lane points at the thing: the place comes from the farther lane's order"
            [[:far10 (:stamp far-7)] [{:lane :near10 :level-since (:stamp near-mark)} {:lane :far10 :level-since (:stamp far-mark)}]]
@@ -789,31 +792,31 @@
            (:stamp again-mark) "and only facts written after it are in the order")))
 
 (deftest the-calls-of-a-read-asked-once
-  (let [_ (list! :n7 :alice [:m7 :f7])
-        _ (give! :base :system :alice)
+  (let [_ (list! :n7 (person :alice) [:m7 :f7])
+        _ (give! :base :system (person :alice))
         counted (fn [query] (let [c (counting #(ask query))] [(:selects c) (:rounds c) (some? (:could-not (:result c)))]))
-        place-3 (counted {:asks [:place :q7 :text] :asker :alice :lanes [:n7 :m7 :f7]})
-        from (counted {:asks [:place :q7 :text] :asker :alice :from-lane :n7})
-        entity (counted {:asks [:entity :doc] :asker :alice :lanes [:main]})
-        base-run (counted {:asks [:run [:e-01] [:e-12]] :asker :alice :lanes [:base]})
-        base-run-through (counted {:asks [:run [:e-01] [:e-12]] :asker :alice :lanes [:main :base]})
-        points (counted {:asks [:points-at :parent :canvas-1] :asker :alice :lanes [:near10 :plain10 :far10]})
+        place-3 (counted {:asks [:place :q7 :text] :asker (person :alice) :lanes [:n7 :m7 :f7]})
+        from (counted {:asks [:place :q7 :text] :asker (person :alice) :from-lane :n7})
+        entity (counted {:asks [:entity :doc] :asker (person :alice) :lanes [:main]})
+        base-run (counted {:asks [:run [:e-01] [:e-12]] :asker (person :alice) :lanes [:base]})
+        base-run-through (counted {:asks [:run [:e-01] [:e-12]] :asker (person :alice) :lanes [:main :base]})
+        points (counted {:asks [:points-at :parent :canvas-1] :asker (person :alice) :lanes [:near10 :plain10 :far10]})
         ;; 300 places, each checked in a nearer lane, in one call of 300 paths
-        _ (doseq [lane [:o11n :o11f]] (make! lane :alice))
-        _ (mark! :o11f :alice #{:parent})
+        _ (doseq [lane [:o11n :o11f]] (make! lane (person :alice)))
+        _ (mark! :o11f (person :alice) #{:parent})
         blocks (mapv #(keyword (format "w-%03d" %)) (range 300))
         _ (doseq [part (partition-all 150 blocks)]
-            (put! :alice :o11f (mapv #(fact % :parent :canvas-9) part)))
+            (put! (person :alice) :o11f (mapv #(fact % :parent :canvas-9) part)))
         nearer (into {} (mapcat (fn [part]
-                                  (let [wrote (put! :alice :o11n (mapv #(fact % :parent :canvas-9) part))]
+                                  (let [wrote (put! (person :alice) :o11n (mapv #(fact % :parent :canvas-9) part))]
                                     (map-indexed (fn [i block] [[block :parent] [(:act-id wrote) i]]) part)))
                                 (partition-all 150 blocks)))
-        many (counting #(ask {:asks [:points-at :parent :canvas-9] :asker :alice :lanes [:o11n :o11f]}))
+        many (counting #(ask {:asks [:points-at :parent :canvas-9] :asker (person :alice) :lanes [:o11n :o11f]}))
         ;; the same place asked once while a live read holds a push open on each of its sources
-        watcher (live {:asks [:place :q7 :text] :asker :alice :lanes [:n7 :m7 :f7]})
+        watcher (live {:asks [:place :q7 :text] :asker (person :alice) :lanes [:n7 :m7 :f7]})
         watcher-holds (read-path/open-count (the-rp))
-        beside-a-live-read (counted {:asks [:place :q7 :text] :asker :alice :lanes [:n7 :m7 :f7]})
-        same-answer? (= (dissoc (:now watcher) :leave-with) (ask {:asks [:place :q7 :text] :asker :alice :lanes [:n7 :m7 :f7]}))
+        beside-a-live-read (counted {:asks [:place :q7 :text] :asker (person :alice) :lanes [:n7 :m7 :f7]})
+        same-answer? (= (dissoc (:now watcher) :leave-with) (ask {:asks [:place :q7 :text] :asker (person :alice) :lanes [:n7 :m7 :f7]}))
         _ (leave! watcher)]
     (check "a place through three lanes: three calls, in one round" [3 [3] false] place-3)
     (check "the same place asked once while a live read holds a push open on each of its sources: the same three calls in one round, and the same answer. A read asked once reads the tables and takes no value of a push"
@@ -840,25 +843,25 @@
 
 (deftest a-very-large-run
   (let [small (:small @round)
-        _ (make! :sized :alice)
+        _ (make! :sized (person :alice))
         _ (doseq [[e n] [[:r03 3] [:r08 8] [:r12 12]]]
-            (put! :alice :sized (mapv #(fact e (keyword (format "k%02d" %)) %) (range n))))
+            (put! (person :alice) :sized (mapv #(fact e (keyword (format "k%02d" %)) %) (range n))))
         counted (fn [query] (let [c (counting #(ask small query))]
                               [(:selects c) (count (:places (:result c))) (select-keys (:result c) [:could-not :what :most])]))
-        run-3 (counted {:asks [:entity :r03] :asker :alice :lanes [:sized]})
-        run-8 (counted {:asks [:entity :r08] :asker :alice :lanes [:sized]})
-        run-12 (counted {:asks [:entity :r12] :asker :alice :lanes [:sized]})
-        unseen (counting #(ask small {:asks [:entity :r12] :asker :bob :lanes [:sized]}))
-        whole-lane (counted {:asks [:run :first :last] :asker :alice :lanes [:sized]})
-        _ (doseq [lane [:c12n :c12f]] (make! lane :alice))
-        _ (mark! :c12f :alice #{:parent})
-        _ (put! :alice :c12f (mapv #(fact (keyword (str "c-" %)) :parent :canvas-1) (range 7)))
-        seven (counted {:asks [:points-at :parent :canvas-1] :asker :alice :lanes [:c12n :c12f]})
-        live-large (read-path/read-live small {:asks [:entity :r12] :asker :alice :lanes [:sized]} (fn [_] nil))
+        run-3 (counted {:asks [:entity :r03] :asker (person :alice) :lanes [:sized]})
+        run-8 (counted {:asks [:entity :r08] :asker (person :alice) :lanes [:sized]})
+        run-12 (counted {:asks [:entity :r12] :asker (person :alice) :lanes [:sized]})
+        unseen (counting #(ask small {:asks [:entity :r12] :asker (person :bob) :lanes [:sized]}))
+        whole-lane (counted {:asks [:run :first :last] :asker (person :alice) :lanes [:sized]})
+        _ (doseq [lane [:c12n :c12f]] (make! lane (person :alice)))
+        _ (mark! :c12f (person :alice) #{:parent})
+        _ (put! (person :alice) :c12f (mapv #(fact (keyword (str "c-" %)) :parent :canvas-1) (range 7)))
+        seven (counted {:asks [:points-at :parent :canvas-1] :asker (person :alice) :lanes [:c12n :c12f]})
+        live-large (read-path/read-live small {:asks [:entity :r12] :asker (person :alice) :lanes [:sized]} (fn [_] nil))
         ;; a run of 8 places opens, and then grows to 11 under the open read
-        grows (live small {:asks [:entity :r08] :asker :alice :lanes [:sized]})
+        grows (live small {:asks [:entity :r08] :asker (person :alice) :lanes [:sized]})
         opened-with (count (:places (:now grows)))
-        _ (put! :alice :sized (mapv #(fact :r08 (keyword (format "g%02d" %)) %) (range 3)))
+        _ (put! (person :alice) :sized (mapv #(fact :r08 (keyword (format "g%02d" %)) %) (range 3)))
         grew (wait-until #(some :ended (changes grows)))
         after-it-grew [(read-path/open-count small) (leave! grows)]
         unknown {:gate :streaming :table :facts :lane :sized :routing-id :sized :path [:whole-table]}
@@ -892,10 +895,10 @@
            (pr-str (nth seven 2)) "| a source of a kind that the read path knows no path for makes no call")))
 
 (deftest a-run-across-entities-of-the-base
-  (let [query {:asks [:run [:e-01] [:e-12]] :asker :alice :lanes [:base]}
+  (let [query {:asks [:run [:e-01] [:e-12]] :asker (person :alice) :lanes [:base]}
         once (noting-routing-ids (the-rp) #(ask query))
-        with-own (ask {:asks [:run [:b] [:base]] :asker :alice :lanes [:base] :stores-own-facts true})
-        without-own (ask {:asks [:run [:b] [:base]] :asker :alice :lanes [:base]})
+        with-own (ask {:asks [:run [:b] [:base]] :asker (person :alice) :lanes [:base] :stores-own-facts true})
+        without-own (ask {:asks [:run [:b] [:base]] :asker (person :alice) :lanes [:base]})
         read (live query)
         counts (read-path/open-count (the-rp))
         held-under (set (map (juxt :gate :table :routing-id) (keys (:pushes (held (the-rp))))))
@@ -928,14 +931,14 @@
                 (if (or (= tasks (count found)) (<= 60 i))
                   found
                   (let [lane (keyword (str "home-" i))
-                        _ (make! lane :alice)
+                        _ (make! lane (person :alice))
                         task (task-of lane)]
                     (recur (inc i) (if (and task (not (contains? found task))) (assoc found task lane) found)))))
         home-a (some (fn [[task lane]] (when (not= base-task task) lane)) homes)
         ;; a lane of bob's own, on a task that is neither the base's nor that of alice's lane
         home-b (loop [i 0]
                  (let [lane (keyword (str "bobs-" i))]
-                   (make! lane :bob)
+                   (make! lane (person :bob))
                    (cond (not (contains? #{base-task (task-of home-a)} (task-of lane))) lane
                          (< i 60) (recur (inc i)))))
         the-three-tasks [(task-of home-a) (task-of home-b) base-task]
@@ -950,11 +953,11 @@
         base-order (:places (from-the-base points-asks))
         ;; (i) asked once: the base through a lane on each task
         on-each-task (into (sorted-map)
-                           (map (fn [[task home]] [task (noting-routing-ids rp #(ask (through :alice home note-asks)))]))
+                           (map (fn [[task home]] [task (noting-routing-ids rp #(ask (through (person :alice) home note-asks)))]))
                            homes)
-        bobs-note (noting-routing-ids rp #(ask (through :bob home-b note-asks)))
+        bobs-note (noting-routing-ids rp #(ask (through (person :bob) home-b note-asks)))
         ;; (iii) asked once: a run across entities, and the order by value, each whole from one task
-        wholes (vec (for [[who home] [[:alice home-a] [:bob home-b]]
+        wholes (vec (for [[who home] [[(person :alice) home-a] [(person :bob) home-b]]
                           asks [run-asks points-asks]]
                       (let [noted (noting-routing-ids rp #(ask (through who home asks)))]
                         {:home home :asks asks :places (:places (:result noted)) :calls (of-the-base (:selects noted))})))
@@ -962,12 +965,12 @@
         watched [:place :watched-33 :text]
         value-through (fn [who home] (get-in (ask (through who home watched)) [:place :value]))
         everywhere? (fn [v] (and (= v (get-in (from-the-base watched) [:place :value]))
-                                 (= v (value-through :bob home-b))
-                                 (every? #(= v (value-through :alice %)) (vals homes))))
+                                 (= v (value-through (person :bob) home-b))
+                                 (every? #(= v (value-through (person :alice) %)) (vals homes))))
         _ (put! :system :base [(fact :watched-33 :text "v0")])
         v0-everywhere (wait-until 30000 #(everywhere? "v0"))
         ;; (ii) kept live: two askers whose lanes live on two tasks, and one who reads from the base itself
-        readers [(live (through :alice home-a watched)) (live (through :bob home-b watched))
+        readers [(live (through (person :alice) home-a watched)) (live (through (person :bob) home-b watched))
                  (live {:asks watched :asker :system :lanes [:base]})]
         nows (mapv #(get-in % [:now :place :value]) readers)
         live-counts (read-path/open-count rp)
@@ -985,8 +988,8 @@
         _ (run! leave! readers)
         ;; (iii) kept live: a run across entities and the order by value, through two homes
         _ (wait-until 30000 #(everywhere? "v2"))
-        runs [(live (through :alice home-a run-asks)) (live (through :bob home-b run-asks))]
-        orders [(live (through :alice home-a points-asks)) (live (through :bob home-b points-asks))]
+        runs [(live (through (person :alice) home-a run-asks)) (live (through (person :bob) home-b run-asks))]
+        orders [(live (through (person :alice) home-a points-asks)) (live (through (person :bob) home-b points-asks))]
         opened-whole [(mapv #(:places (:now %)) runs) (mapv #(:places (:now %)) orders)]
         wrote-both (put! :system :base [(fact :e-05 :size 500) (fact :block-4 :parent :canvas-1)])
         got-both (wait-until 30000 #(every? (comp seq later) (concat runs orders)))
@@ -999,21 +1002,21 @@
         straight-after (vec (for [i (range 20)]
                               (let [v (str "straight-" i)]
                                 (put! :system :base [(fact :watched-33 :text v)])
-                                [(= v (value-through :alice home-a))
-                                 (some? (wait-until 30000 #(= v (value-through :alice home-a))))])))
+                                [(= v (value-through (person :alice) home-a))
+                                 (some? (wait-until 30000 #(= v (value-through (person :alice) home-a))))])))
         last-value (str "straight-" 19)
         _ (wait-until 30000 #(everywhere? last-value))
         ;; (iv) the pushes: two askers with one home, and one with another
-        _ (give! home-a :alice :bob)
+        _ (give! home-a (person :alice) (person :bob))
         counted (read-path/open (:ipc @round) (:module @round))
         shared (noting-routing-ids
                 counted
                 (fn []
-                  (let [alice-a (live counted (through :alice home-a watched))
+                  (let [alice-a (live counted (through (person :alice) home-a watched))
                         one (:counts (held counted))
-                        bob-a (live counted (through :bob home-a watched))
+                        bob-a (live counted (through (person :bob) home-a watched))
                         two (:counts (held counted))
-                        bob-b (live counted (through :bob home-b watched))
+                        bob-b (live counted (through (person :bob) home-b watched))
                         three (:counts (held counted))
                         on-the-row (frequencies (keep (fn [source]
                                                         (when (= [:row (rows/place-key :base :watched-33 :text)] (:path source))
@@ -1105,10 +1108,10 @@
            (pr-str (frequencies (of-the-base (:opens shared)))))))
 
 (deftest each-word-kept-live
-  (let [_ (doseq [lane [:l14 :n14]] (make! lane :alice))
-        _ (mark! :l14 :alice #{:parent})
+  (let [_ (doseq [lane [:l14 :n14]] (make! lane (person :alice)))
+        _ (mark! :l14 (person :alice) #{:parent})
         observed
-        (vec (for [[who lane wait] [[:alice :l14 15000] [:system :base 30000]]
+        (vec (for [[who lane wait] [[(person :alice) :l14 15000] [:system :base 30000]]
                    [word asks inside outside] [[:place [:place :live-1 :text] (fact :live-1 :text "inside") (fact :live-2 :text "outside")]
                                                [:entity [:entity :live-e] (fact :live-e :a "inside") (fact :live-f :a "outside")]
                                                [:run [:run [:live-r1] [:live-r3]] (fact :live-r2 :a "inside") (fact :live-r4 :a "outside")]
@@ -1132,19 +1135,19 @@
                          (:fact (get (:changed (first all)) place)) (:fact (get (:changed (second all)) place))])
                  [lane word (count all)])))
         ;; through lanes: an act in a farther lane at a place that a nearer lane holds
-        _ (put! :alice :n14 [(fact :under :text "the nearer holds this")])
-        _ (put! :alice :l14 [(fact :under :text "f0")])
-        asker (live {:asks [:place :under :text] :asker :alice :lanes [:n14 :l14]})
-        witness (live {:asks [:place :under :text] :asker :alice :lanes [:l14]})
-        _ (put! :alice :l14 [(fact :under :text "f1")])
-        _ (put! :alice :l14 [(fact :under :text "f2")])
+        _ (put! (person :alice) :n14 [(fact :under :text "the nearer holds this")])
+        _ (put! (person :alice) :l14 [(fact :under :text "f0")])
+        asker (live {:asks [:place :under :text] :asker (person :alice) :lanes [:n14 :l14]})
+        witness (live {:asks [:place :under :text] :asker (person :alice) :lanes [:l14]})
+        _ (put! (person :alice) :l14 [(fact :under :text "f1")])
+        _ (put! (person :alice) :l14 [(fact :under :text "f2")])
         seen (wait-until #(= "f2" (get-in (screen witness) [:place :value])))
         under (later asker)
         ;; twenty acts on one place in quick turn
-        quick (live {:asks [:place :quick :text] :asker :alice :lanes [:n14 :l14]})
-        _ (dotimes [i 20] (put! :alice (if (even? i) :l14 :n14) [(fact :quick :text i)]))
+        quick (live {:asks [:place :quick :text] :asker (person :alice) :lanes [:n14 :l14]})
+        _ (dotimes [i 20] (put! (person :alice) (if (even? i) :l14 :n14) [(fact :quick :text i)]))
         ended (wait-until #(= 19 (get-in (screen quick) [:place :value])))
-        once (ask {:asks [:place :quick :text] :asker :alice :lanes [:n14 :l14]})
+        once (ask {:asks [:place :quick :text] :asker (person :alice) :lanes [:n14 :l14]})
         quick-calls (count (later quick))
         _ (run! leave! [asker witness quick])]
     (check "an act in a farther lane at a place that a nearer lane holds gives the asker nothing: the witness, who holds the same push, has the second of two such acts, and the asker's function was not called"
@@ -1158,94 +1161,94 @@
            "| twenty acts in quick turn on one place in two lanes: the screen ends at the last value, after" quick-calls "calls")))
 
 (deftest what-shapes-a-read-changes-under-it
-  (let [_ (doseq [lane [:m15 :t15 :home15 :x15]] (make! lane :alice))
-        _ (give! :t15 :alice :bob)
-        _ (give! :t15 :alice :carol)
-        _ (put! :alice :m15 [(fact :note :text "from m15")])
-        _ (put! :alice :t15 [(fact :note :text "from t15")])
+  (let [_ (doseq [lane [:m15 :t15 :home15 :x15]] (make! lane (person :alice)))
+        _ (give! :t15 (person :alice) (person :bob))
+        _ (give! :t15 (person :alice) (person :carol))
+        _ (put! (person :alice) :m15 [(fact :note :text "from m15")])
+        _ (put! (person :alice) :t15 [(fact :note :text "from t15")])
         place-of (fn [read] ((juxt :lane :value) (:place (screen read))))
         ;; (a) a permission given to an asker whose read left the lane out
-        bob (live {:asks [:place :note :text] :asker :bob :lanes [:m15 :t15]})
+        bob (live {:asks [:place :note :text] :asker (person :bob) :lanes [:m15 :t15]})
         bob-now (:now bob)
-        _ (put! :alice :m15 [(fact :note :text "bob cannot see this")])
-        _ (put! :alice :t15 [(fact :note :text "from t15, again")])
+        _ (put! (person :alice) :m15 [(fact :note :text "bob cannot see this")])
+        _ (put! (person :alice) :t15 [(fact :note :text "from t15, again")])
         _ (wait-until #(= "from t15, again" (second (place-of bob))))
         bob-before (changes bob)
-        _ (give! :m15 :alice :bob :see)
+        _ (give! :m15 (person :alice) (person :bob) :see)
         _ (wait-until #(= :m15 (first (place-of bob))))
         bob-joined (last (changes bob))
         ;; (b) a members lane goes to everyone, for an asker with no permission
-        carol (live {:asks [:place :note :text] :asker :carol :lanes [:m15 :t15]})
+        carol (live {:asks [:place :note :text] :asker (person :carol) :lanes [:m15 :t15]})
         carol-now (:now carol)
-        _ (setting! :m15 :alice :everyone)
+        _ (setting! :m15 (person :alice) :everyone)
         _ (wait-until #(= :m15 (first (place-of carol))))
         carol-joined (last (changes carol))
         ;; ... and back to members: the lane is no longer rightful for her
-        _ (setting! :m15 :alice :members)
+        _ (setting! :m15 (person :alice) :members)
         _ (wait-until #(seq (:left-out (screen carol))))
         carol-left (last (changes carol))
         carol-count (count (changes carol))
-        _ (put! :alice :m15 [(fact :note :text "after carol left")])
+        _ (put! (person :alice) :m15 [(fact :note :text "after carol left")])
         _ (wait-until #(= "after carol left" (second (place-of bob))))
         _ (settled)
         carol-after (count (changes carol))
         ;; (c) the start lane's list written again
-        _ (list! :home15 :alice [:t15])
-        home (live {:asks [:place :note :text] :asker :alice :from-lane :home15})
-        _ (list! :home15 :alice [:m15 :t15])
+        _ (list! :home15 (person :alice) [:t15])
+        home (live {:asks [:place :note :text] :asker (person :alice) :from-lane :home15})
+        _ (list! :home15 (person :alice) [:m15 :t15])
         _ (wait-until #(= [:home15 :m15 :t15] (:lanes (screen home))))
         home-wider (last (changes home))
-        _ (list! :home15 :alice [])
+        _ (list! :home15 (person :alice) [])
         _ (wait-until #(= [:home15] (:lanes (screen home))))
         home-alone (last (changes home))
         ;; (d) a key marked, a fact under it, the mark off, the mark on
-        _ (put! :alice :x15 [(fact :comment-1 :on :paper-9)])
-        marks (live {:asks [:points-at :on :paper-9] :asker :alice :lanes [:x15]})
+        _ (put! (person :alice) :x15 [(fact :comment-1 :on :paper-9)])
+        marks (live {:asks [:points-at :on :paper-9] :asker (person :alice) :lanes [:x15]})
         marks-now (:now marks)
-        marked (mark! :x15 :alice #{:on})
+        marked (mark! :x15 (person :alice) #{:on})
         _ (wait-until #(:level-since (first (:orders (screen marks)))))
         after-mark (last (changes marks))
-        comment (put! :alice :x15 [(fact :comment-3 :on :paper-9)])
+        comment (put! (person :alice) :x15 [(fact :comment-3 :on :paper-9)])
         _ (wait-until #(get (:places (screen marks)) [:comment-3 :on]))
         after-comment (last (changes marks))
-        _ (mark! :x15 :alice #{})
+        _ (mark! :x15 (person :alice) #{})
         _ (wait-until #(:not-marked (first (:orders (screen marks)))))
         after-off (last (changes marks))
-        marked-again (mark! :x15 :alice #{:on})
+        marked-again (mark! :x15 (person :alice) #{:on})
         _ (wait-until #(= (:stamp marked-again) (:level-since (first (:orders (screen marks))))))
         after-on (last (changes marks))
         ;; (e) for an asker who may not see a lane of her list: its list written again, and the asked key marked in it
-        dave (live {:asks [:points-at :on :paper-9] :asker :dave :lanes [:x15 :t15]})
-        _ (setting! :t15 :alice :everyone)
+        dave (live {:asks [:points-at :on :paper-9] :asker (person :dave) :lanes [:x15 :t15]})
+        _ (setting! :t15 (person :alice) :everyone)
         _ (wait-until #(= [{:lane :x15 :why :may-not-see}] (:left-out (screen dave))))
         dave-count (count (changes dave))
-        _ (list! :x15 :alice [:t15])
-        _ (mark! :x15 :alice #{})
-        last-mark (mark! :x15 :alice #{:on})
+        _ (list! :x15 (person :alice) [:t15])
+        _ (mark! :x15 (person :alice) #{})
+        last-mark (mark! :x15 (person :alice) #{:on})
         _ (wait-until #(= (:stamp last-mark) (:level-since (first (:orders (screen marks))))))
         _ (settled)
         dave-after (count (changes dave))
         _ (run! leave! [bob carol home marks dave])
         ;; (f) through three lanes, a permission given in the nearest while the farther orders hold places
-        _ (doseq [lane [:j15n :j15m :j15f]] (make! lane :alice))
-        _ (doseq [lane [:j15n :j15m :j15f]] (mark! lane :alice #{:parent}))
-        _ (give! :j15m :alice :erin)
-        _ (give! :j15f :alice :erin)
-        _ (put! :alice :j15f [(fact :f-1 :parent :canvas-1) (fact :f-2 :parent :canvas-1)])
-        _ (put! :alice :j15m [(fact :m-1 :parent :canvas-1)])
-        _ (put! :alice :j15n [(fact :n-1 :parent :canvas-1) (fact :f-2 :parent :canvas-2)])
-        erin (live {:asks [:points-at :parent :canvas-1] :asker :erin :lanes [:j15n :j15m :j15f]})
+        _ (doseq [lane [:j15n :j15m :j15f]] (make! lane (person :alice)))
+        _ (doseq [lane [:j15n :j15m :j15f]] (mark! lane (person :alice) #{:parent}))
+        _ (give! :j15m (person :alice) (person :erin))
+        _ (give! :j15f (person :alice) (person :erin))
+        _ (put! (person :alice) :j15f [(fact :f-1 :parent :canvas-1) (fact :f-2 :parent :canvas-1)])
+        _ (put! (person :alice) :j15m [(fact :m-1 :parent :canvas-1)])
+        _ (put! (person :alice) :j15n [(fact :n-1 :parent :canvas-1) (fact :f-2 :parent :canvas-2)])
+        erin (live {:asks [:points-at :parent :canvas-1] :asker (person :erin) :lanes [:j15n :j15m :j15f]})
         erin-now (:now erin)
-        _ (give! :j15n :alice :erin)
+        _ (give! :j15n (person :alice) (person :erin))
         _ (wait-until #(get (:places (screen erin)) [:n-1 :parent]))
         _ (settled)
         erin-later (later erin)
-        erin-once (ask {:asks [:points-at :parent :canvas-1] :asker :erin :lanes [:j15n :j15m :j15f]})
+        erin-once (ask {:asks [:points-at :parent :canvas-1] :asker (person :erin) :lanes [:j15n :j15m :j15f]})
         _ (leave! erin)
         ;; (g) the base: its setting to members and back
         _ (put! :system :base [(fact :note-15 :text "in the base")])
-        frank (live {:asks [:place :note-15 :text] :asker :frank :lanes [:base]})
-        alice-in-base (live {:asks [:place :note-15 :text] :asker :alice :lanes [:base]})
+        frank (live {:asks [:place :note-15 :text] :asker (person :frank) :lanes [:base]})
+        alice-in-base (live {:asks [:place :note-15 :text] :asker (person :alice) :lanes [:base]})
         _ (setting! :base :system :members)
         _ (wait-until 30000 #(seq (:left-out (screen frank))))
         frank-out (last (changes frank))
@@ -1272,7 +1275,7 @@
            [(:left-out carol-now) (:left-out (:anew carol-joined)) (:lane (:place (:anew carol-joined)))])
     (check "the lane goes back to members: she is told a whole answer that says that the lane is left out, with what now wins the place, and nothing of the lane's facts"
            {:lanes [:m15 :t15] :left-out [{:lane :m15 :why :may-not-see}]
-            :place (:place (ask {:asks [:place :note :text] :asker :carol :lanes [:t15]}))}
+            :place (:place (ask {:asks [:place :note :text] :asker (person :carol) :lanes [:t15]}))}
            (:anew carol-left))
     (check "after the lane left, a write in it gives that asker nothing, and the other asker of the same push her change"
            [carol-count "after carol left"] [carol-after (second (place-of bob))])
@@ -1314,46 +1317,46 @@
            "| the base to members and back:" (pr-str (:left-out (:anew frank-out))) "then the fact again")))
 
 (deftest a-permission-ends-under-a-live-read
-  (let [_ (make! :m-ends :ada)
-        _ (make! :t-ends :ada)
-        _ (setting! :t-ends :ada :everyone)
-        _ (give! :m-ends :ada :bea)
-        _ (give! :m-ends :bea :cal)
-        _ (give! :m-ends :ada :dov)
-        _ (put! :ada :t-ends [(fact :note :text "from t16")])
-        _ (put! :ada :m-ends [(fact :note :text "from m16")])
+  (let [_ (make! :m-ends (person :ada))
+        _ (make! :t-ends (person :ada))
+        _ (setting! :t-ends (person :ada) :everyone)
+        _ (give! :m-ends (person :ada) (person :bea))
+        _ (give! :m-ends (person :bea) (person :cal))
+        _ (give! :m-ends (person :ada) (person :dov))
+        _ (put! (person :ada) :t-ends [(fact :note :text "from t16")])
+        _ (put! (person :ada) :m-ends [(fact :note :text "from m16")])
         query (fn [who] {:asks [:place :note :text] :asker who :lanes [:m-ends :t-ends]})
         place-of (fn [read] ((juxt :lane :value) (:place (screen read))))
-        end! (fn [ender holder] (put! ender :m-ends [{:e holder :k :softland.store/permission}]))
-        from-t16 (:place (ask {:asks [:place :note :text] :asker :cal :lanes [:t-ends]}))
+        end! (fn [ender holder] (put! ender :m-ends [(perm/end-fact (perm holder :m-ends))]))
+        from-t16 (:place (ask {:asks [:place :note :text] :asker (person :cal) :lanes [:t-ends]}))
         ;; Cal's permission is beneath Bea's, and Bea's beneath the first holder's. Dov's is beside Bea's.
-        cal (live (query :cal))
-        dov (live (query :dov))
+        cal (live (query (person :cal)))
+        dov (live (query (person :dov)))
         cal-now (:now cal)
         ;; the permission above Cal's ends
-        _ (end! :ada :bea)
+        _ (end! (person :ada) (person :bea))
         _ (wait-until #(seq (:left-out (screen cal))))
         cal-left (last (changes cal))
         cal-count (count (changes cal))
-        once-after-the-end (ask (query :cal))
-        _ (put! :ada :m-ends [(fact :note :text "after the end")])
+        once-after-the-end (ask (query (person :cal)))
+        _ (put! (person :ada) :m-ends [(fact :note :text "after the end")])
         _ (wait-until #(= "after the end" (second (place-of dov))))
         _ (settled)
         dov-after-a-write (place-of dov)
         cal-after-a-write (count (changes cal))
         ;; Bea is given hers again: Cal's does not come back with it
-        _ (give! :m-ends :ada :bea)
-        _ (put! :ada :m-ends [(fact :note :text "after bea's second give")])
+        _ (give! :m-ends (person :ada) (person :bea))
+        _ (put! (person :ada) :m-ends [(fact :note :text "after bea's second give")])
         _ (wait-until #(= "after bea's second give" (second (place-of dov))))
         _ (settled)
         cal-after-beas-give (count (changes cal))
-        once-after-beas-give (ask (query :cal))
+        once-after-beas-give (ask (query (person :cal)))
         ;; Cal is given hers again, by an act of its own
-        _ (give! :m-ends :bea :cal)
+        _ (give! :m-ends (person :bea) (person :cal))
         _ (wait-until #(= :m-ends (first (place-of cal))))
         cal-back (last (changes cal))
         ;; her own permission ends
-        _ (end! :bea :cal)
+        _ (end! (person :bea) (person :cal))
         _ (wait-until #(seq (:left-out (screen cal))))
         cal-out-again (last (changes cal))
         dov-at-the-end (place-of dov)
@@ -1379,28 +1382,28 @@
            (pr-str ((juxt :lane :value) (:place (:anew cal-back)))))))
 
 (deftest a-read-asked-in-a-run
-  (let [run-key :softland.store/run-permission
-        _ (make! :m-run :ada)
-        _ (make! :t-run :ada)
-        _ (setting! :t-run :ada :everyone)
-        _ (put! :ada :t-run [(fact :note :text "from t-run")])
-        _ (put! :ada :m-run [(fact :note :text "from m-run")])
-        for-run (fn [who session] [who :m-run :m-run (perm :ada :m-run) :see [:run session]])
-        give-run! (fn [who session] (put! :ada :m-run [{:e session :k run-key :v (for-run who session)}]))
-        _ (give-run! :cal :run-9)
+  (let [_ (make! :m-run (person :ada))
+        _ (make! :t-run (person :ada))
+        _ (setting! :t-run (person :ada) :everyone)
+        _ (put! (person :ada) :t-run [(fact :note :text "from t-run")])
+        _ (put! (person :ada) :m-run [(fact :note :text "from m-run")])
+        for-run (fn [who session] (perm/run-permission who :m-run (perm (person :ada) :m-run) session :see))
+        give-run! (fn [p] (put! (person :ada) :m-run [(perm/permission-fact p)]))
+        run-9 (for-run (person :cal) :run-9)
+        _ (give-run! run-9)
         query (fn [who session] (cond-> {:asks [:place :note :text] :asker who :lanes [:m-run :t-run]}
                                   session (assoc :session session)))
         seen (fn [answer] [(:left-out answer) ((juxt :lane :value) (:place answer))])
         left-out [{:lane :m-run :why :may-not-see}]
         once (mapv (fn [[who session]] (seen (ask (query who session))))
-                   [[:cal :run-9] [:cal nil] [:cal :run-8] [:dov :run-9]])
+                   [[(person :cal) :run-9] [(person :cal) nil] [(person :cal) :run-8] [(person :dov) :run-9]])
         place-of (fn [read] ((juxt :lane :value) (:place (screen read))))
-        cal (live (query :cal :run-9))
+        cal (live (query (person :cal) :run-9))
         cal-now (:now cal)
-        _ (put! :ada :m-run [{:e :run-9 :k run-key}])
+        _ (put! (person :ada) :m-run [(perm/end-fact run-9)])
         _ (wait-until #(seq (:left-out (screen cal))))
         cal-left (last (changes cal))
-        _ (give-run! :cal :run-9)
+        _ (give-run! (for-run (person :cal) :run-9))
         _ (wait-until #(= :m-run (first (place-of cal))))
         cal-back (last (changes cal))
         _ (leave! cal)]
@@ -1422,67 +1425,67 @@
                    :answer (when-not (:could-not sent) (door/answer-of (the-door) (:act-id sent) (:digest sent)))}))
         word (fn [{:keys [answer]}] (if (= :refused (:answer answer)) (:reason answer) (:answer answer)))
         ;; receipt 1: a yes ended, a try while it is ended, and a yes given again
-        _ (make! :c-lab :asha)
-        root (perm :asha :c-lab)
-        x {:version 1 :who :ben :lane :c-lab :session :run-1 :facts [(fact :exp-1 :dose "5 mg")]}
+        _ (make! :c-lab (person :asha))
+        root (perm (person :asha) :c-lab)
+        x {:version 1 :who (person :ben) :lane :c-lab :session :run-1 :facts [(fact :exp-1 :dose "5 mg")]}
         hex-x (digest/hex-for-a-yes x)
         [u1 u2] (repeatedly 2 #(UUID/randomUUID))
-        pa1 [:ben :c-lab :c-lab root :see-and-act [:act u1 hex-x]]
-        _ (put! :asha :c-lab [{:e u1 :k act-key :v pa1}])
-        _ (put! :asha :c-lab [{:e u1 :k act-key}])
-        attempt-1 (send! (assoc x :permission pa1) nil)
-        _ (give! :c-lab :asha :cal :see-and-act)
-        cal-perm (perm :cal :c-lab)
-        cals (fn [facts] {:version 1 :who :cal :lane :c-lab :permission cal-perm :session :s0 :facts facts})
-        again-at-u1 (send! (cals [{:e u1 :k act-key :v [:ben :c-lab :c-lab cal-perm :see-and-act [:act u1 hex-x]]}]) nil)
-        pa2 [:ben :c-lab :c-lab cal-perm :see-and-act [:act u2 hex-x]]
-        re-grant (send! (cals [{:e u2 :k act-key :v pa2}]) nil)
-        attempt-2 (send! (assoc x :permission pa2) nil)
-        exp-read (ask {:asks [:place :exp-1 :dose] :asker :asha :lanes [:c-lab]})
+        pa1 (perm/act-permission (person :ben) :c-lab root u1 hex-x)
+        _ (put! (person :asha) :c-lab [(perm/permission-fact pa1)])
+        _ (put! (person :asha) :c-lab [(perm/end-fact pa1)])
+        attempt-1 (send! (assoc x :permission (perm/permission-id pa1)) nil)
+        _ (give! :c-lab (person :asha) (person :cal) :see-and-act)
+        cal-perm (perm (person :cal) :c-lab)
+        cals (fn [facts] {:version 1 :who (person :cal) :lane :c-lab :permission (perm/permission-id cal-perm) :session :s0 :facts facts})
+        again-at-u1 (send! (cals [(perm/permission-fact (perm/act-permission (person :ben) :c-lab cal-perm u1 hex-x))]) nil)
+        pa2 (perm/act-permission (person :ben) :c-lab cal-perm u2 hex-x)
+        re-grant (send! (cals [(perm/permission-fact pa2)]) nil)
+        attempt-2 (send! (assoc x :permission (perm/permission-id pa2)) nil)
+        exp-read (ask {:asks [:place :exp-1 :dose] :asker (person :asha) :lanes [:c-lab]})
         ;; receipt 2: a holder who may only see finds the yes's id, and sends under an act-id that holds it
-        _ (make! :c-studio :ida)
-        ida (perm :ida :c-studio)
-        _ (give! :c-studio :ida :cal :see)
-        cal-see (perm :cal :c-studio)
-        joes {:version 1 :who :joe :lane :c-studio :session :run-1 :facts [(fact :secret :dose "5 mg")]}
+        _ (make! :c-studio (person :ida))
+        ida (perm (person :ida) :c-studio)
+        _ (give! :c-studio (person :ida) (person :cal) :see)
+        cal-see (perm (person :cal) :c-studio)
+        joes {:version 1 :who (person :joe) :lane :c-studio :session :run-1 :facts [(fact :secret :dose "5 mg")]}
         u (UUID/randomUUID)
-        pa [:joe :c-studio :c-studio ida :see-and-act [:act u (digest/hex-for-a-yes joes)]]
-        _ (put! :ida :c-studio [{:e u :k act-key :v pa}])
-        cal-saw (ask {:asks [:run :first :last] :asker :cal :lanes [:c-studio] :stores-own-facts true})
+        pa (perm/act-permission (person :joe) :c-studio ida u (digest/hex-for-a-yes joes))
+        _ (put! (person :ida) :c-studio [(perm/permission-fact pa)])
+        cal-saw (ask {:asks [:run :first :last] :asker (person :cal) :lanes [:c-studio] :stores-own-facts true})
         found (first (keep (fn [[[e k] _]] (when (= act-key k) e)) (:places cal-saw)))
-        cal-under-it (send! {:version 1 :who :cal :lane :c-studio :permission cal-see :session :s-cal
+        cal-under-it (send! {:version 1 :who (person :cal) :lane :c-studio :permission (perm/permission-id cal-see) :session :s-cal
                              :facts [(fact :x :y 1)]}
                             [:c-studio :streaming found])
-        joe-res (send! (assoc joes :permission pa) nil)
-        secret (ask {:asks [:place :secret :dose] :asker :ida :lanes [:c-studio]})
+        joe-res (send! (assoc joes :permission (perm/permission-id pa)) nil)
+        secret (ask {:asks [:place :secret :dose] :asker (person :ida) :lanes [:c-studio]})
         ;; receipt 3: a live read in a run, of a lane that she may not see, while another holder's
         ;; permission for her run is given and ended; a witness holds the run's push and is told each change
-        _ (make! :c-near :root)
-        _ (give! :c-near :root :bea)
-        _ (put! :root :c-near [(fact :p :text "secret")])
-        _ (make! :c-far :root)
-        _ (setting! :c-far :root :everyone)
-        _ (put! :root :c-far [(fact :p :text "public")])
-        ann (live {:asks [:place :p :text] :asker :ann :session :run-7 :lanes [:c-near :c-far]})
-        witness (live {:asks [:place :run-7 run-key] :asker :root :lanes [:c-near] :stores-own-facts true})
-        dovs [:dov :c-near :c-near (perm :bea :c-near) :see [:run :run-7]]
-        _ (put! :bea :c-near [{:e :run-7 :k run-key :v dovs}])
+        _ (make! :c-near (person :root))
+        _ (give! :c-near (person :root) (person :bea))
+        _ (put! (person :root) :c-near [(fact :p :text "secret")])
+        _ (make! :c-far (person :root))
+        _ (setting! :c-far (person :root) :everyone)
+        _ (put! (person :root) :c-far [(fact :p :text "public")])
+        ann (live {:asks [:place :p :text] :asker (person :ann) :session :run-7 :lanes [:c-near :c-far]})
+        witness (live {:asks [:place :run-7 run-key] :asker (person :root) :lanes [:c-near] :stores-own-facts true})
+        dovs (perm/run-permission (person :dov) :c-near (perm (person :bea) :c-near) :run-7 :see)
+        _ (put! (person :bea) :c-near [(perm/permission-fact dovs)])
         _ (wait-until #(= :value (:holds (:place (screen witness)))))
-        bea-row-held? (contains? (:pushes (held (the-rp))) (sources/permission-source :c-near :c-near :bea))
-        _ (put! :bea :c-near [{:e :run-7 :k run-key}])
+        bea-row-held? (contains? (:pushes (held (the-rp))) (sources/permission-source :c-near :c-near (person :bea)))
+        _ (put! (person :bea) :c-near [(perm/end-fact dovs)])
         _ (wait-until #(= :nothing-here (:holds (:place (screen witness)))))
         ann-changes (changes ann)
         _ (leave! ann)
         _ (leave! witness)
         ;; receipt 4: the longest live read, with one write while it opens
-        runs-of (fn [lane] {:e :run-7 :k run-key :v [:cal lane lane (perm :root lane) :see [:run :run-7]]})
-        _ (make! :c-start :root)
-        _ (put! :root :c-start [(fact :c-start :softland.store/builds-on [:c-mid :c-far2]) (runs-of :c-start)])
-        _ (make! :c-mid :root)
-        _ (put! :root :c-mid [(runs-of :c-mid)])
-        _ (make! :c-far2 :root)
-        _ (put! :root :c-far2 [(fact :c-far2 :softland.store/marked-keys #{:parent}) (runs-of :c-far2)])
-        _ (put! :root :c-far2 [(fact :item-1 :parent :canvas-1)])
+        runs-of (fn [lane] (perm/permission-fact (perm/run-permission (person :cal) lane (perm (person :root) lane) :run-7 :see)))
+        _ (make! :c-start (person :root))
+        _ (put! (person :root) :c-start [(fact :c-start :softland.store/builds-on [:c-mid :c-far2]) (runs-of :c-start)])
+        _ (make! :c-mid (person :root))
+        _ (put! (person :root) :c-mid [(runs-of :c-mid)])
+        _ (make! :c-far2 (person :root))
+        _ (put! (person :root) :c-far2 [(fact :c-far2 :softland.store/marked-keys #{:parent}) (runs-of :c-far2)])
+        _ (put! (person :root) :c-far2 [(fact :item-1 :parent :canvas-1)])
         open-push @#'softland.store.read-path/open-push
         wrote? (atom false)
         opened (with-redefs [softland.store.read-path/open-push
@@ -1491,10 +1494,10 @@
                                  (when (and (= :c-start (:lane source))
                                             (= [:row (rows/place-key :c-start :item-1 :parent)] (:path source))
                                             (compare-and-set! wrote? false true))
-                                   (put! :root :c-far2 [(fact :item-2 :parent :canvas-1)])
+                                   (put! (person :root) :c-far2 [(fact :item-2 :parent :canvas-1)])
                                    (Thread/sleep 100))
                                  fut))]
-                 (read-path/read-live (the-rp) {:asks [:points-at :parent :canvas-1] :asker :cal :session :run-7
+                 (read-path/read-live (the-rp) {:asks [:points-at :parent :canvas-1] :asker (person :cal) :session :run-7
                                                 :from-lane :c-start}
                                       (fn [_])))
         _ (when (:leave-with opened) (read-path/leave (the-rp) (:leave-with opened)))]
@@ -1526,25 +1529,27 @@
         ;; permission beneath her new one, or Ann's run one, and ends her own
         stale-chain!
         (fn [lane run?]
-          (let [_ (make! lane :root)
-                _ (give! lane :root :dave)
-                _ (give! lane :dave :bea)
-                given (fn [] (if run?
-                               {:e :run-7 :k run-key :v [:ann lane lane (perm :bea lane) :see [:run :run-7]]}
-                               {:e :ann :k own-key :v [:ann lane lane (perm :bea lane) :see]}))
-                _ (put! :bea lane [(given)])
-                _ (put! :root lane [{:e :dave :k own-key}])
-                _ (put! :root lane [(fact :rx :dose "the secret")])
-                query (cond-> {:asks [:place :rx :dose] :asker :ann :lanes [lane :c-open]} run? (assoc :session :run-7))
-                root-read (live {:asks [:place :rx :dose] :asker :root :lanes [lane]})
+          (let [_ (make! lane (person :root))
+                _ (give! lane (person :root) (person :dave))
+                _ (give! lane (person :dave) (person :bea))
+                given-perm (fn [] (if run?
+                                    (perm/run-permission (person :ann) lane (perm (person :bea) lane) :run-7 :see)
+                                    (perm/given-permission (person :ann) lane (perm (person :bea) lane) :see)))
+                _ (put! (person :bea) lane [(perm/permission-fact (given-perm))])
+                _ (put! (person :root) lane [(perm/end-fact (perm (person :dave) lane))])
+                _ (put! (person :root) lane [(fact :rx :dose "the secret")])
+                query (cond-> {:asks [:place :rx :dose] :asker (person :ann) :lanes [lane :c-open]} run? (assoc :session :run-7))
+                root-read (live {:asks [:place :rx :dose] :asker (person :root) :lanes [lane]})
                 ann (live query)
                 ann-alone (live other-rp query)
-                witness (live {:asks (if run? [:place :run-7 run-key] [:place :ann own-key]) :asker :root
+                witness (live {:asks (if run? [:place :run-7 run-key] [:place (person :ann) own-key]) :asker (person :root)
                                :lanes [lane] :stores-own-facts true})
-                _ (give! lane :root :bea)
-                the-act (put! :bea lane [(given) {:e :bea :k own-key}])
-                _ (wait-until #(= (:v (given)) (:value (:place (screen witness)))))
-                _ (put! :root lane [(if run? {:e :run-7 :k run-key} {:e :ann :k own-key})])
+                _ (give! lane (person :root) (person :bea))
+                second-perm (given-perm)
+                second-fact (perm/permission-fact second-perm)
+                the-act (put! (person :bea) lane [second-fact (perm/end-fact (perm (person :bea) lane))])
+                _ (wait-until #(= (:v second-fact) (:value (:place (screen witness)))))
+                _ (put! (person :root) lane [(perm/end-fact second-perm)])
                 _ (wait-until #(= :nothing-here (:holds (:place (screen witness)))))
                 _ (settled)
                 told [(changes ann) (changes ann-alone)]
@@ -1554,30 +1559,31 @@
              :calls (mapv count told)
              :secret? (boolean (some #(= "the secret" (get-in % [:anew :place :value])) (apply concat told)))
              :once ((juxt :left-out (comp :value :place)) once)}))
-        _ (make! :c-open :root)
-        _ (setting! :c-open :root :everyone)
-        _ (put! :root :c-open [(fact :rx :dose "public")])
+        _ (make! :c-open (person :root))
+        _ (setting! :c-open (person :root) :everyone)
+        _ (put! (person :root) :c-open [(fact :rx :dose "public")])
         of-hers (stale-chain! :c-stale false)
         of-her-run (stale-chain! :c-stale-run true)
         ;; the review's P2 and its P3 of the yes's use, through the door
-        _ (make! :c-yes :asha)
-        root (perm :asha :c-yes)
-        _ (give! :c-yes :asha :cal :see-and-act)
-        m1 {:version 1 :who :ben :lane :c-yes :session :s1 :facts [(fact :x :v 1)]}
-        m2 {:version 1 :who :ben :lane :c-yes :session :s1 :facts [(fact :x :v 2)]}
+        _ (make! :c-yes (person :asha))
+        root (perm (person :asha) :c-yes)
+        _ (give! :c-yes (person :asha) (person :cal) :see-and-act)
+        m1 {:version 1 :who (person :ben) :lane :c-yes :session :s1 :facts [(fact :x :v 1)]}
+        m2 {:version 1 :who (person :ben) :lane :c-yes :session :s1 :facts [(fact :x :v 2)]}
         y1 (UUID/randomUUID)
-        pa1 [:ben :c-yes :c-yes root :see-and-act [:act y1 (digest/hex-for-a-yes m1)]]
-        run-p [:ben :c-yes :c-yes root :see-and-act [:run :run-1]]
-        _ (put! :asha :c-yes [{:e y1 :k act-key :v pa1} {:e :run-1 :k run-key :v run-p}])
+        pa1 (perm/act-permission (person :ben) :c-yes root y1 (digest/hex-for-a-yes m1))
+        run-p (perm/run-permission (person :ben) :c-yes root :run-1 :see-and-act)
+        _ (put! (person :asha) :c-yes [(perm/permission-fact pa1) (perm/permission-fact run-p)])
         send! (fn [an-act] (let [sent (door/send-act (the-door) an-act)]
                              {:answer (door/answer-of (the-door) (:act-id sent) (:digest sent))}))
-        taken (send! (assoc m1 :permission pa1))
-        _ (put! :asha :c-yes [{:e :run-1 :k run-key}])
-        words [(word (send! (assoc m2 :permission pa1)))
-               (word (send! (assoc m1 :permission [:ben :c-yes :c-yes (perm :cal :c-yes) :see-and-act
-                                                   [:act y1 (digest/hex-for-a-yes m1)]])))
-               (word (send! (assoc m1 :permission run-p :session :run-2)))]
-        use-read (:place (ask {:asks [:place y1 act-key] :asker :asha :lanes [:c-yes] :stores-own-facts true
+        taken (send! (assoc m1 :permission (perm/permission-id pa1)))
+        _ (put! (person :asha) :c-yes [(perm/end-fact run-p)])
+        words [(word (send! (assoc m2 :permission (perm/permission-id pa1))))
+               (word (send! (assoc m1 :permission (perm/permission-id
+                                                   (perm/act-permission (person :ben) :c-yes (perm (person :cal) :c-yes)
+                                                                        y1 (digest/hex-for-a-yes m1))))))
+               (word (send! (assoc m1 :permission (perm/permission-id run-p) :session :run-2)))]
+        use-read (:place (ask {:asks [:place y1 act-key] :asker (person :asha) :lanes [:c-yes] :stores-own-facts true
                                :with #{:writer}}))]
     (check "the review's P1 on the cluster: an asker who holds a live read on a lane that she may not see, through a chain whose permission above ended, is handed nothing when the giver beneath it is given hers again and then, in one act, gives the asker a permission beneath it and ends it; another asker holds the lane's fact open on the same read path, and a read path of its own is played too; a read asked once leaves the lane out"
            {:accepted? true :calls [1 1] :secret? false :once [[{:lane :c-stale :why :may-not-see}] "public"]}
@@ -1589,14 +1595,14 @@
            [:accepted [:act-not-the-one-permitted :permission-does-not-stand :permission-for-another-run]]
            [(word taken) words])
     (check "the review's P3 of the yes's use, read back: the used yes's place says nothing here, with the stamp of the act that used it and who sent it, and names no fact"
-           [:nothing-here :ben false]
+           [:nothing-here (person :ben) false]
            [(:holds use-read) (:writer use-read) (contains? use-read :fact)])
     (shown "the second review's cluster probe, written again: the asker's calls, on the shared read path and on one of its own:"
            (pr-str (:calls of-hers)) "and in her run" (pr-str (:calls of-her-run))
            "| the words through the door:" (pr-str words) "| the used yes's place:" (pr-str (dissoc use-read :writer)))))
 
 (deftest a-step-that-does-not-settle-ends-its-read
-  (let [query (:ok (query/check {:asks [:place :p :v] :asker :ann :from-lane :l0}))
+  (let [query (:ok (query/check {:asks [:place :p :v] :asker (person :ann) :from-lane :l0}))
         own (sources/own-rows-source :l0 :l0)
         place (sources/place-source :l0 :l0 :p :v)
         row (fn [k text index stamp] (rows/fact-row {:e :l0 :k k :text text} (UUID. 0 stamp) index stamp 1000 ":root" "[:root :l0 :l0]"))
@@ -1631,18 +1637,18 @@
 
 (deftest one-push-for-one-thing
   (let [rp (:counted @round)
-        _ (make! :t16 :alice)
-        _ (give! :t16 :alice :bob)
-        _ (put! :alice :t16 [(fact :note-41 :text "v0")])
+        _ (make! :t16 (person :alice))
+        _ (give! :t16 (person :alice) (person :bob))
+        _ (put! (person :alice) :t16 [(fact :note-41 :text "v0")])
         query (fn [who] {:asks [:place :note-41 :text] :asker who :lanes [:t16]})
         kept (keeping-pushes
               (fn []
-                (let [alice (live rp (assoc (query :alice) :with #{:writer}))
+                (let [alice (live rp (assoc (query (person :alice)) :with #{:writer}))
                       one (read-path/open-count rp)
                       entries (held rp)
-                      bob (live rp (query :bob))
+                      bob (live rp (query (person :bob)))
                       two (read-path/open-count rp)
-                      wrote (put! :alice :t16 [(fact :note-41 :text "v1")])
+                      wrote (put! (person :alice) :t16 [(fact :note-41 :text "v1")])
                       _ (wait-until #(and (seq (later alice)) (seq (later bob))))
                       _ (settled)
                       told [(later alice) (later bob)]
@@ -1655,13 +1661,13 @@
         {:keys [one two wrote told after-alice after-bob left entries]} (:result kept)
         pushes (mapv (fn [{:keys [push]}] (.get ^CompletableFuture push)) (:opened kept))
         statuses (wait-until (fn [] (let [s (mapv rama/proxy-status pushes)] (when (every? #{:terminated} s) s))))
-        third (counting (fn [] (let [read (live rp (query :alice))] [(:value (:place (:now read))) (leave! read)])))
+        third (counting (fn [] (let [read (live rp (query (person :alice)))] [(:value (:place (:now read))) (leave! read)])))
         ;; two open the same thing at once, 50 times
         together (counting
                   (fn []
                     (vec (for [_ (range 50)]
                            (let [start (CountDownLatch. 1)
-                                 opened (mapv (fn [who] (future (.await start) (live rp (query who)))) [:alice :bob])
+                                 opened (mapv (fn [who] (future (.await start) (live rp (query who)))) [(person :alice) (person :bob)])
                                  _ (.countDown start)
                                  reads (mapv deref opened)
                                  counts (read-path/open-count rp)
@@ -1672,15 +1678,15 @@
         crossing (counting
                   (fn []
                     (vec (for [i (range 50)]
-                           (let [first-read (live rp (query :alice))
+                           (let [first-read (live rp (query (person :alice)))
                                  start (CountDownLatch. 1)
                                  leaving (future (.await start) (leave! first-read))
-                                 joining (future (.await start) (live rp (query :bob)))
+                                 joining (future (.await start) (live rp (query (person :bob))))
                                  _ (.countDown start)
                                  left @leaving
                                  joined @joining
                                  v (str "crossing " i)
-                                 _ (put! :alice :t16 [(fact :note-41 :text v)])
+                                 _ (put! (person :alice) :t16 [(fact :note-41 :text v)])
                                  got (wait-until #(= v (get-in (screen joined) [:place :value])))
                                  whole? (no-entry-without-a-reader? rp)]
                              (leave! joined)
@@ -1691,7 +1697,7 @@
     (check "a second asker of the same place joins the two pushes that are open, and opens his own permission and a push of his own on the row above it, the first asker's permission, which he reads after his own row"
            [{:live-reads 2 :pushes 5} 5] [two (count (:opened kept))])
     (check "a write to the place: each function is called once; the asker who asked for the writer is handed it, the other is not"
-           [[1 1] [:alice nil] ["v1" "v1"] [[(:act-id wrote) 0] [(:act-id wrote) 0]]]
+           [[1 1] [(person :alice) nil] ["v1" "v1"] [[(:act-id wrote) 0] [(:act-id wrote) 0]]]
            [(mapv count told)
             (mapv (fn [changes] (:writer (first (vals (:changed (first changes)))))) told)
             (mapv (fn [changes] (:value (first (vals (:changed (first changes)))))) told)
@@ -1726,11 +1732,11 @@
         ;; a read path that may hold three pushes on one table under one routing id
         rp (read-path/open ipc m {:max-pushes-under-one-routing-id 3})
         level? (fn [] (= (:counts (held rp)) (counts-of-pushes rp)))
-        _ (doseq [lane [:p87 :q87]] (make! lane :alice))
-        _ (put! :alice :p87 (into [(fact :a :text "a") (fact :b :text "b")]
+        _ (doseq [lane [:p87 :q87]] (make! lane (person :alice)))
+        _ (put! (person :alice) :p87 (into [(fact :a :text "a") (fact :b :text "b")]
                                   (map #(fact (keyword (str "t" %)) :text %)) (range 8)))
-        _ (put! :alice :q87 [(fact :a :text "a in q")])
-        place (fn [lane e] {:asks [:place e :text] :asker :alice :lanes [lane]})
+        _ (put! (person :alice) :q87 [(fact :a :text "a in q")])
+        place (fn [lane e] {:asks [:place e :text] :asker (person :alice) :lanes [lane]})
         ;; one read fills the count of its lane: the lane's own rows, her permission, the place
         first-read (live rp (place :p87 :a))
         full [(read-path/open-count rp) (:counts (held rp)) (level?)]
@@ -1761,28 +1767,28 @@
                        (run! leave! opened)
                        [while-open (held rp)])))
         ;; the facts by value are another table; and an open read that comes to need one push more
-        _ (doseq [lane [:n87 :f87]] (make! lane :alice))
-        _ (mark! :f87 :alice #{:parent})
-        _ (put! :alice :f87 [(fact :block-1 :parent :canvas-87)])
-        points {:asks [:points-at :parent :canvas-87] :asker :alice :lanes [:n87 :f87]}
+        _ (doseq [lane [:n87 :f87]] (make! lane (person :alice)))
+        _ (mark! :f87 (person :alice) #{:parent})
+        _ (put! (person :alice) :f87 [(fact :block-1 :parent :canvas-87)])
+        points {:asks [:points-at :parent :canvas-87] :asker (person :alice) :lanes [:n87 :f87]}
         grows (live rp points)
         by-table [(count (:places (:now grows))) (:counts (held rp)) (level?)]
-        _ (put! :alice :f87 [(fact :block-2 :parent :canvas-87)])
+        _ (put! (person :alice) :f87 [(fact :block-2 :parent :canvas-87)])
         ended (wait-until #(some :ended (changes grows)))
         after-ended [(read-path/open-count rp) (held rp) (leave! grows)]
         ;; the base, from the base itself: its own rows and a place, both under the base
-        in-base (live rp {:asks [:place :e-07 :size] :asker :alice :lanes [:base]})
+        in-base (live rp {:asks [:place :e-07 :size] :asker (person :alice) :lanes [:base]})
         base-counts [(some? (:now in-base)) (:counts (held rp)) (level?)]
         _ (leave! in-base)
         ;; the base through a home: the count is of one home's pushes on the base. The homes here are
         ;; lanes that are not made, so a read holds one push on the home's own rows and no other there
-        via (fn [home e] {:asks [:place e :size] :asker :alice :lanes [home :base]})
+        via (fn [home e] {:asks [:place e :size] :asker (person :alice) :lanes [home :base]})
         first-of-home (live rp (via :unmade-87a :e-01))
         second-of-home (live rp (via :unmade-87a :e-02))
         home-full [(mapv #(get-in % [:now :place :value]) [first-of-home second-of-home]) (:counts (held rp)) (level?)]
         third-of-home (counting #(read-path/read-live rp (via :unmade-87a :e-03) (fn [_] nil)))
         other-home (live rp (via :unmade-87b :e-03))
-        from-base (live rp {:asks [:place :e-03 :size] :asker :alice :lanes [:base]})
+        from-base (live rp {:asks [:place :e-03 :size] :asker (person :alice) :lanes [:base]})
         homes-apart [(mapv #(get-in % [:now :place :value]) [other-home from-base]) (:counts (held rp)) (level?)]
         _ (run! leave! [first-of-home second-of-home other-home from-base])
         after-homes (held rp)
@@ -1791,12 +1797,12 @@
         asked-once (ask one-check points)
         kept-live (counting #(read-path/read-live one-check points (fn [_] nil)))
         ;; an open read whose checks come to be more than one live read may need
-        _ (doseq [lane [:n88 :f88]] (make! lane :alice))
-        _ (mark! :f88 :alice #{:parent})
-        _ (put! :alice :f88 [(fact :block-1 :parent :canvas-88)])
-        outgrows (live one-check {:asks [:points-at :parent :canvas-88] :asker :alice :lanes [:n88 :f88]})
+        _ (doseq [lane [:n88 :f88]] (make! lane (person :alice)))
+        _ (mark! :f88 (person :alice) #{:parent})
+        _ (put! (person :alice) :f88 [(fact :block-1 :parent :canvas-88)])
+        outgrows (live one-check {:asks [:points-at :parent :canvas-88] :asker (person :alice) :lanes [:n88 :f88]})
         opened-with (count (:places (:now outgrows)))
-        _ (put! :alice :f88 [(fact :block-2 :parent :canvas-88)])
+        _ (put! (person :alice) :f88 [(fact :block-2 :parent :canvas-88)])
         outgrown (wait-until #(some :ended (changes outgrows)))
         after-outgrown [(read-path/open-count one-check) (held one-check) (leave! outgrows)]]
     (check "a read path that may hold 3 pushes on one table under one routing id: one live read of a place in a members lane holds 3 there, the lane's own rows, her permission and the place; the count is the count of the map's entries"
@@ -1860,10 +1866,10 @@
 
 (deftest nothing-is-shown-that-is-not-in-the-tables
   (let [rp (:counted @round)
-        _ (give! :t16 :alice :vera :see)
-        asker (live rp {:asks [:place :note-41 :text] :asker :bob :lanes [:t16]})
-        refused (act! :vera :t16 [{:e :note-41 :k :text}])
-        accepted (put! :alice :t16 [(fact :note-41 :text "after the refused act")])
+        _ (give! :t16 (person :alice) (person :vera) :see)
+        asker (live rp {:asks [:place :note-41 :text] :asker (person :bob) :lanes [:t16]})
+        refused (act! (person :vera) :t16 [{:e :note-41 :k :text}])
+        accepted (put! (person :alice) :t16 [(fact :note-41 :text "after the refused act")])
         got (wait-until #(= "after the refused act" (get-in (screen asker) [:place :value])))
         all (later asker)
         facts (keep (fn [change] (:fact (or (:place (:anew change)) (first (vals (:changed change)))))) (changes asker))
@@ -1879,9 +1885,9 @@
            "values that she was given is of an accepted act; after every asker left the read path's three maps are" (pr-str (held rp)))))
 
 (deftest reads-that-fail
-  (let [_ (make! :l19 :alice)
-        _ (put! :alice :l19 [(fact :note :text "v0")])
-        query {:asks [:place :note :text] :asker :alice :lanes [:l19]}
+  (let [_ (make! :l19 (person :alice))
+        _ (put! (person :alice) :l19 [(fact :note :text "v0")])
+        query {:asks [:place :note :text] :asker (person :alice) :lanes [:l19]}
         never (fn [& _] (CompletableFuture.))
         threw (with-redefs [rama/compiled-foreign-select-async (fn [& _] (throw (ex-info "the proof made this select throw" {})))]
                 (ask query))
@@ -1890,18 +1896,18 @@
                      got (ask (:short @round) query)]
                  [got (- (System/currentTimeMillis) began)]))
         ;; an opening that throws, and one that never comes back, under an open read
-        _ (list! :l19 :alice [])
+        _ (list! :l19 (person :alice) [])
         failing (fn [rp stand-in]
-                  (let [read (live rp {:asks [:place :note :text] :asker :alice :from-lane :l19})]
+                  (let [read (live rp {:asks [:place :note :text] :asker (person :alice) :from-lane :l19})]
                     (with-redefs [rama/compiled-foreign-proxy-async stand-in]
-                      (list! :l19 :alice [:main])
+                      (list! :l19 (person :alice) [:main])
                       (let [ended (wait-until #(some :ended (changes read)))]
                         [ended (read-path/open-count rp) (leave! read) (.getName ^Thread (:thread (last @(:calls read))))]))))
         open-threw (failing (the-rp) (fn [& _] (throw (ex-info "the proof made this opening throw" {}))))
-        _ (list! :l19 :alice [])
+        _ (list! :l19 (person :alice) [])
         open-late (failing (:short @round) never)
         ;; Rama ends a push
-        kept (keeping-pushes #(live {:asks [:place :ended-by-rama :text] :asker :alice :lanes [:l19]}))
+        kept (keeping-pushes #(live {:asks [:place :ended-by-rama :text] :asker (person :alice) :lanes [:l19]}))
         ended-read (:result kept)
         place-push (first (filter (fn [{:keys [options]}] (= :l19 (:pkey options))) (reverse (:opened kept))))
         _ ((:callback-fn (:options (last (:opened kept)))) nil (UngracefulTerminationDiff. (ex-info "the proof made this diff" {})) nil)
@@ -1910,8 +1916,8 @@
         ;; a value that Rama sends anew, after the first callback of a push: the proof makes Rama's own
         ;; diff for it and hands it to the callback of a run's push, once with the rows as they are and
         ;; once with one row that differs
-        _ (put! :alice :l19 [(fact :sheet :a 1) (fact :sheet :b 2)])
-        kept-anew (keeping-pushes #(live {:asks [:entity :sheet] :asker :alice :lanes [:l19]}))
+        _ (put! (person :alice) :l19 [(fact :sheet :a 1) (fact :sheet :b 2)])
+        kept-anew (keeping-pushes #(live {:asks [:entity :sheet] :asker (person :alice) :lanes [:l19]}))
         anew-read (:result kept-anew)
         key-a (rows/place-key :l19 :sheet :a)
         run-push (first (filter (fn [{:keys [push]}]
@@ -1946,7 +1952,7 @@
                                                     (UngracefulTerminationDiff. (ex-info "the proof made this diff" {})) nil)))
                                          (real-open the-path pstate options))]
                            (read-path/read-live (the-rp) {:asks [:place (keyword (str "crossing-" turn)) :text]
-                                                         :asker :alice :lanes [:l19]}
+                                                         :asker (person :alice) :lanes [:l19]}
                                                 (fn [change] (swap! calls conj change))))
                      opened? (contains? got :now)
                      _ (wait-until 5000 #(if opened? (some :ended @calls) true))
@@ -1963,7 +1969,7 @@
                                      (fn [change]
                                        (swap! calls conj change)
                                        (when-not (:anew change) (throw (ex-info "the proof's function throws" {})))))
-        _ (put! :alice :l19 [(fact :note :text "v1")])
+        _ (put! (person :alice) :l19 [(fact :note :text "v1")])
         thrown (wait-until #(some :ended @calls))
         after-thrown [(read-path/open-count (the-rp)) (read-path/leave (the-rp) (:leave-with thrower))]
         first-call-throws (read-path/read-live (the-rp) query (fn [_] (throw (ex-info "the proof's function throws at once" {}))))
@@ -2028,18 +2034,18 @@
            "| a function that throws ends it with" (pr-str (:because thrown)) "| no call threw, and after each the read path held no push")))
 
 (deftest the-function-and-its-threads
-  (let [_ (make! :l20 :alice)
-        read (live {:asks [:entity :busy] :asker :alice :lanes [:l20]})
+  (let [_ (make! :l20 (person :alice))
+        read (live {:asks [:entity :busy] :asker (person :alice) :lanes [:l20]})
         writers (mapv (fn [t] (future (vec (for [i (range 50)]
-                                             (act! :alice :l20 [(fact :busy (keyword (str "k" t "-" i)) i)])))))
+                                             (act! (person :alice) :l20 [(fact :busy (keyword (str "k" t "-" i)) i)])))))
                       (range 4))
         sent (vec (mapcat deref writers))
         not-accepted (vec (remove :accepted? sent))
         ;; straight after the acks: through the read path that holds the open push, and through one that holds none
-        beside-the-push (count (:places (ask {:asks [:entity :busy] :asker :alice :lanes [:l20]})))
-        by-a-select (count (:places (ask (:counted @round) {:asks [:entity :busy] :asker :alice :lanes [:l20]})))
+        beside-the-push (count (:places (ask {:asks [:entity :busy] :asker (person :alice) :lanes [:l20]})))
+        by-a-select (count (:places (ask (:counted @round) {:asks [:entity :busy] :asker (person :alice) :lanes [:l20]})))
         _ (wait-until 30000 #(= 200 (count (:places (screen read)))))
-        once (ask {:asks [:entity :busy] :asker :alice :lanes [:l20]})
+        once (ask {:asks [:entity :busy] :asker (person :alice) :lanes [:l20]})
         ended (wait-until 30000 #(= (:places once) (:places (screen read))))
         calls @(:calls read)
         threads (distinct (map #(.getName ^Thread (:thread %)) (rest calls)))
@@ -2071,27 +2077,27 @@
            "| the proofs' own handles are the stated exception")))
 
 (deftest the-order-of-the-tables-keys
-  (let [_ (make! :o23 :alice)
+  (let [_ (make! :o23 (person :alice))
         wide (String. (Character/toChars 0x1D49C))
         ids (mapv #(keyword (str "x" %)) ["z" "\u00E4" "\u044F" "\u6C34"])
         far-ids (mapv #(keyword (str "x" %)) ["\uFB00" wide])
-        _ (put! :alice :o23 (mapv #(fact % :n (str %)) (concat ids far-ids)))
-        _ (put! :alice :o23 [(fact :a :n 1) (fact :a! :n 2) (fact :ab :n 3)])
-        run (fn [from to] (set (map first (keys (:places (ask {:asks [:run [from] [to]] :asker :alice :lanes [:o23]}))))))
-        entity (set (keys (:places (ask {:asks [:entity :a] :asker :alice :lanes [:o23]}))))
-        far-entities (mapv (fn [e] (set (keys (:places (ask {:asks [:entity e] :asker :alice :lanes [:o23]}))))) far-ids)
-        far-run ((juxt :could-not :why) (ask {:asks [:run [(nth ids 0)] [(nth far-ids 1)]] :asker :alice :lanes [:o23]}))
-        whole-lane (set (map first (keys (:places (ask {:asks [:run :first :last] :asker :alice :lanes [:o23]})))))
+        _ (put! (person :alice) :o23 (mapv #(fact % :n (str %)) (concat ids far-ids)))
+        _ (put! (person :alice) :o23 [(fact :a :n 1) (fact :a! :n 2) (fact :ab :n 3)])
+        run (fn [from to] (set (map first (keys (:places (ask {:asks [:run [from] [to]] :asker (person :alice) :lanes [:o23]}))))))
+        entity (set (keys (:places (ask {:asks [:entity :a] :asker (person :alice) :lanes [:o23]}))))
+        far-entities (mapv (fn [e] (set (keys (:places (ask {:asks [:entity e] :asker (person :alice) :lanes [:o23]}))))) far-ids)
+        far-run ((juxt :could-not :why) (ask {:asks [:run [(nth ids 0)] [(nth far-ids 1)]] :asker (person :alice) :lanes [:o23]}))
+        whole-lane (set (map first (keys (:places (ask {:asks [:run :first :last] :asker (person :alice) :lanes [:o23]})))))
         ;; a lane whose text is the start of another's, on one task
-        _ (make! :pfx :alice)
+        _ (make! :pfx (person :alice))
         neighbour (loop [i 0]
                     (let [lane (keyword (str "pfx!" i))]
-                      (make! lane :alice)
+                      (make! lane (person :alice))
                       (cond (and (some? (task-of lane)) (= (task-of :pfx) (task-of lane))) lane
                             (< i 40) (recur (inc i)))))
-        _ (put! :alice :pfx [(fact :mine :n 1)])
-        _ (put! :alice neighbour [(fact :not-mine :n 2)])
-        whole (set (keys (:places (ask {:asks [:run :first :last] :asker :alice :lanes [:pfx]}))))]
+        _ (put! (person :alice) :pfx [(fact :mine :n 1)])
+        _ (put! (person :alice) neighbour [(fact :not-mine :n 2)])
+        whole (set (keys (:places (ask {:asks [:run :first :last] :asker (person :alice) :lanes [:pfx]}))))]
     (check "entities whose ids hold letters outside ASCII, of Latin, Cyrillic and Han: a run between two of them gives the places that the table's order holds between its ends, which is the order by code point"
            [(set (subvec ids 1)) (set (subvec ids 2)) (set ids) (set (subvec ids 0 3))]
            [(run (nth ids 1) (nth ids 3)) (run (nth ids 2) (nth ids 3)) (run (nth ids 0) (nth ids 3)) (run (nth ids 0) (nth ids 2))])
@@ -2112,10 +2118,10 @@
            ", which the proof found on the same task by a select of its own")))
 
 (deftest a-function-that-leaves-or-asks-inside-its-call
-  (let [_ (make! :l24 :alice)
-        _ (put! :alice :l24 [(fact :note :text "v0")])
+  (let [_ (make! :l24 (person :alice))
+        _ (put! (person :alice) :l24 [(fact :note :text "v0")])
         rp (the-rp)
-        query {:asks [:place :note :text] :asker :alice :lanes [:l24]}
+        query {:asks [:place :note :text] :asker (person :alice) :lanes [:l24]}
         ;; a function that leaves its own read inside its call
         own-handle (promise)
         own-calls (atom [])
@@ -2124,15 +2130,15 @@
                                             (when (:changed change)
                                               (swap! own-calls conj (read-path/leave rp @own-handle)))))
         _ (deliver own-handle (:leave-with own))
-        _ (put! :alice :l24 [(fact :note :text "v1")])
+        _ (put! (person :alice) :l24 [(fact :note :text "v1")])
         _ (wait-until #(some #{:left} @own-calls))
-        _ (put! :alice :l24 [(fact :note :text "v2")])
+        _ (put! (person :alice) :l24 [(fact :note :text "v2")])
         _ (settled)
         own-after [(count @own-calls) (last @own-calls) (read-path/open-count rp)]
         ;; a function that leaves another read
         other (live query)
         leaver (read-path/read-live rp query (fn [change] (when (:changed change) (leave! other))))
-        _ (put! :alice :l24 [(fact :note :text "v3")])
+        _ (put! (person :alice) :l24 [(fact :note :text "v3")])
         _ (wait-until #(= 1 (:live-reads (read-path/open-count rp))))
         other-left (leave! other)
         _ (read-path/leave rp (:leave-with leaver))
@@ -2143,7 +2149,7 @@
                              read-b (read-path/read-live rp query (fn [change] (when (:changed change) (read-path/leave rp @a))))]
                          (deliver a (:leave-with read-a))
                          (deliver b (:leave-with read-b))
-                         (put! :alice :l24 [(fact :note :text (str "crossed " i))])
+                         (put! (person :alice) :l24 [(fact :note :text (str "crossed " i))])
                          (wait-until #(<= (:live-reads (read-path/open-count rp)) 1))
                          (read-path/leave rp (:leave-with read-a))
                          (read-path/leave rp (:leave-with read-b))
@@ -2158,9 +2164,9 @@
                                                            [(cond (:anew change) :anew (:changed change) :changed :else :ended)
                                                             (:could-not (read-path/read-once rp query))
                                                             (:could-not (read-path/read-live rp query (fn [_] nil)))])))]
-                    (put! :alice :l24 [(fact :note :text "asked")])
+                    (put! (person :alice) :l24 [(fact :note :text "asked")])
                     (wait-until #(= 2 (count @asked)))
-                    (put! :alice :l24 [(fact :note :text "asked again")])
+                    (put! (person :alice) :l24 [(fact :note :text "asked again")])
                     (wait-until #(= 3 (count @asked)))
                     [(read-path/open-count rp) (read-path/leave rp (:leave-with read))])))]
     (check "a function that calls leave on its own read, inside its call: leave gives :left and returns, the read gets no call after it, and nothing is held"
@@ -2180,28 +2186,28 @@
            "| selects made meanwhile:" (:selects asking) "| the read whose function asked went on and was told" (count @asked) "times")))
 
 (deftest the-opening
-  (let [_ (make! :l25 :alice)
-        _ (give! :l25 :alice :bob)
+  (let [_ (make! :l25 (person :alice))
+        _ (give! :l25 (person :alice) (person :bob))
         rp (the-rp)
         turns (vec (for [i (range 50)]
                      (let [e (keyword (str "opening-" i))
-                           maker (future (dotimes [n 20] (act! :alice :l25 [(fact e :text n)])))
+                           maker (future (dotimes [n 20] (act! (person :alice) :l25 [(fact e :text n)])))
                            _ (Thread/sleep (long (rand-int 25)))
-                           read (live {:asks [:place e :text] :asker :bob :lanes [:l25]})
+                           read (live {:asks [:place e :text] :asker (person :bob) :lanes [:l25]})
                            _ @maker
                            ended (wait-until #(= 19 (get-in (screen read) [:place :value])))
                            calls (changes read)]
                        (leave! read)
                        [(some? ended) (:anew (first calls)) (:now read) (get-in (:now read) [:place :value]) (count calls)])))
         ;; a function that stays 2 s, and a read of another asker meanwhile
-        _ (put! :alice :l25 [(fact :slow :text "v0")])
+        _ (put! (person :alice) :l25 [(fact :slow :text "v0")])
         staying (atom nil)
-        slow (read-path/read-live rp {:asks [:place :slow :text] :asker :alice :lanes [:l25]}
+        slow (read-path/read-live rp {:asks [:place :slow :text] :asker (person :alice) :lanes [:l25]}
                                   (fn [change] (when (:changed change) (reset! staying true) (Thread/sleep 2000) (reset! staying false))))
-        _ (put! :alice :l25 [(fact :slow :text "v1")])
+        _ (put! (person :alice) :l25 [(fact :slow :text "v1")])
         _ (wait-until #(true? @staying))
         began (System/currentTimeMillis)
-        meanwhile (try (ask {:asks [:place :slow :text] :asker :bob :lanes [:l25]}) (catch Throwable t [:threw (str t)]))
+        meanwhile (try (ask {:asks [:place :slow :text] :asker (person :bob) :lanes [:l25]}) (catch Throwable t [:threw (str t)]))
         took (- (System/currentTimeMillis) began)
         _ (wait-until #(false? @staying))
         _ (read-path/leave rp (:leave-with slow))]
@@ -2225,15 +2231,15 @@
     (shown "the first thing that a function is given is the whole answer: of" (count opened) "live reads that the proof opened, each first call was {:anew answer}, equal to :now, on the caller's thread, before any change")))
 
 (deftest the-module-is-started-again
-  (let [_ (make! :l21 :alice)
-        _ (put! :alice :l21 [(fact :note :text "before")])
-        read (live {:asks [:place :note :text] :asker :alice :lanes [:l21]})
+  (let [_ (make! :l21 (person :alice))
+        _ (put! (person :alice) :l21 [(fact :note :text "before")])
+        read (live {:asks [:place :note :text] :asker (person :alice) :lanes [:l21]})
         _ (rtest/update-module! (:ipc @round) module/Store)
-        once (try (ask {:asks [:place :note :text] :asker :alice :lanes [:l21]}) (catch Throwable t [:threw (str t)]))
-        wrote (act! :alice :l21 [(fact :note :text "after")])
+        once (try (ask {:asks [:place :note :text] :asker (person :alice) :lanes [:l21]}) (catch Throwable t [:threw (str t)]))
+        wrote (act! (person :alice) :l21 [(fact :note :text "after")])
         outcome (wait-until 60000 #(or (some :ended (changes read))
                                        (when (= "after" (get-in (screen read) [:place :value])) :got-the-change)))
-        once-after (try (ask {:asks [:place :note :text] :asker :alice :lanes [:l21]}) (catch Throwable t [:threw (str t)]))
+        once-after (try (ask {:asks [:place :note :text] :asker (person :alice) :lanes [:l21]}) (catch Throwable t [:threw (str t)]))
         _ (leave! read)]
     (check "a read asked once straight after the module was started again gives an answer or a word, and does not throw"
            true (and (map? once) (or (contains? once :place) (contains? once :could-not))))
@@ -2248,24 +2254,24 @@
            "| a read asked once after that gave" (if (:could-not once-after) (pr-str (select-keys once-after [:could-not])) (pr-str (get-in once-after [:place :value]))))))
 
 (deftest a-batch-that-runs-a-second-time
-  (let [system-own [:system :base :base]
+  (let [system-own (perm/first-permission :system :base)
         _ (make! :base :system)
         ;; a lane of alice's on another task than the base's, to read the base through
         base-task (task-of :base)
         elsewhere (loop [i 0]
                     (let [lane (keyword (str "elsewhere-" i))]
-                      (make! lane :alice)
+                      (make! lane (person :alice))
                       (cond (let [task (task-of lane)] (and (some? task) (not= base-task task))) lane
                             (< i 40) (recur (inc i)))))
         before (put! :system :base [(fact :twice :text "before")])
-        through-elsewhere {:asks [:place :twice :text] :asker :alice :lanes [elsewhere :base]}
+        through-elsewhere {:asks [:place :twice :text] :asker (person :alice) :lanes [elsewhere :base]}
         _ (wait-until 30000 #(= "before" (get-in (ask through-elsewhere) [:place :value])))
         read (live {:asks [:place :twice :text] :asker :system :lanes [:base]})
         read-elsewhere (live through-elsewhere)
         ipc (:ipc @round)
         m (:module @round)
         place-key (rows/place-key :base :twice :text)
-        send (fn [facts] (door/send-act (the-door) {:version 1 :who :system :lane :base :permission system-own
+        send (fn [facts] (door/send-act (the-door) {:version 1 :who :system :lane :base :permission (perm/permission-id system-own)
                                                     :session :read-path-proof :facts facts}))
         answer (fn [sent] (wait-until 90000 #(let [a (door/answer-of (the-door) (:act-id sent) (:digest sent))]
                                                (when (= :accepted (:answer a)) a))))
@@ -2349,7 +2355,7 @@
   it arrived on the depot: the act as the proof made it, with the door's
   three additions."
   [got who lane facts]
-  (assoc {:version 1 :who who :lane lane :permission (perm who lane) :session :read-path-proof :facts facts}
+  (assoc {:version 1 :who who :lane lane :permission (perm/permission-id (perm who lane)) :session :read-path-proof :facts facts}
          :act-id (:act-id got) :depot (nth (:act-id got) 1) :door-time (:time (:answer got))))
 
 (defn- every-page
@@ -2364,26 +2370,27 @@
 
 (deftest a-lanes-acts-by-stamp
   (let [lane :acts-lab
-        _ (make! lane :ann)
-        _ (give! lane :ann :bo)
+        _ (make! lane (person :ann))
+        _ (give! lane (person :ann) (person :bo))
         note [(fact :note :n 1)]
-        taken (put! :ann lane note)
-        cy-sent (door/send-act (the-door) {:version 1 :who :cy :lane lane :permission [:cy lane lane]
+        taken (put! (person :ann) lane note)
+        cy-sent (door/send-act (the-door) {:version 1 :who (person :cy) :lane lane
+                                           :permission (perm/permission-id (perm/first-permission (person :cy) lane))
                                            :session :read-path-proof :facts [(fact :note :n 2)]})
         cy-answer (door/answer-of (the-door) (:act-id cy-sent) (:digest cy-sent))
-        no-time {:act-id [lane :streaming (UUID. 51 1)] :depot :streaming :version 1 :who :cy :lane lane
+        no-time {:act-id [lane :streaming (UUID. 51 1)] :depot :streaming :version 1 :who (person :cy) :lane lane
                  :facts [(fact :x :n 3)]}
         _ (raw! no-time)
         no-who {:act-id [lane :streaming (UUID. 51 2)] :depot :streaming :door-time 1 :lane lane}
         _ (raw! no-who)
-        heavy {:act-id [lane :streaming (UUID. 51 3)] :depot :streaming :version 1 :who :cy :lane lane
+        heavy {:act-id [lane :streaming (UUID. 51 3)] :depot :streaming :version 1 :who (person :cy) :lane lane
                :blob (apply str (repeat 300000 "h"))}
         _ (raw! heavy)
         bo-facts [(fact :note :n 4)]
-        bo-act (put! :bo lane bo-facts)
-        ann (acts-read lane 0 100 :ann)
-        bo (acts-read lane 0 100 :bo)
-        cy (acts-read lane 0 100 :cy)
+        bo-act (put! (person :bo) lane bo-facts)
+        ann (acts-read lane 0 100 (person :ann))
+        bo (acts-read lane 0 100 (person :bo))
+        cy (acts-read lane 0 100 (person :cy))
         nobody (acts-read lane 0 100 nil)
         all-whole [[0 :whole] [1 :whole] [2 :whole] [3 :whole] [4 :whole] [5 :whole] [6 :too-heavy] [7 :whole]]
         entry (fn [answer stamp] (first (filter #(= stamp (:stamp %)) (:acts answer))))]
@@ -2392,7 +2399,7 @@
            [(given-of ann) (:last-stamp ann) (:next ann) (:left-out ann) (given-of bo)])
     (check "a decision given whole holds the door's answer and the thing as it arrived on the depot: a taken act, and an act refused for its standing, each with its act-id"
            [[(:act-id taken) {:verdict :accepted :reason nil :stamp 2 :time (:time (:answer taken)) :digest (:digest (:sent taken))}
-             (thing-of-act taken :ann lane note)]
+             (thing-of-act taken (person :ann) lane note)]
             [(:act-id cy-sent) :refused (:reason cy-answer) 3]]
            [((juxt :act-id :answer :thing) (entry ann 2))
             (let [e (entry ann 3)] [(:act-id e) (:verdict (:answer e)) (:reason (:answer e)) (:stamp (:answer e))])])
@@ -2403,18 +2410,18 @@
            [[[3 :whole] [4 :whole] [6 :too-heavy]] false [{:lane lane :why :may-not-see}] 7
             [] [{:lane lane :why :may-not-see}]]
            [(given-of cy) (contains? cy :last-stamp) (:left-out cy) (:next cy) (given-of nobody) (:left-out nobody)])
-    (let [_ (setting! lane :ann :everyone)
-          cy-open (acts-read lane 0 100 :cy)
+    (let [_ (setting! lane (person :ann) :everyone)
+          cy-open (acts-read lane 0 100 (person :cy))
           nobody-open (acts-read lane 0 100 nil)
-          _ (put! :ann lane [(fact lane :softland.store/who-may-read-acts :everyone)])
-          cy-read (acts-read lane 0 100 :cy)
+          _ (put! (person :ann) lane [(fact lane :softland.store/who-may-read-acts :everyone)])
+          cy-read (acts-read lane 0 100 (person :cy))
           nobody-read (acts-read lane 0 100 nil)
-          _ (put! :ann lane [(fact lane :softland.store/who-may-read-acts :members)])
-          cy-again (acts-read lane 0 100 :cy)
-          _ (put! :ann lane [{:e :bo :k :softland.store/permission}])
-          bo-visitor (acts-read lane 0 100 :bo)
-          _ (setting! lane :ann :members)
-          bo-outside (acts-read lane 0 100 :bo)]
+          _ (put! (person :ann) lane [(fact lane :softland.store/who-may-read-acts :members)])
+          cy-again (acts-read lane 0 100 (person :cy))
+          _ (put! (person :ann) lane [(perm/end-fact (perm (person :bo) lane))])
+          bo-visitor (acts-read lane 0 100 (person :bo))
+          _ (setting! lane (person :ann) :members)
+          bo-outside (acts-read lane 0 100 (person :bo))]
       (check "in a lane that everyone may see, while its acts setting is members, a visitor reads her own decisions whole and every other one as its stamp alone, with the last stamp; one who is not signed in reads each as its stamp alone"
              [[[0 :withheld] [1 :withheld] [2 :withheld] [3 :whole] [4 :whole] [5 :withheld] [6 :too-heavy] [7 :withheld] [8 :withheld]]
               8 #{#{:stamp}} (vec (for [s (range 9)] [s :withheld]))]
@@ -2430,13 +2437,13 @@
              [[[0 :withheld] [7 :whole]] [[[7 :whole]] [{:lane lane :why :may-not-see}]]]
              [(filterv (fn [[s]] (#{0 7} s)) (given-of bo-visitor))
               [(given-of bo-outside) (:left-out bo-outside)]]))
-    (let [counted (counting #(acts-read lane 0 100 :ann))
+    (let [counted (counting #(acts-read lane 0 100 (person :ann)))
           bounded (read-path/open (:ipc @round) (:module @round) {:max-acts-of-one-read 3 :max-thing-weight-of-one-read 1})
-          pages (every-page bounded lane 100 :ann)
+          pages (every-page bounded lane 100 (person :ann))
           small (read-path/open (:ipc @round) (:module @round)
                                 {:max-thing-weight-of-one-read (+ (:weight (digest/weighed (:thing (entry ann 0)) 100000))
                                                                   (:weight (digest/weighed (:thing (entry ann 1)) 100000)))})
-          two (acts-read small lane 0 100 :ann nil)]
+          two (acts-read small lane 0 100 (person :ann) nil)]
       (check "a read of a holder's acts is four rounds of one call each: the last stamp, the rights, the line, the things"
              [1 1 1 1] (:rounds counted))
       (check "a read gives `most` decisions at most, cut to the read path's number, and the pages joined from stamp 0 give each decision once, in order; with a bound on weight that no thing fits in, each kept thing is given as heavier than the read, and the line goes on past it"
@@ -2449,14 +2456,14 @@
              [(given-of two) (:next two)]))
     (check "a read of acts is asked once: kept live it is turned away, with no call to Rama; a read of acts of no count is a query that is turned away"
            [:keep-a-read-of-acts-live [:read-the-query :acts-not-named]]
-           [(:could-not (read-path/read-live (the-rp) {:asks [:acts 0 5] :asker :ann :from-lane lane} (fn [_])))
-            ((juxt :could-not :why) (ask {:asks [:acts 0 0] :asker :ann :from-lane lane}))])
+           [(:could-not (read-path/read-live (the-rp) {:asks [:acts 0 5] :asker (person :ann) :from-lane lane} (fn [_])))
+            ((juxt :could-not :why) (ask {:asks [:acts 0 0] :asker (person :ann) :from-lane lane}))])
     (let [_ (dotimes [i 3] (put! :system :base [(fact :acts-of-the-base :n i)]))
           first-read (acts-read :base 0 1 :system)
           last-stamp (:last-stamp first-read)
           from (max 0 (- (long last-stamp) 2))
           noted (noting-routing-ids (the-rp) #(acts-read :base from 10 :system))
-          cy-base (acts-read :base from 10 :cy)]
+          cy-base (acts-read :base from 10 (person :cy))]
       (check "the base's acts: its holder reads its last decisions whole, and each call of the read is made on the base's own task, in the tables of the microbatch gate"
              [(vec (for [s (range from (inc (long last-stamp)))] [s :whole])) #{[:microbatch :base]}]
              [(given-of (:result noted)) (set (map (juxt first last) (:selects noted)))])
@@ -2465,16 +2472,17 @@
              (given-of cy-base)))
     (let [wide (String. (Character/toChars 0x1D49C))
           far (keyword (str "acts" wide))
-          far-who (keyword (str "cy" "ﬀ"))
-          _ (make! far :ann)
-          _ (put! :ann far [(fact :note :n 1)])
-          sent (door/send-act (the-door) {:version 1 :who far-who :lane far :permission [far-who far far]
+          far-who (person (keyword (str "cy" "ﬀ")))
+          _ (make! far (person :ann))
+          _ (put! (person :ann) far [(fact :note :n 1)])
+          sent (door/send-act (the-door) {:version 1 :who far-who :lane far
+                                          :permission (perm/permission-id (perm/first-permission far-who far))
                                           :session :read-path-proof :facts [(fact :note :n 2)]})
           _ (door/answer-of (the-door) (:act-id sent) (:digest sent))
-          _ (put! :ann far [(fact :note :n 3)])
-          holder-pages (every-page (the-rp) far 1 :ann)
+          _ (put! (person :ann) far [(fact :note :n 3)])
+          holder-pages (every-page (the-rp) far 1 (person :ann))
           own (acts-read far 0 100 far-who)
-          prefix (acts-read :pfx 0 100 :alice)]
+          prefix (acts-read :pfx 0 100 (person :alice))]
       (check "a lane whose id holds a letter outside the first plane, and a who whose id holds one from U+E000 on: a holder's pages of one give each decision once, and the who reads her own decision there and nothing else"
              [[0 1 2 3] [[2 :whole]] (:act-id sent)]
              [(vec (mapcat #(map :stamp (:acts %)) holder-pages)) (given-of own) (:act-id (first (:acts own)))])

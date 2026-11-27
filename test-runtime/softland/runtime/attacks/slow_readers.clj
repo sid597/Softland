@@ -9,6 +9,7 @@
             [softland.runtime.attacks.harness :as h]
             [softland.runtime.drive :as drive]
             [softland.runtime.jetty :as jetty]
+            [softland.runtime.permissions :as perm]
             [softland.wire.frame :as frame]
             [softland.wire.proof :refer [check finish]])
   (:import [java.io BufferedReader InputStreamReader OutputStream]
@@ -118,11 +119,11 @@
                 hello (:hello healthy)
                 who (:who hello)
                 lane (:own-lane hello)
-                own [who lane lane]
+                own (perm/first-permission who lane)
                 chunk (apply str (repeat 60000 "s"))
                 wrote (h/say healthy {:word :send
                                       :act {:version 1 :who who :session (:session hello)
-                                            :lane lane :permission own
+                                            :lane lane :permission (perm/permission-id own)
                                             :facts (mapv (fn [i] {:e :blob :k (keyword (str "p" i)) :v chunk})
                                                          (range 20))}
                                       :act-id (UUID/randomUUID)})

@@ -13,6 +13,7 @@
             [softland.command.client :as client]
             [softland.runtime.attacks.harness :as h]
             [softland.runtime.drive :as drive]
+            [softland.runtime.permissions :as perm]
             [softland.wire.proof :refer [check finish]])
   (:import [java.util UUID]))
 
@@ -59,7 +60,7 @@
                     who (:who hello)
                     session (:session hello)
                     lane (:own-lane hello)
-                    own [who lane lane]]
+                    own (perm/first-permission who lane)]
                 (reset! closed-before-renew {:session session :root (:root hello) :closed-now? false})
                 ;; Wait for the half-span check (~5.05 s) to trigger renewal.
                 (h/wait-for (fn [] (:closed-now? @closed-before-renew)) 8000)
@@ -69,7 +70,7 @@
                                                  1800)
                       act-after (h/say held {:word :send
                                              :act {:version 1 :who who :session session
-                                                   :lane lane :permission own
+                                                   :lane lane :permission (perm/permission-id own)
                                                    :facts [{:e :after-close :k :v :v :took}]}
                                              :act-id (UUID/randomUUID)}
                                        3000)

@@ -50,20 +50,45 @@
   [step got]
   {:could-not :write-her-sign-in :at step :got got})
 
+(defn- person-party
+  "The store's party ID for a person UUID (raw UUID in Loop 1; `:person.<id>` in Loop 4)."
+  [id]
+  id)
+
+(defn- first-permission
+  "A lane's first owner permission value for `holder`."
+  [holder lane]
+  [holder lane lane])
+
+(defn- given-permission
+  "A given permission value beneath `parent` for `holder` in `lane`."
+  [holder lane parent allows]
+  [holder lane lane parent allows])
+
+(defn- permission-id
+  "The `:permission` slot of an act for `permission`."
+  [permission]
+  permission)
+
+(defn- permission-fact
+  "The store fact that writes `permission`."
+  [permission]
+  {:e (nth permission 0) :k :softland.store/permission :v permission})
+
 (defn- making-act
   "The act that makes a lane, in the form of
   `softland.store.gate.first-act/making-act?`. When the holder is a person,
   the act names her as its subject, so that what the log holds of her can
   be found by her id."
   [lane holder session]
-  (let [permission [holder lane lane]]
+  (let [permission (first-permission holder lane)]
     (cond-> {:version 1
              :who first-act/system
              :session session
              :lane lane
-             :permission permission
+             :permission (permission-id permission)
              :facts [{:e lane :k :softland.store/depot :v (first-act/depot-at-making lane)}
-                     {:e holder :k :softland.store/permission :v permission}]}
+                     (permission-fact permission)]}
       (not= first-act/system holder) (assoc :subjects #{holder}))))
 
 (defn- accepted?
@@ -96,7 +121,7 @@
       :else
       (let [{:keys [person own-lane making]} entered
             sent (seam/send-as-system the-seam
-                                      (making-act own-lane person (:session making))
+                                      (making-act own-lane (person-party person) (:session making))
                                       (:uuid making)
                                       answer-wait-ms)]
         (if-not (accepted? sent)
@@ -150,7 +175,7 @@
                            :who who
                            :session (seam/session-of caller)
                            :lane lane
-                           :permission [who lane lane]
+                           :permission (permission-id (first-permission who lane))
                            :subjects #{who}
                            :facts [{:e who :k name-key :v name}]}
                      :act-id uuid
@@ -274,17 +299,17 @@
           (and (map? made) (:could-not made)) made
           (and (map? made) (not (accepted? made)) (not (true? (born? the-seam)))) (could-not :make-the-base made)
           :else
-          (let [above [system base base]
+          (let [above (first-permission system base)
+                her-party (person-party person)
                 given (seam/send-as-system
                        the-seam
                        {:version 1
                         :who system
                         :session session
                         :lane base
-                        :permission above
-                        :subjects #{person}
-                        :facts [{:e person :k :softland.store/permission
-                                 :v [person base base above :see-and-act]}]}
+                        :permission (permission-id above)
+                        :subjects #{her-party}
+                        :facts [(permission-fact (given-permission her-party base above :see-and-act))]}
                        (UUID/randomUUID)
                        answer-wait-ms)]
             (if (:could-not given)

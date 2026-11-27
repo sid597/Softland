@@ -18,6 +18,7 @@
             [softland.runtime.google-stand-in :as stand-in]
             [softland.runtime.jetty :as jetty]
             [softland.runtime.main :as main]
+            [softland.runtime.permissions :as perm]
             [softland.runtime.sign-in :as sign-in]
             [softland.wire.credential :as credential]
             [softland.wire.proof :refer [check finish]]
@@ -82,7 +83,7 @@
                                :who (:who hello)
                                :session (:session hello)
                                :lane lane
-                               :permission perm
+                               :permission (perm/permission-id perm)
                                :facts facts}
                         subjects (assoc :subjects subjects))
                  :act-id (UUID/randomUUID)})))
@@ -95,7 +96,7 @@
         ada-b (line url-b (:credential ada-prog) nil)
         ada-who (:who (:hello ada-a))
         lane (:own-lane (:hello ada-a))
-        ada-own [ada-who lane lane]
+        ada-own (perm/first-permission ada-who lane)
         ;; Make two agents beneath Ada: Bea and Cal
         bea-secret (credential/make-secret)
         bea-made (say ada-a {:word :make-agent :uuid (UUID/randomUUID) :label "bea"
@@ -111,12 +112,12 @@
         bea-b (line url-b bea-cred nil)
         cal-a (line url-a cal-cred nil)
         cal-b (line url-b cal-cred nil)
-        bea-perm [bea-who lane lane ada-own :see-and-act]
-        cal-perm [cal-who lane lane bea-perm :see]]
+        bea-perm (perm/given-permission bea-who lane ada-own :see-and-act)
+        cal-perm (perm/given-permission cal-who lane bea-perm :see)]
     (try
       ;; Seed fact and grant Bea :see-and-act on Ada's lane
       (send-facts! ada-a lane ada-own [{:e :secret :k :note :v "v0"}])
-      (send-facts! ada-a lane ada-own [{:e bea-who :k :softland.store/permission :v bea-perm}] #{bea-who})
+      (send-facts! ada-a lane ada-own [(perm/permission-fact bea-perm)] #{bea-who})
       ;; 1. Direct permission ending across two copies
       (let [ada-watch (watching ada-a {:asks [:place :secret :note] :asker ada-who :lanes [lane]})
             bea-q {:asks [:place :secret :note] :asker bea-who :lanes [lane]}
@@ -128,7 +129,7 @@
             got-v1-a (wait-for #(= "v1" (value-of @(:seen w-a))) 10000)
             got-v1-b (wait-for #(= "v1" (value-of @(:seen w-b))) 10000)
             ;; End Bea's permission through copy B
-            ended (send-facts! ada-b lane ada-own [{:e bea-who :k :softland.store/permission}] #{bea-who})
+            ended (send-facts! ada-b lane ada-own [(perm/end-fact bea-perm)] #{bea-who})
             revoked-a (wait-for #(may-not-see? @(:seen w-a) lane) 10000)
             revoked-b (wait-for #(may-not-see? @(:seen w-b) lane) 10000)
             cnt-a (count @(:seen w-a))
@@ -158,14 +159,14 @@
         (client/leave (:line bea-b) (:id w-b))
 
         ;; 2. Chain revocation: Ada grants Bea again, Bea grants Cal, Ada ends Bea -> Cal's watches on both copies close off the lane
-        (send-facts! ada-a lane ada-own [{:e bea-who :k :softland.store/permission :v bea-perm}] #{bea-who})
-        (send-facts! bea-a lane bea-perm [{:e cal-who :k :softland.store/permission :v cal-perm}] #{cal-who})
+        (send-facts! ada-a lane ada-own [(perm/permission-fact bea-perm)] #{bea-who})
+        (send-facts! bea-a lane bea-perm [(perm/permission-fact cal-perm)] #{cal-who})
         (let [cal-q {:asks [:place :secret :note] :asker cal-who :lanes [lane]}
               cw-a (watching cal-a cal-q)
               cw-b (watching cal-b cal-q)
               got-c-a (wait-for #(= "v2" (value-of @(:seen cw-a))) 10000)
               got-c-b (wait-for #(= "v2" (value-of @(:seen cw-b))) 10000)
-              end-above (send-facts! ada-b lane ada-own [{:e bea-who :k :softland.store/permission}] #{bea-who})
+              end-above (send-facts! ada-b lane ada-own [(perm/end-fact bea-perm)] #{bea-who})
               c-rev-a (wait-for #(may-not-see? @(:seen cw-a) lane) 10000)
               c-rev-b (wait-for #(may-not-see? @(:seen cw-b) lane) 10000)
               cc-a (count @(:seen cw-a))
@@ -188,9 +189,9 @@
         ;; 3. Run-scoped permission ending across two copies sharing one session
         (let [run-sess (:session (:hello cal-a))
               cal-b-same (line url-b cal-cred run-sess)
-              run-perm [cal-who lane lane ada-own :see [:run run-sess]]
+              run-perm (perm/run-permission cal-who lane ada-own run-sess :see)
               _ (send-facts! ada-a lane ada-own
-                             [{:e run-sess :k :softland.store/run-permission :v run-perm}]
+                             [(perm/permission-fact run-perm)]
                              #{cal-who})
               rq {:asks [:place :secret :note] :asker cal-who :session run-sess :lanes [lane]}
               rw-a (watching cal-a rq)
@@ -198,7 +199,7 @@
               got-r-a (wait-for #(= "v3" (value-of @(:seen rw-a))) 10000)
               got-r-b (wait-for #(= "v3" (value-of @(:seen rw-b))) 10000)
               end-run (send-facts! ada-b lane ada-own
-                                   [{:e run-sess :k :softland.store/run-permission}]
+                                   [(perm/end-fact run-perm)]
                                    #{cal-who})
               r-rev-a (wait-for #(may-not-see? @(:seen rw-a) lane) 10000)
               r-rev-b (wait-for #(may-not-see? @(:seen rw-b) lane) 10000)

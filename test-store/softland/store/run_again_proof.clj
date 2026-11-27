@@ -224,6 +224,7 @@
   store. That the rows are right: check 1 shows that the second module's
   rows are the first's, and checks 2 and 3 that a store gives the rows
   which the store gave that the fixture was made of."
+  (:refer-clojure :exclude [agent])
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -238,6 +239,7 @@
             [softland.store.door.text :as text]
             [softland.store.gate.decision :as decision]
             [softland.store.module :as module]
+            [softland.store.permissions :as perm :refer [person agent run]]
             [softland.store.record.rows :as record])
   (:import [java.time LocalDate]
            [java.util UUID]
@@ -390,7 +392,8 @@
 (defn- act
   "A maker's act, as she hands it to the door: no act-id and no depot."
   [lane who permission facts]
-  {:version 1 :who who :lane lane :permission permission :session :proof-session :facts (vec facts)})
+  {:version 1 :who who :lane lane :permission (when (some? permission) (perm/permission-id permission))
+   :session :proof-session :facts (vec facts)})
 
 (defn- arrived
   "A thing as it arrives with no door, but for its time: a maker's act with
@@ -399,6 +402,13 @@
   case whose time is chosen adds its own or sends the thing with none."
   [depot lane who permission facts]
   (assoc (act lane who permission facts) :act-id [lane depot (UUID/randomUUID)] :depot depot))
+
+(defn- arrived-making
+  "A making act as it arrives with no door, but for its time."
+  [depot lane who holder]
+  (assoc (perm/making-act lane who holder :proof-session)
+         :act-id [lane depot (UUID/randomUUID)]
+         :depot depot))
 
 (defn- with-the-hands-clock
   "Takes a thing that the hand is about to append. Gives it with the hand's
@@ -552,13 +562,13 @@
 
 ;; ---------------------------------------------------------------- the people
 
-(def ^:private alice-own "Alice's permission in her own lane, its first." [:alice :alice :alice])
-(def ^:private bob-sees "Bob's permission in Alice's lane: he may see and not act." [:bob :alice :alice alice-own :see])
-(def ^:private carol-in-alices "Carol's permission in Alice's lane, beneath Alice's." [:carol :alice :alice alice-own])
-(def ^:private system-own "The system's permission in the base, the base's first." [:system :base :base])
-(def ^:private alice-in-base "Alice's permission in the base, beneath the system's." [:alice :base :base system-own])
-(def ^:private bob-sees-base "Bob's permission in the base: he may see and not act." [:bob :base :base system-own :see])
-(def ^:private carol-in-base "Carol's permission in the base, beneath the system's." [:carol :base :base system-own])
+(def ^:private alice-own "Alice's permission in her own lane, its first." (perm/first-permission (person :alice) :alice))
+(def ^:private bob-sees "Bob's permission in Alice's lane: he may see and not act." (perm/given-permission (person :bob) :alice alice-own :see))
+(def ^:private carol-in-alices "Carol's permission in Alice's lane, beneath Alice's." (perm/given-permission (person :carol) :alice alice-own))
+(def ^:private system-own "The system's permission in the base, the base's first." (perm/first-permission :system :base))
+(def ^:private alice-in-base "Alice's permission in the base, beneath the system's." (perm/given-permission (person :alice) :base system-own))
+(def ^:private bob-sees-base "Bob's permission in the base: he may see and not act." (perm/given-permission (person :bob) :base system-own :see))
+(def ^:private carol-in-base "Carol's permission in the base, beneath the system's." (perm/given-permission (person :carol) :base system-own))
 
 (def ^:private depot-key "The store key of a lane's depot." :softland.store/depot)
 (def ^:private permission-key "The store key of a permission." :softland.store/permission)
@@ -591,29 +601,29 @@
   (let [door! (fn [who permission & facts] (by-door! (act :alice who permission facts)))
         hand! (fn [who permission & facts] (by-hand! :streaming (arrived :streaming :alice who permission facts)))
         marks (fn [ks] {:e :alice :k marks-key :v ks})
-        twice (arrived :streaming :alice :alice alice-own [{:e :note-6 :k :text :v "sent twice"}])
-        of-the-other-gate (arrived :microbatch :alice :alice alice-own [{:e :note-7 :k :text :v "a stray"}])]
+        twice (arrived :streaming :alice (person :alice) alice-own [{:e :note-6 :k :text :v "sent twice"}])
+        of-the-other-gate (arrived :microbatch :alice (person :alice) alice-own [{:e :note-7 :k :text :v "a stray"}])]
     ;; the first act of the lane
-    (door! :alice alice-own {:e :alice :k depot-key :v :streaming} {:e :alice :k permission-key :v alice-own})
+    (by-door! (perm/making-act :alice (person :alice) (person :alice) :proof-session))
     ;; a value of several kinds
-    (apply door! :alice alice-own (of-kinds :kinds))
+    (apply door! (person :alice) alice-own (of-kinds :kinds))
     ;; a mark, a fact under it, replaced
-    (door! :alice alice-own (marks #{:text}))
-    (door! :alice alice-own {:e :note-1 :k :text :v "first"})
-    (door! :alice alice-own {:e :note-1 :k :text :v "second"})
+    (door! (person :alice) alice-own (marks #{:text}))
+    (door! (person :alice) alice-own {:e :note-1 :k :text :v "first"})
+    (door! (person :alice) alice-own {:e :note-1 :k :text :v "second"})
     ;; a retract
-    (door! :alice alice-own {:e :note-2 :k :text :v "to go"})
-    (door! :alice alice-own {:e :note-2 :k :text})
+    (door! (person :alice) alice-own {:e :note-2 :k :text :v "to go"})
+    (door! (person :alice) alice-own {:e :note-2 :k :text})
     ;; the mark taken off and put on again, with a fact under each marking
-    (door! :alice alice-own (marks #{}))
-    (door! :alice alice-own {:e :note-3 :k :text :v "while the mark is off"})
-    (door! :alice alice-own (marks #{:text}))
-    (door! :alice alice-own {:e :note-1 :k :text :v "third"})
+    (door! (person :alice) alice-own (marks #{}))
+    (door! (person :alice) alice-own {:e :note-3 :k :text :v "while the mark is off"})
+    (door! (person :alice) alice-own (marks #{:text}))
+    (door! (person :alice) alice-own {:e :note-1 :k :text :v "third"})
     ;; a maker who may not act
-    (door! :alice alice-own {:e :bob :k permission-key :v bob-sees})
-    (door! :bob bob-sees {:e :note-5 :k :text :v "bob may see"})
+    (door! (person :alice) alice-own (perm/permission-fact bob-sees))
+    (door! (person :bob) bob-sees {:e :note-5 :k :text :v "bob may see"})
     ;; a refused act: a permission that nobody gave
-    (hand! :zed [:zed :alice :alice alice-own] {:e :note-4 :k :text :v "no permission"})
+    (hand! (person :zed) (perm/given-permission (person :zed) :alice alice-own) {:e :note-4 :k :text :v "no permission"})
     ;; an act sent twice, and a second and different act under its act-id
     (by-hand! :streaming twice)
     (by-hand! :streaming twice)
@@ -623,7 +633,7 @@
     (by-hand! :streaming of-the-other-gate)
     (by-hand! :streaming of-the-other-gate)
     ;; a thing that the declaration refuses
-    (by-hand! :streaming (dissoc (arrived :streaming :alice :alice alice-own [{:e :note-9 :k :text :v "no session"}]) :session))
+    (by-hand! :streaming (dissoc (arrived :streaming :alice (person :alice) alice-own [{:e :note-9 :k :text :v "no session"}]) :session))
     nil))
 
 (defn- opens-the-base!
@@ -644,10 +654,9 @@
   while the record holds nothing of the base, and takes the depot that the
   base starts with."
   [how]
-  (let [making (arrived :microbatch :base :system system-own
-                        [{:e :base :k depot-key :v :microbatch} {:e :system :k permission-key :v system-own}])
-        gives-alice (act :base :system system-own [{:e :alice :k permission-key :v alice-in-base}])
-        alices-first (act :base :alice alice-in-base [{:e :thing-0 :k :name :v "Alice's first act in the base"}])
+  (let [making (arrived-making :microbatch :base :system :system)
+        gives-alice (act :base :system system-own [(perm/permission-fact alice-in-base)])
+        alices-first (act :base (person :alice) alice-in-base [{:e :thing-0 :k :name :v "Alice's first act in the base"}])
         sends (fn [after-each!]
                 (let [ends-before (ends-of :microbatch)
                       _ (by-hand! :microbatch making)
@@ -675,7 +684,7 @@
   permission in it (`opens-the-base!`)."
   []
   (let [system (fn [& facts] (arrived :microbatch :base :system system-own facts))
-        alice (fn [& facts] (arrived :microbatch :base :alice alice-in-base facts))
+        alice (fn [& facts] (arrived :microbatch :base (person :alice) alice-in-base facts))
         door! (fn [who permission & facts]
                 (let [got (by-door! (act :base who permission facts))]
                   (settle!)
@@ -683,14 +692,14 @@
         marks (fn [ks] {:e :base :k marks-key :v ks})
         twice (alice {:e :thing-6 :k :name :v "sent twice"})
         twice-in-a-batch (alice {:e :thing-7 :k :name :v "twice in one batch"})
-        of-the-other-gate (arrived :streaming :alice :alice alice-own [{:e :note-7 :k :text :v "a stray of the base"}])]
+        of-the-other-gate (arrived :streaming :alice (person :alice) alice-own [{:e :note-7 :k :text :v "a stray of the base"}])]
     ;; a mark and a fact under its key in one batch
     (in-one-batch! [(system (marks #{:kind})) (alice {:e :thing-1 :k :kind :v "x"})])
     ;; a fact under the marked key, replaced
-    (door! :alice alice-in-base {:e :thing-1 :k :kind :v "y"})
-    (door! :alice alice-in-base {:e :thing-1 :k :kind :v "z"})
+    (door! (person :alice) alice-in-base {:e :thing-1 :k :kind :v "y"})
+    (door! (person :alice) alice-in-base {:e :thing-1 :k :kind :v "z"})
     ;; a value of several kinds
-    (apply door! :alice alice-in-base (of-kinds :kinds))
+    (apply door! (person :alice) alice-in-base (of-kinds :kinds))
     ;; two acts of one batch on one place, under a plain key and under the marked key
     (in-one-batch! [(alice {:e :thing-2 :k :name :v "first"}) (alice {:e :thing-2 :k :name :v "second"})
                     (alice {:e :thing-3 :k :kind :v "p"}) (alice {:e :thing-3 :k :kind :v "q"})])
@@ -704,9 +713,10 @@
     (alone! (system (marks #{:kind})))
     (alone! (alice {:e :thing-1 :k :kind :v "under the second marking"}))
     ;; a refused act, and a maker who may not act
-    (alone! (arrived :microbatch :base :zed [:zed :base :base system-own] [{:e :thing-9 :k :name :v "no permission"}]))
-    (alone! (system {:e :bob :k permission-key :v bob-sees-base}))
-    (door! :bob bob-sees-base {:e :thing-10 :k :name :v "bob may see"})
+    (alone! (arrived :microbatch :base (person :zed) (perm/given-permission (person :zed) :base system-own)
+                     [{:e :thing-9 :k :name :v "no permission"}]))
+    (alone! (system (perm/permission-fact bob-sees-base)))
+    (door! (person :bob) bob-sees-base {:e :thing-10 :k :name :v "bob may see"})
     ;; an act sent twice, in two batches and in one; a second and different act under a used act-id
     (alone! twice)
     (alone! twice)
@@ -731,10 +741,10 @@
   other; and a mark of one more key and two facts under it. Gives the first
   act under the given permission, as it was sent."
   []
-  (let [alice! (fn [& facts] (by-hand! :streaming (arrived :streaming :alice :alice alice-own facts)))
-        first-under-the-give (arrived :streaming :alice :carol carol-in-alices
+  (let [alice! (fn [& facts] (by-hand! :streaming (arrived :streaming :alice (person :alice) alice-own facts)))
+        first-under-the-give (arrived :streaming :alice (person :carol) carol-in-alices
                                       [{:e :note-12 :k :text :v "Carol's first act"}])]
-    (alice! {:e :carol :k permission-key :v carol-in-alices})
+    (alice! (perm/permission-fact carol-in-alices))
     (by-hand! :streaming first-under-the-give)
     (alice! {:e :note-13 :k :text :v "to be replaced"})
     (alice! {:e :note-13 :k :text :v "the one that replaced it"})
@@ -751,10 +761,10 @@
   permission, as it was sent."
   []
   (let [system! (fn [& facts] (alone! (arrived :microbatch :base :system system-own facts)))
-        alice! (fn [& facts] (alone! (arrived :microbatch :base :alice alice-in-base facts)))
-        first-under-the-give (arrived :microbatch :base :carol carol-in-base
+        alice! (fn [& facts] (alone! (arrived :microbatch :base (person :alice) alice-in-base facts)))
+        first-under-the-give (arrived :microbatch :base (person :carol) carol-in-base
                                       [{:e :thing-13 :k :name :v "Carol's first act"}])]
-    (system! {:e :carol :k permission-key :v carol-in-base})
+    (system! (perm/permission-fact carol-in-base))
     (alone! first-under-the-give)
     (alice! {:e :thing-14 :k :name :v "to be replaced"})
     (alice! {:e :thing-14 :k :name :v "the one that replaced it"})
@@ -905,8 +915,8 @@
   must hold for the keys to be marked: `order-in-a-streaming-lane!` and
   `order-in-the-base!` were played."
   []
-  (let [in-alices (chain-with-its-end :streaming :alice :alice alice-own :chain :text)
-        in-the-base (chain-with-its-end :microbatch :base :alice alice-in-base :chain :kind)]
+  (let [in-alices (chain-with-its-end :streaming :alice (person :alice) alice-own :chain :text)
+        in-the-base (chain-with-its-end :microbatch :base (person :alice) alice-in-base :chain :kind)]
     (run! (fn [thing] (by-hand! :streaming thing)) in-alices)
     (in-one-batch! in-the-base)
     {:streaming in-alices :microbatch in-the-base}))
@@ -979,8 +989,8 @@
                 (arrived gate lane who permission [{:e lane :k :softland.store/no-such-key :v 1}])
                 (arrived gate lane who permission
                          [{:e :refused-7 :k k :v "it replaces a fact that is not there" :replaces nobodys-fact}])
-                (arrived gate lane who [who :elsewhere :elsewhere] [{:e :refused-8 :k k :v "a permission of another lane"}])
-                (arrived gate lane :mallory permission [{:e :refused-9 :k k :v "not the permission's holder"}])
+                (arrived gate lane who (perm/first-permission who :elsewhere) [{:e :refused-8 :k k :v "a permission of another lane"}])
+                (arrived gate lane (person :mallory) permission [{:e :refused-9 :k k :v "not the permission's holder"}])
                 (arrived gate lane who permission [{:e :somebody :k depot-key :v gate}])]]
     (run! (fn [thing] (by-hand! gate thing)) things)
     (when (= :microbatch gate) (settle!))
@@ -1011,24 +1021,24 @@
   things are its. Gives the things as they were built;
   `words-of-a-permission-that-ends` holds the word of each."
   [gate lane who permission k]
-  (let [gwens [:gwen lane lane permission]
-        hugos [:hugo lane lane gwens]
+  (let [gwens (perm/given-permission (person :gwen) lane permission)
+        hugos (perm/given-permission (person :hugo) lane gwens)
         acts (fn [maker held entity says] (arrived gate lane maker held [{:e entity :k k :v says}]))
-        gives (fn [giver held given] (arrived gate lane giver held [{:e (first given) :k permission-key :v given}]))
-        ends (fn [ender held holder] (arrived gate lane ender held [{:e holder :k permission-key}]))
+        gives (fn [giver held given] (arrived gate lane giver held [(perm/permission-fact given)]))
+        ends (fn [ender held given] (arrived gate lane ender held [(perm/end-fact given)]))
         things [(gives who permission gwens)
-                (gives :gwen gwens hugos)
-                (acts :hugo hugos :ends-1 "before the end")
-                (ends who permission :gwen)
-                (acts :gwen gwens :ends-2 "after her permission ended")
-                (acts :hugo hugos :ends-3 "after the one above his ended")
+                (gives (person :gwen) gwens hugos)
+                (acts (person :hugo) hugos :ends-1 "before the end")
+                (ends who permission gwens)
+                (acts (person :gwen) gwens :ends-2 "after her permission ended")
+                (acts (person :hugo) hugos :ends-3 "after the one above his ended")
                 (gives who permission gwens)
-                (acts :gwen gwens :ends-4 "after her second give")
-                (acts :hugo hugos :ends-5 "after the second give of the one above his")
-                (gives :gwen gwens hugos)
-                (acts :hugo hugos :ends-6 "after his own second give")
-                (ends :hugo hugos :hugo)
-                (acts :hugo hugos :ends-7 "after he ended his own")]]
+                (acts (person :gwen) gwens :ends-4 "after her second give")
+                (acts (person :hugo) hugos :ends-5 "after the second give of the one above his")
+                (gives (person :gwen) gwens hugos)
+                (acts (person :hugo) hugos :ends-6 "after his own second give")
+                (ends (person :hugo) hugos hugos)
+                (acts (person :hugo) hugos :ends-7 "after he ended his own")]]
     (run! (fn [thing] (by-hand! gate thing)) things)
     (when (= :microbatch gate) (settle!))
     things))
@@ -1061,20 +1071,19 @@
   microbatch gate when the things are its. Gives the things as they were
   built; `words-of-what-a-permission-covers` holds the word of each."
   [gate lane who permission k]
-  (let [run-key :softland.store/run-permission
-        act-key :softland.store/act-permission
-        for-run [:ivy lane lane permission :see-and-act [:run :run-i]]
+  (let [for-run (perm/run-permission (person :ivy) lane permission :run-i :see-and-act)
         ivys (fn [held session entity says]
-               (assoc (arrived gate lane :ivy held [{:e entity :k k :v says}]) :session session))
+               (assoc (arrived gate lane (person :ivy) held [{:e entity :k k :v says}]) :session session))
         x (ivys nil :run-i :covers-3 "the act that was said yes to")
-        yes-for (fn [id] [:ivy lane lane permission :see-and-act [:act id (digest/hex-for-a-yes x)]])
+        yes-for (fn [id] (perm/act-permission (person :ivy) lane permission id (digest/hex-for-a-yes x)))
         [ya yb] (map yes-for (repeatedly 2 #(UUID/randomUUID)))
-        x-under (fn [a-yes] (assoc (ivys nil :run-i :covers-3 "the act that was said yes to") :permission a-yes))
-        give-yes (fn [a-yes] (arrived gate lane who permission [{:e (second (nth a-yes 5)) :k act-key :v a-yes}]))
-        things [(arrived gate lane who permission [{:e :run-i :k run-key :v for-run}])
+        x-under (fn [a-yes] (assoc (ivys nil :run-i :covers-3 "the act that was said yes to") :permission (perm/permission-id a-yes)))
+        give-yes (fn [a-yes] (arrived gate lane who permission [(perm/permission-fact a-yes)]))
+        things [(arrived gate lane who permission [(perm/permission-fact for-run)])
                 (ivys for-run :run-i :covers-1 "in her run")
                 (ivys for-run :run-j :covers-2 "in another run")
-                (assoc (arrived gate lane :ivy for-run [{:e :ivy :k permission-key :v [:ivy lane lane for-run]}])
+                (assoc (arrived gate lane (person :ivy) for-run
+                                [(perm/permission-fact (perm/given-permission (person :ivy) lane for-run))])
                        :session :run-i)
                 (give-yes ya)
                 (x-under ya)
@@ -1082,7 +1091,7 @@
                 (give-yes yb)
                 (assoc (x-under yb) :facts [{:e :covers-4 :k k :v "another act than the one said yes to"}])
                 (x-under yb)
-                (arrived gate lane who permission [{:e :run-i :k run-key}])
+                (arrived gate lane who permission [(perm/end-fact for-run)])
                 (ivys for-run :run-i :covers-5 "after the end of her run's permission")]]
     (run! (fn [thing] (by-hand! gate thing)) things)
     (when (= :microbatch gate) (settle!))
@@ -1108,10 +1117,10 @@
   `words-of-who-may-read-acts` holds the word of each."
   [gate lane who permission]
   (let [k :softland.store/who-may-read-acts
-        ivos [:ivo lane lane permission]
+        ivos (perm/given-permission (person :ivo) lane permission)
         things [(arrived gate lane who permission [{:e lane :k k :v :everyone}])
-                (arrived gate lane who permission [{:e :ivo :k permission-key :v ivos}])
-                (arrived gate lane :ivo ivos [{:e lane :k k :v :everyone}])
+                (arrived gate lane who permission [(perm/permission-fact ivos)])
+                (arrived gate lane (person :ivo) ivos [{:e lane :k k :v :everyone}])
                 (arrived gate lane who permission [{:e :chair-7 :k k :v :everyone}])
                 (arrived gate lane who permission [{:e lane :k k}])
                 (arrived gate lane who permission [{:e lane :k k :v :visitors}])
@@ -1127,8 +1136,8 @@
   where every other lane of the hand has a keyword. With Alice's own lane
   that is eight lanes of the streaming depot, more than a store of four
   tasks has tasks: so two of them at least live on one task."
-  (conj (mapv (fn [i] {:room (keyword (str "room-" i)) :holder :alice :made-by :alice}) (range 1 7))
-        {:room #uuid "5a7c0d3e-8f21-4b6a-9c1d-2e3f4a5b6c7d" :holder :bob :made-by :system}))
+  (conj (mapv (fn [i] {:room (keyword (str "room-" i)) :holder (person :alice) :made-by (person :alice)}) (range 1 7))
+        {:room #uuid "5a7c0d3e-8f21-4b6a-9c1d-2e3f4a5b6c7d" :holder (person :bob) :made-by :system}))
 
 (def ^:private rounds-in-a-room "How many acts the hand sends into each room behind its making act." 4)
 
@@ -1141,10 +1150,9 @@
   Gives a map from each room's id to its things as they were sent, the
   making act first."
   []
-  (let [own (fn [{:keys [room holder]}] [holder room room])
-        makings (mapv (fn [{:keys [room holder made-by] :as of-room}]
-                        (arrived :streaming room made-by (own of-room)
-                                 [{:e room :k depot-key :v :streaming} {:e holder :k permission-key :v (own of-room)}]))
+  (let [own (fn [{:keys [room holder]}] (perm/first-permission holder room))
+        makings (mapv (fn [{:keys [room holder made-by]}]
+                        (arrived-making :streaming room made-by holder))
                       rooms)
         chains (mapv (fn [{:keys [room holder] :as of-room}]
                        (chain-of-replaces :streaming room holder (own of-room) :table :text rounds-in-a-room))
@@ -1190,14 +1198,14 @@
     (if (zero? (mod i 5))
       (arrived :microbatch :base :system system-own
                [own {:e (keyword (str "met-" (mod (quot i 5) (:met-places numbers)))) :k :name :v (str "filler " i)}])
-      (arrived :microbatch :base :alice alice-in-base [own]))))
+      (arrived :microbatch :base (person :alice) alice-in-base [own]))))
 
 (defn- streaming-filler
   "The i-th act of the load of Alice's lane, by Alice, for the numbers of
   a hand: one fact on one of `:streaming-entities` entities, under a key
   that the lane marks."
   [numbers i]
-  (arrived :streaming :alice :alice alice-own
+  (arrived :streaming :alice (person :alice) alice-own
            [{:e (keyword (str "n-" (mod i (:streaming-entities numbers)))) :k :text :v (str "filler " i)}]))
 
 (defn- load!
@@ -1284,10 +1292,10 @@
   what the door gave: `what-the-cases-gave` reads a store's tables for
   them."
   [numbers]
-  (let [alices-before (arrived :streaming :alice :alice alice-own [{:e :note-0 :k :text :v "before Alice's lane is made"}])
-        base-before (arrived :microbatch :base :alice alice-in-base [{:e :thing-00 :k :name :v "before the base is made"}])
+  (let [alices-before (arrived :streaming :alice (person :alice) alice-own [{:e :note-0 :k :text :v "before Alice's lane is made"}])
+        base-before (arrived :microbatch :base (person :alice) alice-in-base [{:e :thing-00 :k :name :v "before the base is made"}])
         base-on-streaming-before (arrived :streaming :base :system system-own [{:e :thing-8 :k :name :v "before the base is made"}])
-        alices-on-microbatch-before (arrived :microbatch :alice :alice alice-own [{:e :note-11 :k :text :v "before Alice's lane is made"}])
+        alices-on-microbatch-before (arrived :microbatch :alice (person :alice) alice-own [{:e :note-11 :k :text :v "before Alice's lane is made"}])
         _ (by-hand! :streaming alices-before)
         _ (by-hand! :streaming base-on-streaming-before)
         _ (alone! base-before)
@@ -1298,11 +1306,11 @@
         _ (sends-to-the-microbatch-gate!)
         base-under-the-give (order-in-the-base!)
         base-on-streaming-after (arrived :streaming :base :system system-own [{:e :thing-8 :k :name :v "after the base is made"}])
-        alices-on-microbatch-after (arrived :microbatch :alice :alice alice-own [{:e :note-10 :k :text :v "after Alice's lane is made"}])
+        alices-on-microbatch-after (arrived :microbatch :alice (person :alice) alice-own [{:e :note-10 :k :text :v "after Alice's lane is made"}])
         _ (by-hand! :streaming base-on-streaming-after)
         _ (alone! alices-on-microbatch-after)
-        in-each (fn [f] {:streaming (f :streaming :alice :alice alice-own :text)
-                         :microbatch (f :microbatch :base :alice alice-in-base :name)})
+        in-each (fn [f] {:streaming (f :streaming :alice (person :alice) alice-own :text)
+                         :microbatch (f :microbatch :base (person :alice) alice-in-base :name)})
         times (in-each times-in-a-lane!)
         again (in-each sent-again!)
         chains (chains!)
@@ -1311,7 +1319,7 @@
         refused (in-each refused-for-several-reasons!)
         ends (in-each a-permission-ends!)
         covers (in-each a-permission-covers!)
-        reads-acts {:streaming (who-may-read-acts! :streaming :alice :alice alice-own)
+        reads-acts {:streaming (who-may-read-acts! :streaming :alice (person :alice) alice-own)
                     :microbatch (who-may-read-acts! :microbatch :base :system system-own)}
         in-rooms (rooms!)
         _ (load! numbers)
@@ -2252,7 +2260,9 @@
     (let [uuid-of-number (fn [n] (UUID. 0 n))
           ;; a thing of the streaming depot that is no stray: the n-th act of a lane
           an-act (fn [lane n] {:act-id [lane :streaming (uuid-of-number n)] :depot :streaming :lane lane
-                                :version 1 :who :alice :permission [:alice lane lane] :session :proof-session
+                                :version 1 :who (person :alice)
+                                :permission (perm/permission-id (perm/first-permission (person :alice) lane))
+                                :session :proof-session
                                 :facts [{:e :place :k :text :v (str "act " n)}]})
           [a b c d] (mapv (fn [n] (an-act :line n)) [1 2 3 4])
           [x y] (mapv (fn [n] (an-act :other n)) [5 6])
@@ -2874,11 +2884,11 @@
   []
   (let [{:keys [ipc module]} *hand*
         topology (get-in gates [:microbatch :topology])
-        alices (fn [fact] (arrived :microbatch :base :alice alice-in-base [fact]))
+        alices (fn [fact] (arrived :microbatch :base (person :alice) alice-in-base [fact]))
         e (with-the-hands-clock (alices {:e :before-the-throw :k :name :v "E"}))
         a (with-the-hands-clock (alices {:e :place :k :name :v "A"}))
         b-id [:base :microbatch (UUID/randomUUID)]
-        b (act :base :alice alice-in-base [{:e :place :k :name :v "B" :replaces [(:act-id a) 0]}])
+        b (act :base (person :alice) alice-in-base [{:e :place :k :name :v "B" :replaces [(:act-id a) 0]}])
         c (alices {:e :place :k :name :v "C" :replaces [b-id 0]})
         failure (begins-a-failure! "a throw in the base, in the decision of A in the middle of a batch: E, A and B in one batch, B naming A's fact to replace, and C, naming B's, appended after the throw"
                                    :microbatch :base
@@ -2910,13 +2920,13 @@
   the one that was decided last. Bb writes it too and names Ba's fact as
   the fact that it replaces. Gives what `ends-a-failure!` gives."
   [lane]
-  (let [own [:alice lane lane]
-        alices (fn [fact] (arrived :streaming lane :alice own [fact]))
+  (let [own (perm/first-permission (person :alice) lane)
+        alices (fn [fact] (arrived :streaming lane (person :alice) own [fact]))
         h (alices {:e :holder :k :text :v "H"})
         a (alices {:e :place :k :text :v "A"})
         ba (alices {:e :place :k :text :v "Ba"})
         bb-id [lane :streaming (UUID/randomUUID)]
-        bb (act lane :alice own [{:e :place :k :text :v "Bb" :replaces [(:act-id ba) 0]}])
+        bb (act lane (person :alice) own [{:e :place :k :text :v "Bb" :replaces [(:act-id ba) 0]}])
         failure (begins-a-failure! (str "a stall with the thread held: A's event sleeps " stall-ms
                                         " ms on its task's thread; Ba is in the depot before A's event begins, and Bb is sent 1 s into the sleep; A and Ba write one place, Bb names Ba's fact to replace")
                                    :streaming lane
@@ -2942,8 +2952,8 @@
   is a race, and the check says how it went. Gives what `ends-a-failure!`
   gives."
   [lane]
-  (let [own [:alice lane lane]
-        alices (fn [fact] (arrived :streaming lane :alice own [fact]))
+  (let [own (perm/first-permission (person :alice) lane)
+        alices (fn [fact] (arrived :streaming lane (person :alice) own [fact]))
         a (alices {:e :place :k :text :v "A"})
         b (alices {:e :place :k :text :v "B" :replaces [(:act-id a) 0]})
         failure (begins-a-failure! "a throw in A's event, with B appended right behind A; B names A's fact to replace"
@@ -2964,13 +2974,13 @@
   reads and before its writes. B is Carol's first act under that
   permission. Gives what `ends-a-failure!` gives."
   [lane]
-  (let [own [:alice lane lane]
-        carols [:carol lane lane own]
-        h (arrived :streaming lane :alice own [{:e :holder :k :text :v "H"}])
+  (let [own (perm/first-permission (person :alice) lane)
+        carols (perm/given-permission (person :carol) lane own)
+        h (arrived :streaming lane (person :alice) own [{:e :holder :k :text :v "H"}])
         a-id [lane :streaming (UUID/randomUUID)]
-        a (act lane :alice own [{:e :carol :k permission-key :v carols}])
+        a (act lane (person :alice) own [(perm/permission-fact carols)])
         b-id [lane :streaming (UUID/randomUUID)]
-        b (act lane :carol carols [{:e :place :k :text :v "B, Carol's first act"}])
+        b (act lane (person :carol) carols [{:e :place :k :text :v "B, Carol's first act"}])
         failure (begins-a-failure! "a throw in A's event, with B in the depot before A's event begins; A is a give to Carol and B her first act under it"
                                    :streaming lane
                                    [["H" (:act-id h)] ["A" a-id] ["B" b-id]]
@@ -3045,13 +3055,10 @@
              again-name (rama/get-module-name StoreAgain)
              lanes [:stalled :thrown-right-behind :thrown-in-the-depot]
              ;; the ground, with no failure: the base, Alice in it, and three streaming lanes of hers
-             _ (alone! (arrived :microbatch :base :system system-own
-                                [{:e :base :k depot-key :v :microbatch} {:e :system :k permission-key :v system-own}]))
-             _ (alone! (arrived :microbatch :base :system system-own [{:e :alice :k permission-key :v alice-in-base}]))
+             _ (alone! (arrived-making :microbatch :base :system :system))
+             _ (alone! (arrived :microbatch :base :system system-own [(perm/permission-fact alice-in-base)]))
              _ (run! (fn [lane]
-                       (by-hand! :streaming (arrived :streaming lane :alice [:alice lane lane]
-                                                     [{:e lane :k depot-key :v :streaming}
-                                                      {:e :alice :k permission-key :v [:alice lane lane]}])))
+                       (by-hand! :streaming (arrived-making :streaming lane (person :alice) (person :alice))))
                      lanes)
              ground-not-appended @(:not-appended *hand*)
              ;; the failures, each once, with the proof's functions in the walk

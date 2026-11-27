@@ -141,6 +141,26 @@
   [act person]
   (cond-> act person (assoc :subjects #{person})))
 
+(defn- person-party
+  "The store's party ID for a person UUID (raw UUID in Loop 1; `:person.<id>` in Loop 4)."
+  [id]
+  id)
+
+(defn first-permission
+  "A lane's first owner permission value for `holder`."
+  [holder lane]
+  [holder lane lane])
+
+(defn permission-id
+  "The `:permission` slot of an act for `permission`."
+  [permission]
+  permission)
+
+(defn- permission-fact
+  "The store fact that writes `permission`."
+  [permission]
+  {:e (nth permission 0) :k :softland.store/permission :v permission})
+
 (defn- making-act
   "Takes a lane and the holder of its first permission. Gives the act
   that makes the lane, without `:who` and `:session`: the lane's depot on
@@ -148,12 +168,12 @@
   (`softland.store.gate.first-act/making-act?`). When the holder is a
   person, the act is about her."
   [lane holder]
-  (let [permission [holder lane lane]]
+  (let [permission (first-permission holder lane)]
     (about {:version 1
             :lane lane
-            :permission permission
+            :permission (permission-id permission)
             :facts [{:e lane :k :softland.store/depot :v (first-act/depot-at-making lane)}
-                    {:e holder :k :softland.store/permission :v permission}]}
+                    (permission-fact permission)]}
            (when-not (= first-act/system holder) holder))))
 
 (defn- in-people
@@ -164,7 +184,7 @@
   [facts person]
   (about {:version 1
           :lane people
-          :permission [first-act/system people people]
+          :permission (permission-id (first-permission first-act/system people))
           :facts facts}
          person))
 
@@ -243,7 +263,7 @@
      (if (:could-not before)
        (could-not :find-the-account before)
        (let [known (holder-of before)
-             subject (or known (UUID/randomUUID))
+             subject (or known (person-party (UUID/randomUUID)))
              written (m/? (done the-seam system
                                 (in-people
                                  (if known

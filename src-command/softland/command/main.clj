@@ -303,6 +303,26 @@
   ([flags f auto-replace?]
    (with-line* flags (fn [connection hello _ _] (f connection hello)) auto-replace?)))
 
+(defn- first-permission
+  "A lane's first owner permission value for `holder`."
+  [holder lane]
+  [holder lane lane])
+
+(defn- given-permission
+  "A given permission value beneath `parent` for `holder` in `lane`."
+  [holder lane parent allows]
+  [holder lane lane parent allows])
+
+(defn- permission-id
+  "The `:permission` slot of an act for `permission`."
+  [permission]
+  permission)
+
+(defn- permission-fact
+  "The store fact that writes `permission`."
+  [permission]
+  {:e (nth permission 0) :k :softland.store/permission :v permission})
+
 (defn- act-of
   "With no `--permission`, the act names the first permission of the lane
   for its person."
@@ -312,7 +332,7 @@
      :who (:who hello)
      :session (:session hello)
      :lane lane
-     :permission (if permission (value-of permission) [(:who hello) lane lane])
+     :permission (if permission (value-of permission) (permission-id (first-permission (:who hello) lane)))
      :facts facts}))
 
 (defn- query-of
@@ -429,8 +449,7 @@
                           {:word :send
                            :act (assoc act
                                        :subjects #{who}
-                                       :facts [{:e who :k :softland.store/permission
-                                                :v [who lane lane (:permission act) allows]}])
+                                       :facts [(permission-fact (given-permission who lane (:permission act) allows))])
                            :act-id (UUID/randomUUID)})))))
 
       "invite"

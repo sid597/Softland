@@ -33,6 +33,7 @@
   (:require [clojure.string :as str]
             [softland.command.client :as client]
             [softland.runtime.drive :as drive]
+            [softland.runtime.permissions :as perm]
             [softland.wire.credential :as credential]
             [softland.wire.frame :as frame]
             [softland.wire.proof :refer [check]])
@@ -90,7 +91,7 @@
   "Builds one act of one fact. Takes a hello, the lane, the permission
   that the act names, and the fact's three parts."
   [hello lane permission e k v]
-  {:version 1 :who (:who hello) :session (:session hello) :lane lane :permission permission
+  {:version 1 :who (:who hello) :session (:session hello) :lane lane :permission (perm/permission-id permission)
    :facts [{:e e :k k :v v}]})
 
 (defn- place
@@ -174,7 +175,7 @@
               hello (:hello me)
               who (:who hello)
               lane (:own-lane hello)
-              own [who lane lane]]
+              own (perm/first-permission who lane)]
           (check "The line says hello with who the program is, her root, a new session and her own lane; and a connection with no credential is a visitor."
                  (and (= (:person first-in) who (:root hello)) (uuid? (:session hello)) (uuid? lane)
                       (= {:visitor true} (:hello (line a nil nil))))
@@ -289,14 +290,14 @@
                 agent-credential (credential/text (:root made) (:sign-in made) secret)
                 agent (line b agent-credential nil)
                 agent-hello (:hello agent)
-                agent-own [(:who agent-hello) lane lane]
+                agent-own (perm/first-permission (:who agent-hello) lane)
                 before (say agent {:word :send :act (act-of agent-hello lane agent-own :crate-1 :packed true)
                                    :act-id (UUID/randomUUID)})
-                given [(:who agent-hello) lane lane own :see-and-act]
+                given (perm/given-permission (:who agent-hello) lane own :see-and-act)
                 gave (say me {:word :send
-                              :act {:version 1 :who who :session (:session hello) :lane lane :permission own
+                              :act {:version 1 :who who :session (:session hello) :lane lane :permission (perm/permission-id own)
                                     :subjects #{(:who agent-hello)}
-                                    :facts [{:e (:who agent-hello) :k :softland.store/permission :v given}]}
+                                    :facts [(perm/permission-fact given)]}
                               :act-id (UUID/randomUUID)})
                 after (say agent {:word :send :act (act-of agent-hello lane given :crate-1 :packed true)
                                   :act-id (UUID/randomUUID)})]

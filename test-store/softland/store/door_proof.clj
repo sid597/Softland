@@ -113,6 +113,7 @@
   object.
 
   What it does not reach is in the folder's README."
+  (:refer-clojure :exclude [agent])
   (:require [clojure.pprint :as pprint]
             [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests]]
@@ -125,6 +126,7 @@
             [softland.store.door.words :as words]
             [softland.store.gate.first-act :as first-act]
             [softland.store.module :as module]
+            [softland.store.permissions :as perm :refer [person agent run]]
             [softland.store.record.rows :as record])
   (:import [java.nio.charset StandardCharsets]
            [java.util UUID]))
@@ -493,15 +495,13 @@
   "The first permission of a personal lane: its person holds it, with
   nothing above it."
   [who]
-  [who who who])
+  (perm/first-permission (person who) who {:given-by :system}))
 
 (defn- making-of
   "The making act of a personal lane, as a maker gives it: by the system,
   for the person, with the depot that the lane starts with."
   [who]
-  {:version 1 :who :system :lane who :permission (own who) :session :door-proof
-   :facts [{:e who :k :softland.store/depot :v :streaming}
-           {:e who :k :softland.store/permission :v (own who)}]})
+  (perm/making-act who :system (person who) :door-proof))
 
 (defn- act-of
   "An act of a person into her own lane, as a maker gives it: plain values,
@@ -509,7 +509,7 @@
   faults."
   ([who facts] (act-of who facts {}))
   ([who facts more]
-   (merge {:version 1 :who who :lane who :permission (own who) :session :door-proof :facts facts}
+   (merge {:version 1 :who (person who) :lane who :permission (perm/permission-id (own who)) :session :door-proof :facts facts}
           more)))
 
 (defn- value
@@ -524,18 +524,18 @@
   [d who]
   (accepted? (decide! d (making-of who))))
 
-(def ^:private system-own "The system's permission in the base, the base's first." [:system :base :base])
-(def ^:private alice-in-base "Alice's permission in the base, beneath the system's." [:alice :base :base system-own])
+(def ^:private system-own "The system's permission in the base, the base's first." (perm/first-permission :system :base {:given-by :system}))
+(def ^:private alice-in-base "Alice's permission in the base, beneath the system's." (perm/given-permission (person :alice) :base system-own {:given-by :system}))
 
 (defn- system-act
   "The system's act into the base, as a maker gives it."
   [facts]
-  {:version 1 :who :system :lane :base :permission system-own :session :door-proof :facts facts})
+  {:version 1 :who :system :lane :base :permission (perm/permission-id system-own) :session :door-proof :facts facts})
 
 (defn- base-act-of
   "An act into the base of a who under a permission, as a maker gives it."
   [who permission facts]
-  {:version 1 :who who :lane :base :permission permission :session :door-proof :facts facts})
+  {:version 1 :who who :lane :base :permission (perm/permission-id permission) :session :door-proof :facts facts})
 
 (defn- time-sent
   "The time that the door wrote on the thing that it sent for a result of
@@ -716,7 +716,7 @@
         in-log (:v fact)
         rows (rows-at :dora :note-1 :text)
         round-the-door (answer-round act-id)
-        mixed-facts [{:e :dan :k :softland.store/permission :v [:dan :dora :dora (own :dora)]}
+        mixed-facts [(perm/permission-fact (perm/given-permission (person :dan) :dora (own :dora) {:given-by (person :dora)}))
                      {:e :note-1 :k :text}
                      (value :note-2 "one value")]
         mixed (decide! d (act-of :dora mixed-facts))
@@ -786,7 +786,7 @@
            [:accepted (digest/hex-of hand-thing) hand-time]
            [(:verdict hand-answer) (:digest hand-answer) (:time hand-answer)])
     (check "the door's record in the log, with the uuid of its act-id and its time set aside, is the maker's act with the door's three additions, written out here"
-           {:version 1 :who :erin :lane :erin :permission [:erin :erin :erin] :session :door-proof
+           {:version 1 :who (person :erin) :lane :erin :permission (perm/permission-id (own :erin)) :session :door-proof
             :facts [{:e :note-1 :k :text :v {:n 1 :tags #{:a}}}
                     {:e :note-2 :k :text}
                     {:e :erin :k :softland.store/who-may-see :v :members}]
@@ -1068,8 +1068,8 @@
         alices-rows (rows-at :alice :a-1 :text)
         ;; a who under a permission that was never given
         id (act-id-for! d :alice)
-        mallorys [:mallory :alice :alice (own :alice)]
-        mallorys-act {:version 1 :who :mallory :lane :alice :permission mallorys :session :door-proof
+        mallorys (perm/given-permission (person :mallory) :alice (own :alice))
+        mallorys-act {:version 1 :who (person :mallory) :lane :alice :permission (perm/permission-id mallorys) :session :door-proof
                       :facts [(value :m-1 "a value of a who with no permission")]}
         logs-before (log-counts)
         clock-before (clock)
@@ -1110,10 +1110,10 @@
 
 (deftest a-holder-of-see
   (let [d (the-door)
-        veras [:vera :alice :alice (own :alice) :see]
-        gave (decide! d (act-of :alice [{:e :vera :k :softland.store/permission :v veras}]))
+        veras (perm/given-permission (person :vera) :alice (own :alice) :see)
+        gave (decide! d (act-of :alice [(perm/permission-fact veras)]))
         id (act-id-for! d :alice)
-        veras-act {:version 1 :who :vera :lane :alice :permission veras :session :door-proof
+        veras-act {:version 1 :who (person :vera) :lane :alice :permission (perm/permission-id veras) :session :door-proof
                    :facts [(value :v-1 "a value of a holder of see")]}
         logs-before (log-counts)
         clock-before (clock)
@@ -1122,7 +1122,7 @@
         logs-after (log-counts)
         answer (answer! d id (:digest sent))
         round-the-door (answer-round id)
-        no-value (decide! d {:version 1 :who :vera :lane :alice :permission veras :session :door-proof
+        no-value (decide! d {:version 1 :who (person :vera) :lane :alice :permission (perm/permission-id veras) :session :door-proof
                              :facts [{:e :v-1 :k :text}]})]
     (check "Alice gives, through the door, a permission in her lane that says see: a fact under a store key, and it is accepted"
            true (accepted? gave))
@@ -1142,33 +1142,31 @@
 
 (deftest a-permission-for-a-run-and-a-yes-for-one-act-through-the-door
   (let [d (the-door)
-        run-key :softland.store/run-permission
-        act-key :softland.store/act-permission
-        wills-run [:will :alice :alice (own :alice) :see-and-act [:run :run-w]]
+        wills-run (perm/run-permission (person :will) :alice (own :alice) :run-w :see-and-act)
         wills (fn [permission session facts]
-                {:version 1 :who :will :lane :alice :permission permission :session session :facts facts})
-        give-run (decide! d (act-of :alice [{:e :run-w :k run-key :v wills-run}]))
+                {:version 1 :who (person :will) :lane :alice :permission (some-> permission perm/permission-id) :session session :facts facts})
+        give-run (decide! d (act-of :alice [(perm/permission-fact wills-run)]))
         in-run (decide! d (wills wills-run :run-w [(value :w-1 "in his run")]))
         in-another-run (decide! d (wills wills-run :run-v [(value :w-2 "in another run")]))
         ;; a yes for one act: the maker's act, with no permission yet, and its digest
         the-act (wills nil :run-w [(value :w-3 "the act said yes to")])
         hex (digest/hex-for-a-yes the-act)
         [y1 y2] (repeatedly 2 #(UUID/randomUUID))
-        yes-1 [:will :alice :alice (own :alice) :see-and-act [:act y1 hex]]
-        yes-2 [:will :alice :alice (own :alice) :see-and-act [:act y2 hex]]
-        give-yes-1 (decide! d (act-of :alice [{:e y1 :k act-key :v yes-1}]))
+        yes-1 (perm/act-permission (person :will) :alice (own :alice) y1 hex)
+        yes-2 (perm/act-permission (person :will) :alice (own :alice) y2 hex)
+        give-yes-1 (decide! d (act-of :alice [(perm/permission-fact yes-1)]))
         id (act-id-for! d :alice)
-        taken (decide! d (assoc the-act :permission yes-1) id)
-        again (decide! d (assoc the-act :permission yes-1))
-        same-again (send! d (assoc the-act :permission yes-1) id)
+        taken (decide! d (assoc the-act :permission (perm/permission-id yes-1)) id)
+        again (decide! d (assoc the-act :permission (perm/permission-id yes-1)))
+        same-again (send! d (assoc the-act :permission (perm/permission-id yes-1)) id)
         same-again-told (answer! d id (:digest same-again))
-        another-under-id (send! d (assoc the-act :permission yes-1 :facts [(value :w-3 "another value")]) id)
+        another-under-id (send! d (assoc the-act :permission (perm/permission-id yes-1) :facts [(value :w-3 "another value")]) id)
         another-told (answer! d id (:digest another-under-id))
-        give-yes-2 (decide! d (act-of :alice [{:e y2 :k act-key :v yes-2}]))
-        another-act (decide! d (assoc the-act :permission yes-2 :facts [(value :w-3 "another value")]))
-        written-another-way (decide! d (assoc the-act :permission yes-2 :subjects #{} :based-on {}
+        give-yes-2 (decide! d (act-of :alice [(perm/permission-fact yes-2)]))
+        another-act (decide! d (assoc the-act :permission (perm/permission-id yes-2) :facts [(value :w-3 "another value")]))
+        written-another-way (decide! d (assoc the-act :permission (perm/permission-id yes-2) :subjects #{} :based-on {}
                                               :facts (list (value :w-3 "the act said yes to"))))
-        [yes-1-row yes-2-row] (map #(row-of :alice % act-key) [y1 y2])]
+        [yes-1-row yes-2-row] (map #(let [{:keys [e k]} (perm/permission-fact %)] (row-of :alice e k)) [yes-1 yes-2])]
     (check "through the door, Alice gives Will a permission for his run; his act in that run is taken, and in another run refused"
            [true :accepted [:refused :permission-for-another-run]]
            [(accepted? give-run) (:answer (:answer in-run))
@@ -1326,7 +1324,7 @@
         back-in-time (count (filter (fn [[[_ t1] [_ t2]]] (and (int? t1) (int? t2) (< t2 t1)))
                                     (partition 2 1 (sort-by first stamps-and-times))))
         by-who (mapv (fn [n who]
-                       [(count (filter (fn [r] (and (map? r) (= who (:who r)))) streaming))
+                       [(count (filter (fn [r] (and (map? r) (= (person who) (:who r)))) streaming))
                         (count (for [t [n (+ n 8)] i (range 10)
                                      :when (= [:value i] (record/read-value (row-of who (keyword (str "t" t "-a" i)) :text)))]
                                  [t i]))])
@@ -1360,9 +1358,7 @@
         logs-before-other (log-counts)
         other (decide! d (system-act [(value :wrong-depot-base-1 "a value")]) other-id)
         logs-after-other (log-counts)
-        making {:version 1 :who :system :lane :base :permission system-own :session :door-proof
-                :facts [{:e :base :k :softland.store/depot :v :microbatch}
-                        {:e :system :k :softland.store/permission :v system-own}]}
+        making (perm/making-act :base :system :system :door-proof)
         made-sent (send! d making)
         made-answer (answer! d (:act-id made-sent) (:digest made-sent) wait-ms)
         made-time (time-sent made-sent)
@@ -1379,7 +1375,7 @@
         _ (settle-base!)
         first-rows (rows-in :microbatch-facts :base :doc-1 :text)
         asked-again (asking #(answer! d (:act-id first-value) (:digest first-value)))
-        gave (decide! d (system-act [{:e :alice :k :softland.store/permission :v alice-in-base}]))]
+        gave (decide! d (system-act [(perm/permission-fact alice-in-base)]))]
     (swap! kept assoc
            :base-under-the-streaming-word (:answer other)
            :base-answers [[(:act-id made-sent) (:digest made-sent) made-answer]
@@ -1452,7 +1448,7 @@
 
 (deftest the-ack-of-the-base-is-no-answer
   (let [d (the-door)
-        alices-act (fn [i] (base-act-of :alice alice-in-base [(value (keyword (str "alices-doc-" i)) i)]))
+        alices-act (fn [i] (base-act-of (person :alice) alice-in-base [(value (keyword (str "alices-doc-" i)) i)]))
         ;; several acts of one who from several threads while the gate is paused
         _ (pause-base!)
         logs-before-paused (log-counts)
@@ -1463,9 +1459,9 @@
         _ (resume-base!)
         paused-answers (mapv (fn [sent] (when-not (:could-not sent) (answer! d (:act-id sent) (:digest sent) wait-ms))) paused-sent)
         ;; one act that the gate will accept and one that it will refuse, while the gate is paused
-        mallorys [:mallory :base :base system-own]
+        mallorys (perm/given-permission (person :mallory) :base system-own)
         to-accept (system-act [(value :ack-doc "a value that the gate will accept")])
-        to-refuse (base-act-of :mallory mallorys [(value :mallorys-doc "a value of a who with no permission")])
+        to-refuse (base-act-of (person :mallory) mallorys [(value :mallorys-doc "a value of a who with no permission")])
         _ (pause-base!)
         two-sent (mapv (fn [act] (send! d act)) [to-accept to-refuse])
         two-paused (mapv (fn [sent] (answer! d (:act-id sent) (:digest sent))) two-sent)
@@ -1508,10 +1504,10 @@
   (let [d (the-door)
         answers-of (fn [sent] (mapv (fn [one] (answer! d (:act-id one) (:digest one) wait-ms)) sent))
         ;; a give, and then the first act under it
-        orens [:oren :base :base system-own]
+        orens (perm/given-permission (person :oren) :base system-own {:given-by :system})
         give-ids (noted (door/act-ids-for d :base 2))
-        give (system-act [{:e :oren :k :softland.store/permission :v orens}])
-        orens-first (base-act-of :oren orens [(value :orens-doc "the first act under a permission that was just given")])
+        give (system-act [(perm/permission-fact orens)])
+        orens-first (base-act-of (person :oren) orens [(value :orens-doc "the first act under a permission that was just given")])
         give-calls (noting (fn [] [(send! d give (get give-ids 0)) (send! d orens-first (get give-ids 1))]))
         give-sent (:result give-calls)
         give-answers (answers-of give-sent)
@@ -1525,11 +1521,11 @@
         replace-answers (answers-of replace-sent)
         replace-times (mapv time-sent replace-sent)
         ;; 8 acts in one batch, each of which needs the rows of the one before it
-        petras [:petra :base :base system-own]
+        petras (perm/given-permission (person :petra) :base system-own {:given-by :system})
         chain-ids (noted (door/act-ids-for d :base 8))
-        chain-acts (into [(system-act [{:e :petra :k :softland.store/permission :v petras}])
-                          (base-act-of :petra petras [(value :chain-doc 1)])]
-                         (map (fn [i] (base-act-of :petra petras [(assoc (value :chain-doc i) :replaces [(get chain-ids (dec i)) 0])])))
+        chain-acts (into [(system-act [(perm/permission-fact petras)])
+                          (base-act-of (person :petra) petras [(value :chain-doc 1)])]
+                         (map (fn [i] (base-act-of (person :petra) petras [(assoc (value :chain-doc i) :replaces [(get chain-ids (dec i)) 0])])))
                          (range 2 8))
         _ (pause-base!)
         chain-calls (noting (fn [] (vec (map-indexed (fn [i act] (send! d act (get chain-ids i))) chain-acts))))

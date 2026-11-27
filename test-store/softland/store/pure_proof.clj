@@ -100,6 +100,7 @@
   What it does not reach is in the folder's README: anything that needs a
   depot, a PState or a query, which the module's proof and the door's proof
   run on a cluster."
+  (:refer-clojure :exclude [agent])
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -112,6 +113,7 @@
             [softland.store.door.declaration :as declaration]
             [softland.store.door.digest :as digest]
             [softland.store.gate.first-act :as first-act]
+            [softland.store.permissions :as perm :refer [person agent run]]
             [softland.store.record.rows :as record]
             [softland.store.gate.stamp :as stamp]
             [softland.store.door.text :as text]
@@ -231,8 +233,8 @@
   no stamp."
   (bit-shift-left 1 50))
 
-(def ^:private alice-own "Alice's permission in her own lane." [:alice :alice :alice])
-(def ^:private bobs "Bob's permission in Alice's lane, beneath hers." [:bob :alice :alice alice-own])
+(def ^:private alice-own "Alice's permission in her own lane." (perm/first-permission (person :alice) :alice))
+(def ^:private bobs "Bob's permission in Alice's lane, beneath hers." (perm/given-permission (person :bob) :alice alice-own))
 
 (defn- act-id
   "A streaming act-id in Alice's lane, with a fixed UUID."
@@ -254,7 +256,7 @@
   "A permission id of a lane that holds n permission ids, itself counted.
   Each of them is held by `holder` in that lane, the first one too."
   [holder lane n]
-  (reduce (fn [parent _] [holder lane lane parent]) [holder lane lane] (range (dec n))))
+  (perm/deep-permission holder lane n))
 
 (defn- arrived
   "Alice's act into her own lane as it arrives on the streaming depot, under
@@ -262,14 +264,14 @@
   optional part."
   [n & facts]
   {:act-id (act-id n) :depot :streaming declaration/time-part now
-   :version 1 :who :alice :lane :alice :permission alice-own :session :alice-s1
+   :version 1 :who (person :alice) :lane :alice :permission (perm/permission-id alice-own) :session :alice-s1
    :facts (vec facts)})
 
 (defn- one-form
   "The one form on arrival of `arrived` for facts that are in their one form."
   [n & facts]
   {:act-id (act-id n) :depot :streaming declaration/time-part now
-   :version 1 :who :alice :lane :alice :permission alice-own :session :alice-s1
+   :version 1 :who (person :alice) :lane :alice :permission (perm/permission-id alice-own) :session :alice-s1
    :based-on {} :because-of nil :claimed-when nil :subjects #{}
    :facts (vec facts)})
 
@@ -474,7 +476,7 @@
      ["a thing that differs in anything else has another digest, with the same time on it: another value, another act-id, another who, a part more that holds the same number as the time"
       (fn [] (mapv (fn [x] (= (digest/hex-of good) (digest/hex-of x)))
                    [(arrived 1 (value-at :note-1 :text "a text.")) (arrived 2 (value-at :note-1 :text))
-                    (assoc good :who :bob) (assoc good :claimed-when now)]))
+                    (assoc good :who (person :bob)) (assoc good :claimed-when now)]))
       [false false false false]]
      ["a time deeper than the top level is not left out: two things that differ only in a time inside a value, inside a fact, or inside a vector have two digests, by `hex-of` and by `readable-hex-of`; the digest of the vector is the SHA-256 of its whole text"
       (fn [] (let [in-value (fn [t] (arrived 1 (value-at :note-1 :text {declaration/time-part t})))
@@ -687,28 +689,28 @@
    :depot :streaming
    declaration/time-part (int 1700001)
    :version (int 1)
-   :who :alice :lane :alice
-   :permission (subvec [:x :alice :alice :alice] 1)
+   :who (person :alice) :lane :alice
+   :permission (subvec [:x (person :alice) :alice :alice] 1)
    :session :alice-s1
    :based-on {[(act-id 2) (int 0)] (int 41)}
    :because-of (act-id 2)
    :claimed-when (int 1700000)
-   :subjects #{:alice :bob}
+   :subjects #{(person :alice) (person :bob)}
    :facts (list {:e :note-1 :k :text :v (sorted-map :b 1.50M :a (subvec [0 (int 1) 2N] 1))
                  :replaces [(act-id 2) (short 0)]}
                 {:e :note-2 :k :text}
-                {:e :bob :k :softland.store/permission :v (subvec [:x :bob :alice :alice alice-own] 1)})})
+                {:e (person :bob) :k :softland.store/permission :v (subvec [:x (person :bob) :alice :alice alice-own] 1)})})
 
 (def ^:private whole-form
   "The one form on arrival of `whole`."
   {:act-id (act-id 9) :depot :streaming declaration/time-part 1700001
-   :version 1 :who :alice :lane :alice :permission alice-own :session :alice-s1
+   :version 1 :who (person :alice) :lane :alice :permission (perm/permission-id alice-own) :session :alice-s1
    :based-on {[(act-id 2) 0] 41} :because-of (act-id 2) :claimed-when 1700000
-   :subjects #{:alice :bob}
+   :subjects #{(person :alice) (person :bob)}
    :facts [{:e :note-1 :k :text :v nil :replaces [(act-id 2) 0] :text "{:a [1 2] :b 1.5M}"}
            {:e :note-2 :k :text :v nil :replaces nil :text nil}
-           {:e :bob :k :softland.store/permission :v bobs :replaces nil
-            :text "[:bob :alice :alice [:alice :alice :alice]]"}]})
+           (assoc (perm/permission-fact bobs) :replaces nil
+                  :text "[:bob :alice :alice [:alice :alice :alice]]")]})
 
 (def ^:private tools-own-keys
   "Keys that are a tool's own, though each looks like one of the store's: the
@@ -757,8 +759,7 @@
     ["false" "\"\"" "{}" "[]" nil]]
    ["a making act: two facts under store keys, each with its value and the text of it"
     (fn [] (let [checked (declaration/check
-                          (assoc (arrived 1 {:e :alice :k :softland.store/depot :v :streaming}
-                                          {:e :alice :k :softland.store/permission :v alice-own})
+                          (assoc (apply arrived 1 (perm/making-facts :alice (person :alice) :system))
                                  :who :system))]
              [(verdict checked) (mapv (juxt :v :text) (:facts (:ok checked)))]))
     [:ok [[:streaming ":streaming"] [alice-own "[:alice :alice :alice]"]]]]
@@ -767,12 +768,12 @@
     :ok]
    ["each of the eight store keys is known: a fact under each, with a right value, passes; a permission for a run sits on its session, and one for an act on the uuid of its act"
     (fn [] [(verdict (declaration/check (arrived 1 {:e :alice :k :softland.store/depot :v :streaming})))
-            (verdict (declaration/check (arrived 1 {:e :bob :k :softland.store/permission :v bobs})))
-            (verdict (declaration/check (arrived 1 {:e :run-7 :k :softland.store/run-permission
-                                                    :v [:bob :alice :alice alice-own :see [:run :run-7]]})))
-            (verdict (declaration/check (arrived 1 {:e (uuid 9) :k :softland.store/act-permission
-                                                    :v [:bob :alice :alice alice-own :see-and-act
-                                                        [:act (uuid 9) (apply str (repeat 64 "a"))]]})))
+            (verdict (declaration/check (arrived 1 (perm/permission-fact bobs))))
+            (verdict (declaration/check (arrived 1 (perm/permission-fact
+                                                    (perm/run-permission (person :bob) :alice alice-own :run-7 :see)))))
+            (verdict (declaration/check (arrived 1 (perm/permission-fact
+                                                    (perm/act-permission (person :bob) :alice alice-own
+                                                                         (uuid 9) (apply str (repeat 64 "a")))))))
             (verdict (declaration/check (arrived 1 {:e :alice :k :softland.store/who-may-see :v :everyone})))
             (verdict (declaration/check (arrived 1 {:e :alice :k :softland.store/who-may-read-acts :v :everyone})))
             (verdict (declaration/check (arrived 1 {:e :alice :k :softland.store/builds-on :v [:base (uuid 7)]})))
@@ -796,8 +797,8 @@
                  [:softland.store/who-may-see :softland.store/builds-on :softland.store/marked-keys]))
     [:ok :ok :ok]]
    ["a permission fact whose value says what it allows passes: see, and see and act"
-    (fn [] [(verdict (declaration/check (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice :alice alice-own :see]})))
-            (verdict (declaration/check (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice :alice alice-own :see-and-act]})))])
+    (fn [] [(verdict (declaration/check (arrived 1 (perm/permission-fact (perm/given-permission (person :bob) :alice alice-own :see)))))
+            (verdict (declaration/check (arrived 1 (perm/permission-fact (perm/given-permission (person :bob) :alice alice-own :see-and-act)))))])
     [:ok :ok]]
    ["a tool's own fact under the bare word :class is not read as the store's: it passes as a fact under a plain key, and of its value the one form keeps the text alone"
     (fn [] [(valued-under :class) (first (:facts (act-of (arrived 1 (value-at :note-1 :class :streaming)))))])
@@ -826,9 +827,9 @@
    ["no permission" (dissoc good :permission) :no-permission]
    ["no session" (dissoc good :session) :no-session]
    ["no fact" (assoc good :facts []) :empty-act]
-   ["a permission for another lane" (assoc good :permission [:alice :bob :bob]) :permission-not-in-lane]
+   ["a permission for another lane" (assoc good :permission (perm/permission-id (perm/first-permission (person :alice) :bob))) :permission-not-in-lane]
    ["a who that is a string" (assoc good :who "alice") :malformed]
-   ["a permission 33 deep" (assoc good :permission (deep-permission :alice :alice 33)) :malformed]
+   ["a permission 33 deep" (assoc good :permission (perm/permission-id (deep-permission (person :alice) :alice 33))) :malformed]
    ["a value that is no value of the form: a ratio" (arrived 1 (value-at :note-1 :text 1/3)) :malformed]
    ["a value inside 33 collections" (arrived 1 (value-at :note-1 :text (nested 33))) :malformed]
    ["facts that are no sequence" (assoc good :facts {:e :note-1}) :malformed]
@@ -869,24 +870,32 @@
    ["the word class in the store's namespace: the store's key is depot" (arrived 1 {:e :alice :k :softland.store/class :v :streaming}) :store-key-not-known]
    ["a fact under :softland.store/lock-request: the store has no such key" (arrived 1 {:e (uuid 1) :k :softland.store/lock-request :v 4}) :store-key-not-known]
    ["a depot fact whose value is no depot word" (arrived 1 {:e :alice :k :softland.store/depot :v :fast}) :depot-fact-not-a-depot-word]
-   ["a permission fact whose value is no permission" (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice]}) :permission-fact-not-a-permission]
-   ["a permission fact that does not sit on its holder" (arrived 1 {:e :carol :k :softland.store/permission :v bobs}) :permission-fact-not-on-its-holder]
-   ["a permission for a run under the key of a permission for the lane" (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice :alice alice-own :see-and-act [:run :run-7]]})
+   ["a permission fact whose value is no permission" (arrived 1 {:e (person :bob) :k :softland.store/permission :v [(person :bob) :alice]}) :permission-fact-not-a-permission]
+   ["a permission fact that does not sit on its holder" (arrived 1 {:e (person :carol) :k :softland.store/permission :v bobs}) :permission-fact-not-on-its-holder]
+   ["a permission for a run under the key of a permission for the lane"
+    (arrived 1 {:e (person :bob) :k :softland.store/permission
+                :v (perm/run-permission (person :bob) :alice alice-own :run-7 :see-and-act)})
     :permission-fact-under-another-key]
    ["a permission for the lane under the key of a permission for a run" (arrived 1 {:e :run-7 :k :softland.store/run-permission :v bobs}) :permission-fact-under-another-key]
    ["a permission for an act under the key of a permission for a run"
-    (arrived 1 {:e (uuid 9) :k :softland.store/run-permission :v [:bob :alice :alice alice-own :see-and-act [:act (uuid 9) (apply str (repeat 64 "a"))]]})
+    (arrived 1 {:e (uuid 9) :k :softland.store/run-permission
+                :v (perm/act-permission (person :bob) :alice alice-own (uuid 9) (apply str (repeat 64 "a")))})
     :permission-fact-under-another-key]
-   ["a permission for a run that does not sit on its run" (arrived 1 {:e :run-8 :k :softland.store/run-permission :v [:bob :alice :alice alice-own :see-and-act [:run :run-7]]})
+   ["a permission for a run that does not sit on its run"
+    (arrived 1 {:e :run-8 :k :softland.store/run-permission
+                :v (perm/run-permission (person :bob) :alice alice-own :run-7 :see-and-act)})
     :permission-fact-not-on-what-it-covers]
    ["a permission for an act that does not sit on the uuid of its act"
-    (arrived 1 {:e (uuid 8) :k :softland.store/act-permission :v [:bob :alice :alice alice-own :see-and-act [:act (uuid 9) (apply str (repeat 64 "a"))]]})
+    (arrived 1 {:e (uuid 8) :k :softland.store/act-permission
+                :v (perm/act-permission (person :bob) :alice alice-own (uuid 9) (apply str (repeat 64 "a")))})
     :permission-fact-not-on-what-it-covers]
    ["a permission for an act that says see: it would allow nothing, and is no permission"
-    (arrived 1 {:e (uuid 9) :k :softland.store/act-permission :v [:bob :alice :alice alice-own :see [:act (uuid 9) (apply str (repeat 64 "a"))]]})
+    (arrived 1 {:e (uuid 9) :k :softland.store/act-permission
+                :v (perm/act-permission (person :bob) :alice alice-own (uuid 9) (apply str (repeat 64 "a")) {:allows :see})})
     :permission-fact-not-a-permission]
    ["a permission for an act whose digest is no text of 64 hex characters"
-    (arrived 1 {:e (uuid 9) :k :softland.store/act-permission :v [:bob :alice :alice alice-own :see-and-act [:act (uuid 9) "abc"]]})
+    (arrived 1 {:e (uuid 9) :k :softland.store/act-permission
+                :v (perm/act-permission (person :bob) :alice alice-own (uuid 9) "abc")})
     :permission-fact-not-a-permission]
    ["who may see a lane, with a word that is neither" (arrived 1 {:e :alice :k :softland.store/who-may-see :v :owner}) :who-may-see-fact-not-members-or-everyone]
    ["who may see a lane, as a string" (arrived 1 {:e :alice :k :softland.store/who-may-see :v "everyone"}) :who-may-see-fact-not-members-or-everyone]
@@ -911,21 +920,26 @@
 (def ^:private id-rows
   "The same long id in each place where an act holds an id. Each is refused
   with the one word."
-  (let [long (long-id 257)]
-    [["who" (assoc good :who long)]
+  (let [long (long-id 257)
+        long-who (perm/long-person 257)]
+    [["who" (assoc good :who long-who)]
      ["the session" (assoc good :session long)]
      ["a subject" (assoc good :subjects #{long})]
      ["an entity" (arrived 1 (value-at long :text))]
      ["a fact's key" (arrived 1 (value-at :note-1 long))]
-     ["who and the holder of the act's permission" (assoc good :who long :permission [long :alice :alice])]
-     ["granted-in, in the act's permission" (assoc good :permission [:alice :alice long])]
+     ["who and the holder of the act's permission"
+      (assoc good :who long-who :permission (perm/permission-id (perm/first-permission long-who :alice)))]
+     ["granted-in, in the act's permission"
+      (assoc good :permission (perm/permission-id (perm/first-permission (person :alice) :alice {:granted-in long})))]
      ["the lane of the act-id in because-of" (assoc good :because-of [long :streaming (uuid 2)])]
      ["the lane of a fact id in based-on" (assoc good :based-on {[[long :streaming (uuid 2)] 0] 1})]
      ["the lane of a replaced fact" (arrived 1 (assoc (value-at :note-1 :text) :replaces [[long :streaming (uuid 2)] 0]))]
-     ["the holder in a permission that is given" (arrived 1 {:e long :k :softland.store/permission :v [long :alice :alice alice-own]})]
-     ["granted-in, in a permission that is given" (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice long alice-own]})]
+     ["the holder in a permission that is given"
+      (arrived 1 (perm/permission-fact (perm/given-permission long-who :alice alice-own)))]
+     ["granted-in, in a permission that is given"
+      (arrived 1 (perm/permission-fact (perm/given-permission (person :bob) :alice alice-own {:granted-in long})))]
      ["who, in the permission above one that is given with the slot that says what it allows"
-      (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice :alice [long :alice :alice] :see]})]
+      (arrived 1 (perm/permission-fact (perm/given-permission (person :bob) :alice (perm/first-permission long-who :alice) :see)))]
      ["a lane in the list that a lane builds on" (arrived 1 {:e :alice :k :softland.store/builds-on :v [:base long]})]
      ["a key in the set that a lane marks" (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on long}})]]))
 
@@ -987,9 +1001,10 @@
   over the bound on one value."
   [more]
   (let [id (long-id 256)
+        who (perm/long-person 256)
         value (apply str (repeat 48735 "a"))]
     {:act-id [id :streaming (uuid 1)] :depot :streaming declaration/time-part now
-     :version 1 :who id :lane id :permission (deep-permission id id 32) :session :alice-s1
+     :version 1 :who who :lane id :permission (perm/permission-id (deep-permission who id 32)) :session :alice-s1
      :facts (mapv (fn [i] {:e (keyword (str "note-" i)) :k :text
                            :v (if (= i 255) (str value (apply str (repeat more "a"))) value)})
                   (range 256))}))
@@ -1072,13 +1087,15 @@
     (assoc good :facts [5 (assoc (value-at :note-1 :text) :sealed (bytes-of 3))]) :malformed]
    ["the same two, the other way round"
     (assoc good :facts [(assoc (value-at :note-1 :text) :sealed (bytes-of 3)) 5]) :unknown-part]
-   ["a permission for another lane, and a depot that is not the act-id's" (assoc good :permission [:alice :bob :bob] :depot :microbatch) :permission-not-in-lane]
+   ["a permission for another lane, and a depot that is not the act-id's"
+    (assoc good :permission (perm/permission-id (perm/first-permission (person :alice) :bob)) :depot :microbatch)
+    :permission-not-in-lane]
    ["257 facts, each with a value over the bound: the limit of the facts, before one text is made"
     (apply arrived 1 (map (fn [i] (value-at (keyword (str "note-" i)) :text over-the-bound)) (range 257))) :too-many-facts]
    ["a depot fact whose value is no depot word, and a key in the store's namespace that the store does not know: the key gives the word"
     (arrived 1 {:e :alice :k :softland.store/depot :v :fast} (value-at :note-1 :softland.store/owner)) :store-key-not-known]
    ["a wrong word of who may see, and a permission fact that does not sit on its holder: the rules of a permission come first"
-    (arrived 1 {:e :alice :k :softland.store/who-may-see :v :owner} {:e :carol :k :softland.store/permission :v bobs}) :permission-fact-not-on-its-holder]
+    (arrived 1 {:e :alice :k :softland.store/who-may-see :v :owner} {:e (person :carol) :k :softland.store/permission :v bobs}) :permission-fact-not-on-its-holder]
    ["a wrong word of who may see, and a list that is no list: the rules of the three keys in their order"
     (arrived 1 {:e :alice :k :softland.store/builds-on :v :base} {:e :alice :k :softland.store/who-may-see :v :owner}) :who-may-see-fact-not-members-or-everyone]
    ["65 lanes, and marked keys that are no set: the limit of the list before the shape of the marks"
@@ -1126,21 +1143,21 @@
    ["32 marked keys" (arrived 1 {:e :alice :k :softland.store/marked-keys :v (set (map #(keyword (str "key-" %)) (range 32)))}) :ok]
    ["33 marked keys" (arrived 1 {:e :alice :k :softland.store/marked-keys :v (set (map #(keyword (str "key-" %)) (range 33)))}) :too-many-marked-keys]
    ["a lane of 256 characters in the list that a lane builds on, and a marked key of 256" (arrived 1 {:e :alice :k :softland.store/builds-on :v [(long-id 256)]} {:e :alice :k :softland.store/marked-keys :v #{(long-id 256)}}) :ok]
-   ["an act under its own permission five deep" (assoc good :permission (deep-permission :alice :alice 5)) :ok]
-   ["an act under its own permission 32 deep" (assoc good :permission (deep-permission :alice :alice 32)) :ok]
+   ["an act under its own permission five deep" (assoc good :permission (perm/permission-id (deep-permission (person :alice) :alice 5))) :ok]
+   ["an act under its own permission 32 deep" (assoc good :permission (perm/permission-id (deep-permission (person :alice) :alice 32))) :ok]
    ["an act under its own permission 32 deep that says what it allows"
-    (assoc good :permission [:alice :alice :alice (deep-permission :alice :alice 31) :see-and-act]) :ok]
-   ["an act under its own permission 33 deep" (assoc good :permission (deep-permission :alice :alice 33)) :malformed]
-   ["a permission fact whose value is five deep" (arrived 1 {:e :bob :k :softland.store/permission :v (deep-permission :bob :alice 5)}) :ok]
-   ["a permission fact whose value is 32 deep" (arrived 1 {:e :bob :k :softland.store/permission :v (deep-permission :bob :alice 32)}) :ok]
+    (assoc good :permission (perm/permission-id (perm/given-permission (person :alice) :alice (deep-permission (person :alice) :alice 31) :see-and-act))) :ok]
+   ["an act under its own permission 33 deep" (assoc good :permission (perm/permission-id (deep-permission (person :alice) :alice 33))) :malformed]
+   ["a permission fact whose value is five deep" (arrived 1 (perm/permission-fact (deep-permission (person :bob) :alice 5))) :ok]
+   ["a permission fact whose value is 32 deep" (arrived 1 (perm/permission-fact (deep-permission (person :bob) :alice 32))) :ok]
    ["a permission fact whose value is 32 deep and says what it allows"
-    (arrived 1 {:e :bob :k :softland.store/permission :v [:bob :alice :alice (deep-permission :bob :alice 31) :see]}) :ok]
+    (arrived 1 (perm/permission-fact (perm/given-permission (person :bob) :alice (deep-permission (person :bob) :alice 31) :see))) :ok]
    ["a permission fact whose value is 33 deep: it is no value of the form, so the shape's word and not the rule's"
-    (arrived 1 {:e :bob :k :softland.store/permission :v (deep-permission :bob :alice 33)}) :malformed]
+    (arrived 1 (perm/permission-fact (deep-permission (person :bob) :alice 33))) :malformed]
    ["ids that are UUIDs: who, the lane, an entity"
     (let [who (uuid 31) lane (uuid 32)]
       {:act-id [lane :streaming (uuid 1)] :depot :streaming declaration/time-part now :version 1 :who who :lane lane
-       :permission [who lane lane] :session (uuid 33)
+       :permission (perm/permission-id (perm/first-permission who lane)) :session (uuid 33)
        :facts [{:e (uuid 34) :k :text :v "a text"}]})
     :ok]])
 
@@ -1199,32 +1216,39 @@
   with. `first-act-cases` holds it against what the declaration's check
   gives for the same act as its maker sends it."
   [lane who holder]
-  (let [permission [holder lane lane]
+  (let [permission (perm/first-permission holder lane {:given-by who})
+        {:keys [e k v]} (perm/permission-fact permission)
         depot (first-act/depot-at-making lane)]
     {:act-id [lane depot (uuid 1)] :depot depot declaration/time-part now :version 1 :who who :lane lane
-     :permission permission :session :s1 :based-on {} :because-of nil :claimed-when nil :subjects #{}
+     :permission (perm/permission-id permission) :session :s1 :based-on {} :because-of nil :claimed-when nil :subjects #{}
      :facts [(arrived-fact lane :softland.store/depot depot)
-             (arrived-fact holder :softland.store/permission permission)]}))
+             (arrived-fact e k v)]}))
 
 (def ^:private first-act-rows
   "Acts into a lane that is not made. For each: the gate's depot, the act,
   and whether it has the form of a making act."
-  (let [personal (making :alice :system :alice)
-        group (making :team :alice :alice)
+  (let [personal (making :alice :system (person :alice))
+        group (making :team (person :alice) (person :alice))
         base (making :base :system :system)
-        fact (fn [act i] (get-in act [:facts i]))]
+        bobs-team (perm/first-permission (person :bob) :team)
+        x-team (perm/first-permission (person :x) :team)
+        above-team (perm/given-permission (person :alice) :team x-team)
+        elsewhere-team (perm/first-permission (person :alice) :team {:granted-in :elsewhere})
+        slotted-team (perm/given-permission (person :alice) :team x-team :see-and-act)
+        fact (fn [act i] (get-in act [:facts i]))
+        as-arrived-perm (fn [p] (let [{:keys [e k v]} (perm/permission-fact p)] (arrived-fact e k v)))]
     [["a personal lane, made by the system for its person" :streaming personal true]
      ["a group's lane, made by the person who creates it" :streaming group true]
      ["the two facts in the other order" :streaming (update group :facts (comp vec reverse)) true]
      ["a lane whose first holder is the system" :streaming (making :tools :system :system) true]
      ["the base, made by the system" :microbatch base true]
      ["the base" :streaming base false]
-     ["the base by a who that is not the system" :microbatch (assoc base :who :alice) false]
-     ["the base with a first permission that is not the system's" :microbatch (making :base :system :alice) false]
+     ["the base by a who that is not the system" :microbatch (assoc base :who (person :alice)) false]
+     ["the base with a first permission that is not the system's" :microbatch (making :base :system (person :alice)) false]
      ["the base, made by a person who holds its first permission herself: she is the holder, as for a group's lane, and for the base the holder is the system"
-      :microbatch (making :base :alice :alice) false]
+      :microbatch (making :base (person :alice) (person :alice)) false]
      ["a lane that is not the base" :microbatch group false]
-     ["a who that is neither the holder nor the system" :streaming (assoc group :who :bob) false]
+     ["a who that is neither the holder nor the system" :streaming (assoc group :who (person :bob)) false]
      ["no depot fact" :streaming (assoc group :facts [(fact group 1) (arrived-fact :note :text)]) false]
      ["no permission fact" :streaming (assoc group :facts [(fact group 0) (arrived-fact :note :text)]) false]
      ["one fact only" :streaming (assoc group :facts [(fact group 0)]) false]
@@ -1234,19 +1258,21 @@
      ["the depot microbatch for a lane that is not the base" :streaming (assoc-in group [:facts 0 :v] :microbatch) false]
      ["a depot fact on an entity that is not the lane" :streaming (assoc-in group [:facts 0 :e] :other) false]
      ["a permission fact that is not the permission that the act names"
-      :streaming (-> group (assoc-in [:facts 1 :v] [:bob :team :team]) (assoc-in [:facts 1 :e] :bob)) false]
+      :streaming (assoc-in group [:facts 1] (as-arrived-perm bobs-team)) false]
      ["a first permission with a permission above it"
       :streaming (-> group
-                     (assoc :permission [:alice :team :team [:x :team :team]])
-                     (assoc-in [:facts 1 :v] [:alice :team :team [:x :team :team]]))
+                     (assoc :permission (perm/permission-id above-team))
+                     (assoc-in [:facts 1] (as-arrived-perm above-team)))
       false]
      ["a first permission granted in another lane"
-      :streaming (-> group (assoc :permission [:alice :team :elsewhere]) (assoc-in [:facts 1 :v] [:alice :team :elsewhere]))
+      :streaming (-> group
+                     (assoc :permission (perm/permission-id elsewhere-team))
+                     (assoc-in [:facts 1] (as-arrived-perm elsewhere-team)))
       false]
      ["a permission that says what it allows, see and act: it has a permission above it and a slot, so it is no first permission"
       :streaming (-> group
-                     (assoc :permission [:alice :team :team [:x :team :team] :see-and-act])
-                     (assoc-in [:facts 1 :v] [:alice :team :team [:x :team :team] :see-and-act]))
+                     (assoc :permission (perm/permission-id slotted-team))
+                     (assoc-in [:facts 1] (as-arrived-perm slotted-team)))
       false]]))
 
 (def ^:private first-act-cases
@@ -1273,7 +1299,7 @@
      (fn [] (mapv (fn [form] (= form (act-of (-> form
                                                  (dissoc :based-on :because-of :claimed-when :subjects)
                                                  (update :facts (fn [facts] (mapv #(select-keys % [:e :k :v]) facts)))))))
-                  [(making :alice :system :alice) (making :team :alice :alice) (making :base :system :system)]))
+                  [(making :alice :system (person :alice)) (making :team (person :alice) (person :alice)) (making :base :system :system)]))
      [true true true]]
     ["what a lane starts with, where no fact says it: the base is seen by everyone and any other lane by its members; a lane builds on nothing; no key is marked; nothing for any other key"
      (fn [] [(mapv #(first-act/starts-with % :softland.store/who-may-see) [:base :alice :team (uuid 1)])
@@ -1582,14 +1608,16 @@
   after that of its giver."
   ([permission] (permission-row permission 0))
   ([permission stamp]
-   (fact-row writer (arrived-fact (first permission) :softland.store/permission permission) (uuid 90) 1 stamp now)))
+   (let [{:keys [e k v]} (perm/permission-fact permission)]
+     (fact-row writer (arrived-fact e k v) (uuid 90) 1 stamp now))))
 
 (defn- end-row
-  "The row of an end at a holder's permission place, as an accept writes it
+  "The row of an end at a permission's place, as an accept writes it
   for a permission fact with no value: a row with no value, with the stamp
   given."
-  [holder stamp]
-  (fact-row writer (arrived-fact holder :softland.store/permission) (uuid 91) 0 stamp now))
+  [permission stamp]
+  (let [{:keys [e k]} (perm/end-fact permission)]
+    (fact-row writer (arrived-fact e k) (uuid 91) 0 stamp now)))
 
 (def ^:private alices-place
   "The key of the place of Alice's permission in her own lane."
@@ -1607,18 +1635,18 @@
 
 (def ^:private bobs-see
   "Bob's permission in Alice's lane, beneath hers, that says see."
-  [:bob :alice :alice alice-own :see])
+  (perm/given-permission (person :bob) :alice alice-own :see))
 
 (def ^:private bobs-see-and-act
   "Bob's permission in Alice's lane, beneath hers, that says see and act."
-  [:bob :alice :alice alice-own :see-and-act])
+  (perm/given-permission (person :bob) :alice alice-own :see-and-act))
 
 (def ^:private base-on-the-streaming-depot
   "An act into the base as it arrives on the streaming depot: by the system
   under its own permission in the base, with one fact that has a value. It
   is no stray on that depot, and the declaration's check takes it."
   {:act-id [:base :streaming (uuid 1)] :depot :streaming declaration/time-part now
-   :version 1 :who :system :lane :base :permission [:system :base :base] :session :s1
+   :version 1 :who :system :lane :base :permission (perm/permission-id (perm/first-permission :system :base)) :session :s1
    :facts [(value-at :doc-1 :note)]})
 
 (def ^:private standing-rows
@@ -1631,28 +1659,33 @@
   gate's record; they hold what `standing` reads first. `base-standing-rows`
   holds the standing at the microbatch gate's depot."
   (let [alices (act-of good)
-        bobs-act (assoc alices :who :bob :permission bobs)
-        personal (making :alice :system :alice)
-        group (making :team :alice :alice)
+        bobs-act (assoc alices :who (person :bob) :permission (perm/permission-id bobs))
+        personal (making :alice :system (person :alice))
+        group (making :team (person :alice) (person :alice))
         into-base (act-of base-on-the-streaming-depot)
         base-making (making :base :system :system)
+        systems-own (perm/first-permission :system :base)
+        systems-fact (perm/permission-fact systems-own)
         systems-texts [":system" "[:system :base :base]"]
         a-depot-row-of-the-base (fact-row systems-texts (arrived-fact :base :softland.store/depot :microbatch)
                                           (uuid 90) 0 0 now)
-        a-permission-row-of-the-base (fact-row systems-texts (arrived-fact :system :softland.store/permission [:system :base :base])
-                                               (uuid 90) 1 0 now)]
+        a-permission-row-of-the-base (fact-row systems-texts (arrived-fact (:e systems-fact) (:k systems-fact) (:v systems-fact))
+                                               (uuid 90) 1 0 now)
+        slotted-team (perm/given-permission (person :alice) :team (perm/first-permission (person :x) :team) :see-and-act)
+        slotted-fact (perm/permission-fact slotted-team)]
     [["the act's permission is at its holder's place" alices (permission-row alice-own) nil nil false]
      ["an act under a permission given beneath another, at its holder's place" bobs-act (permission-row bobs 1) nil nil false]
-     ["the place holds another permission of the same holder" (assoc alices :permission [:alice :alice :alice [:x :alice :alice]])
+     ["the place holds another permission of the same holder"
+      (assoc alices :permission (perm/permission-id (perm/given-permission (person :alice) :alice (perm/first-permission (person :x) :alice))))
       (permission-row alice-own) nil :permission-does-not-stand false]
      ["the place is empty and the lane is made: the record does not hold the permission" bobs-act nil depot-row
       :permission-does-not-stand false]
      ["an act under Alice's permission by a who that is not Alice, in a lane that is made"
-      (assoc alices :who :mallory) nil depot-row :who-not-the-permissions-holder false]
+      (assoc alices :who (person :mallory)) nil depot-row :who-not-the-permissions-holder false]
      ["the system acts again in a personal lane that it made" personal nil depot-row
       :who-not-the-permissions-holder false]
      ["a making act by the holder for a lane that is made: its permission stands, and it makes nothing"
-      (making :alice :alice :alice) (permission-row alice-own) nil nil false]
+      (making :alice (person :alice) (person :alice)) (permission-row alice-own) nil nil false]
      ["an act into a lane that is not made" alices nil nil :lane-not-made false]
      ["a right making act of a personal lane, into a lane that is not made" personal nil nil nil true]
      ["a right making act of a group's lane" group nil nil nil true]
@@ -1665,23 +1698,23 @@
      ["and with a row at the base's depot place there, the lane reads as made here: the word of a permission that the record does not hold"
       into-base nil a-depot-row-of-the-base :permission-does-not-stand false]
      ["a holder of see who names her permission as the row has it: an act needs act"
-      (assoc alices :who :bob :permission bobs-see) (permission-row bobs-see 1) nil :permission-does-not-allow-acting false]
+      (assoc alices :who (person :bob) :permission (perm/permission-id bobs-see)) (permission-row bobs-see 1) nil :permission-does-not-allow-acting false]
      ["a holder of see who names her permission without the slot: the bytes are not the row's, so naming more does not stand"
       bobs-act (permission-row bobs-see 1) nil :permission-does-not-stand false]
      ["a holder of see who names her permission with see and act in the slot"
-      (assoc alices :who :bob :permission bobs-see-and-act) (permission-row bobs-see 1) nil :permission-does-not-stand false]
+      (assoc alices :who (person :bob) :permission (perm/permission-id bobs-see-and-act)) (permission-row bobs-see 1) nil :permission-does-not-stand false]
      ["a holder of a permission that says see and act, named as the row has it"
-      (assoc alices :who :bob :permission bobs-see-and-act) (permission-row bobs-see-and-act 1) nil nil false]
+      (assoc alices :who (person :bob) :permission (perm/permission-id bobs-see-and-act)) (permission-row bobs-see-and-act 1) nil nil false]
      ["a holder of a permission that was given without the slot: it reads as see and act"
       bobs-act (permission-row bobs 1) nil nil false]
      ["a holder of see and act who names her permission with see in the slot: it does not stand, so nobody acts under less by naming less either"
-      (assoc alices :who :bob :permission bobs-see) (permission-row bobs-see-and-act 1) nil :permission-does-not-stand false]
+      (assoc alices :who (person :bob) :permission (perm/permission-id bobs-see)) (permission-row bobs-see-and-act 1) nil :permission-does-not-stand false]
      ["a holder of see whose act is by another who: the word of the holder comes first"
-      (assoc alices :who :mallory :permission bobs-see) nil depot-row :who-not-the-permissions-holder false]
+      (assoc alices :who (person :mallory) :permission (perm/permission-id bobs-see)) nil depot-row :who-not-the-permissions-holder false]
      ["a making act whose permission has the slot, into a lane that is not made: it is no making act"
       (-> group
-          (assoc :permission [:alice :team :team [:x :team :team] :see-and-act])
-          (assoc-in [:facts 1 :v] [:alice :team :team [:x :team :team] :see-and-act]))
+          (assoc :permission (perm/permission-id slotted-team))
+          (assoc-in [:facts 1] (arrived-fact (:e slotted-fact) (:k slotted-fact) (:v slotted-fact))))
       nil nil :lane-not-made false]]))
 
 (def ^:private standing-cases
@@ -1698,7 +1731,7 @@
              (verdict (declaration/check base-on-the-streaming-depot))])
      [nil :ok]]
     ["what a permission allows, read from its one form: a first permission and one given without the slot read as see and act; with the slot, what the slot says; the slot of a permission above it is not read"
-     (fn [] (mapv act/allows [alice-own bobs bobs-see bobs-see-and-act [:carol :alice :alice bobs-see]]))
+     (fn [] (mapv act/allows [alice-own bobs bobs-see bobs-see-and-act (perm/given-permission (person :carol) :alice bobs-see)]))
      [:see-and-act :see-and-act :see :see-and-act :see-and-act]]]
    (map (fn [[what act p-row c-row word makes?]]
           [(str "standing: " what)
@@ -1713,12 +1746,12 @@
   beside the first two, and the word of an act whose permission, or one
   above it, has ended. Carol's permission is beneath Bob's, and Bob's
   beneath Alice's, the first of the lane."
-  (let [carols-here [:carol :alice :alice bobs]
+  (let [carols-here (perm/given-permission (person :carol) :alice bobs)
         bobs-place ":alice :bob :softland.store/permission"
         carols-place ":alice :carol :softland.store/permission"
         alices (act-of good)
-        bobs-act (assoc alices :who :bob :permission bobs)
-        carols-act (assoc alices :who :carol :permission carols-here)
+        bobs-act (assoc alices :who (person :bob) :permission (perm/permission-id bobs))
+        carols-act (assoc alices :who (person :carol) :permission (perm/permission-id carols-here))
         rows (fn [alice-stamp bob-row carol-stamp]
                (cond-> {alices-place (permission-row alice-own alice-stamp)
                         carols-place (permission-row carols-here carol-stamp)}
@@ -1735,11 +1768,11 @@
      ["one permission is above another when it is in the chain above it: the one above, and the first; not itself, not the one beneath, not another holder's"
       (fn [] [(chain/above? bobs carols-here) (chain/above? alice-own carols-here)
               (chain/above? carols-here carols-here) (chain/above? carols-here bobs)
-              (chain/above? [:dave :alice :alice alice-own] carols-here)])
+              (chain/above? (perm/given-permission (person :dave) :alice alice-own) carols-here)])
       [true true false false false]]
      ["the rows that the standing reads beside the first two: the place of each permission above the act's own, and none when the first row does not hold the act's permission, or for a first permission"
       (fn [] [(decision/chain-needed carols-act (permission-row carols-here 2))
-              (decision/chain-needed carols-act (end-row :carol 3))
+              (decision/chain-needed carols-act (end-row carols-here 3))
               (decision/chain-needed carols-act nil)
               (decision/chain-needed alices (permission-row alice-own))])
       [[bobs-place alices-place] [] [] []]]
@@ -1747,10 +1780,10 @@
       (fn [] (word carols-act (rows 0 (permission-row bobs 1) 2)))
       nil]
      ["Bob's permission is ended: Bob's own act is refused, with the word of an end"
-      (fn [] (word bobs-act (rows 0 (end-row :bob 3) 2)))
+      (fn [] (word bobs-act (rows 0 (end-row bobs 3) 2)))
       :permission-ended]
      ["what was given beneath it ends with it: Carol's row still holds her permission, and her act is refused"
-      (fn [] (word carols-act (rows 0 (end-row :bob 3) 2)))
+      (fn [] (word carols-act (rows 0 (end-row bobs 3) 2)))
       :permission-above-ended]
      ["Bob is given the same permission again, which has the same id: his act is taken again"
       (fn [] (word bobs-act (rows 0 (permission-row bobs 4) 2)))
@@ -1768,10 +1801,10 @@
       (fn [] (word carols-act (rows 0 nil 2)))
       :permission-above-ended]
      ["a holder of see beneath an end: the word of the end comes before the word of what her permission allows"
-      (fn [] (let [carols-see-here [:carol :alice :alice bobs :see]]
-               (decision/standing :streaming (assoc alices :who :carol :permission carols-see-here)
+      (fn [] (let [carols-see-here (perm/given-permission (person :carol) :alice bobs :see)]
+               (decision/standing :streaming (assoc alices :who (person :carol) :permission (perm/permission-id carols-see-here))
                                   (permission-row carols-see-here 2) nil
-                                  {bobs-place (end-row :bob 3) alices-place (permission-row alice-own)} nil)))
+                                  {bobs-place (end-row bobs 3) alices-place (permission-row alice-own)} nil)))
       :permission-above-ended]
      ["`stands?` reads the permission's own row from the rows too: Alice's stands with her row, Bob's with both, and nothing stands with no row"
       (fn [] [(chain/stands? :alice alice-own {alices-place (permission-row alice-own)})
@@ -1842,44 +1875,53 @@
      ["a value that replaces a fact of the other depot" [(replacing [[:alice :microbatch (uuid 7)] 0])] {[:note-1 :text] (row-by 7 0)} :replaced-fact-not-current]
      ["a depot fact on an entity that is not the lane" [{:e :bob :k :softland.store/depot :v :streaming}] {} :setting-not-on-the-lane]
      ["a depot retract on an entity that is not the lane" [{:e :bob :k :softland.store/depot}] {} :setting-not-on-the-lane]
-     ["a permission given straight beneath the act's own, on an empty place" [{:e :bob :k :softland.store/permission :v bobs}] {} nil]
+     ["a permission given straight beneath the act's own, on an empty place" [(perm/permission-fact bobs)] {} nil]
      ["a holder gives itself a second permission beneath its own: its place holds one"
-      [{:e :alice :k :softland.store/permission :v [:alice :alice :alice alice-own]}] {[:alice :softland.store/permission] (permission-row alice-own)}
+      [(perm/permission-fact (perm/given-permission (person :alice) :alice alice-own))]
+      {[(person :alice) :softland.store/permission] (permission-row alice-own)}
       :holder-has-a-permission]
-     ["a permission given for another lane" [{:e :bob :k :softland.store/permission :v [:bob :team :alice alice-own]}] {} :permission-fact-for-another-lane]
-     ["a permission given with a granted-in that is not the act's lane" [{:e :bob :k :softland.store/permission :v [:bob :alice :team alice-own]}] {} :permission-fact-granted-in-another-lane]
-     ["a permission given with nothing above it, in a lane that is made" [{:e :bob :k :softland.store/permission :v [:bob :alice :alice]}] {} :permission-fact-not-beneath-the-acts-own]
-     ["a permission given beneath a permission that is not the act's own" [{:e :bob :k :softland.store/permission :v [:bob :alice :alice [:carol :alice :alice alice-own]]}] {}
+     ["a permission given for another lane"
+      [(perm/permission-fact (perm/given-permission (person :bob) :team alice-own {:granted-in :alice}))] {} :permission-fact-for-another-lane]
+     ["a permission given with a granted-in that is not the act's lane"
+      [(perm/permission-fact (perm/given-permission (person :bob) :alice alice-own {:granted-in :team}))] {} :permission-fact-granted-in-another-lane]
+     ["a permission given with nothing above it, in a lane that is made"
+      [(perm/permission-fact (perm/first-permission (person :bob) :alice))] {} :permission-fact-not-beneath-the-acts-own]
+     ["a permission given beneath a permission that is not the act's own"
+      [(perm/permission-fact (perm/given-permission (person :bob) :alice (perm/given-permission (person :carol) :alice alice-own)))] {}
       :permission-fact-not-beneath-the-acts-own]
      ["the same permission given a second time, to a holder whose permission stands"
-      [{:e :bob :k :softland.store/permission :v bobs}]
-      {[:bob :softland.store/permission] (permission-row bobs 1) [:alice :softland.store/permission] (permission-row alice-own)} :holder-has-a-permission]
+      [(perm/permission-fact bobs)]
+      {[(person :bob) :softland.store/permission] (permission-row bobs 1) [(person :alice) :softland.store/permission] (permission-row alice-own)} :holder-has-a-permission]
      ["an end of a permission, by the holder above it: a permission fact with no value, at a place that holds a permission"
-      [{:e :bob :k :softland.store/permission}] {[:bob :softland.store/permission] (permission-row bobs 1)} nil]
-     ["an end that names the give which it ends" [{:e :bob :k :softland.store/permission :replaces [[:alice :streaming (uuid 90)] 1]}]
-      {[:bob :softland.store/permission] (permission-row bobs 1)} nil]
+      [(perm/end-fact bobs)] {[(person :bob) :softland.store/permission] (permission-row bobs 1)} nil]
+     ["an end that names the give which it ends"
+      [(perm/end-fact bobs {:replaces [[:alice :streaming (uuid 90)] 1]})]
+      {[(person :bob) :softland.store/permission] (permission-row bobs 1)} nil]
      ["an end that names a give which is no longer at the place: the word of a stale fact"
-      [{:e :bob :k :softland.store/permission :replaces [[:alice :streaming (uuid 89)] 1]}]
-      {[:bob :softland.store/permission] (permission-row bobs 1)} :replaced-fact-not-current]
-     ["an end at an empty place" [{:e :bob :k :softland.store/permission}] {} :no-permission-to-end]
-     ["an end at a place that holds an end" [{:e :bob :k :softland.store/permission}] {[:bob :softland.store/permission] (end-row :bob 3)} :no-permission-to-end]
+      [(perm/end-fact bobs {:replaces [[:alice :streaming (uuid 89)] 1]})]
+      {[(person :bob) :softland.store/permission] (permission-row bobs 1)} :replaced-fact-not-current]
+     ["an end at an empty place" [(perm/end-fact bobs)] {} :no-permission-to-end]
+     ["an end at a place that holds an end" [(perm/end-fact bobs)] {[(person :bob) :softland.store/permission] (end-row bobs 3)} :no-permission-to-end]
      ["an end of the lane's first permission, by its own holder: it does not end"
-      [{:e :alice :k :softland.store/permission}] {[:alice :softland.store/permission] (permission-row alice-own)} :first-permission-does-not-end]
+      [(perm/end-fact alice-own)] {[(person :alice) :softland.store/permission] (permission-row alice-own)} :first-permission-does-not-end]
      ["an end of a permission two beneath the act's own: anyone above ends it"
-      [{:e :carol :k :softland.store/permission}] {[:carol :softland.store/permission] (permission-row [:carol :alice :alice bobs] 2)} nil]
+      [(perm/end-fact (perm/given-permission (person :carol) :alice bobs))]
+      {[(person :carol) :softland.store/permission] (permission-row (perm/given-permission (person :carol) :alice bobs) 2)} nil]
      ["a give after an end: the place holds an end, and the give is taken"
-      [{:e :bob :k :softland.store/permission :v bobs}] {[:bob :softland.store/permission] (end-row :bob 3)} nil]
-     ["a give after an end, of another permission than the one that ended" [{:e :bob :k :softland.store/permission :v bobs-see}]
-      {[:bob :softland.store/permission] (end-row :bob 3)} nil]
+      [(perm/permission-fact bobs)] {[(person :bob) :softland.store/permission] (end-row bobs 3)} nil]
+     ["a give after an end, of another permission than the one that ended" [(perm/permission-fact bobs-see)]
+      {[(person :bob) :softland.store/permission] (end-row bobs 3)} nil]
      ["a give at a place whose permission no longer stands, because the one above it ended: it is taken, and its row takes the place"
-      [{:e :carol :k :softland.store/permission :v [:carol :alice :alice alice-own]}]
-      {[:carol :softland.store/permission] (permission-row [:carol :alice :alice bobs] 2) [:bob :softland.store/permission] (end-row :bob 3)
-       [:alice :softland.store/permission] (permission-row alice-own)}
+      [(perm/permission-fact (perm/given-permission (person :carol) :alice alice-own))]
+      {[(person :carol) :softland.store/permission] (permission-row (perm/given-permission (person :carol) :alice bobs) 2)
+       [(person :bob) :softland.store/permission] (end-row bobs 3)
+       [(person :alice) :softland.store/permission] (permission-row alice-own)}
       nil]
      ["a give at a place whose permission stands beneath another holder: a holder has one permission in a lane"
-      [{:e :carol :k :softland.store/permission :v [:carol :alice :alice alice-own]}]
-      {[:carol :softland.store/permission] (permission-row [:carol :alice :alice bobs] 2) [:bob :softland.store/permission] (permission-row bobs 1)
-       [:alice :softland.store/permission] (permission-row alice-own)}
+      [(perm/permission-fact (perm/given-permission (person :carol) :alice alice-own))]
+      {[(person :carol) :softland.store/permission] (permission-row (perm/given-permission (person :carol) :alice bobs) 2)
+       [(person :bob) :softland.store/permission] (permission-row bobs 1)
+       [(person :alice) :softland.store/permission] (permission-row alice-own)}
       :holder-has-a-permission]
      ["a retract of the lane's depot" [{:e :alice :k :softland.store/depot}] {} :store-key-retract-not-built]
      ["the other depot for a lane that is made" [{:e :alice :k :softland.store/depot :v :microbatch}] {} :changing-a-depot-not-decided]
@@ -1887,7 +1929,8 @@
      ["a stale fact and a depot fact on another entity: the stale fact gives the word"
       [(replacing [(act-id 6) 0]) {:e :bob :k :softland.store/depot :v :streaming}] {[:note-1 :text] (row-by 7 0)} :replaced-fact-not-current]
      ["a depot fact on another entity before a permission for another lane: the setting gives the word"
-      [{:e :bob :k :softland.store/permission :v [:bob :team :alice alice-own]} {:e :carol :k :softland.store/depot :v :streaming}] {} :setting-not-on-the-lane]
+      [(perm/permission-fact (perm/given-permission (person :bob) :team alice-own {:granted-in :alice}))
+       {:e :carol :k :softland.store/depot :v :streaming}] {} :setting-not-on-the-lane]
      ["who may see the lane, on an empty place" [{:e :alice :k see :v :everyone}] {} nil]
      ["what the lane builds on, on an empty place" [{:e :alice :k on :v [:base]}] {} nil]
      ["the lane's marked keys, on an empty place" [{:e :alice :k marks :v #{:on}}] {} nil]
@@ -1911,14 +1954,15 @@
      ["marked keys, on an entity that is not the lane" [{:e :bob :k marks :v #{:on}}] {} :setting-not-on-the-lane]
      ["a retract of who may see on an entity that is not the lane: the setting gives the word" [{:e :bob :k see}] {} :setting-not-on-the-lane]
      ["a second give to a holder of see whose permission stands, of see and act: see becomes see and act by an end and a give after it"
-      [{:e :bob :k :softland.store/permission :v bobs-see-and-act}]
-      {[:bob :softland.store/permission] (permission-row bobs-see 1) [:alice :softland.store/permission] (permission-row alice-own)} :holder-has-a-permission]
-     ["a permission given with the slot, straight beneath the act's own, on an empty place" [{:e :bob :k :softland.store/permission :v bobs-see}] {} nil]
+      [(perm/permission-fact bobs-see-and-act)]
+      {[(person :bob) :softland.store/permission] (permission-row bobs-see 1) [(person :alice) :softland.store/permission] (permission-row alice-own)} :holder-has-a-permission]
+     ["a permission given with the slot, straight beneath the act's own, on an empty place" [(perm/permission-fact bobs-see)] {} nil]
      ["a permission given with the slot beneath a permission that is not the act's own"
-      [{:e :bob :k :softland.store/permission :v [:bob :alice :alice [:carol :alice :alice alice-own] :see]}] {} :permission-fact-not-beneath-the-acts-own]
+      [(perm/permission-fact (perm/given-permission (person :bob) :alice (perm/given-permission (person :carol) :alice alice-own) :see))] {}
+      :permission-fact-not-beneath-the-acts-own]
      ["a tool's own fact under the bare word :class, on an entity that is not the lane: no setting" [(value-at :bob :class)] {} nil]
      ["a tool's own fact under the bare word :permission, on an entity that holds a permission: no permission fact"
-      [(value-at :bob :permission)] {[:bob :softland.store/permission] (permission-row bobs)} nil]
+      [(value-at (person :bob) :permission)] {[(person :bob) :softland.store/permission] (permission-row bobs)} nil]
      ["a fact copied from the log into another act, on the place where it is the current fact: a value like any other, so it is taken"
       [(value-at :note-1 :text "a text before")] {[:note-1 :text] (row-by 7 0)} nil]]))
 
@@ -1940,7 +1984,7 @@
      (fn [] (decision/places-needed
              (act-of (arrived 1 (value-at :note-1 :text)
                               (assoc (value-at :note-2 :text) :replaces [(act-id 7) 0])
-                              {:e :bob :k :softland.store/permission :v bobs}
+                              (perm/permission-fact bobs)
                               (value-at :carol :permission)))
              false))
      [":alice :note-2 :text" ":alice :bob :softland.store/permission"]]
@@ -1954,49 +1998,52 @@
     ["who may write the setting, the list and the marks: the holder of the lane's first permission, and no holder of a given one, whatever it allows"
      (fn [] (let [act (act-of (arrived 1 {:e :alice :k :softland.store/who-may-see :v :everyone}))]
               [(decision/who-may-write-fault act (first (:facts act)))
-               (decision/who-may-write-fault (assoc act :who :bob :permission bobs) (first (:facts act)))
-               (decision/who-may-write-fault (assoc act :who :bob :permission bobs-see-and-act) (first (:facts act)))]))
+               (decision/who-may-write-fault (assoc act :who (person :bob) :permission (perm/permission-id bobs)) (first (:facts act)))
+               (decision/who-may-write-fault (assoc act :who (person :bob) :permission (perm/permission-id bobs-see-and-act)) (first (:facts act)))]))
      [nil :only-the-first-holder-writes-a-setting :only-the-first-holder-writes-a-setting]]
     ["a setting, a list and a mark by a holder of a given permission are refused, each with that word; a fact of a tool by the same holder is taken"
-     (fn [] (mapv (fn [fact] (decision/places :streaming (assoc (act-of (arrived 1 fact)) :who :bob :permission bobs) false {}))
+     (fn [] (mapv (fn [fact] (decision/places :streaming (assoc (act-of (arrived 1 fact)) :who (person :bob) :permission (perm/permission-id bobs)) false {}))
                   [{:e :alice :k :softland.store/who-may-see :v :everyone}
                    {:e :alice :k :softland.store/builds-on :v [:base]}
                    {:e :alice :k :softland.store/marked-keys :v #{:on}}
                    (value-at :note-1 :text)]))
      [:only-the-first-holder-writes-a-setting :only-the-first-holder-writes-a-setting :only-the-first-holder-writes-a-setting nil]]
     ["who ends a permission, when the act is Bob's, under his given permission: his own; one that he gave; not one beside his, not the one above his, not the lane's first"
-     (fn [] (let [carols-here [:carol :alice :alice bobs]
-                  daves [:dave :alice :alice alice-own]
-                  ends (fn [holder held]
-                         (decision/places :streaming
-                                          (assoc (act-of (arrived 1 {:e holder :k :softland.store/permission})) :who :bob :permission bobs)
-                                          false
-                                          (keyed {[holder :softland.store/permission] held})))]
-              [(ends :bob (permission-row bobs 1))
-               (ends :carol (permission-row carols-here 2))
-               (ends :dave (permission-row daves 1))
-               (ends :carol (permission-row [:carol :alice :alice daves] 2))
-               (ends :alice (permission-row alice-own))]))
+     (fn [] (let [carols-here (perm/given-permission (person :carol) :alice bobs)
+                  daves (perm/given-permission (person :dave) :alice alice-own)
+                  carols-by-dave (perm/given-permission (person :carol) :alice daves)
+                  ends (fn [target held]
+                         (let [{:keys [e k]} (perm/end-fact target)]
+                           (decision/places :streaming
+                                            (assoc (act-of (arrived 1 (perm/end-fact target))) :who (person :bob) :permission (perm/permission-id bobs))
+                                            false
+                                            (keyed {[e k] held}))))]
+              [(ends bobs (permission-row bobs 1))
+               (ends carols-here (permission-row carols-here 2))
+               (ends daves (permission-row daves 1))
+               (ends carols-by-dave (permission-row carols-by-dave 2))
+               (ends alice-own (permission-row alice-own))]))
      [nil nil :not-above-the-permission :not-above-the-permission :first-permission-does-not-end]]
     ["the rows that a give needs beside its place: the places above the permission that its place holds, without those in hand; none for a give at an empty place or at an end, none for an end, none for a making act"
-     (fn [] (let [carols-here [:carol :alice :alice bobs]
-                  give (act-of (arrived 1 {:e :carol :k :softland.store/permission :v [:carol :alice :alice alice-own]}))
-                  end (act-of (arrived 1 {:e :carol :k :softland.store/permission}))
-                  held (keyed {[:carol :softland.store/permission] (permission-row carols-here 2)})]
+     (fn [] (let [carols-here (perm/given-permission (person :carol) :alice bobs)
+                  carols-from-alice (perm/given-permission (person :carol) :alice alice-own)
+                  give (act-of (arrived 1 (perm/permission-fact carols-from-alice)))
+                  end (act-of (arrived 1 (perm/end-fact carols-here)))
+                  held (keyed {[(person :carol) :softland.store/permission] (permission-row carols-here 2)})]
               [(decision/chains-needed give false held {})
                (decision/chains-needed give false held {alices-place (permission-row alice-own)})
-               (decision/chains-needed give false (keyed {[:carol :softland.store/permission] (end-row :carol 3)}) {})
-               (decision/chains-needed give false (keyed {[:carol :softland.store/permission] nil}) {})
+               (decision/chains-needed give false (keyed {[(person :carol) :softland.store/permission] (end-row carols-here 3)}) {})
+               (decision/chains-needed give false (keyed {[(person :carol) :softland.store/permission] nil}) {})
                (decision/chains-needed end false held {})
                (decision/chains-needed give true held {})]))
      [[":alice :bob :softland.store/permission" alices-place] [":alice :bob :softland.store/permission"] [] [] [] []]]
     ["a making act reads no place, and is not held to the check of a permission fact or to one write for a place"
-     (fn [] (let [act (making :team :alice :alice)]
+     (fn [] (let [act (making :team (person :alice) (person :alice))]
               [(decision/places-needed act true) (decision/places :streaming act true {})
                (decision/places :streaming act false {})]))
      [[] nil :permission-fact-not-beneath-the-acts-own]]
     ["a making act that names something to replace is stale: nothing is current in a lane that is not made"
-     (fn [] (decision/places :streaming (assoc-in (making :team :alice :alice) [:facts 0 :replaces] [[:team :streaming (uuid 7)] 0]) true {}))
+     (fn [] (decision/places :streaming (assoc-in (making :team (person :alice) (person :alice)) [:facts 0 :replaces] [[:team :streaming (uuid 7)] 0]) true {}))
      :replaced-fact-not-current]]))
 
 (def ^:private writes-cases
@@ -2068,12 +2115,13 @@
        [:by-act :by-index :permission :stamp :time :value :who]]]
      ["the texts of who and of the permission are made once for the act and each row holds them: an act by a who that is a UUID, with a value and a retract"
       (fn [] (let [act (act-of (assoc (arrived 1 (value-at :note-1 :text) {:e :note-2 :k :text})
-                                      :who (uuid 77) :permission [(uuid 77) :alice :alice alice-own :see-and-act]))]
+                                      :who (uuid 77)
+                                      :permission (perm/permission-id (perm/given-permission (uuid 77) :alice alice-own :see-and-act))))]
                (mapv (fn [[_ _ row]] (select-keys row [:who :permission]))
                      (take 2 (decision/writes (act-id 1) act nil stamp now digest {})))))
       (vec (repeat 2 {:who uuid-who :permission (str "[" uuid-who " :alice :alice [:alice :alice :alice] :see-and-act]")}))]
      ["an accept of a making act writes the depot, the first permission, the answer, the last stamp; each row holds who made the lane, the permission that the act named and the time on the act"
-      (fn [] (decision/writes [:team :streaming (uuid 1)] (making :team :alice :alice) nil stamp now digest {}))
+      (fn [] (decision/writes [:team :streaming (uuid 1)] (making :team (person :alice) (person :alice)) nil stamp now digest {}))
       [[:fact ":team :team :softland.store/depot"
         {:value ":streaming" :by-act (uuid 1) :by-index 0 :stamp stamp :time now :who ":alice" :permission "[:alice :team :team]"}]
        [:fact ":team :alice :softland.store/permission"
@@ -2082,12 +2130,12 @@
        [:last-stamp nil stamp]]]
      ["the system makes a personal lane for its person: the rows hold the system as who, and the person's permission"
       (fn [] (mapv (fn [[_ _ row]] (select-keys row [:who :permission]))
-                   (take 2 (decision/writes [:alice :streaming (uuid 1)] (making :alice :system :alice) nil stamp now digest {}))))
+                   (take 2 (decision/writes [:alice :streaming (uuid 1)] (making :alice :system (person :alice)) nil stamp now digest {}))))
       [{:who ":system" :permission "[:alice :alice :alice]"} {:who ":system" :permission "[:alice :alice :alice]"}]]
      ["an accept of a retract and a permission given writes a row for each: the retract's has no value; each holds who, the permission and the time"
       (fn [] (mapv (fn [[which key row]] [which key (if (map? row) (dissoc row :by-act :stamp) row)])
                    (decision/writes (act-id 1)
-                                    (act-of (arrived 1 {:e :note-1 :k :text} {:e :bob :k :softland.store/permission :v bobs}))
+                                    (act-of (arrived 1 {:e :note-1 :k :text} (perm/permission-fact bobs)))
                                     nil stamp now digest {})))
       [[:fact note-place (merge {:by-index 0 :time now} written-by-alice)]
        [:fact ":alice :bob :softland.store/permission"
@@ -2095,13 +2143,13 @@
        [:answer answer-key {:time now :digest digest}]
        [:last-stamp nil stamp]]]
      ["a give with the slot writes the permission's whole text, slot and all: what the gate later compares with the permission that an act names"
-      (fn [] (let [[[_ k row]] (decision/writes (act-id 1) (act-of (arrived 1 {:e :bob :k :softland.store/permission :v bobs-see}))
+      (fn [] (let [[[_ k row]] (decision/writes (act-id 1) (act-of (arrived 1 (perm/permission-fact bobs-see)))
                                                 nil stamp now digest {})]
                [k (:value row) (record/holds-value? row bobs-see) (record/holds-value? row bobs)]))
       [":alice :bob :softland.store/permission" "[:bob :alice :alice [:alice :alice :alice] :see]" true false]]
      ["a give of a permission 32 deep writes its whole text, as Clojure prints the permission, with its 32 vectors; the row holds that permission and not the one above it"
-      (fn [] (let [given (reduce (fn [parent _] [:bob :alice :alice parent]) alice-own (range 31))
-                   [[_ _ row]] (decision/writes (act-id 1) (act-of (arrived 1 {:e :bob :k :softland.store/permission :v given}))
+      (fn [] (let [given (perm/deep-permission (person :bob) :alice alice-own 31)
+                   [[_ _ row]] (decision/writes (act-id 1) (act-of (arrived 1 (perm/permission-fact given)))
                                                 nil stamp now digest {})]
                [(= (:value row) (pr-str given)) (count (re-seq #"\[" (:value row)))
                 (record/holds-value? row given) (record/holds-value? row (nth given 3))]))
@@ -2288,13 +2336,13 @@
       [[(entry-key 100 :canvas-1 (uuid 4)) (entry-key 100 :canvas-1 :b1) (entry-key 100 :canvas-1 :b2)]
        [(entry-key 100 :canvas-2 :b3)] []]]
      ["a fact under a key that the lane does not mark, beside a marked one, and a fact under a store key: no row in the order"
-      (fn [] (let [record (streaming-step m 231 110 (value-at :b1 :text :c1) {:e :bob :k :softland.store/permission :v bobs})]
+      (fn [] (let [record (streaming-step m 231 110 (value-at :b1 :text :c1) (perm/permission-fact bobs))]
                [(which-keys record) (keys-of record)]))
       [[[:fact ":alice :b1 :text" true] [:fact ":alice :bob :softland.store/permission" true]] #{}]]
      ["which acts read the lane's marked keys: one with a fact under a plain key, or under the marked keys; not a give, a setting or a list; and the rows before that are still to be read"
       (fn [] [(mapv (fn [facts] (decision/reads-marked-keys? (act-of (apply arrived 1 facts))))
                     [[(on-fact :b1 :c1)] [{:e :b1 :k :on}] [{:e :alice :k :softland.store/marked-keys :v #{:on}}]
-                     [{:e :bob :k :softland.store/permission :v bobs}]
+                     [(perm/permission-fact bobs)]
                      [{:e :alice :k :softland.store/who-may-see :v :everyone}] [{:e :alice :k :softland.store/builds-on :v []}]])
               (decision/reads-marked-keys? nil)
               (decision/marked-keys-place (act-of good))
@@ -2314,10 +2362,10 @@
 
 ;; ------------------------------------------------------------------- the base
 
-(def ^:private system-own "The system's permission in the base." [:system :base :base])
-(def ^:private carols "Carol's permission in the base, beneath the system's." [:carol :base :base system-own])
-(def ^:private daves-in-base "Dave's permission in the base, beneath the system's." [:dave :base :base system-own])
-(def ^:private mallorys "A permission in the base that no act gives." [:mallory :base :base system-own])
+(def ^:private system-own "The system's permission in the base." (perm/first-permission :system :base))
+(def ^:private carols "Carol's permission in the base, beneath the system's." (perm/given-permission (person :carol) :base system-own))
+(def ^:private daves-in-base "Dave's permission in the base, beneath the system's." (perm/given-permission (person :dave) :base system-own))
+(def ^:private mallorys "A permission in the base that no act gives." (perm/given-permission (person :mallory) :base system-own))
 
 (defn- base-id
   "A microbatch act-id in the base, with a fixed UUID."
@@ -2330,7 +2378,7 @@
   it and these facts."
   [n who permission & facts]
   {:act-id (base-id n) :depot :microbatch declaration/time-part now
-   :version 1 :who who :lane :base :permission permission :session :s1
+   :version 1 :who who :lane :base :permission (perm/permission-id permission) :session :s1
    :facts (vec facts)})
 
 (def ^:private base-writer
@@ -2363,12 +2411,13 @@
   permission's row is younger than the row of the system's, as a
   permission that stands has it."
   [permission]
-  (fact-row base-writer (arrived-fact (first permission) :softland.store/permission permission) (uuid 800) 1
-            (if (= 3 (count permission)) 0 before-the-line) time-before-the-line))
+  (let [{:keys [e k v]} (perm/permission-fact permission)]
+    (fact-row base-writer (arrived-fact e k v) (uuid 800) 1
+              (if (= 3 (count permission)) 0 before-the-line) time-before-the-line)))
 
 (def ^:private carols-see
   "Carol's permission in the base, beneath the system's, that says see."
-  [:carol :base :base system-own :see])
+  (perm/given-permission (person :carol) :base system-own :see))
 
 (def ^:private base-marks-place
   "The key of the base's marked-keys place."
@@ -2395,18 +2444,16 @@
   whether the act makes the lane. An act is decided against the record as
   the acts before it left it, so an empty place of a permission in a base
   that is made is a permission that the record does not hold."
-  (let [act (act-of (base-thing 1 :carol carols {:e :doc-1 :k :note}))
-        seeing (act-of (base-thing 1 :carol carols-see {:e :doc-1 :k :note}))
-        by-another (act-of (base-thing 1 :mallory carols {:e :doc-1 :k :note}))
-        base-making (act-of (base-thing 1 :system system-own
-                                        {:e :base :k :softland.store/depot :v :microbatch}
-                                        {:e :system :k :softland.store/permission :v system-own}))]
+  (let [act (act-of (base-thing 1 (person :carol) carols {:e :doc-1 :k :note}))
+        seeing (act-of (base-thing 1 (person :carol) carols-see {:e :doc-1 :k :note}))
+        by-another (act-of (base-thing 1 (person :mallory) carols {:e :doc-1 :k :note}))
+        base-making (act-of (apply base-thing 1 :system system-own (perm/making-facts :base :system)))]
     [["the row holds the act's permission" act (base-permission-row carols) nil nil false]
      ["the row holds the act's permission, and it says see: an act needs act" seeing (base-permission-row carols-see) nil
       :permission-does-not-allow-acting false]
      ["the row holds a permission that says see, and the act names it without the slot" act (base-permission-row carols-see) nil
       :permission-does-not-stand false]
-     ["the row holds another permission" act (base-permission-row [:carol :base :base carols]) nil
+     ["the row holds another permission" act (base-permission-row (perm/given-permission (person :carol) :base carols)) nil
       :permission-does-not-stand false]
      ["the place is empty in a base that is made: the record does not hold the permission" act nil base-depot-row
       :permission-does-not-stand false]
@@ -2452,9 +2499,9 @@
   makes the lane. The first six are for a lane of the other gate. The
   last four are the same kinds of act on their own gate's depot."
   (let [base-making (making :base :system :system)
-        personal (making :alice :system :alice)
-        group (making :team :alice :alice)
-        of-a-uuid (making (uuid 7) :system (uuid 8))
+        personal (making :alice :system (person :alice))
+        group (making :team (person :alice) (person :alice))
+        of-a-uuid (making (uuid 7) :system (person (uuid 8)))
         word :lane-belongs-to-the-other-gate]
     [["an act into the base, on the streaming depot" :streaming base-on-the-streaming-depot true false false word false]
      ["the base's making act, on the streaming depot" :streaming (as-sent base-making :streaming) true false true word false]
@@ -2641,60 +2688,53 @@
   is the walk's own: Alice is the lane's first holder, and gives
   permissions for runs, and for the lane, to Bob, Carol, Dave and Frank;
   Dave gives one to Erin."
-  (let [run-key :softland.store/run-permission
-        act-key :softland.store/act-permission
-        holder-key :softland.store/permission
-        thing (fn [n who permission session & facts]
+  (let [thing (fn [n who permission session & facts]
                 {:act-id (act-id n) :depot :streaming declaration/time-part now
-                 :version 1 :who who :lane :alice :permission permission :session session
+                 :version 1 :who who :lane :alice :permission (perm/permission-id permission) :session session
                  :facts (vec facts)})
         note (fn [n] {:e (keyword (str "covered-" n)) :k :text :v (str "act " n)})
-        for-run (fn [who session allows] [who :alice :alice alice-own allows [:run session]])
+        for-run (fn [who session allows] (perm/run-permission who :alice alice-own session allows))
         gives (fn [n giver held given]
-                (thing n giver held :alice-s1
-                       {:e (case (first (act/covers given)) :run (second (act/covers given)) :act (second (act/covers given)) (first given))
-                        :k (case (first (act/covers given)) :run run-key :act act-key holder-key)
-                        :v given}))
-        r7 (for-run :bob :run-7 :see-and-act)
-        r8 (for-run :bob :run-8 :see-and-act)
-        bobs-standing-see [:bob :alice :alice alice-own :see]
-        carols [:carol :alice :alice alice-own]
-        rc (for-run :carol :run-c :see-and-act)
-        daves [:dave :alice :alice alice-own]
-        re [:erin :alice :alice daves :see-and-act [:run :run-e]]
-        rf (for-run :frank :run-f :see)
-        line [(thing 1 :alice alice-own :alice-s1
-                     {:e :alice :k :softland.store/depot :v :streaming} {:e :alice :k holder-key :v alice-own})
-              (gives 2 :alice alice-own r7)
-              (thing 3 :bob r7 :run-7 (note 3))
-              (thing 4 :bob r7 :run-8 (note 4))
-              (thing 5 :carol r7 :run-7 (note 5))
-              (thing 6 :bob r7 :run-7 {:e :bob :k holder-key :v [:bob :alice :alice r7]})
-              (thing 7 :bob r7 :run-7 {:e :alice :k :softland.store/who-may-see :v :everyone})
-              (gives 8 :alice alice-own bobs-standing-see)
-              (thing 9 :bob bobs-standing-see :run-7 (note 9))
-              (thing 10 :bob r7 :run-7 (note 10))
-              (gives 11 :alice alice-own r8)
-              (thing 12 :bob r8 :run-8 {:e :run-7 :k run-key})
-              (thing 13 :bob r7 :run-7 {:e :run-7 :k run-key})
-              (thing 14 :bob r7 :run-7 (note 14))
-              (thing 15 :bob r8 :run-8 (note 15))
-              (gives 16 :alice alice-own r7)
-              (thing 17 :bob r7 :run-7 (note 17))
-              (thing 18 :alice alice-own :alice-s1 {:e :run-8 :k run-key})
-              (thing 19 :bob r8 :run-8 (note 19))
-              (gives 40 :alice alice-own carols)
-              (gives 41 :alice alice-own rc)
-              (thing 42 :carol carols :carol-s1 {:e :run-c :k run-key})
-              (thing 43 :carol rc :run-c (note 43))
-              (gives 44 :alice alice-own daves)
-              (gives 45 :dave daves re)
-              (thing 46 :erin re :run-e (note 46))
-              (thing 47 :alice alice-own :alice-s1 {:e :dave :k holder-key})
-              (thing 48 :erin re :run-e (note 48))
-              (gives 49 :alice alice-own (for-run :carol :run-7 :see-and-act))
-              (gives 50 :alice alice-own rf)
-              (thing 51 :frank rf :run-f (note 51))]
+                (thing n giver held :alice-s1 (perm/permission-fact given)))
+        r7 (for-run (person :bob) :run-7 :see-and-act)
+        r8 (for-run (person :bob) :run-8 :see-and-act)
+        bobs-standing-see (perm/given-permission (person :bob) :alice alice-own :see)
+        carols (perm/given-permission (person :carol) :alice alice-own)
+        rc (for-run (person :carol) :run-c :see-and-act)
+        daves (perm/given-permission (person :dave) :alice alice-own)
+        re (perm/run-permission (person :erin) :alice daves :run-e :see-and-act)
+        rf (for-run (person :frank) :run-f :see)
+        line [(apply thing 1 (person :alice) alice-own :alice-s1 (perm/making-facts :alice (person :alice)))
+              (gives 2 (person :alice) alice-own r7)
+              (thing 3 (person :bob) r7 :run-7 (note 3))
+              (thing 4 (person :bob) r7 :run-8 (note 4))
+              (thing 5 (person :carol) r7 :run-7 (note 5))
+              (thing 6 (person :bob) r7 :run-7 (perm/permission-fact (perm/given-permission (person :bob) :alice r7)))
+              (thing 7 (person :bob) r7 :run-7 {:e :alice :k :softland.store/who-may-see :v :everyone})
+              (gives 8 (person :alice) alice-own bobs-standing-see)
+              (thing 9 (person :bob) bobs-standing-see :run-7 (note 9))
+              (thing 10 (person :bob) r7 :run-7 (note 10))
+              (gives 11 (person :alice) alice-own r8)
+              (thing 12 (person :bob) r8 :run-8 (perm/end-fact r7))
+              (thing 13 (person :bob) r7 :run-7 (perm/end-fact r7))
+              (thing 14 (person :bob) r7 :run-7 (note 14))
+              (thing 15 (person :bob) r8 :run-8 (note 15))
+              (gives 16 (person :alice) alice-own r7)
+              (thing 17 (person :bob) r7 :run-7 (note 17))
+              (thing 18 (person :alice) alice-own :alice-s1 (perm/end-fact r8))
+              (thing 19 (person :bob) r8 :run-8 (note 19))
+              (gives 40 (person :alice) alice-own carols)
+              (gives 41 (person :alice) alice-own rc)
+              (thing 42 (person :carol) carols :carol-s1 (perm/end-fact rc))
+              (thing 43 (person :carol) rc :run-c (note 43))
+              (gives 44 (person :alice) alice-own daves)
+              (gives 45 (person :dave) daves re)
+              (thing 46 (person :erin) re :run-e (note 46))
+              (thing 47 (person :alice) alice-own :alice-s1 (perm/end-fact daves))
+              (thing 48 (person :erin) re :run-e (note 48))
+              (gives 49 (person :alice) alice-own (for-run (person :carol) :run-7 :see-and-act))
+              (gives 50 (person :alice) alice-own rf)
+              (thing 51 (person :frank) rf :run-f (note 51))]
         after (walked-line empty-task :streaming line)]
     [["what a permission covers is its sixth slot, and what it allows its fifth: none for a permission with fewer slots; a run"
       (fn [] [(mapv act/covers [alice-own bobs bobs-see r7]) (mapv act/allows [r7 rf])])
@@ -2734,88 +2774,83 @@
   Dan one beneath his. Each yes is for Erin: for her act X, a fact of one
   value under a plain key in her run :run-x, unless a case says other. A
   number is the uuid of an act-id, and of a yes's id from 201 on."
-  (let [act-key :softland.store/act-permission
-        holder-key :softland.store/permission
-        thing (fn [n who permission session & facts]
+  (let [thing (fn [n who permission session & facts]
                 {:act-id (act-id n) :depot :streaming declaration/time-part now
-                 :version 1 :who who :lane :alice :permission permission :session session
+                 :version 1 :who who :lane :alice :permission (perm/permission-id permission) :session session
                  :facts (vec facts)})
         maker (fn [who session & facts] {:version 1 :who who :lane :alice :session session :facts (vec facts)})
         under (fn [n permission maker-act]
-                (merge maker-act {:act-id (act-id n) :depot :streaming declaration/time-part now :permission permission}))
+                (merge maker-act {:act-id (act-id n) :depot :streaming declaration/time-part now
+                                  :permission (perm/permission-id permission)}))
         yes (fn [n holder above maker-act]
-              [holder :alice :alice above :see-and-act [:act (uuid n) (digest/hex-for-a-yes maker-act)]])
+              (perm/act-permission holder :alice above (uuid n) (digest/hex-for-a-yes maker-act)))
         give (fn [n giver held given]
-               (thing n giver held :giver-s1
-                      (if (= :act (first (act/covers given)))
-                        {:e (second (act/covers given)) :k act-key :v given}
-                        {:e (first given) :k holder-key :v given})))
-        end-yes (fn [n who held a-yes] (thing n who held :ender-s1 {:e (second (act/covers a-yes)) :k act-key}))
-        erins [:erin :alice :alice alice-own]
-        dans [:dan :alice :alice bobs]
-        x (maker :erin :run-x {:e :experiment-3 :k :dose :v 5})
-        x-another-way {:version 1 :who :erin :lane :alice :session :run-x :subjects #{} :based-on {}
+               (thing n giver held :giver-s1 (perm/permission-fact given)))
+        end-yes (fn [n who held a-yes] (thing n who held :ender-s1 (perm/end-fact a-yes)))
+        erins (perm/given-permission (person :erin) :alice alice-own)
+        dans (perm/given-permission (person :dan) :alice bobs)
+        x (maker (person :erin) :run-x {:e :experiment-3 :k :dose :v 5})
+        x-another-way {:version 1 :who (person :erin) :lane :alice :session :run-x :subjects #{} :based-on {}
                        :because-of nil :claimed-when nil :facts (list {:e :experiment-3 :k :dose :v 5N :replaces nil})}
-        x-changed (maker :erin :run-x {:e :experiment-3 :k :dose :v 50})
-        x-in-another-run (maker :erin :run-y {:e :experiment-3 :k :dose :v 5})
-        end-of-yi (maker :erin :run-x {:e (uuid 207) :k act-key})
-        its-own-end (maker :erin :run-x {:e (uuid 210) :k act-key})
-        a-give (maker :erin :run-x {:e :fay :k holder-key :v [:fay :alice :alice erins]})
-        ya (yes 201 :erin bobs x)
-        yb (yes 202 :erin alice-own x)
-        yc (yes 203 :erin bobs x)
-        yd (yes 201 :erin bobs x-changed)
-        ye (yes 204 :erin bobs x)
-        yg (yes 205 :erin dans x)
-        yh (yes 206 :erin dans x)
-        yi (yes 207 :erin dans x)
-        yk (yes 209 :erin alice-own end-of-yi)
-        yl (yes 210 :erin alice-own its-own-end)
-        ym (yes 211 :erin dans x)
-        yn (yes 212 :erin alice-own a-give)
-        line [(thing 1 :alice alice-own :alice-s1
-                     {:e :alice :k :softland.store/depot :v :streaming} {:e :alice :k holder-key :v alice-own})
-              (give 2 :alice alice-own bobs)
-              (give 3 :alice alice-own erins)
-              (give 4 :bob bobs dans)
+        x-changed (maker (person :erin) :run-x {:e :experiment-3 :k :dose :v 50})
+        x-in-another-run (maker (person :erin) :run-y {:e :experiment-3 :k :dose :v 5})
+        end-of-yi (maker (person :erin) :run-x (perm/end-act-id-fact (uuid 207)))
+        its-own-end (maker (person :erin) :run-x (perm/end-act-id-fact (uuid 210)))
+        a-give (maker (person :erin) :run-x (perm/permission-fact (perm/given-permission (person :fay) :alice erins)))
+        ya (yes 201 (person :erin) bobs x)
+        yb (yes 202 (person :erin) alice-own x)
+        yc (yes 203 (person :erin) bobs x)
+        yd (yes 201 (person :erin) bobs x-changed)
+        ye (yes 204 (person :erin) bobs x)
+        yg (yes 205 (person :erin) dans x)
+        yh (yes 206 (person :erin) dans x)
+        yi (yes 207 (person :erin) dans x)
+        yk (yes 209 (person :erin) alice-own end-of-yi)
+        yl (yes 210 (person :erin) alice-own its-own-end)
+        ym (yes 211 (person :erin) dans x)
+        yn (yes 212 (person :erin) alice-own a-give)
+        line [(apply thing 1 (person :alice) alice-own :alice-s1 (perm/making-facts :alice (person :alice)))
+              (give 2 (person :alice) alice-own bobs)
+              (give 3 (person :alice) alice-own erins)
+              (give 4 (person :bob) bobs dans)
               (under 5 ya x)
-              (give 6 :bob bobs ya)
+              (give 6 (person :bob) bobs ya)
               (under 7 ya x-changed)
               (under 8 ya x-in-another-run)
               (under 5 ya x)
               (under 10 ya x-another-way)
               (under 11 ya x)
-              (end-yes 12 :bob bobs ya)
-              (give 13 :bob bobs yd)
-              (give 14 :alice alice-own yb)
-              (give 15 :bob bobs yc)
+              (end-yes 12 (person :bob) bobs ya)
+              (give 13 (person :bob) bobs yd)
+              (give 14 (person :alice) alice-own yb)
+              (give 15 (person :bob) bobs yc)
               (under 16 yc x)
               (under 17 yb x)
               (under 18 yb x)
-              (give 19 :bob bobs ye)
-              (end-yes 20 :bob bobs ye)
+              (give 19 (person :bob) bobs ye)
+              (end-yes 20 (person :bob) bobs ye)
               (under 21 ye x)
-              (give 22 :bob bobs ye)
-              (give 23 :dan dans yg)
-              (end-yes 24 :bob bobs yg)
+              (give 22 (person :bob) bobs ye)
+              (give 23 (person :dan) dans yg)
+              (end-yes 24 (person :bob) bobs yg)
               (under 25 yg x)
-              (give 26 :dan dans yh)
-              (end-yes 27 :erin erins yh)
-              (give 28 :dan dans yi)
-              (give 29 :alice alice-own yk)
+              (give 26 (person :dan) dans yh)
+              (end-yes 27 (person :erin) erins yh)
+              (give 28 (person :dan) dans yi)
+              (give 29 (person :alice) alice-own yk)
               (under 30 yk end-of-yi)
-              (give 31 :alice alice-own yl)
+              (give 31 (person :alice) alice-own yl)
               (under 32 yl its-own-end)
               (under 33 yl its-own-end)
-              (give 34 :alice alice-own yn)
+              (give 34 (person :alice) alice-own yn)
               (under 35 yn a-give)
-              (give 36 :dan dans ym)
-              (thing 37 :alice alice-own :alice-s1 {:e :bob :k holder-key})
+              (give 36 (person :dan) dans ym)
+              (thing 37 (person :alice) alice-own :alice-s1 (perm/end-fact bobs))
               (under 38 ym x)
-              (give 39 :alice alice-own bobs)
+              (give 39 (person :alice) alice-own bobs)
               (under 40 ym x)
               (under 41 yi x)
-              (end-yes 42 :erin erins ym)]
+              (end-yes 42 (person :erin) erins ym)]
         after (walked-line empty-task :streaming line)
         writes (writes-of-line empty-task :streaming line)
         facts (:facts after)
@@ -2827,16 +2862,16 @@
      ["the digest that a yes holds is of the act as its maker made it, in its one form: 64 hex characters; the same for 5 and 5N, facts as a list or a vector, an empty part left out or given, with a permission or none, and as the thing arrives under any act-id with the time on it (the review's 1C, both halves)"
       (fn [] [(count hex) (some? (re-matches #"[0-9a-f]{64}" hex))
               (mapv #(= hex (digest/hex-for-a-yes %))
-                    [x-another-way (assoc x :permission ya) (assoc x :permission alice-own)
+                    [x-another-way (assoc x :permission (perm/permission-id ya)) (assoc x :permission (perm/permission-id alice-own))
                      (under 10 ya x) (under 99 ya x-another-way) (assoc (under 10 ya x) declaration/time-part (inc now))])])
       [64 true [true true true true true true]]]
      ["it is the act's one form without its permission: what `softland.store.act/parse` gives, part for part, less the permission"
-      (fn [] [(= (digest/act-for-a-yes x) (dissoc (:ok (act/parse (assoc x :permission ya))) :permission))
+      (fn [] [(= (digest/act-for-a-yes x) (dissoc (:ok (act/parse (assoc x :permission (perm/permission-id ya)))) :permission))
               (= (digest/act-for-a-yes x-another-way) (digest/act-for-a-yes x))])
       [true true]]
      ["another act has another digest: another value, another who, another session, another lane, a time that its maker claims, an act that it is because of, a subject"
       (fn [] (mapv #(= hex (digest/hex-for-a-yes %))
-                   [x-changed (assoc x :who :bob) x-in-another-run (assoc x :lane :other) (assoc x :claimed-when 5)
+                   [x-changed (assoc x :who (person :bob)) x-in-another-run (assoc x :lane :other) (assoc x :claimed-when 5)
                     (assoc x :because-of (act-id 1)) (assoc x :subjects #{:experiment-3})]))
       [false false false false false false false]]
      ["no digest of what is no act: no map, a part that the form does not name, a fact that is wrong"
@@ -2891,71 +2926,68 @@
   acts and order, with the yes on an id of its own and its digest of the act
   as its maker made it; the act goes under an act-id of its maker's. Walked
   in memory, each act against the rows that the acts before it wrote."
-  (let [act-key :softland.store/act-permission
-        holder-key :softland.store/permission
-        thing (fn [lane n who permission session & facts]
+  (let [thing (fn [lane n who permission session & facts]
                 {:act-id [lane :streaming (uuid n)] :depot :streaming declaration/time-part now
-                 :version 1 :who who :lane lane :permission permission :session session :facts (vec facts)})
-        making (fn [lane who] (thing lane 1 who [who lane lane] :s0
-                                      {:e lane :k :softland.store/depot :v :streaming}
-                                      {:e who :k holder-key :v [who lane lane]}))
+                 :version 1 :who who :lane lane :permission (perm/permission-id permission) :session session :facts (vec facts)})
+        making (fn [lane who]
+                 (apply thing lane 1 who (perm/first-permission who lane) :s0 (perm/making-facts lane who)))
         under (fn [lane n permission maker-act]
                 (merge maker-act {:act-id [lane :streaming (uuid n)] :depot :streaming
-                                  declaration/time-part now :permission permission}))
+                                  declaration/time-part now :permission (perm/permission-id permission)}))
         words (fn [lane line] (let [after (walked-line empty-task :streaming line)]
                                  (mapv (fn [x] (or (:refused (get-in after [:answers (record/answer-key lane (nth (:act-id x) 2))]))
                                                    :accepted))
                                        line)))
         ;; 1A: Asha's lane; Ben's yes, ended, a try while it is ended, Cal given a permission, a yes again
-        lab-root [:asha :lab :lab]
-        x {:version 1 :who :ben :lane :lab :session :run-1 :facts [{:e :exp-1 :k :dose :v "5 mg"}]}
-        pa1 [:ben :lab :lab lab-root :see-and-act [:act (uuid 301) (digest/hex-for-a-yes x)]]
-        cal-perm [:cal :lab :lab lab-root :see-and-act]
-        pa2-same-id [:ben :lab :lab cal-perm :see-and-act [:act (uuid 301) (digest/hex-for-a-yes x)]]
-        pa2 [:ben :lab :lab cal-perm :see-and-act [:act (uuid 302) (digest/hex-for-a-yes x)]]
-        history-1a [(making :lab :asha)
-                    (thing :lab 2 :asha lab-root :s0 {:e (uuid 301) :k act-key :v pa1})
-                    (thing :lab 3 :asha lab-root :s0 {:e (uuid 301) :k act-key})
+        lab-root (perm/first-permission (person :asha) :lab)
+        x {:version 1 :who (person :ben) :lane :lab :session :run-1 :facts [{:e :exp-1 :k :dose :v "5 mg"}]}
+        pa1 (perm/act-permission (person :ben) :lab lab-root (uuid 301) (digest/hex-for-a-yes x))
+        cal-perm (perm/given-permission (person :cal) :lab lab-root :see-and-act)
+        pa2-same-id (perm/act-permission (person :ben) :lab cal-perm (uuid 301) (digest/hex-for-a-yes x))
+        pa2 (perm/act-permission (person :ben) :lab cal-perm (uuid 302) (digest/hex-for-a-yes x))
+        history-1a [(making :lab (person :asha))
+                    (thing :lab 2 (person :asha) lab-root :s0 (perm/permission-fact pa1))
+                    (thing :lab 3 (person :asha) lab-root :s0 (perm/end-fact pa1))
                     (under :lab 4 pa1 x)
-                    (thing :lab 5 :asha lab-root :s0 {:e :cal :k holder-key :v cal-perm})
-                    (thing :lab 6 :cal cal-perm :s0 {:e (uuid 301) :k act-key :v pa2-same-id})
-                    (thing :lab 7 :cal cal-perm :s0 {:e (uuid 302) :k act-key :v pa2})
+                    (thing :lab 5 (person :asha) lab-root :s0 (perm/permission-fact cal-perm))
+                    (thing :lab 6 (person :cal) cal-perm :s0 (perm/permission-fact pa2-same-id))
+                    (thing :lab 7 (person :cal) cal-perm :s0 (perm/permission-fact pa2))
                     (under :lab 8 pa2 x)]
         ;; 1B: Ida's lane; Cal may only see; Joe's yes; Cal sends under an act-id whose uuid is the yes's id
-        ida-own [:ida :studio :studio]
-        cal-see [:cal :studio :studio ida-own :see]
-        joes {:version 1 :who :joe :lane :studio :session :run-1 :facts [{:e :secret-exp :k :dose :v "5 mg"}]}
-        pa [:joe :studio :studio ida-own :see-and-act [:act (uuid 399) (digest/hex-for-a-yes joes)]]
-        history-1b [(making :studio :ida)
-                    (thing :studio 2 :ida ida-own :s0 {:e :cal :k holder-key :v cal-see})
-                    (thing :studio 3 :ida ida-own :s0 {:e (uuid 399) :k act-key :v pa})
-                    (thing :studio 399 :cal cal-see :cal-s {:e :anything :k :v :v 1})
-                    (thing :studio 398 :zed [:zed :studio :studio ida-own] :zed-s {:e :anything :k :v :v 2})
+        ida-own (perm/first-permission (person :ida) :studio)
+        cal-see (perm/given-permission (person :cal) :studio ida-own :see)
+        joes {:version 1 :who (person :joe) :lane :studio :session :run-1 :facts [{:e :secret-exp :k :dose :v "5 mg"}]}
+        pa (perm/act-permission (person :joe) :studio ida-own (uuid 399) (digest/hex-for-a-yes joes))
+        history-1b [(making :studio (person :ida))
+                    (thing :studio 2 (person :ida) ida-own :s0 (perm/permission-fact cal-see))
+                    (thing :studio 3 (person :ida) ida-own :s0 (perm/permission-fact pa))
+                    (thing :studio 399 (person :cal) cal-see :cal-s {:e :anything :k :v :v 1})
+                    (thing :studio 398 (person :zed) (perm/given-permission (person :zed) :studio ida-own) :zed-s {:e :anything :k :v :v 2})
                     (under :studio 5 pa joes)]
         ;; 6C: Ben's yes for the act that ends it, and his run's permission that says see
         u50 (uuid 350)
-        ends-itself {:version 1 :who :ben :lane :lab6 :session :run-1 :facts [{:e u50 :k act-key}]}
-        a-doc {:version 1 :who :ben :lane :lab6 :session :run-1 :facts [{:e :doc :k :v :v 1}]}
-        root6 [:asha :lab6 :lab6]
-        pa-doc [:ben :lab6 :lab6 root6 :see-and-act [:act (uuid 351) (digest/hex-for-a-yes a-doc)]]
-        pa-end [:ben :lab6 :lab6 root6 :see-and-act [:act u50 (digest/hex-for-a-yes ends-itself)]]
-        r-see [:ben :lab6 :lab6 root6 :see [:run :run-1]]
-        history-6c [(making :lab6 :asha)
-                    (thing :lab6 2 :asha root6 :s0
-                           {:e (uuid 351) :k act-key :v pa-doc} {:e u50 :k act-key :v pa-end}
-                           {:e :run-1 :k :softland.store/run-permission :v r-see})
-                    (under :lab6 3 pa-doc (assoc a-doc :facts [{:e (uuid 351) :k act-key}]))
+        ends-itself {:version 1 :who (person :ben) :lane :lab6 :session :run-1 :facts [(perm/end-act-id-fact u50)]}
+        a-doc {:version 1 :who (person :ben) :lane :lab6 :session :run-1 :facts [{:e :doc :k :v :v 1}]}
+        root6 (perm/first-permission (person :asha) :lab6)
+        pa-doc (perm/act-permission (person :ben) :lab6 root6 (uuid 351) (digest/hex-for-a-yes a-doc))
+        pa-end (perm/act-permission (person :ben) :lab6 root6 u50 (digest/hex-for-a-yes ends-itself))
+        r-see (perm/run-permission (person :ben) :lab6 root6 :run-1 :see)
+        history-6c [(making :lab6 (person :asha))
+                    (thing :lab6 2 (person :asha) root6 :s0
+                           (perm/permission-fact pa-doc) (perm/permission-fact pa-end)
+                           (perm/permission-fact r-see))
+                    (under :lab6 3 pa-doc (assoc a-doc :facts [(perm/end-fact pa-doc)]))
                     (under :lab6 4 pa-end ends-itself)
                     (under :lab6 5 pa-end ends-itself)
-                    (thing :lab6 6 :ben r-see :run-1 {:e :run-1 :k :softland.store/run-permission})]
+                    (thing :lab6 6 (person :ben) r-see :run-1 (perm/end-fact r-see))]
         ;; 2 and 6D: the maker's act, the thing that the door appends, the act written another way
-        maker-act {:version 1 :who :joe :lane :studio :session :run-1 :facts [{:e :exp :k :dose :v "5 mg"}]}
+        maker-act {:version 1 :who (person :joe) :lane :studio :session :run-1 :facts [{:e :exp :k :dose :v "5 mg"}]}
         door-id [:studio :streaming (uuid 77)]
         appended (fn [an-act permission]
-                   (:thing (additions/thing-to-append (additions/reading (assoc an-act :permission permission) door-id)
+                   (:thing (additions/thing-to-append (additions/reading (assoc an-act :permission (perm/permission-id permission)) door-id)
                                                       door-id now)))
-        a1 {:version 1 :who :ben :lane :lab :session :s1 :facts [{:e :x :k :n :v 5}]}
-        a2 {:version 1 :who :ben :lane :lab :session :s1 :subjects #{} :based-on {} :facts (list {:e :x :k :n :v 5N})}]
+        a1 {:version 1 :who (person :ben) :lane :lab :session :s1 :facts [{:e :x :k :n :v 5}]}
+        a2 {:version 1 :who (person :ben) :lane :lab :session :s1 :subjects #{} :based-on {} :facts (list {:e :x :k :n :v 5N})}]
     [["probe 1A, a yes given again after an end and a refused try: the try under the ended yes is refused and uses nothing; a give at the ended yes's id is refused, a yes's id taking one give; a yes on an id of its own, given by Cal beneath his permission, is taken, and so is Ben's act under it"
       (fn [] (words :lab history-1a))
       [:accepted :accepted :accepted :permission-ended :accepted :a-yes-is-given-once :accepted :accepted]]
@@ -2969,7 +3001,7 @@
       [:accepted :accepted :accepted :permission-does-not-allow-acting :permission-does-not-stand :accepted]]
      ["probe 2, the maker's act and the thing that the door appends: the digest that the maker makes of her act is the gate's of the thing, under the door's act-id, and the door takes her act as she gave it"
       (fn [] (let [hex (digest/hex-for-a-yes maker-act)
-                   permission [:joe :studio :studio [:ida :studio :studio] :see-and-act [:act (uuid 377) hex]]
+                   permission (perm/act-permission (person :joe) :studio (perm/first-permission (person :ida) :studio) (uuid 377) hex)
                    thing (appended maker-act permission)]
                [(= hex (decision/hex-for-its-permission thing (act-of thing))) (contains? thing :act-id)]))
       [true true]]
@@ -2977,8 +3009,8 @@
       (fn [] (words :lab6 history-6c))
       [:accepted :accepted :act-not-the-one-permitted :accepted :permission-used-up :permission-does-not-allow-acting]]
      ["probe 6D, the act written two ways, 5 and 5N, a vector and a list, empty parts left out and given: one act in its one form, and one digest"
-      (fn [] [(= (dissoc (:ok (act/parse (assoc a1 :permission [:ben :lab :lab]))) :permission)
-                 (dissoc (:ok (act/parse (assoc a2 :permission [:ben :lab :lab]))) :permission))
+      (fn [] [(= (dissoc (:ok (act/parse (assoc a1 :permission (perm/permission-id (perm/first-permission (person :ben) :lab))))) :permission)
+                 (dissoc (:ok (act/parse (assoc a2 :permission (perm/permission-id (perm/first-permission (person :ben) :lab))))) :permission))
               (= (digest/hex-for-a-yes a1) (digest/hex-for-a-yes a2))])
       [true true]]]))
 
@@ -2990,36 +3022,34 @@
   declaration refuses (its probe 4), and the row of a yes's use (its probe
   5). Walked in memory, each act against the rows that the acts before it
   wrote."
-  (let [act-key :softland.store/act-permission
-        root [:asha :lab :lab]
-        cal-p [:cal :lab :lab root :see-and-act]
+  (let [root (perm/first-permission (person :asha) :lab)
+        cal-p (perm/given-permission (person :cal) :lab root :see-and-act)
         thing (fn [n who permission session & facts]
                 {:act-id [:lab :streaming (uuid n)] :depot :streaming declaration/time-part now
-                 :version 1 :who who :lane :lab :permission permission :session session :facts (vec facts)})
-        maker (fn [session & facts] {:version 1 :who :ben :lane :lab :session session :facts (vec facts)})
+                 :version 1 :who who :lane :lab :permission (perm/permission-id permission) :session session :facts (vec facts)})
+        maker (fn [session & facts] {:version 1 :who (person :ben) :lane :lab :session session :facts (vec facts)})
         under (fn [n permission maker-act]
                 (merge maker-act {:act-id [:lab :streaming (uuid n)] :depot :streaming
-                                  declaration/time-part now :permission permission}))
+                                  declaration/time-part now :permission (perm/permission-id permission)}))
         act-a (maker :run-1 {:e :doc :k :v :v "act-A"})
         act-b (maker :run-1 {:e :doc :k :v :v "act-B"})
         hex-a (digest/hex-for-a-yes act-a)
         y-used (uuid 501)
         y-ended (uuid 502)
-        pa-used [:ben :lab :lab root :see-and-act [:act y-used hex-a]]
-        pa-ended [:ben :lab :lab root :see-and-act [:act y-ended hex-a]]
-        run-p [:ben :lab :lab root :see-and-act [:run :run-1]]
-        setup [(thing 1 :asha root :s0 {:e :lab :k :softland.store/depot :v :streaming}
-                      {:e :asha :k :softland.store/permission :v root})
-               (thing 2 :asha root :s0 {:e :cal :k :softland.store/permission :v cal-p}
-                      {:e y-used :k act-key :v pa-used} {:e y-ended :k act-key :v pa-ended}
-                      {:e :run-1 :k :softland.store/run-permission :v run-p})
+        pa-used (perm/act-permission (person :ben) :lab root y-used hex-a)
+        pa-ended (perm/act-permission (person :ben) :lab root y-ended hex-a)
+        run-p (perm/run-permission (person :ben) :lab root :run-1 :see-and-act)
+        setup [(apply thing 1 (person :asha) root :s0 (perm/making-facts :lab (person :asha)))
+               (thing 2 (person :asha) root :s0 (perm/permission-fact cal-p)
+                      (perm/permission-fact pa-used) (perm/permission-fact pa-ended)
+                      (perm/permission-fact run-p))
                (under 3 pa-used act-a)
-               (thing 4 :asha root :s0 {:e y-ended :k act-key} {:e :run-1 :k :softland.store/run-permission})]
+               (thing 4 (person :asha) root :s0 (perm/end-fact pa-ended) (perm/end-fact run-p))]
         tries [(under 10 pa-used act-b)
                (under 11 pa-ended act-b)
-               (thing 12 :ben run-p :run-2 {:e :doc :k :v :v "x"})
-               (under 13 [:ben :lab :lab cal-p :see-and-act [:act y-used (digest/hex-for-a-yes act-b)]] act-a)
-               (under 14 [:ben :lab :lab cal-p :see-and-act [:act y-used hex-a]] act-a)]
+               (thing 12 (person :ben) run-p :run-2 {:e :doc :k :v :v "x"})
+               (under 13 (perm/act-permission (person :ben) :lab cal-p y-used (digest/hex-for-a-yes act-b)) act-a)
+               (under 14 (perm/act-permission (person :ben) :lab cal-p y-used hex-a) act-a)]
         word-of (fn [x] (let [after (walked-line empty-task :streaming (conj setup x))]
                           (or (:refused (get-in after [:answers (record/answer-key :lab (nth (:act-id x) 2))])) :accepted)))
         long-id (keyword (apply str (repeat 260 \a)))
@@ -3117,10 +3147,10 @@
       (base-thing 3 :system system-own {:e :p3 :k :mark})
       (base-thing 4 :system system-own {:e :z1 :k :note} {:e :p3 :k :mark})
       ;; a give and an act under it; an act and then the give
-      (base-thing 5 :system system-own {:e :carol :k :softland.store/permission :v carols})
-      (base-thing 6 :carol carols {:e :carol :k :note})
-      (base-thing 7 :dave daves-in-base {:e :dave :k :note})
-      (base-thing 8 :system system-own {:e :dave :k :softland.store/permission :v daves-in-base})
+      (base-thing 5 :system system-own (perm/permission-fact carols))
+      (base-thing 6 (person :carol) carols {:e :carol :k :note})
+      (base-thing 7 (person :dave) daves-in-base {:e :dave :k :note})
+      (base-thing 8 :system system-own (perm/permission-fact daves-in-base))
       ;; a value alone on its entity
       (base-thing 9 :system system-own (text-on :z2 2))
       ;; a repeat, and one act-id under two things
@@ -3128,18 +3158,18 @@
       (base-thing 14 :system system-own {:e :p1 :k :twice})
       (base-thing 14 :system system-own {:e :p2 :k :twice})
       ;; two acts for lanes of the other gate
-      {:act-id [:alice :microbatch (uuid 15)] :depot :microbatch declaration/time-part now :version 1 :who :alice :lane :alice
-       :permission alice-own :session :s1 :facts [{:e :p1 :k :stranger}]}
-      {:act-id [:nobody :microbatch (uuid 16)] :depot :microbatch declaration/time-part now :version 1 :who :alice :lane :nobody
-       :permission [:alice :nobody :nobody] :session :s1 :facts [{:e :p2 :k :stranger}]}
+      {:act-id [:alice :microbatch (uuid 15)] :depot :microbatch declaration/time-part now :version 1 :who (person :alice) :lane :alice
+       :permission (perm/permission-id alice-own) :session :s1 :facts [{:e :p1 :k :stranger}]}
+      {:act-id [:nobody :microbatch (uuid 16)] :depot :microbatch declaration/time-part now :version 1 :who (person :alice) :lane :nobody
+       :permission (perm/permission-id (perm/first-permission (person :alice) :nobody)) :session :s1 :facts [{:e :p2 :k :stranger}]}
       ;; a plain value under a plain key, and two strays
       (base-thing 17 :system system-own {:e :p1 :k :plain :v "a plain value"})
       5
       stray-of-the-other-gate
       ;; no standing: by a who that is not the holder, carrying the greatest stamp there is; with a permission that no act gives; by a who that is not the holder
-      (assoc (base-thing 19 :mallory carols {:e :p3 :k :m}) :based-on {[(base-id 802) 0] Long/MAX_VALUE})
-      (base-thing 20 :mallory mallorys {:e :p3 :k :m})
-      (base-thing 21 :mallory system-own {:e :p3 :k :m})
+      (assoc (base-thing 19 (person :mallory) carols {:e :p3 :k :m}) :based-on {[(base-id 802) 0] Long/MAX_VALUE})
+      (base-thing 20 (person :mallory) mallorys {:e :p3 :k :m})
+      (base-thing 21 (person :mallory) system-own {:e :p3 :k :m})
       ;; an act with three values, accepted; and one refused whole
       (base-thing 22 :system system-own (text-on :r1 4) (text-on :r2 5) (text-on :r3 6))
       (base-thing 23 :system system-own (text-on :z1 7) (text-on :q2 8) (assoc (text-on :q3 9) :replaces [(base-id 999) 0]))
@@ -3156,12 +3186,12 @@
   before it holds nothing."
   {:record empty-task
    :things [(base-thing 30 :system system-own {:e :base :k :note})
-            (base-thing 31 :system system-own {:e :base :k :softland.store/depot :v :microbatch} {:e :system :k :softland.store/permission :v system-own})
-            (base-thing 32 :system system-own {:e :system :k :softland.store/permission :v system-own} {:e :base :k :softland.store/depot :v :microbatch})
+            (apply base-thing 31 :system system-own (perm/making-facts :base :system))
+            (apply base-thing 32 :system system-own (reverse (perm/making-facts :base :system)))
             (base-thing 33 :system system-own {:e :base :k :note-2})
-            (base-thing 34 :system system-own {:e :carol :k :softland.store/permission :v carols})
-            (base-thing 35 :carol carols {:e :carol :k :note})
-            (base-thing 36 :carol carols (value-at :carol :text "a value in a base made in this line"))]})
+            (base-thing 34 :system system-own (perm/permission-fact carols))
+            (base-thing 35 (person :carol) carols {:e :carol :k :note})
+            (base-thing 36 (person :carol) carols (value-at :carol :text "a value in a base made in this line"))]})
 
 (def ^:private marks-line
   "A line of things into a base that marks two keys, :on and :gone, and the
@@ -3193,7 +3223,8 @@
      (task-with
       (into base-made
             [[:facts ":base :carol :softland.store/permission"
-              (fact-row base-writer (arrived-fact :carol :softland.store/permission carols-see) (uuid 806) 0 before time-before-the-line)]
+              (let [{:keys [e k v]} (perm/permission-fact carols-see)]
+                (fact-row base-writer (arrived-fact e k v) (uuid 806) 0 before time-before-the-line))]
              [:facts base-marks-place (base-marks-row {:on since :gone since})]
              [:facts ":base :base :softland.store/builds-on"
               (fact-row base-writer (arrived-fact :base :softland.store/builds-on [:older-base]) (uuid 804) 0 before time-before-the-line)]
@@ -3226,9 +3257,9 @@
       (base-thing 50 :system system-own {:e :base :k :softland.store/builds-on :v [:team] :replaces [(base-id 804) 0]})
       (base-thing 51 :system system-own {:e :r3 :k :note-2} {:e :base :k :softland.store/builds-on :v [] :replaces [(base-id 804) 0]})
       ;; a holder of see: she acts, she names her permission without its slot, she gives
-      (base-thing 52 :carol carols-see {:e :carol :k :note})
-      (base-thing 53 :carol carols {:e :carol :k :note})
-      (base-thing 54 :carol carols-see {:e :dave :k :softland.store/permission :v [:dave :base :base carols-see]})
+      (base-thing 52 (person :carol) carols-see {:e :carol :k :note})
+      (base-thing 53 (person :carol) carols {:e :carol :k :note})
+      (base-thing 54 (person :carol) carols-see (perm/permission-fact (perm/given-permission (person :dave) :base carols-see)))
       ;; a retract of a fact since the mark; a fact that names what it replaces
       (base-thing 55 :system system-own {:e :q3 :k :on})
       (base-thing 56 :system system-own (assoc (value-at :r2 :on :c7) :replaces [(base-id 805) 0]))
@@ -3236,7 +3267,7 @@
       (base-thing 57 :system system-own {:e :base :k :softland.store/marked-keys})
       (base-thing 58 :system system-own {:e :p1 :k :softland.store/marked-keys :v #{:on}})
       ;; a holder of see who sends a value under a marked key: refused under its own act-id, and no row of its value
-      (base-thing 61 :carol carols-see (value-at :carol :on :c1))]}))
+      (base-thing 61 (person :carol) carols-see (value-at :carol :on :c1))]}))
 
 ;; ---------------------------------------------------- what a gate may copy
 
@@ -3335,7 +3366,7 @@
                                            (fact-row base-writer (arrived-fact :doc-1 :title "before") (uuid 802) 0 before-the-line
                                                      time-before-the-line)])
                                     {":base" before-the-line})]
-    [["at the streaming gate, the making act of a group's lane" :streaming empty-task (as-sent (making :team :alice :alice) :streaming)
+    [["at the streaming gate, the making act of a group's lane" :streaming empty-task (as-sent (making :team (person :alice) (person :alice)) :streaming)
       [:fact :fact :answer :last-stamp] nil]
      ["at the streaming gate, a fact with a value" :streaming alice-made (arrived 2 (value-at :note-2 :text))
       [:fact :answer :last-stamp] nil]
@@ -3348,8 +3379,7 @@
       :streaming alice-made (arrived 5 (assoc (value-at :note-1 :text "after") :replaces [(act-id 6) 0]))
       [:answer :last-stamp] :replaced-fact-not-current]
      ["at the microbatch gate, the base's making act"
-      :microbatch empty-task (base-thing 31 :system system-own {:e :base :k :softland.store/depot :v :microbatch}
-                                         {:e :system :k :softland.store/permission :v system-own})
+      :microbatch empty-task (apply base-thing 31 :system system-own (perm/making-facts :base :system))
       [:fact :fact :answer :last-stamp] nil]
      ["at the microbatch gate, a fact with a value" :microbatch base-with-a-fact (base-thing 2 :system system-own (value-at :doc-2 :title "a"))
       [:fact :answer :last-stamp] nil]
@@ -3424,7 +3454,7 @@
                (without-time (arrived 511 (value-at :m2 :text)))
                (arrived 512 (value-at :m3 :text))
                (assoc (timed (arrived 513 (value-at :m4 :text)) far-ahead) :version 2)
-               (assoc (arrived 514 (value-at :m5 :text)) :who :mallory)
+               (assoc (arrived 514 (value-at :m5 :text)) :who (person :mallory))
                (arrived 515 (assoc (value-at :m1 :text "b") :replaces [(act-id 999) 0]))
                (assoc (arrived 516 (value-at :m6 :text)) :based-on {[(act-id 510) 0] Long/MAX_VALUE})
                (arrived 517 (value-at :m7 :text))]
@@ -3496,9 +3526,8 @@
                                                 {:since-by-place since :place-rows rows-before :level-from of-the-fact})]
                     [(record/marked-keys-of marks-row) since (mapv (fn [[which k row]] [which k (:stamp row)]) (to-copy writes))]))
         marks (fn [lane keys] {:e lane :k :softland.store/marked-keys :v keys})
-        alices-making (as-sent (making :alice :alice :alice) :streaming)
-        bases-making (base-thing 1 :system system-own {:e :base :k :softland.store/depot :v :microbatch}
-                                 {:e :system :k :softland.store/permission :v system-own})
+        alices-making (as-sent (making :alice (person :alice) (person :alice)) :streaming)
+        bases-making (apply base-thing 1 :system system-own (perm/making-facts :base :system))
         in-the-line (fn [gate lane things]
                       (let [after (walked-line empty-task gate things)
                             [_ mark-thing fact-thing] things
@@ -3829,7 +3858,7 @@
 (def ^:private makers-act
   "Alice's act as a maker gives it, with no facts: the parts that the form
   asks for, plain."
-  {:version 1 :who :alice :lane :alice :permission alice-own :session :alice-s1})
+  {:version 1 :who (person :alice) :lane :alice :permission (perm/permission-id alice-own) :session :alice-s1})
 
 (defn- maker
   "Alice's act as a maker gives it, with these facts as a vector."
@@ -3995,7 +4024,7 @@
   the read of an answer, which need a door on a cluster: those are the
   door's proof's."
   (let [given (fn [depot] [:alice depot (uuid 9)])
-        permission-fact {:e :bob :k :softland.store/permission :v bobs}
+        permission-fact (perm/permission-fact bobs)
         retract {:e :note-2 :k :text}
         mixed (fn [facts] (assoc makers-act :facts facts))
         three [value-fact retract permission-fact]
@@ -4501,7 +4530,7 @@
 (def ^:private line-writes-cases
   "The rows that one decision writes in the lane's line
   (`softland.store.gate.decision/line-writes`), against rows written out."
-  (let [thing {:act-id (act-id 5) :lane :alice :who :bob :junk 1}
+  (let [thing {:act-id (act-id 5) :lane :alice :who (person :bob) :junk 1}
         d (byte-array (range 32))
         hex (text/hex d)
         k ":alice 0000000000000000005"]
@@ -4533,15 +4562,16 @@
 
 (def ^:private alice-making
   "The making act of Alice's lane, as it arrives on the streaming depot."
-  (as-sent (making :alice :alice :alice) :streaming))
+  (as-sent (making :alice (person :alice) (person :alice)) :streaming))
 
 (defn- with-facts
   "Alice's act under the act-id `(act-id n)`, by `who` under `permission`,
   with these facts."
   [n who permission & facts]
-  (assoc (apply arrived n facts) :who who :permission permission))
+  (assoc (apply arrived n facts) :who who :permission (perm/permission-id permission)))
 
-(def ^:private bob-sees "Bob's permission in Alice's lane: see, and not act." [:bob :alice :alice alice-own :see])
+(def ^:private bob-sees "Bob's permission in Alice's lane: see, and not act."
+  (perm/given-permission (person :bob) :alice alice-own :see))
 
 (def ^:private a-line
   "A line of Alice's lane, each kind of thing that the line is for: its
@@ -4552,20 +4582,21 @@
   refused, and one of a holder who may only see; and a thing whose part the
   weight does not know."
   (let [heavy (fn [] (map (fn [i] (value-at (keyword (str "h" i)) :text (text-of-bytes 60000))) (range 5)))
-        taken (arrived 2 (value-at :note-2 :text))]
+        taken (arrived 2 (value-at :note-2 :text))
+        zeds (perm/given-permission (person :zed) :alice alice-own)]
     [alice-making
      taken
-     {:act-id (act-id 3) :lane :alice :who :carol :junk 1 declaration/time-part now}
-     (with-facts 4 :zed [:zed :alice :alice alice-own] (value-at :n4 :text))
+     {:act-id (act-id 3) :lane :alice :who (person :carol) :junk 1 declaration/time-part now}
+     (with-facts 4 (person :zed) zeds (value-at :n4 :text))
      5
      taken
      (arrived 2 (value-at :other :text))
-     (apply with-facts 6 :zed [:zed :alice :alice alice-own] (heavy))
+     (apply with-facts 6 (person :zed) zeds (heavy))
      (apply arrived 7 (assoc (first (heavy)) :replaces [(act-id 99) 0]) (rest (heavy)))
      (arrived 8 (value-at :big :text (text-of-bytes 300000)))
-     (arrived 9 {:e :bob :k :softland.store/permission :v bob-sees})
-     (apply with-facts 10 :bob bob-sees (heavy))
-     {:act-id (act-id 11) :lane :alice :who :dee declaration/time-part now :p (Object.)}]))
+     (arrived 9 (perm/permission-fact bob-sees))
+     (apply with-facts 10 (person :bob) bob-sees (heavy))
+     {:act-id (act-id 11) :lane :alice :who (person :dee) declaration/time-part now :p (Object.)}]))
 
 (def ^:private a-line-walked
   "What `a-line` leaves, walked in memory from nothing."
@@ -4634,9 +4665,9 @@
   with a word that is neither, as a string; Alice marks it; Alice writes
   members again; a making act of another lane that carries it."
   [alice-making
-   (arrived 2 {:e :bob :k :softland.store/permission :v bobs})
+   (arrived 2 (perm/permission-fact bobs))
    (arrived 3 {:e :alice :k reads-acts-key :v :everyone})
-   (with-facts 4 :bob bobs {:e :alice :k reads-acts-key :v :everyone})
+   (with-facts 4 (person :bob) bobs {:e :alice :k reads-acts-key :v :everyone})
    (arrived 5 {:e :chair-7 :k reads-acts-key :v :everyone})
    (arrived 6 {:e :alice :k reads-acts-key})
    (arrived 7 {:e :alice :k reads-acts-key :v :strangers})
@@ -4889,7 +4920,7 @@
                        (decision/writes (act-id 1) (act-of good) nil 5 now (digest/digest good) {}))))
   (shown "what a permission allows:" (pr-str (mapv (juxt identity act/allows) [alice-own bobs bobs-see bobs-see-and-act]))
          "| a holder of see who names her permission as the row has it, without the slot, and with see and act in it:"
-         (pr-str (mapv (fn [named] (decision/standing :streaming (assoc (act-of good) :who :bob :permission named)
+         (pr-str (mapv (fn [named] (decision/standing :streaming (assoc (act-of good) :who (person :bob) :permission (perm/permission-id named))
                                                       (permission-row bobs-see 1) nil alices-chain nil))
                        [bobs-see bobs bobs-see-and-act])))
   (shown "a value given as {:b 1.50M, :a [1 2N]} is in its fact's row as"
