@@ -1,7 +1,8 @@
 (ns softland.runtime.command-review-proof
   "The proof of what the review of 26 November 2026 found in the command
   line: a command with an argument left out, a file that is edited and sent
-  again, and the exit status. One command, from the repository root:
+  again, the exit status, and the command line's own word for a program
+  that is not signed in. One command, from the repository root:
 
     clojure -M:runtime -m softland.runtime.command-review-proof
 
@@ -122,6 +123,16 @@
            (= word got)
            got)))
 
+(defn- not-signed-in
+  [{:keys [home]}]
+  (let [empty-home (io/file home "no-sign-in")
+        who (soft empty-home "who")
+        fresh (soft empty-home "new-session")]
+    (check "A command in a home that holds no sign-in ends with 1 and says the command line's own word, `:find-a-credential`; `new-session` there does the same."
+           (and (= [1 1] [(:exit who) (:exit fresh)])
+                (= [:find-a-credential :find-a-credential] [(:could-not (:out who)) (:could-not (:out fresh))]))
+           [(seen who) (seen fresh)])))
+
 (defn -main
   "Runs the proof, prints the counts, and ends the process with a status."
   [& _]
@@ -139,7 +150,8 @@
             (an-argument-left-out with)
             (a-file-edited-and-sent-again with)
             (a-file-sent-again-in-another-session with)
-            (the-exit-status with))
+            (the-exit-status with)
+            (not-signed-in with))
           (check "The proof ran to its end without a throw." true)
           (catch Throwable t
             (check "The proof ran to its end without a throw." false (str t))

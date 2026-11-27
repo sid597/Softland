@@ -59,7 +59,10 @@
   the result holds `:could-not`, or a result of `send` or the word that a
   `watch` ended with holds it, or the ask of `sign-in` ran out. 3: a
   refusal: a gate refused an act, one of `send` too, or she said no to the
-  sign-in. 0: otherwise."
+  sign-in. 0: otherwise.
+
+  Three of the words that hold `:could-not` are the command line's own:
+  `:read-the-command`, `:run-the-command` and `:find-a-credential`."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -301,7 +304,7 @@
   (let [file (file-of flags)
         {:keys [credential session] :as held} (kept file)]
     (if-not (or credential (:next-credential held))
-      {:could-not :find-the-sign-in :said "This program is not signed in. Run: sign-in"}
+      {:could-not :find-a-credential :said "This program is not signed in. Run: sign-in"}
       (let [{:keys [connection error promoted?] active-cred :credential} (connect-held held)]
         (if error
           (cond-> error
@@ -552,7 +555,7 @@
             held (kept file)
             drop-session! (fn [] (update-kept! file (fn [now] (when now (dissoc now :session)))))]
         (if-not (or (:credential held) (:next-credential held))
-          {:could-not :find-the-sign-in :said "This program is not signed in. Run: sign-in"}
+          {:could-not :find-a-credential :said "This program is not signed in. Run: sign-in"}
           (if (contains? flags :model)
             (let [open-word {:word :open-session :driven-by {:kind :model :model (or (:model flags) "")}}
                   open-then-close
