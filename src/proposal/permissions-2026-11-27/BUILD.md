@@ -161,8 +161,9 @@ Must be true:
   There are two such holders: anyone at all, for reading, and anyone
   signed in, for writing. An agent or a run is never everyone on its own:
   it comes in through its person.
-- No access comes from a setting of the lane or from a value in code. What
-  a lane starts with is in the log (F29 of the review page).
+- No access comes from a setting of the lane or from a value in code,
+  apart from `:softland.store/who-may-read-acts`, which this build leaves
+  as it is. What a lane starts with is in the log (F29 of the review page).
 - The statement to prove of P section 12 holds as one of the store's
   proofs, with its exceptions named.
 - A transfer in one act never shows a live viewer a state in between.

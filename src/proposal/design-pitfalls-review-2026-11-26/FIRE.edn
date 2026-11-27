@@ -1,0 +1,5 @@
+{:track      "design-pitfalls-review-2026-11-26"
+ :summary    "26 Nov whole-store review fixes F1-F34 (§7.1 ready; §7.2 needs Sid; §7.3 waits on permissions)"
+ :status     "OPEN"
+ :waiting-on "§7.1 F6-F12 safe in src-command/src-wire; store form fixes held for permissions"
+ :next       "Hold F13,F22-F26,F28-F34 until permissions rebuild finishes"}

@@ -1,6 +1,6 @@
 ---
 name: design-pitfalls
-description: Use as an adversarial review of a concrete design, plan, stored shape or page of decisions BEFORE it is fixed or put to Sid. Looks for one id, key, word or record doing two jobs; for things fixed at write that could be drawn at read; for sizes built as kinds where a value would do; for a session's reading written as Sid's decision; and for a fix that grew into new building. Complements rama-pitfalls (Rama's own foot-guns). Not for inventing a design, and not for code style.
+description: Use as an adversarial review of a concrete design, plan, stored shape or page of decisions BEFORE it is fixed or put to Sid. Looks for one id, key, word or record doing two jobs; for things fixed at write that could be drawn at read; for sizes built as kinds where a value would do; and for a fix that grew into new building. Complements rama-pitfalls (Rama's own foot-guns). Not for inventing a design, and not for code style.
 allowed-tools: Read, Grep, Glob, Bash
 ---
 
@@ -8,9 +8,8 @@ allowed-tools: Read, Grep, Glob, Bash
 
 Run this as an adversarial review of something concrete: a plan, a stored
 shape, a diff, a page of decisions. Its job is to break the thing, not to
-design it. The rule it checks is in `CLAUDE.md` ("Defaults, not conflations"
-and the paragraph after it). This page is how to hold a concrete thing
-against that rule.
+design it. The rule it checks is in `CLAUDE.md` ("Defaults, not
+conflations"). This page is how to hold a concrete thing against that rule.
 
 A session wrote this on Sid's word of 26 November 2026. The questions are a
 session's, each drawn from a case that happened in this repository. They are
@@ -20,8 +19,7 @@ added when a real mistake teaches one, with its case.
 ## When to run
 
 - Before a stored shape, an id, a key or a word of the product is fixed.
-- Before a plan or a list of decisions goes to Sid.
-- Before something is written down as his decision.
+- Before a plan becomes the base of a build.
 - When one of the signs on the root page shows.
 
 ## First, the inventory
@@ -34,8 +32,7 @@ each id, key, word and record
   -> for each job: decided when (at write, at read), can it change later,
      one or many, who changes it
 what the change fixes for good
-  -> stored in an act, shown to someone, or said to Sid as decided
-what Sid was shown, in which words, and what he answered
+  -> stored in an act, or shown to someone
 ```
 
 A job that cannot be said in one plain sentence is a finding by itself.
@@ -70,18 +67,19 @@ A job that cannot be said in one plain sentence is a finding by itself.
    dictated).
 6. **Is the finest grain kept?** "we can combine these to make a bigger one
    but can't decompose it to atomic units later on" (‹e36008e1›).
-7. **Does a choice of design reach Sid as an either/or?** Say the range it is
-   a point of, and the default. Case: a second permission for one holder was
-   put to him as a yes or no: "why is it being presented as a binary
-   decision? we are a provider of spectrum" (‹6db69c3b›).
-8. **Does a word of his name something built?** Say in an example what the
-   built thing is. Is it the whole of what he means, a part of it, or
-   something that only matches it today? Case: "layer" (`src-store/README.md`,
-   the Decisions of 25 November 2026).
-9. **What was he shown when he said yes, and what is being drawn from it?**
-   Open the line he typed (`memtool line <id>`); where the record cannot be
-   reached, say so. Case: the rename of the store's unit was committed as his
-   word for "lane" before any line of his held the word.
+7. **Is a choice of design treated as an either/or?** Say the range it is a
+   point of, and the default. Case: whether one holder may have a second
+   permission was framed as a yes or no, where how many a holder may have is
+   a range: "why is it being presented as a binary decision? we are a
+   provider of spectrum" (‹6db69c3b›).
+8. **Does a name say more than the thing does?** Say in an example what the
+   built thing is, and hold the name against it: is the thing the whole of
+   what the name means, a part of it, or something that only matches it
+   today? Case: the store's unit of order was named "layer", the word for a
+   group of acts of any size (`src-store/README.md`, the Decisions of
+   25 November 2026).
+9. (Removed on 27 November 2026. The number stays empty so that 10 keeps its
+   number.)
 10. **Is this the fix, or building on top of the fix?** Case: the plan for
     that rename took in the four pieces that come after it: "this is only
     related to what we already did and fixing that mistake anything we need

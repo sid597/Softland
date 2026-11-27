@@ -595,6 +595,63 @@ would leave none is refused. Not decided: whether acting alone reaches
 ending another owner's give, which 4a does not name, and what happens when
 the only owner is gone (section 12).
 
+Third pass, in the permissions orchestrator session, 27 November 2026
+(Loop 0c). Sid's replies are word for word; "Stands as" is a session's
+one-line reading.
+
+**22. Party ID in the store carries party kind.**
+Asked: whether an ID in the store visibly says person vs. agent (`A`:
+`:person.<uuid>`, `:agent.<uuid>`, `:run.<uuid>` in the store while Auth
+keeps plain UUIDs; `B`: hidden bit inside the UUID).
+Sid: "1a"
+Stands as: space-free party keywords (`:person.<id>`, `:agent.<id>`,
+`:run.<id>`) in the store; Auth keeps plain UUIDs; `:run.` is not put on
+today's login `:session`.
+
+**23. Live permission reads as one atomic unit, and the adversarial caching
+check.**
+Asked: using a 1-step Rama task query on permission push signals so
+`:anyone` + `:person.<you>` + `:lent-from` are read together as one atomic
+unit (while facts stay on direct live pushes), vs. opening an adversarial
+session under the stop on caching.
+Sid: "2. can't we do them as a single atomic unit? i don't understand what
+is cache here?" Then after explanation: "go". After a cross-family audit
+recommended running (not waiving) the adversarial caching examination
+before live-read logic is built: "yeah confirm all 4 ...".
+Stands as: permissions read as one atomic unit on the lane's task; a
+dedicated adversarial examination (`Loop 0d`) runs first to check whether
+any remembered query answer can be avoided altogether on Rama 1.6.0, and
+if not, to break-test staleness, watch completeness, and reconnects before
+live-read code lands.
+
+**24. Lending read access to agents — across people and on public lanes.**
+First asked: (3a) app/runtime restricts read-only lending to her own agents
+by default while the store stays open; (3b) on a public lane (`:anyone`
+holds `:see`, including `:base`), a signed-in person may lend that public
+read access to her agent, and only she, her agent, or a lane owner (never a
+stranger covered by `:anyone`) may end that borrow.
+Sid: "3. both recommended .. yeah lending is the correct usage here"
+Asked again after a cross-family audit pointed out that checking "own
+agents" in `seam` would decide outside the gate on a stale read, putting
+`A` (no "whose agent" check in store or `seam` in this build; a read-only
+member may lend to any agent ID she is given) against `B` (door-vouched
+`Auth` check at the gate now), alongside confirming `BUILD.md` Batch 4 and
+committing the three open review files:
+Sid: "yeah confirm all 4 ..." and then "yes".
+Stands as: neither store nor `seam` checks `Auth` `made-by` on lends in
+this build (`A`); a signed-in person may lend `:anyone` / `:anyone-signed-in`
+permissions to an agent or run, and being covered through `:anyone` does
+not make a stranger the `:holder` under item 18.
+
+**25. `:softland.store/who-may-read-acts` in this build.**
+Asked: leave `:softland.store/who-may-read-acts` alone in this build (except
+that in Batch 3 any owner of the lane writes it, not only the first holder),
+while act-history visibility remains open under section 9 item 12 /
+section 12 question 12.
+Sid: "yeah confirm all 4 ..." and "yes".
+Stands as: `:softland.store/who-may-read-acts` stays in place in this build,
+written by any owner.
+
 ## 7. The solution as discussed (A SESSION'S, built on section 6)
 
 Second pass: for the first slice, section 12 replaces three things below:
