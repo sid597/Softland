@@ -27,6 +27,12 @@
   the number of its `:watch` until it ends or is left with
   `{:word :leave :watch n}`.
 
+  A word that the line does not take gets its \"could not\" as a result,
+  `{:id n :gives word}`, a `:watch` like any other word. `{:id n :ended
+  word}` is only the last message of a watch that the line opened under n:
+  a result under n says nothing of a live watch under n. A text that holds
+  no word with a number gets the \"could not\" bare, with no number.
+
   One word at a time. The words of one connection are done in the order in
   which they arrived, on one thread of the connection's own: two acts that
   a maker sends one after the other reach their depot in that order. A send
@@ -110,17 +116,15 @@
   "The watch is under the number of its word. When the flow ends, the
   number is free again."
   [^Connection connection id word]
-  (let [state (.-state connection)]
+  (let [state (.-state connection)
+        most (seam/watches-per-connection (.-the-seam connection) (.-caller connection))]
     (cond
       (contains? (:watches @state) id)
-      (say! connection {:id id :ended (words/could-not :find-the-watch {:why :number-in-use})})
+      (say! connection {:id id :gives (words/could-not :read-the-word {:why :number-in-use :at :id})})
 
-      (<= (seam/watches-per-connection (.-the-seam connection) (.-caller connection))
-          (count (:watches @state)))
-      (say! connection {:id id :ended (words/could-not :find-the-watch
-                                                       {:why :too-many
-                                                        :most (seam/watches-per-connection (.-the-seam connection)
-                                                                                           (.-caller connection))})})
+      (<= most (count (:watches @state)))
+      (say! connection {:id id :gives (words/could-not :take-more
+                                                       {:why :too-many-watches-on-a-connection :most most})})
 
       :else
       (let [token (Object.)
@@ -219,7 +223,7 @@
   is ended."
   [^Connection connection text]
   (when-not (.offer ^LinkedBlockingQueue (.-queue connection) text)
-    (say! connection {:bye (words/could-not :read-the-frame {:why :too-many-waiting :most max-waiting})})
+    (say! connection {:bye (words/could-not :take-more {:why :too-many-waiting :most max-waiting})})
     (end! connection 1008 "too many words wait"))
   nil)
 

@@ -333,7 +333,7 @@
    {:says "the text held no one EDN form within the bounds; `:why` is `:too-large`, `:a-token-too-long`, `:not-edn`, `:empty` or `:more-than-one-form`"
     :status 400}
    :read-the-word
-   {:says "the thing is no word of the form; `:why` is the check's reason and `:at` the part"
+   {:says "the thing is no word of the form, or its number is that of a live watch; `:why` is the check's reason and `:at` the part, or, from the line, `:no-number` or `:number-in-use` at `:id`"
     :status 400}
    :find-her-sign-in
    {:says "the word needs a who, or the credential stands for nobody now; `:why` is `:no-credential`, `:not-a-credential`, `:not-known`, `:ended` or `:over`"
@@ -363,7 +363,7 @@
    {:says "Auth refused the thing; `:why` is Auth's word"
     :status 409}
    :take-more
-   {:says "this copy's ration was reached: too many sign-in posts from this address or too many live watches; `:why` is `:sign-in-paced` or `:too-many-watches`"
+   {:says "a limit was reached, and the same thing can be done later; `:why` is `:sign-in-paced`, `:polls-paced`, `:sessions-paced`, `:too-many-watches`, `:too-many-watches-on-a-connection` or `:too-many-waiting`, and `:most` is the limit"
     :status 429}
    :reach-auth
    {:says "a call of Auth threw, or Auth's watch was lost; a read that failed has not said that there is no sign-in"

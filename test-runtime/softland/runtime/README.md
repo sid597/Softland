@@ -20,6 +20,7 @@ what state it changes, and what it does not reach.
 | [two_lines_proof.clj](two_lines_proof.clj) | Where the store's line and the spine meet: a watch held on two copies when its permission is ended in the store, directly, above it, or for a run. On the in-process cluster, or on a cluster that stays up with two processes. | A cluster that is thrown away, or the cluster's store and Auth. |
 | [review_faults_proof.clj](review_faults_proof.clj) | The five faults of the spine's review of 22 November, each as a sentence that failed before its fix. | A cluster that is thrown away. |
 | [open_session_proof.clj](open_session_proof.clj) | The word `:open-session` and what drives a session: the wire's form, the browser's faces, a program's sessions across copies, and the command line's `new-session --model`. | A cluster that is thrown away. |
+| [line_review_proof.clj](line_review_proof.clj) | What the review of 26 November found in what the line answers when it does not take a word, read as the frames that the line sends: a second watch under the number of a live one, a watch over the connection's limit, and one word more than can wait. | A cluster that is thrown away. |
 | [attacks/](attacks/README.md) | Seven attacks on the spine, written to fail before their fixes. | A cluster that is thrown away. |
 
 ## What a pass shows
