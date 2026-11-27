@@ -1,7 +1,8 @@
 (ns softland.runtime.command-pure-proof
   "The proof of the command line's parts that need no runtime: how many
-  plain arguments a command takes, and under which UUID an act of a file is
-  sent. One command, from the repository root:
+  plain arguments a command takes, under which UUID an act of a file is
+  sent, and the exit status of a result. One command, from the repository
+  root:
 
     clojure -M:runtime -m softland.runtime.command-pure-proof
 
@@ -112,9 +113,42 @@
              (and (whole? got 3) (empty? (filter (set uuids) (:uuids got))))
              got))))
 
+;; ------------------------------------------------------------ the exit status
+
+(defn- status-checks []
+  (let [status (fn [result] (command 'status-of result))
+        could-not {:could-not :reach-the-runtime :said "the connection was closed"}
+        accepted {:answer {:answer :accepted}}
+        refused {:answer {:answer :refused}}]
+    (check "A command that could not be read gives 2."
+           (= 2 (status {:could-not :read-the-command :said "write e k v"}))
+           (status {:could-not :read-the-command :said "write e k v"}))
+    (check "A result that holds `:could-not` gives 1."
+           (= 1 (status could-not)) (status could-not))
+    (check "A `send` one of whose results holds `:could-not` gives 1."
+           (= 1 (status {:results [accepted could-not]})) (status {:results [accepted could-not]}))
+    (check "A `send` that holds both a refusal and a \"could not\" gives 1: the run did not finish."
+           (= 1 (status {:results [refused could-not]})) (status {:results [refused could-not]}))
+    (check "A `watch` that ended with a word that holds `:could-not` gives 1."
+           (= 1 (status {:ended could-not})) (status {:ended could-not}))
+    (check "A `sign-in` whose ask ran out, `{:state :over}`, gives 1."
+           (= 1 (status {:state :over})) (status {:state :over}))
+    (check "An act that a gate refused gives 3, as the result and as a result of `send`."
+           (= [3 3] [(status refused) (status {:results [accepted refused]})])
+           [(status refused) (status {:results [accepted refused]})])
+    (check "Her no to the sign-in, `{:state :no}`, gives 3."
+           (= 3 (status {:state :no})) (status {:state :no}))
+    (check "Everything else gives 0: an act that was accepted, a `send` whose every act was accepted, a hello, a place that was read; and an answer of `:nothing-yet` or `:not-mine`, which is neither a \"could not\" nor a refusal."
+           (every? (fn [result] (= 0 (status result)))
+                   [accepted {:results [accepted accepted]} {:who (UUID/randomUUID) :session (UUID/randomUUID)}
+                    {:place {:value :green}} {:answer {:answer :nothing-yet}} {:answer {:answer :not-mine}}])
+           (mapv status [accepted {:results [accepted accepted]} {:who (UUID/randomUUID)}
+                         {:place {:value :green}} {:answer {:answer :nothing-yet}} {:answer {:answer :not-mine}}]))))
+
 (defn -main
   "Runs every check, prints the counts, and ends the process with a status."
   [& _]
   (argument-checks)
   (journal-checks)
+  (status-checks)
   (finish))

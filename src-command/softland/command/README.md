@@ -20,8 +20,9 @@ Each is a session's, kept and not decided.
   Beside the file it keeps an empty `sign-in.edn.lock`, which a command holds
   while it changes the file, so that two commands at once change it one after
   the other.
-- **A gate's refusal ends with status 3,** so that a script can tell an act
-  that was refused from a command that could not be done.
+- **A refusal ends with status 3,** a gate's of an act or her no to a
+  sign-in, so that a script can tell it from a command that could not be
+  done, which ends with 1.
 - **`send` keeps the UUIDs of a file's acts before it sends any,** so that a
   run that was cut off is sent again as the same acts.
 - **The JVM stops at its first compiler** (`-XX:TieredStopAtLevel=1`, on the

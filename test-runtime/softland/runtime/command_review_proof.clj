@@ -1,7 +1,7 @@
 (ns softland.runtime.command-review-proof
   "The proof of what the review of 26 November 2026 found in the command
-  line: a command with an argument left out, and a file that is edited and
-  sent again. One command, from the repository root:
+  line: a command with an argument left out, a file that is edited and sent
+  again, and the exit status. One command, from the repository root:
 
     clojure -M:runtime -m softland.runtime.command-review-proof
 
@@ -14,14 +14,20 @@
   line's files, under the JVM's temporary folder."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
+            [softland.command.client :as client]
+            [softland.command.main]
             [softland.runtime.attacks.harness :as h]
             [softland.runtime.command-proof]
             [softland.runtime.drive :as drive]
             [softland.wire.proof :refer [check finish]])
-  (:import [java.nio.file Files]
+  (:import [java.io File]
+           [java.nio.file Files]
            [java.nio.file.attribute FileAttribute]))
 
+(def ^:private started @#'softland.runtime.command-proof/started)
+(def ^:private ended @#'softland.runtime.command-proof/ended)
 (def ^:private soft @#'softland.runtime.command-proof/soft)
+(def ^:private wait-for @#'softland.runtime.command-proof/wait-for)
 (def ^:private sign-in! @#'softland.runtime.command-proof/sign-in!)
 
 (defn- value-at
@@ -91,6 +97,31 @@
                 (every? (fn [result] (= {:answer :not-mine} (:answer result))) (results second-run)))
            {:first (seen first-run) :new-session (seen fresh) :second (seen second-run)})))
 
+(defn- the-exit-status
+  [{:keys [home url cookie ^File file]}]
+  (let [no-home (io/file home "she-says-no")
+        process (started no-home ["sign-in" "--url" url])
+        err (.getErrorStream process)
+        shown (StringBuilder.)
+        code (wait-for (fn []
+                         (while (pos? (.available err)) (.append shown (char (.read err))))
+                         (second (re-find #"code: ([A-Z0-9]{4}-[A-Z0-9]{4})" (str shown))))
+                       60000)
+        _ (when code (drive/yes url cookie code {:say "no"}))
+        said-no (ended process)]
+    (check "`sign-in` ends with 3 when she says no at the page, and prints the runtime's own form, `{:state :no}`."
+           (and code (= 3 (:exit said-no)) (= {:state :no} (:out said-no)))
+           (seen said-no)))
+  (let [word {:could-not :reach-the-runtime :said "the proof's own word, for a watch that could not be sent"}
+        got (with-redefs [client/watch (fn [& _] word)]
+              (let [running (future (#'softland.command.main/run "watch" [":lamp-2" ":lit" "--as" (.getPath file)]))
+                    got (deref running 20000 :still-waiting)]
+                (future-cancel running)
+                got))]
+    (check "When the library gives a word that holds `:could-not` for a watch, `watch` gives that word as its result and does not wait for the watch's end. The command runs here inside the proof, signed in against the runtime, with the library's `watch` replaced by one that gives the word."
+           (= word got)
+           got)))
+
 (defn -main
   "Runs the proof, prints the counts, and ends the process with a status."
   [& _]
@@ -103,11 +134,12 @@
           (h/setup-first-person! copy)
           (let [cookie (:cookie (drive/sign-in url h/first-person))
                 signed (sign-in! home url cookie nil)
-                with {:home home
+                with {:home home :url url :cookie cookie :file (io/file home "sign-in.edn")
                       :who (:who (:out signed)) :lane (:own-lane (:out signed))}]
             (an-argument-left-out with)
             (a-file-edited-and-sent-again with)
-            (a-file-sent-again-in-another-session with))
+            (a-file-sent-again-in-another-session with)
+            (the-exit-status with))
           (check "The proof ran to its end without a throw." true)
           (catch Throwable t
             (check "The proof ran to its end without a throw." false (str t))

@@ -54,9 +54,12 @@
   `new-session`. A run of an agent that wants a session of its own says
   `new-session` first.
 
-  It prints one EDN form, the result. The exit status is 0 when the thing
-  was done; 1 for a word that holds `:could-not`; 3 when a gate refused an
-  act; 2 for a command that it could not read."
+  It prints one EDN form, the result. The exit status is the first of
+  these that holds. 2: the command could not be read. 1: a \"could not\":
+  the result holds `:could-not`, or a result of `send` or the word that a
+  `watch` ended with holds it, or the ask of `sign-in` ran out. 3: a
+  refusal: a gate refused an act, one of `send` too, or she said no to the
+  sign-in. 0: otherwise."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -210,13 +213,16 @@
 ;; ------------------------------------------------------------------ the result
 
 (defn- status-of
+  "A `send` that holds both a \"could not\" and a refusal gives 1: the run
+  did not finish, and the refusal is in what is printed."
   [result]
-  (cond
-    (and (map? result) (:could-not result)) 1
-    (= :refused (get-in result [:answer :answer])) 3
-    (and (map? result) (some (fn [r] (or (:could-not r) (= :refused (get-in r [:answer :answer]))))
-                             (:results result))) 3
-    :else 0))
+  (let [each (cons result (:results result))
+        refused? (fn [r] (= :refused (get-in r [:answer :answer])))]
+    (cond
+      (= :read-the-command (:could-not result)) 2
+      (or (some :could-not each) (:could-not (:ended result)) (= :over (:state result))) 1
+      (or (some refused? each) (= :no (:state result))) 3
+      :else 0)))
 
 (defn- out!
   [result]
@@ -469,13 +475,13 @@
       "watch"
       (with-line flags
         (fn [connection hello]
-          (let [ended (promise)]
-            (client/watch connection (query-of hello flags (value-of a) (value-of b))
-                          (fn [message]
-                            (println (frame/write message))
-                            (flush)
-                            (when (contains? message :ended) (deliver ended (:ended message)))))
-            {:ended @ended})))
+          (let [ended (promise)
+                sent (client/watch connection (query-of hello flags (value-of a) (value-of b))
+                                   (fn [message]
+                                     (println (frame/write message))
+                                     (flush)
+                                     (when (contains? message :ended) (deliver ended (:ended message)))))]
+            (if (:could-not sent) sent {:ended @ended}))))
 
       "send" (with-line flags (fn [connection hello] (send-file! connection hello a)))
 
@@ -592,4 +598,4 @@
                       {:could-not :run-the-command :threw (.getName (class t)) :said (.getMessage t)}))
         status (out! result)]
     (shutdown-agents)
-    (System/exit (if (= :read-the-command (:could-not result)) 2 status))))
+    (System/exit status)))
