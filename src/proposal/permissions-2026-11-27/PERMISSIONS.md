@@ -939,6 +939,11 @@ brackets.
    uniqueness is needed, and the id carries its lane. Whether the depot
    word stays in an act's id is F22 of the review page; the give's id takes
    the act's id as it is. [3, 10, 15]
+   Replaced on 27 November by the implementer's reading of the code
+   («678be1d3»): the giver's program makes the id, and the give is a fact
+   on that id, as a yes is today. An id made from an act is not something
+   a fact can sit on in this store. A re-sent act still gives the same id,
+   because the id is in the act, and a place takes one give for good.
 2. Three acts name a give: give, change, end. A change keeps the id and
    replaces what the give allows or covers; never the holder, the lender or
    who gave it. It is not a new atom: it is "replace", the act that changes
@@ -1065,6 +1070,33 @@ Owner over owner. Items 18 and 21 read together let one owner end another
 owner's give, as long as the lane keeps an owner. Sid was not shown that
 case. The slice follows the two items; question 4 below can turn it.
 
+### What the implementer read in the code
+
+IN THE CODE, per the session "permission-fix-implementer" («678be1d3»,
+26 November 20:41 UTC), which read the code the first batch changes. Not
+checked by the working session.
+
+- A yes already sits on an id its giver makes, takes its place for good,
+  and has "never given" and "ended" answered apart.
+- A read finds a holder's permission because it sits at (lane, holder).
+  With any number of gives per holder, a read needs her gives listed by
+  holder, written in the same decision as the give. Each live viewer then
+  holds more pushes than today.
+- The nested form is what caps a chain at 32 today. With ids, the gate has
+  to refuse a give that is too deep.
+- What kept an end and a give out of one act is that an act names a place
+  once, and both sat at (lane, holder). With each give at its own place
+  they can ride in one act, already after batch 1.
+- Stamps are compared today only because a give made again has the same
+  id.
+- "One per run" is one per sitting id per lane, with the holder checked
+  afterwards.
+- Of the eight facts of section 9, four: a row above a permission cannot
+  sit in another lane; an act's author must be the holder of its
+  permission, except the system making a personal lane; nobody can give a
+  lane's first permission again; an act names what it was written against
+  per fact (`:replaces`), plus a `:based-on` label no gate reads.
+
 ### How it is built: four batches
 
 SID'S, 27 November, in the working session (ids not looked up): "if the
@@ -1096,8 +1128,10 @@ evidence to bring back, not as steps.
 4. Public as a give to everyone (item 20); the statement to prove as a
    proof over the whole; the live-view proof (point 16).
 
-The prompt for a batch is written from the report of the one before it.
-`BUILD-batch-1.md`, beside this page, is the first.
+The prompts for all four are in `BUILD.md`, beside this page. Under each
+batch it says which lines are decided and which are a session's. A batch's
+text is corrected when the report of the one before it shows the page
+wrong.
 
 ### Readings in sections 6 and 7 that are a session's
 
