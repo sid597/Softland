@@ -12,9 +12,9 @@
   that owns the PState says the depot.
 
   A fact's value is held as one String, its one text. So the field has one
-  class, a push on the row is told each change of it, and \"is this the
-  permission that the act names\" is a comparison of two Strings that are
-  equal only when the values are.
+  class, and a push on the row is told each change of it. Who wrote a row,
+  and the permission that its act named, are each held as the printed text
+  of an id.
 
   The functions that make a row give exactly the classes that the schemas
   declare. A row of another class throws in a topology, and a throw there
@@ -96,26 +96,31 @@
   store key alike. A retract has no `:text`: its row holds no value, and is
   there all the same, so that a later fact can replace the retract.
 
-  `:who` and `:permission` are each the one text: a UUID has two texts, and
-  the one text reads back as a UUID. The two texts are given, and not made
+  `:who` and `:permission` are each the printed text of an id
+  (`softland.store.door.declaration/id-text`): who the act named as its
+  author, and the id of the permission that it named. An act that named no
+  permission wrote a row with none. The two texts are given, and not made
   here, so that a caller makes them once for an act and not once for each
   fact.
 
   What must hold: the act passed the declaration's check, so the time is a
-  whole number not below zero; and the two texts are
-  `softland.store.door.text/text` of its `:who` and of its `:permission`."
+  whole number not below zero."
   [fact act-uuid index stamp time-millis who-text permission-text]
   (cond-> {:by-act act-uuid :by-index (long index) :stamp (long stamp)
-           :time (long time-millis) :who who-text :permission permission-text}
+           :time (long time-millis) :who who-text}
+    (some? permission-text)
+    (assoc :permission permission-text)
+
     (some? (:text fact))
     (assoc :value (:text fact))))
 
 (defn use-row
-  "The row of the use of a yes for one act, at the yes's place
-  (`softland.store.gate.decision`, `use-of-its-yes`). It has no `:value`,
-  so that it is an end (`ended?`), and no `:by-index`: no fact of the act
-  wrote it, so no fact id can be made of it (`written-by?` holds it to
-  none). What must hold: as for `fact-row`."
+  "The row of the use of a permission for one exact act, at the
+  permission's place (`softland.store.gate.decision`,
+  `use-of-its-permission`). It has no `:value`, and no `:by-index`: no fact
+  of the act wrote it, so no fact id can be made of it (`written-by?` holds
+  it to none), and that tells it from an end (`used?`). What must hold: as
+  for `fact-row`."
   [act-uuid stamp time-millis who-text permission-text]
   {:by-act act-uuid :stamp (long stamp) :time (long time-millis) :who who-text :permission permission-text})
 
@@ -136,16 +141,6 @@
                   (= gate-depot named-depot)
                   (= (:by-act row) named-uuid)
                   (= (:by-index row) named-index)))))
-
-(defn holds-value?
-  "The row's value is not read as a form: the row's String is compared with
-  the one text of the value given, and two values of the normal form have
-  one text only when they are one value. What must hold: the value is in
-  its one normal form."
-  [row v]
-  (boolean (and row
-                (some? (:value row))
-                (= (:value row) (text/text v)))))
 
 (defn- first-form
   "nil is also what the text `nil` reads as; a caller that must tell the two
@@ -193,6 +188,8 @@
           [:not-a-value]))
       (catch Throwable _ [:not-a-value]))))
 
+(declare id-of-text)
+
 (defn who-of
   "The id is what the program that sent the act said: a gate checked no
   sender (src-store/softland/store/README.md, \"What the gate does not
@@ -200,39 +197,67 @@
 
   It never throws."
   [row]
-  (when-let [held (:who row)]
-    (let [id (first-form held)]
-      (when (or (act/readable-keyword? id) (uuid? id)) id))))
+  (id-of-text (:who row)))
 
 (defn permission-of
-  "The permission that the act which wrote the row named. It stood when the
-  act was decided. What it allows is `softland.store.act/allows` of it.
+  "The id of the permission that the act which wrote the row named; nil for
+  a row of an act that named none. It stood when the act was decided. What
+  it allowed then is not in the row: a permission can be changed after.
 
   It never throws."
   [row]
-  (when-let [held (:permission row)]
-    (let [permission (first-form held)]
-      (when (act/has-shape? :permission-id permission) permission))))
+  (let [id (id-of-text (:permission row))]
+    (when (uuid? id) id)))
+
+(defn- says-of
+  "What a row's value says as a permission, read from its text."
+  [row]
+  (when-let [held (:value row)]
+    (declaration/permission-value (first-form held))))
+
+(defn read-as-a-permission
+  "A row that was read at a permission's place, with what it says beside
+  its fields, so that the text is read once however often
+  `held-permission` is asked of the row. The row is for the checks of the
+  one read that made it, and is never written: a gate writes only rows
+  that the functions above made. nil for no row."
+  [row]
+  (when row
+    (assoc row ::says (says-of row))))
+
+(defn permission-place?
+  "True for the key of a place under the permission key."
+  [k]
+  (and (string? k)
+       (.endsWith ^String k (str " " (declaration/id-text declaration/permission-key)))))
 
 (defn held-permission
-  "The permission that the row at a permission's place holds as its value.
-  nil also for a row with no value, which is an end of a permission or the
-  use of a yes. `permission-of` is another thing: the permission that the
-  writing act named, which for a give is the giver's.
+  "What the permission at a place says: the value of the row at a
+  permission's place, in its one form
+  (`softland.store.door.declaration/permission-value`). nil for a row with
+  no value, which is the end of a permission or its use; for a row whose
+  value is no permission's, which no gate writes there; and for no row.
+  `permission-of` is another thing: the permission that the writing act
+  named.
 
   It never throws."
   [row]
-  (let [[kind v] (read-value row)]
-    (when (and (= :value kind) (act/has-shape? :permission-id v))
-      v)))
+  (if (contains? row ::says)
+    (::says row)
+    (says-of row)))
+
+(defn used?
+  "The use of a permission for one exact act: a row with no value that no
+  fact wrote (`use-row`). What must hold: the row is at a permission's
+  place."
+  [row]
+  (boolean (and row (nil? (:value row)) (nil? (:by-index row)))))
 
 (defn ended?
-  "An end is a row with no value, which a taken fact with no value wrote
-  under one of the three keys of a permission
-  (`softland.store.door.declaration/permission-keys`). What must hold: the
-  row is at a permission's place."
+  "An end: a row with no value that a taken fact with no value wrote. What
+  must hold: the row is at a permission's place."
   [row]
-  (boolean (and row (nil? (:value row)))))
+  (boolean (and row (nil? (:value row)) (some? (:by-index row)))))
 
 (defn marked-keys-of
   "For the row at a lane's marked-keys place. A read of \"what points at a
@@ -306,8 +331,9 @@
   hold: the two texts and the time are those that the fact's row holds
   (`fact-row`)."
   [who-text permission-text act-uuid index stamp time-millis]
-  {:by-act act-uuid :by-index (long index) :stamp (long stamp)
-   :time (long time-millis) :who who-text :permission permission-text})
+  (cond-> {:by-act act-uuid :by-index (long index) :stamp (long stamp)
+           :time (long time-millis) :who who-text}
+    (some? permission-text) (assoc :permission permission-text)))
 
 (defn id-of-text
   "It never throws."
@@ -440,6 +466,45 @@
    :time    (:time row)
    :digest  (:digest row)})
 
+;; ------------------------------------------------ the permissions by holder
+
+(def any-sitting
+  "What stands in a key by holder where a sitting would, for a permission
+  that is good in every sitting. The printed text of an id begins with a
+  colon or is a UUID's, so no sitting has this text."
+  "*")
+
+(defn by-holder-key
+  "The key of a permission in the order by holder: the lane, the holder,
+  the one sitting that the permission is good for or `any-sitting`, and the
+  permission's own id. So the permissions of one holder in one lane are
+  neighbours, those for any sitting in one run and those for each sitting
+  in a run of its own, and a read finds them without knowing an id."
+  [lane holder session permission]
+  (str (declaration/id-text lane) " " (declaration/id-text holder) " "
+       (if (some? session) (declaration/id-text session) any-sitting) " "
+       permission))
+
+(defn by-holder-run
+  "The keys of the permissions that one holder has in a lane for one
+  sitting, or with nil for any sitting; `to` is not in the run."
+  [lane holder session]
+  (let [run (str (declaration/id-text lane) " " (declaration/id-text holder) " "
+                 (if (some? session) (declaration/id-text session) any-sitting))]
+    [(str run " ") (str run "!")]))
+
+(defn permission-of-by-holder-key
+  "The id of the permission that a key by holder names, its last part.
+
+  It never throws."
+  [k]
+  (try
+    (let [parts (parts-of-key k)]
+      (when (= 4 (count parts))
+        (let [id (id-of-text (nth parts 3))]
+          (when (uuid? id) id))))
+    (catch Throwable _ nil)))
+
 ;; ------------------------------------------------ the runs that a read names
 
 (defn entity-run
@@ -453,11 +518,9 @@
 (defn own-rows-run
   "The lane's own rows: those of the lane's own entity under the keys of the
   store's namespace (`softland.store.door.declaration/store-namespace`).
-  They are the lane's depot, who may see it, what it builds on and its
-  marked keys; and a permission at the lane's own entity, when the lane's
-  id is also the id of what that permission sits on: a holder's permission
-  for the lane, a run's when a session has the lane's id, a yes's when its
-  own id is the lane's.
+  They are the lane's depot, who may read its acts whole, what it builds
+  on and its marked keys; and a permission, when its giver made it on the
+  id that is also the lane's.
 
   `to` is `from` with `0`, the character after `/`, in the place of its
   last character, and is not in the run."

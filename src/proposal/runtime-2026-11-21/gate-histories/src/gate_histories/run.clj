@@ -58,6 +58,9 @@
     clojure -M:run                   ; all of the below, 2000 histories each
     clojure -M:run 5000 7            ; so many histories, this seed
     clojure -M:run rules 5000 7      ; the rules as their own gate
+    clojure -M:run fix 5000 7        ; against the store of the permission
+                                     ; fix (`gate-histories.fix`)
+    clojure -M:run fix-mutants 2000 7  ; that store with one rule broken
     clojure -M:run today 5000 7      ; against the store before the fix
     clojure -M:run mutants 3000 7    ; the broken copies of the rules, and
                                      ; today's store with one rule broken;
@@ -889,6 +892,85 @@
           (print-breaks gate found histories)
           false))))
 
+(defn- the-fix
+  "A var of `gate-histories.fix`, which is loaded only when it is asked
+  for: it calls the store of the permission fix, and does not load against
+  the store before it. Gives nil, and says why, when it does not load."
+  [sym]
+  (try @(requiring-resolve (symbol "gate-histories.fix" (name sym)))
+       (catch Throwable e
+         (println "NOT RUN against the store of the permission fix: gate-histories.fix does not load against the store on the path.")
+         (println "  " (.getMessage e))
+         nil)))
+
+(defn- run-fix
+  "The store of the permission fix as a gate under test. Gives true when no
+  statement broke. A difference that falls under one of the judge's
+  readings on which the store differs is counted and printed, as a
+  question."
+  [histories seed]
+  (reset! tally {})
+  (let [gate (the-fix 'gate)
+        questions (the-fix 'questions)
+        started (System/nanoTime)
+        found (kinds-of-break gate histories seed)
+        counted @tally
+        asked (counted-under counted :excused)]
+    (println (format "AGAINST THE STORE OF THE PERMISSION FIX: %d histories, seed %d, %.1f seconds"
+                     histories seed (/ (- (System/nanoTime) started) 1e9)))
+    (print-counts counted)
+    (println "not sent, because the store's declaration refuses its form, which the rules do not hold:"
+             (let [m (counted-under counted :not-today)] (if (empty? m) "none" m)))
+    (println)
+    (println (format "COMPARED: %d things, each decided by the store's own walk and judged by the rules; and after each that wrote, a read asked once for each of %d askers"
+                     (:things counted 0) (count askers)))
+    (println "QUESTIONS: things on which the store differs under a reading of the judge's, taken out of their histories, by reading:")
+    (doseq [[reading says] (sort-by key questions)]
+      (println (format "  %8d  %-10s  %s" (get asked reading 0) reading says)))
+    (if (empty? found)
+      (do (println "HOLDS everywhere else: agree, told, once, apart, proved and see")
+          true)
+      (do (print-breaks gate found histories) false))))
+
+(defn- run-broken-fixes
+  "The store of the permission fix with one of its own rules broken. Gives
+  true when every one broke a statement that the store without it keeps."
+  [histories seed show?]
+  (let [gate (the-fix 'gate)
+        broken-stores (the-fix 'broken-stores)
+        breaks (fn [played] (into #{} (map (juxt :step :class)) (:violations played)))
+        plays (fn [gate ops] (try (play gate ops)
+                                  (catch Throwable e
+                                    {:steps [] :violations [{:step 0 :statement :threw :class [:threw (.getSimpleName (class e))]
+                                                             :what (str "the store threw: " (.getMessage e))}]})))]
+    (println (format "THE STORE OF THE PERMISSION FIX WITH ONE RULE BROKEN: %d, each played up to %d histories, seed %d"
+                     (count broken-stores) histories seed))
+    (let [missed
+          (reduce
+           (fn [missed [what the-var make-broken]]
+             (let [redefs {the-var (make-broken @the-var)}
+                   new-breaks (fn [ops]
+                                (let [real (plays gate ops)
+                                      broken (with-redefs-fn redefs #(plays gate ops))]
+                                  (remove (breaks real) (breaks broken))))
+                   result (tc/quick-check histories
+                                          (prop/for-all [ops (h/gen-history :full)] (empty? (new-breaks ops)))
+                                          :seed seed :max-size 80)]
+               (if (:pass? result)
+                 (do (println (format "  NOT CAUGHT   %s" what)) (conj missed what))
+                 (let [smallest (tighter (first (get-in result [:shrunk :smallest])) #(seq (new-breaks %)))
+                       kind (second (first (new-breaks smallest)))]
+                   (println (format "  caught at %5d  %s" (:num-tests result) what))
+                   (println (format "                   by %s" (class-line kind)))
+                   (when show?
+                     (print-trace (with-redefs-fn redefs #(plays gate smallest)) kind)
+                     (println))
+                   missed))))
+           []
+           broken-stores)]
+      (println (format "%d of %d caught" (- (count broken-stores) (count missed)) (count broken-stores)))
+      (empty? missed))))
+
 (defn- print-sentences
   "The rules in plain words, each with where it comes from and where in the
   code it is said."
@@ -901,11 +983,12 @@
 
 (defn -main
   "`clojure -M:run [histories [seed]]` runs the rules as their own gate, the
-  store before the fix, and the broken copies; `rules`, `today` or
-  `mutants` before the count runs one of them; `sentences` prints the rules
-  in plain words. Exits 1 when anything was red."
+  store of the permission fix, the store before the fix, and the broken
+  copies, each when it loads against the store on the path; `rules`, `fix`,
+  `today` or `mutants` before the count runs one of them; `sentences`
+  prints the rules in plain words. Exits 1 when anything was red."
   [& args]
-  (let [mode (when (contains? #{"rules" "today" "mutants" "sentences"} (first args)) (first args))
+  (let [mode (when (contains? #{"rules" "fix" "fix-mutants" "today" "mutants" "sentences"} (first args)) (first args))
         args (if mode (rest args) args)
         histories (if-let [n (first args)] (parse-long n) 2000)
         seed (if-let [s (second args)] (parse-long s) (System/currentTimeMillis))
@@ -914,9 +997,16 @@
       (do (print-sentences) (System/exit 0))
       (let [run? (fn [m] (or (nil? mode) (= m mode)))
             lens? (some? (when (or (run? "today") (run? "mutants")) (todays 'gate)))
+            fix? (some? (when (or (run? "fix") (run? "fix-mutants")) (the-fix 'gate)))
             results (filterv some?
                              [(when (run? "rules")
                                 (let [green? (run-rules histories seed)] (println) ["the rules as their own gate" green?]))
+                              (when (and fix? (run? "fix"))
+                                (let [green? (run-fix histories seed)] (println) ["against the store of the permission fix" green?]))
+                              (when (and fix? (run? "fix-mutants"))
+                                (let [green? (run-broken-fixes histories seed show?)]
+                                  (println)
+                                  ["the store of the permission fix with one rule broken" green?]))
                               (when (and lens? (run? "today"))
                                 (let [green? (run-today histories seed)] (println) ["against the store before the fix" green?]))
                               (when (run? "mutants")

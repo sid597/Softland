@@ -223,7 +223,9 @@ new act, which is the declaration's.
    the new door and kernel, and the copy of the walk brought to the new
    module. Until then no new code is judged: the rules are held to the
    statement to prove, to today's store on today's values, and to their own
-   broken copies.
+   broken copies. (The builder's session wrote that gate over the pure
+   kernel on 27 November: the last section of this page. The module on a
+   cluster still waits.)
 2. **Part 2: the live read.** What a read tells while it stays open, the
    non-flicker of a transfer, and the watches of CONTRACT 2.4, after the
    examination of caching.
@@ -239,5 +241,93 @@ new act, which is the declaration's.
 | `src/gate_histories/histories.clj` | The world, the steps, the things that a step sends. |
 | `src/gate_histories/run.clj` | Playing a history against a gate, the statements held, the broken copies, the runs. |
 | `src/gate_histories/today.clj` | The store before the fix as a gate under test, and its excuses. |
+| `src/gate_histories/fix.clj` | The builder's: the store of the fix as a gate under test, the readings on which it differs, and its broken copies. |
 | `src/gate_histories/walk.clj`, `live.clj`, `record.clj` | As they were: the copy of today's walk, the live read through today's read path, Sid's record through the gate. |
 | `src/gate_histories/piece_2/` | The judge of piece 2, moved, its namespaces renamed and nothing else changed. |
+
+## The store of the fix as a gate under test (the builder's, 27 November 2026)
+
+Written by the session that built the store's pure kernel (Loop 2B), not by
+the judge's session. `reference.clj`, `statement.clj`, `histories.clj` and
+`today.clj` are as the judge left them. `run.clj` got two runs more and
+nothing else of it changed.
+
+```
+clojure -M:run fix 2000 1           # the store of the fix, held to every statement
+clojure -M:run fix-mutants 2000 1   # that store with one rule broken: each must be caught
+```
+
+[fix.clj](src/gate_histories/fix.clj) sends each thing through the store's
+own door additions and its own walk of one thing
+(`softland.store.gate.walk`), against a record held as a map
+(`softland.store.record.in-memory`), and reads the lane through the store's
+own rights (`softland.store.read-path.lanes`). The walk is not a copy: it is
+the function that a gate's module is to drive against its tables. So what is
+judged is the store's pure code. Nothing ran on Rama, and no live read.
+
+With the store in the new form, `today` and the second half of `mutants` say
+`NOT RUN`, as this page says above; they ran here against an export of the
+store at `25cafbfe`, by the command above.
+
+### What is not sent to the store, and why
+
+Counted by its word in each run. Each is a thing whose form the store's
+declaration refuses before any row is read, and the rules do not hold the
+form of a thing.
+
+- **An act that names one place in two facts**, under a plain key or a
+  setting's. The rules take it.
+- **An act that names one permission's id in two facts.** The rules refuse it
+  too, as a give changed twice, by their last rule; the store's word for it
+  comes first and is the same under a give that was never given and under one
+  that ended, which `apart` would count against the store. So the rule "no
+  give is changed twice in one act" refuses nothing in a `fix` run; the
+  store's own proof holds it.
+- **An act whose author is everyone.** A step that has the holder of a give
+  write sends one when that holder is `:anyone-signed-in`
+  (`histories.clj`, `lower-a-lender`). CONTRACT 2.1 makes everyone a holder
+  that is never a `:who`; the rules take such an act as a party's.
+
+### The readings on which the store differs: questions, not breaks
+
+A thing on which the store and the rules differ under one of these is taken
+out of its history for both, counted, and printed by the run. Each is held
+by a test of the thing and of what stood (`fix.clj`, `question`).
+
+- **Reading 4.** A give that fell with the one above it is ended by its
+  holder and by an owner, as the rules say. One further up the chain than the
+  end cannot end it: the row of the ended give holds no value (CONTRACT 2.3),
+  so it no longer says what that give was lent from, and the store cannot
+  tell that the author's give is above it. To keep the reading whole, an end
+  has to keep what it ended.
+- **Reading 6.** The rules hold anyone at all to seeing where the give is
+  made, and take a change that raises anyone's give past seeing. The store
+  holds it at the change too.
+
+On the other seven readings the store is built as the judge reads them.
+
+### What the runs found
+
+On a cloud machine. `clojure -M:run fix 2000 <seed>`, seeds 1 to 3: green,
+exit 0, 78 to 81 seconds each.
+
+| Seed | Things compared | Not sent for their form | Reading 4 | Reading 6 |
+|---|---|---|---|---|
+| 1 | 94,218 | 652 (439 a permission named twice, 177 a place, 36 by everyone) | 1 | 56 |
+| 2 | 93,409 | 656 (436, 182, 38) | 1 | 52 |
+| 3 | 95,078 | 664 (500, 150, 14) | 1 | 45 |
+
+Everywhere else agree, told, once, apart, proved and see hold: after each
+decision that wrote, a read asked once for each of the 37 askers.
+
+`clojure -M:run fix-mutants 2000 1`: 33 of 33 caught, the latest at history
+22; 27 by `agree`, two by `apart` and four by `see`. One broken copy was taken out of the list after a run of 2,000 histories did
+not catch it, and `fix.clj` says why: the store without its word
+`:no-permission` takes nothing that the store with it refuses, since each
+fact of an act that names no permission is then refused by its own check.
+
+The judge's own runs, after `run.clj` got its two runs more: `rules 2000 1`
+green, 94,884 things, as above; `mutants 2000 1`, 54 of 54; and against the
+export of the store at `25cafbfe`, `today 2000 1` green with the numbers of
+the table above (70,875 compared, 3,076 inside the seven reasons, none
+outside) and `mutants 2000 1`, 54 of 54 and 12 of 12.

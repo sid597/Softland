@@ -2,45 +2,49 @@
   "The checks of the decision of one act, after the door's declaration, as
   functions of an act and of rows; and the rows that a decision writes, as
   data. Pure code. No function reads a PState, a clock or a random source:
-  a gate reads the rows, calls these, and writes what they give. So the
-  same checks serve each gate, and a function gives the same answer when
-  Rama runs an event again.
+  a walk reads the rows, calls these, and writes what they give
+  (`softland.store.gate.walk`). So the same checks serve each gate, and a
+  function gives the same answer when Rama runs an event again.
 
   An act is an act in its one form on arrival
-  (`softland.store.door.declaration/check`). A row is a row of the record
-  (`softland.store.record.rows`), or nil for a key that holds none. A
-  gate's depot is `:streaming` or `:microbatch`.
+  (`softland.store.door.declaration/check`). `rows` is a map from the key
+  of a place of the facts to its row; a key that was read is in it also
+  when its place is empty, with nil. Under `owners-key` it holds a number
+  when one was asked for. A gate's depot is `:streaming` or `:microbatch`.
 
-  Before these, the walk makes the test for a stray and check (a), the
-  answer under the act-id. The order of the checks is the order of the
-  reasons: when an act has two faults, the check that comes first gives the
-  recorded word. A check that examines facts takes them in the act's order.
+  The checks do not know beforehand which rows they need: a permission
+  names the one that it is lent from, and a row must be read to learn it.
+  So each of the two steps says what it wants next of rows that `rows` does
+  not hold (`standing-wanted`, `places-wanted`), a walk reads those and
+  asks again, and when a step wants nothing its check gives the word
+  (`standing`, `places`). A step wants a row only when the rows in hand do
+  not already refuse the act.
+
+  The order of the checks is the order of the reasons: when an act has two
+  faults, the check that comes first gives the recorded word. A check that
+  examines facts takes them in the act's order.
+
+  One act is one moment. Each fact is held against the rows as they were
+  before the act, and so against what its author held just before it; no
+  fact is held against what an earlier fact of the same act writes. Then
+  the result is held as a whole (`whole-fault`). All of an act is taken,
+  or none of it is written.
 
   No check reads a row of the other gate's record, the time on the act, or
   a stamp that the act carries. No check reads a lane's marked keys, so a
   refused act pays nothing for them.
 
-  Two checks rest on how a row can come to be, and read less than their
-  words name.
-
-  (c), the lane's depot is this gate's, costs no read for a lane that is
-  made here. A gate's record holds rows only for lanes of its depot: a row
-  is written only by an accept; an accept happens in a lane that is made
-  here, or makes it; a making act is right only for the gate of the depot
-  that the lane starts with; and no act changes a depot. So a row at the
-  permission's place, or at the lane's depot place, says that the lane is
-  this gate's.
-
-  (d), the act's permission stands, is one read for each permission of the
-  act's chain. A permission fact sits on what it covers
-  (`softland.store.gate.chain/place`), so the place that the act's
-  permission names holds that permission or the permission does not stand.
-  The places of the permissions above it are read from the act alone, and
-  only when the first row holds the act's permission."
-  (:require [softland.store.act :as act]
+  The lane's depot is this gate's with no read, for a lane that is made
+  here. A gate's record holds rows only for lanes of its depot: a row is
+  written only by an accept; an accept happens in a lane that is made here,
+  or makes it; a making act is right only for the gate of the depot that
+  the lane starts with; and no act changes a depot. So a row at the place
+  of the act's permission, or at the lane's depot place, says that the
+  lane is this gate's."
+  (:require [clojure.set :as set]
+            [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
             [softland.store.door.digest :as digest]
-            [softland.store.door.text :as text]
             [softland.store.gate.chain :as chain]
             [softland.store.gate.first-act :as first-act]
             [softland.store.record.rows :as record]))
@@ -56,50 +60,26 @@
   [thing]
   (declaration/usable-time thing))
 
-;; ----------------------------------------------------------------- standing
+;; ------------------------------------------------------------ what is in hand
+
+(def owners-key
+  "Under this key `rows` holds how many owner permissions of the act's lane
+  stand on their own: those that allow owning, cover the lane's default
+  group in every sitting, are lent from nothing, and were not ended. A gate
+  keeps them as a set for each lane and reads its size. The check of the
+  whole asks for it only for an act that takes an owner away and makes
+  none."
+  :owners)
+
+(defn- place-of
+  [act fact]
+  (record/place-key (:lane act) (:e fact) (:k fact)))
 
 (defn permission-place
+  "nil for an act that names no permission."
   [act]
-  (chain/place (:lane act) (:permission act)))
-
-(defn hex-for-its-permission
-  "The digest of the act as its maker made it: in its one form, without its
-  act-id, its depot, its time and its permission. A maker makes the same
-  text with `softland.store.door.digest/hex-for-a-yes`, for every act that
-  the declaration takes, so the two agree under any act-id that she sends
-  it under. What must hold: the declaration took the thing. The thing is
-  read and not the act, whose facts under a plain key hold their value as
-  text alone. nil when the act's permission is no yes for one act, so that
-  no other act pays for the digest."
-  [thing act]
-  (when (= :act (first (act/covers (:permission act))))
-    (digest/hex-of-the-act thing)))
-
-(defn used-up?
-  "A use is an end that names the yes itself as the permission of its act:
-  an act taken under that yes wrote it (`use-of-its-yes`), also when that
-  act is the yes's own end. An end by the yes's giver, one above the giver,
-  or its holder under her permission for the lane names another permission:
-  an end and no use."
-  [row permission]
-  (boolean (and (record/ended? row)
-                (= (:permission row) (text/text permission)))))
-
-(defn- use-of-another-yes?
-  "True for an end that an act wrote under another yes on the same id. A
-  yes's place takes one give, so the yes that was used there is the one
-  yes ever given there, and the one named was never given: its act is
-  refused `:permission-does-not-stand`, and not told that a permission of
-  its was ended. False for an end that the yes's giver, one above the giver
-  or its holder wrote, which names a permission for the lane: that end does
-  not say which yes it ended."
-  [row permission]
-  (let [[kind yes] (act/covers permission)]
-    (boolean (and (= :act kind)
-                  (record/ended? row)
-                  (not (used-up? row permission))
-                  (let [[named-kind named-yes] (act/covers (record/permission-of row))]
-                    (and (= :act named-kind) (= yes named-yes)))))))
+  (when-let [id (:permission act)]
+    (chain/place (:lane act) id)))
 
 (defn depot-place
   [act]
@@ -109,310 +89,558 @@
   [gate-depot act]
   (first-act/starts-with-the-other-gates-depot? gate-depot (:lane act)))
 
+(defn- permission-fact?
+  [fact]
+  (= declaration/permission-key (:k fact)))
+
+(defn- end-fact?
+  [fact]
+  (and (permission-fact? fact) (nil? (:v fact))))
+
+(defn- missing
+  "Of some keys, each once, those that `rows` does not hold."
+  [rows ks]
+  (into [] (comp (remove nil?) (remove #(contains? rows %)) (distinct)) ks))
+
+(defn- under
+  "What the checks of an act's facts hold of the permission that the act
+  names, or nil for an act that names none: `:id`; `:says`, what the
+  permission says; `:allows`, what it allows at this moment
+  (`softland.store.gate.chain/allows-now`); and `:depth`, how many
+  permissions its chain holds, its own counted. What must hold: `standing`
+  gave nil for the act."
+  [act rows]
+  (when-let [id (:permission act)]
+    (let [{:keys [values]} (chain/climb (:lane act) id rows)]
+      {:id id :says (first values) :allows (chain/allows-now values) :depth (count values)})))
+
+;; ----------------------------------------------------------------- standing
+
+(defn- holder-or-sitting-fault
+  "What the act's permission says against the act, read from the act and
+  the one row."
+  [act says]
+  (cond
+    (not (chain/held-by? (:holder says) (:who act)))
+    :who-not-the-permissions-holder
+
+    (and (some? (:session says)) (not= (:session says) (:session act)))
+    :permission-for-another-sitting))
+
+(defn- ends-only-her-own?
+  "True for an act all of whose facts end a permission whose holder is the
+  act's author: the party that the permission names, and nobody who holds
+  it through everyone. What must hold: the rows of the act's places are in
+  `rows`."
+  [act rows]
+  (every? (fn [fact]
+            (and (end-fact? fact)
+                 (= (:who act) (:holder (record/held-permission (get rows (place-of act fact)))))))
+          (:facts act)))
+
+(defn standing-wanted
+  "The keys that `standing` wants next and `rows` does not hold; empty when
+  it has what it needs.
+
+  For an act that names a permission: the row at that permission's place;
+  the lane's depot, when that place is empty, to tell a lane that is not
+  made from a permission that was never given; and the rows above the
+  permission, one at a time, since each names the next. No row above is
+  wanted when the first row already refuses the act for its holder or its
+  sitting. For an act that names none: the lane's depot; and, in a lane
+  that is made, the place of each fact when every fact is an end, to learn
+  whether the ended permissions are its author's own."
+  [act rows]
+  (let [lane (:lane act)]
+    (if-let [id (:permission act)]
+      (let [k (chain/place lane id)]
+        (cond
+          (not (contains? rows k)) [k]
+          (nil? (get rows k)) (missing rows [(depot-place act)])
+          :else (let [says (record/held-permission (get rows k))]
+                  (if (or (nil? says) (holder-or-sitting-fault act says))
+                    []
+                    (missing rows [(:wants (chain/climb lane id rows))])))))
+      (let [depot (depot-place act)]
+        (cond
+          (not (contains? rows depot)) [depot]
+          (and (some? (get rows depot)) (every? end-fact? (:facts act)))
+          (missing rows (map #(place-of act %) (:facts act)))
+          :else [])))))
+
+(defn hex-for-its-permission
+  "The digest of the act as its maker made it: in its one form, without its
+  act-id, its depot, its time and its permission. A maker makes the same
+  text with `softland.store.door.digest/hex-for-a-yes`, for every act that
+  the declaration takes, so the two agree under any act-id that she sends
+  it under. What must hold: the declaration took the thing. The thing is
+  read and not the act, whose facts under a plain key hold their value as
+  text alone. nil when the row of the act's permission does not say that
+  it covers one exact act, so that no other act pays for the digest."
+  [thing act rows]
+  (when-let [k (permission-place act)]
+    (when (= :exact-act (first (:covers (record/held-permission (get rows k)))))
+      (digest/hex-of-the-act thing))))
+
 (defn makes-the-lane?
-  "`standing` gives nil for such an act and for an act whose permission
-  stands; this tells the two apart. What must hold: when the permission's
-  row is nil, the depot's row was read."
-  [gate-depot act permission-row depot-row]
-  (boolean (and (nil? permission-row)
-                (nil? depot-row)
+  "`standing` gives nil for such an act, for an act whose permission
+  stands, and for an act that ends only its author's own; this tells the
+  first from the others. What must hold: the row of the lane's depot was
+  read."
+  [gate-depot act rows]
+  (boolean (and (nil? (:permission act))
+                (nil? (get rows (depot-place act)))
                 (not (lane-is-the-other-gates? gate-depot act))
                 (first-act/making-act? gate-depot act))))
 
-(defn chain-needed
-  "Empty when the row does not hold the act's permission: the act is then
-  refused with no read more."
-  [act permission-row]
-  (if (record/holds-value? permission-row (:permission act))
-    (chain/places-above (:lane act) (:permission act))
-    []))
-
 (defn standing
-  "Checks (c) and (d), what the act's permission allows and covers, and the
-  first act of a lane. Gives nil, or the first word that holds.
+  "Whether the act may be heard at all: nil, or the first word that holds.
+  What must hold: `standing-wanted` gave nothing for these rows, and
+  `hex-of-the-act` is what `hex-for-its-permission` gave.
 
-  What must hold: `depot-row` was read when `permission-row` is nil;
-  `chain-rows` is a map from key to row for the places that `chain-needed`
-  named; `hex-of-the-act` is what `hex-for-its-permission` gave.
+  An act is heard under a permission that stood just before it, held by
+  its author; or it makes its lane; or all it does is end permissions that
+  its author holds, for which it names none. What the permission allows is
+  not asked here: a holder who may only see is heard, and writes nothing
+  (`places`).
+
+  The words of an act that names a permission, in the order of the checks.
+  `:permission-never-given`: the place of the id that the act names is
+  empty, or holds what no gate wrote there. `:permission-ended`: an act
+  ended that permission. `:permission-used-up`: it covered one exact act,
+  and that act was taken. These three are answered apart, each by what the
+  place holds: an id takes one permission for good, so an end at a place
+  ended the permission of that id and no other. A place that holds an end
+  or a use says nothing more of the permission, so an act under such a one
+  gets that word whoever sent it. Then, for a place that holds what a
+  permission says: `:who-not-the-permissions-holder`, when the act's
+  author is not its holder and does not hold it through everyone
+  (`softland.store.gate.chain/held-by?`);
+  `:permission-for-another-sitting`, for a permission that is good for one
+  sitting and an act that carries another; `:act-not-the-one-permitted`,
+  for a permission that covers one exact act and an act that is not that
+  act, part for part, its who and its session among them;
+  `:permission-above-ended`, when a permission that it is lent from,
+  however far up, holds no permission any more.
 
   The other gate. Whether the lane is the other gate's counts only when
-  both rows are nil, and no table of the other gate is read for it. So an
-  act for a lane that starts with the other depot, of which this record
-  holds nothing, gets `:lane-belongs-to-the-other-gate` whether or not the
-  other gate has made the lane, and never `:lane-not-made`. The word cannot
-  follow the other gate's record: it would follow an order across two
-  depots, which no second run gives again.
+  the record holds nothing of the lane, and no table of the other gate is
+  read for it. So an act for a lane that starts with the other depot gets
+  `:lane-belongs-to-the-other-gate` whether or not the other gate has made
+  the lane, and never `:lane-not-made`. The word cannot follow the other
+  gate's record: it would follow an order across two depots, which no
+  second run gives again.
 
-  The words of another run and of another act come before what the place
-  holds: such an act is refused with that word whatever the place of the
-  permission holds, ended, used or empty
-  (src/proposal/runtime-2026-11-21/store-piece-2/SPEC.md, R9, \"whatever
-  else is right in it\"), as the statements of the generated histories
-  order them. Each of the two reads the act alone, and the digest that the
-  walk made of it, so neither needs a row.
-
-  `:permission-above-ended` says that a permission above the act's own does
-  not stand, or that one was given again after the act's own was given
-  (`softland.store.gate.chain/stands?`). `:permission-does-not-stand` says
-  that the record does not hold the act's permission at its place: the
-  place is empty, holds another permission, or holds the use of another
-  yes, so the one named was never given there.
-
-  `:permission-does-not-allow-acting` costs no read: what a permission
-  allows is a slot of the permission that the act names, and the row was
-  just compared with it, slot and all. So nobody raises her right by naming
-  it: a holder of `:see` who names her permission without the slot, or with
-  `:see-and-act`, names bytes that the row does not hold, and gets
-  `:permission-does-not-stand`. A holder of `:see` cannot give either: a
-  give is an act, and so is an end, her own too. A permission that stands
-  is not written over, so \"see\" becomes \"see and act\" by an end and a
-  give after it (`give-over-fault`).
-
-  What a permission covers. One for a run covers the acts that carry that
-  run as their `:session`, of the permission's holder alone. A yes for one
-  act covers the one act whose digest it names, the act as its maker made
-  it, sent under any act-id of hers: so the act that is taken is the act
-  that was said yes to, part for part, its who and its session among them.
-  It covers that act once: the accept writes the yes's use at its place
-  (`writes`), and from then the yes covers nothing, also the same act under
-  another act-id. A try that is refused writes no use, and is sent again
-  under a new act-id, since an act-id keeps its first answer. Two yeses for
-  one act can stand at once, each on its own id, and each is used once. The
-  session and the who are what the sending program said: a gate checks no
-  sender.
+  A permission for one exact act covers the one act whose digest it names,
+  the act as its maker made it, sent under any act-id of hers. It covers
+  that act once: the accept writes its use at its place (`writes`), and
+  from then it covers nothing, also the same act under another act-id. A
+  try that is refused writes no use, and is sent again under a new act-id,
+  since an act-id keeps its first answer. The session and the who are what
+  the sending program said: a gate checks no sender.
 
   An act that was taken under a permission stays taken when the permission
   ends. An act that is decided after the end is refused, the holder's own
-  and that of each holder beneath her. The end has a stamp in the lane's
-  one order, so which acts came before it is the same at each run of the
-  gates."
-  [gate-depot act permission-row depot-row chain-rows hex-of-the-act]
-  (let [permission (:permission act)
-        [kind what hex] (act/covers permission)]
-    (cond
-      (not (or permission-row depot-row))
+  and that of each holder who borrowed beneath her. The end has a stamp in
+  the lane's one order, so which acts came before it is the same at each
+  run of the gates."
+  [gate-depot act rows hex-of-the-act]
+  (let [lane (:lane act)
+        lane-made? (some? (get rows (depot-place act)))
+        not-made-word (fn [] (if (lane-is-the-other-gates? gate-depot act)
+                               :lane-belongs-to-the-other-gate
+                               :lane-not-made))]
+    (if-let [id (:permission act)]
+      (let [row (get rows (chain/place lane id))
+            says (record/held-permission row)]
+        (cond
+          (and (nil? row) (not lane-made?)) (not-made-word)
+          (nil? row) :permission-never-given
+          (record/ended? row) :permission-ended
+          (record/used? row) :permission-used-up
+          (nil? says) :permission-never-given
+          :else
+          (or (holder-or-sitting-fault act says)
+              (let [[kind hex] (:covers says)]
+                (when (and (= :exact-act kind) (not= hex hex-of-the-act))
+                  :act-not-the-one-permitted))
+              (when-not (chain/stands? lane id rows)
+                :permission-above-ended))))
       (cond
-        (lane-is-the-other-gates? gate-depot act) :lane-belongs-to-the-other-gate
-        (first-act/making-act? gate-depot act) nil
-        :else :lane-not-made)
+        (and (not lane-made?) (lane-is-the-other-gates? gate-depot act)) :lane-belongs-to-the-other-gate
+        (and (not lane-made?) (first-act/making-act? gate-depot act)) nil
+        (not lane-made?) :lane-not-made
+        (ends-only-her-own? act rows) nil
+        :else :no-permission))))
 
-      (not= (:who act) (nth permission 0))
-      :who-not-the-permissions-holder
+;; ------------------------------------------------- what a permission lets do
 
-      (and (= :run kind) (not= what (:session act)))
-      :permission-for-another-run
+(defn- within-scope?
+  "True when what one permission covers reaches no further than what
+  another covers: the same cover, or one exact act where the other is a
+  default group; and the other's sitting, when the other is good for one."
+  [inner outer]
+  (let [[inner-kind :as inner-covers] (:covers inner)
+        [outer-kind :as outer-covers] (:covers outer)]
+    (boolean (and inner-covers outer-covers
+                  (or (= inner-covers outer-covers)
+                      (and (= :default-group outer-kind) (= :exact-act inner-kind)))
+                  (or (nil? (:session outer)) (= (:session inner) (:session outer)))))))
 
-      (and (= :act kind) (not= hex hex-of-the-act))
-      :act-not-the-one-permitted
+(defn- allows-within?
+  "True when one set of rights allows nothing that another does not."
+  [inner outer]
+  (every? (fn [[right value]]
+            (if (= :give right)
+              (set/subset? value (:give outer #{}))
+              (some? (get outer right))))
+          inner))
 
-      (record/holds-value? permission-row permission)
-      (cond
-        (not (chain/stands? (:lane act) permission
-                            (assoc chain-rows (chain/place (:lane act) permission) permission-row)))
-        :permission-above-ended
+(defn- allows-added
+  "What one set of rights allows that another does not, in the same form."
+  [now before]
+  (into {}
+        (keep (fn [[right value]]
+                (if (= :give right)
+                  (let [more (set/difference value (:give before #{}))]
+                    (when (seq more) [:give more]))
+                  (when-not (get before right) [right value]))))
+        now))
 
-        (= :see (act/allows permission))
-        :permission-does-not-allow-acting)
+(defn- may-pass?
+  "Whether one who holds `held` at this moment may pass `rights` on to `to`.
+  To see and to write: she holds it, and `to` is an agent or a run, which
+  only borrows; or her right to give names it. The right to give: her own
+  names the right to give, and names everything that the new one names. To
+  own: she is an owner, and her right to give names owning. So nobody
+  gives what she does not hold, and what a holder may pass to another
+  person is what her right to give says."
+  [held rights to]
+  (let [may-give (:give held #{})]
+    (boolean
+     (and (seq rights)
+          (every? (fn [[right value]]
+                    (case right
+                      (:see :write) (and (get held right)
+                                         (or (act/borrower? to) (contains? may-give right)))
+                      :give (and (contains? may-give :give) (set/subset? value may-give))
+                      :owner (and (:owner held) (contains? may-give :owner))
+                      false))
+                  rights)))))
 
-      (and (= :act kind) (used-up? permission-row permission))
-      :permission-used-up
+(defn- owner-over?
+  "True when the act's own permission makes its author an owner over what
+  another permission covers."
+  [acts-own target]
+  (boolean (and acts-own
+                (:owner (:allows acts-own))
+                (within-scope? target (:says acts-own)))))
 
-      (and (record/ended? permission-row) (not (use-of-another-yes? permission-row permission)))
-      :permission-ended
+(defn- ends-with-no-chain?
+  "Three of the four who may end a permission, each read from what the
+  permission says and from the act's own: its holder, the party that it
+  names, whatever the act names; whoever gave it, in an act under the
+  permission that she gave it under, which stands; an owner over what it
+  covers, in an act under her owner's permission."
+  [act acts-own target]
+  (let [who (:who act)]
+    (boolean (or (= who (:holder target))
+                 (and acts-own (= who (:given-by target)) (= (:id acts-own) (:under target)))
+                 (owner-over? acts-own target)))))
 
-      :else
-      :permission-does-not-stand)))
+(defn- lender-above
+  "The fourth: the holder of a permission that it is lent from, directly or
+  further up, in an act under that permission. true, false, or
+  `{:wants key}` for a row of the way up that is not read. Whoever holds
+  the upper permission through everyone is not its holder. False for a
+  permission that fell with an end above it, when the act's own is above
+  that end: a row with no value does not say what it was lent from
+  (`softland.store.gate.chain`)."
+  [act acts-own target-id rows]
+  (if (and acts-own (= (:who act) (:holder (:says acts-own))))
+    (chain/above? (:lane act) (:id acts-own) target-id rows)
+    false))
+
+(defn- may-end?
+  [act acts-own target-id target rows]
+  (or (ends-with-no-chain? act acts-own target)
+      (true? (lender-above act acts-own target-id rows))))
+
+(defn- takes-away?
+  "True for a change that takes something away from what a permission
+  allows: it then needs what an end needs."
+  [target fact]
+  (not (allows-within? (:allows target) (:allows (:v fact)))))
+
+(defn- owner-of-the-lane?
+  "True for what an owner's permission that stands on its own says."
+  [lane says]
+  (boolean (and says
+                (:owner (:allows says))
+                (nil? (:lent-from says))
+                (= [:default-group lane] (:covers says))
+                (nil? (:session says)))))
 
 ;; ------------------------------------------------------------------- places
 
-(defn- place-of
-  [act fact]
-  (record/place-key (:lane act) (:e fact) (:k fact)))
+(defn- owners-moved
+  "The ids of the owner permissions of the lane that the act takes away, by
+  an end or by a change that leaves no owner's, and of those that it makes,
+  by a give or by a change: {:out [id ...] :in [id ...]}. `rows` holds the
+  row of each place of the act that was read; a place that it does not
+  hold reads as empty, as every place of a lane that the act makes."
+  [act rows]
+  (let [lane (:lane act)]
+    (reduce (fn [moved fact]
+              (if-not (permission-fact? fact)
+                moved
+                (let [was? (owner-of-the-lane? lane (record/held-permission (get rows (place-of act fact))))
+                      is? (owner-of-the-lane? lane (:v fact))]
+                  (cond (and was? (not is?)) (update moved :out conj (:e fact))
+                        (and is? (not was?)) (update moved :in conj (:e fact))
+                        :else moved))))
+            {:out [] :in []}
+            (:facts act))))
 
-(defn places-needed
-  "None for an act that makes its lane: the record holds nothing of a lane
-  that is not made, and the two facts of a making act are not held to the
-  checks that read a place. A fact that names nothing to replace needs no
-  row, and so can never be stale."
-  [act makes-the-lane?]
-  (if makes-the-lane?
+(defn places-wanted
+  "The keys that `places` wants next and `rows` does not hold; empty when
+  it has what it needs. What must hold: `standing` gave nil for the act.
+
+  None for an act that makes its lane: the record holds nothing of a lane
+  that is not made. Else the place of each fact that names something to
+  replace, and of each fact under the permission key. Then, for an end or
+  a change that takes away, by an author who is neither the holder, nor
+  the giver under the right permission, nor an owner: the rows above the
+  permission that it names, one at a time, up to the act's own permission
+  or to the top. Last, `owners-key`, for an act that takes an owner of the
+  lane away and makes none."
+  [gate-depot act rows]
+  (if (makes-the-lane? gate-depot act rows)
     []
-    (into []
-          (comp (filter (fn [fact] (or (:replaces fact) (contains? declaration/permission-keys (:k fact)))))
-                (map (fn [fact] (place-of act fact))))
-          (:facts act))))
+    (let [facts (:facts act)
+          first-keys (missing rows (keep (fn [fact]
+                                           (when (or (:replaces fact) (permission-fact? fact))
+                                             (place-of act fact)))
+                                         facts))]
+      (if (seq first-keys)
+        first-keys
+        (let [acts-own (under act rows)
+              chain-keys (missing rows
+                                  (keep (fn [fact]
+                                          (when (permission-fact? fact)
+                                            (when-let [target (record/held-permission (get rows (place-of act fact)))]
+                                              (when (and (or (end-fact? fact) (takes-away? target fact))
+                                                         (not (ends-with-no-chain? act acts-own target)))
+                                                (:wants (lender-above act acts-own (:e fact) rows))))))
+                                        facts))]
+          (if (seq chain-keys)
+            chain-keys
+            (let [{:keys [out in]} (owners-moved act rows)]
+              (if (and (seq out) (empty? in))
+                (missing rows [owners-key])
+                []))))))))
 
 (defn- replaced-fact-fault
-  "Check (e). Stale when the place is empty, another fact wrote its row, or
-  the fact named is of another lane or depot."
+  "Stale when the place is empty, another fact wrote its row, or the fact
+  named is of another lane or depot."
   [gate-depot act rows fact]
   (when-let [replaces (:replaces fact)]
     (when-not (record/written-by? gate-depot (:lane act) (get rows (place-of act fact)) replaces)
       :replaced-fact-not-current)))
 
 (defn- setting-fault
-  "Check (f)."
   [act fact]
   (when (and (contains? declaration/setting-keys (:k fact))
              (not= (:e fact) (:lane act)))
     :setting-not-on-the-lane))
 
-(defn- permission-fact-fault
-  "Check (g), for a fact that gives a permission.
+(defn- give-fault
+  "For a fact that gives a permission: a value at an id whose place is
+  empty. `acts-own` is `under`'s.
 
-  A permission for a run or for an act gives nothing. What is given beneath
-  a permission must cover no more than it does: else the holder of a
-  permission for one run gives herself one for the lane beneath it, and a
-  yes for one run is a yes for every run. Neither a lane nor a second run
-  fits inside one run."
-  [act fact]
-  (let [given (:v fact)]
-    (when (and (contains? declaration/permission-keys (:k fact)) (some? given))
-      (cond
-        (some? (act/covers (:permission act))) :only-a-permission-for-the-lane-gives
-        (not= (:lane act) (nth given 1)) :permission-fact-for-another-lane
-        (not= (:lane act) (nth given 2)) :permission-fact-granted-in-another-lane
-        (not= (:permission act) (nth given 3 nil)) :permission-fact-not-beneath-the-acts-own
-        :else nil))))
+  A give says who gave it, the act's author, and under what, the
+  permission that the act names: so both are in what the permission says
+  from the start, and a change after leaves them readable. It is lent from
+  the permission that it is made under, or it stands on its own; from no
+  third one. What is made under a lent permission is lent from it, and a
+  give to an agent or a run is always lent: so every chain ends at a
+  permission that a person, the system or everyone holds, and only a
+  permission that stands on its own makes another that does. Anyone at all
+  holds seeing and nothing more: an act needs an author, so writing by
+  everyone is a give to anyone signed in. A give covers no more than the
+  permission that it is made under, and allows no more than that one
+  allows at this moment (`may-pass?`). A chain of lent permissions is no
+  longer than `softland.store.gate.chain/max-lent-depth`."
+  [act acts-own fact]
+  (let [says (:v fact)
+        lent-from (:lent-from says)]
+    (cond
+      (not= (:who act) (:given-by says)) :permission-not-given-by-the-acts-who
+      (not= (:id acts-own) (:under says)) :permission-not-under-the-acts-own
+      (and lent-from (not= lent-from (:id acts-own))) :permission-not-lent-from-the-acts-own
+      (and (:lent-from (:says acts-own)) (nil? lent-from)) :made-under-a-lent-permission-is-lent
+      (and (act/borrower? (:holder says)) (nil? lent-from)) :an-agent-or-a-run-only-borrows
+      (and (= :anyone (:holder says)) (not= {:see true} (:allows says))) :anyone-only-sees
+      (not (within-scope? says (:says acts-own))) :permission-covers-more-than-the-acts-own
+      (not (may-pass? (:allows acts-own) (:allows says) (:holder says))) :permission-gives-more-than-its-giver-may
+      (and lent-from (<= chain/max-lent-depth (:depth acts-own))) :permission-lent-too-deep
+      :else nil)))
 
-(defn who-may-write-fault
-  "For a fact under one of
-  `softland.store.door.declaration/second-write-keys`. The first holder is
-  the holder of the lane's first permission, which the lane's making act
-  wrote: the person of a personal lane, whoever made a group's lane, the
-  system for the base. The check reads no row: the act's permission has
-  passed its standing, and a permission with three slots is a first
-  permission (`softland.store.act`). A lane has one, and it does not end
-  (`end-fault`).
+(defn- change-fault
+  "For a fact with a value at an id that holds a permission: a change of
+  what that permission allows. The id, the holder, the giver, the
+  permission that it was given under and the one that it is lent from stay.
+  So its holder stays in throughout, and nothing that she lent is ended:
+  what she lent is capped by what she holds at each moment
+  (`softland.store.gate.chain/allows-now`).
 
-  Not built, and not asked: a lane that is handed to another holder."
-  [act _fact]
-  (when-not (= 3 (count (:permission act)))
-    :only-the-first-holder-writes-a-setting))
+  To take something away needs what an end needs; to add something needs
+  what a give of what is added needs. A change that does both needs both.
 
-(defn chains-needed
-  "`place-rows` and `in-hand` are maps from key to row, in which a key that
-  was read is there also when its place is empty. `give-over-fault` needs
-  the rows of these places to say whether the permission at a place stands.
-  A give at a place that is empty or holds an end needs none, and neither
-  does an end, nor a give of a yes for one act: a yes's place takes one
-  give, so whatever it holds is not read further (`store-key-fault`)."
-  [act makes-the-lane? place-rows in-hand]
-  (if makes-the-lane?
-    []
-    (into []
-          (comp (filter (fn [fact] (and (contains? declaration/permission-keys (:k fact))
-                                        (not= :softland.store/act-permission (:k fact))
-                                        (some? (:v fact)))))
-                (keep (fn [fact] (record/held-permission (get place-rows (place-of act fact)))))
-                (mapcat (fn [held] (chain/places-above (:lane act) held)))
-                (remove (fn [k] (or (contains? in-hand k) (contains? place-rows k))))
-                (distinct))
-          (:facts act))))
+  Not built: a change of what a permission covers, or of its sitting. What
+  is lent from it would have to be capped by what it covers at each
+  moment, and its key by holder moved. A change that changes nothing is
+  refused: it would write a row, and name a new writer of it, for one who
+  was held to nothing."
+  [act acts-own target fact rows]
+  (let [says (:v fact)
+        kept [:holder :given-by :under :lent-from]]
+    (cond
+      (not= (mapv #(get target %) kept) (mapv #(get says %) kept))
+      :a-change-keeps-holder-giver-and-lender
+
+      (not= [(:covers target) (:session target)] [(:covers says) (:session says)])
+      :changing-what-a-permission-covers-not-built
+
+      (= (:allows target) (:allows says))
+      :change-changes-nothing
+
+      (and (= :anyone (:holder says)) (not= {:see true} (:allows says)))
+      :anyone-only-sees
+
+      (and (takes-away? target fact) (not (may-end? act acts-own (:e fact) target rows)))
+      :may-not-lower-the-permission
+
+      (let [added (allows-added (:allows says) (:allows target))]
+        (and (seq added) (not (may-pass? (:allows acts-own) added (:holder says)))))
+      :permission-gives-more-than-its-giver-may
+
+      :else nil)))
 
 (defn- end-fault
-  "The end of a permission: a fact with no value under one of the three keys
-  of a permission. `row` is the row at the fact's place.
+  "For a fact with no value under the permission key: the end of the
+  permission at that id. `row` is the row at the fact's place.
 
-  `:no-permission-to-end` is also the word for a yes for one act that was
-  used up: its use is an end, and nothing is left of it to end. The first
-  permission does not end: nobody is above it, so nobody could give it
-  again, and no act could be taken in the lane or write its settings ever
-  after.
+  `:no-permission-to-end`: the id holds no permission and never did.
+  `:permission-already-ended` and `:permission-already-used`: an end is
+  final, and a use leaves nothing to end. The three are answered apart.
 
-  A permission is ended by its giver, by anyone above the giver up to the
-  first holder, and by its own holder. Its holder ends it by an act under
-  that permission itself, or under her permission for the lane: never
-  under her permission for another run or act, so a run ends nothing of
-  hers but its own. A yes for one act takes no act but its one act
-  (`standing`), so it ends itself only when that act is its end. The act's
-  own permission has passed its standing, so whoever ends stands, and may
-  act: a holder of `:see` cannot end, her own neither. A permission at the
-  place that no longer stands, because one above it ended, can be ended
-  too, by the same holders.
+  Four may end a permission, and nobody else: its holder, whatever it
+  allows and whatever her act names; whoever gave it, in an act under the
+  permission that she gave it under; the holder of a permission that it is
+  lent from, directly or further up, in an act under that permission; an
+  owner over what it covers, in an act under her owner's permission. The
+  act's own permission has passed its standing, so each of the last three
+  still holds what she ends by. A permission that fell with one above it
+  is ended by the same four, as far as the rows say who they are
+  (`lender-above`).
 
-  The fact needs no `:replaces`. With one, check (e) holds it to the give
-  that it names: an end that was sent for one give is then refused when
-  another give has taken its place."
-  [act row]
-  (let [held (record/held-permission row)
-        own (:permission act)]
+  The fact needs no `:replaces`. With one, the check of replaced facts
+  holds it to the fact that it names: an end that was sent for a
+  permission as one act left it is then refused when another act has
+  changed it since."
+  [act acts-own row fact rows]
+  (let [target (record/held-permission row)]
     (cond
-      (nil? held) :no-permission-to-end
-      (= 3 (count held)) :first-permission-does-not-end
-      (or (= held own) (chain/above? own held)) nil
-      (and (nil? (act/covers own)) (= (:who act) (nth held 0))) nil
-      :else :not-above-the-permission)))
+      (nil? row) :no-permission-to-end
+      (record/ended? row) :permission-already-ended
+      (record/used? row) :permission-already-used
+      (nil? target) :no-permission-to-end
+      (may-end? act acts-own (:e fact) target rows) nil
+      :else :may-not-end-the-permission)))
 
-(defn- give-over-fault
-  "A give at a place that holds a row, for a permission for the lane or for
-  a run; a yes's place takes one give, and never comes here
-  (`store-key-fault`). The give is taken when the place holds an end, or a
-  permission that does not stand. A holder has one permission for the
-  lane, and a run one: one that stands is ended before another is given
-  there. So a holder is given a permission again after an end, and each
-  holder beneath an end is given one again by an act of its own.
+(defn- fact-fault
+  "What one fact of an act in a lane that is made is refused for, or nil.
 
-  What must hold: `rows` holds the row of each place of `chains-needed`,
-  and check (g) has held the new permission straight beneath the act's own."
-  [act row rows]
-  (let [held (record/held-permission row)
-        lane (:lane act)]
-    (when (and held
-               (chain/stands? lane held (assoc rows (chain/place lane held) row)))
-      :holder-has-a-permission)))
-
-(defn- store-key-fault
-  "What a store key takes, for one fact. `rows` is the rows in hand, a map
-  from key to row.
-
-  A yes's place takes one give, whatever its row holds: its id names one
-  yes for good, and a yes that was ended or used is never given again.
-  Another yes for the same act is given under an id of its own. A lane's
-  depot takes one write: in a lane that is made, a depot fact is refused
-  with the other depot and with the lane's own. The three keys of
-  `softland.store.door.declaration/second-write-keys` take a second write
-  and any later one, with `:replaces` or without. A retract under a store
-  key other than a permission's is not built.
+  Under a plain key: a fact is written only under a permission that allows
+  writing at this moment. A setting that takes a second write: any owner of
+  the lane writes it, and nobody else. A lane's depot takes one write: in a
+  lane that is made, a depot fact is refused with the other depot and with
+  the lane's own. A retract under a store key other than a permission's is
+  not built. An id takes one permission for good: a value at an id whose
+  permission was ended or used is refused, and given again a permission
+  has another id.
 
   Whether a fact has a value is asked of a fact under a store key alone,
   whose `:v` the act's one form keeps. What must hold: the lane is made by
   this gate, so its depot is the gate's."
-  [gate-depot act rows fact]
+  [gate-depot act acts-own rows fact]
   (let [k (:k fact)
         retract? (nil? (:v fact))
         row (get rows (place-of act fact))]
     (cond
-      (and (contains? declaration/permission-keys k) retract?) (end-fault act row)
+      (and (permission-fact? fact) retract?) (end-fault act acts-own row fact rows)
+      (and (permission-fact? fact) (nil? acts-own)) :no-permission
+      (and (permission-fact? fact) (nil? row)) (give-fault act acts-own fact)
+      (permission-fact? fact) (if-let [target (record/held-permission row)]
+                                (change-fault act acts-own target fact rows)
+                                :a-permission-id-takes-one-permission)
       (and (declaration/store-key? k) retract?) :store-key-retract-not-built
       (and (= :softland.store/depot k) (not= gate-depot (:v fact))) :changing-a-depot-not-decided
       (= :softland.store/depot k) :store-key-takes-one-write
-      (and (= :softland.store/act-permission k) row) :a-yes-is-given-once
-      (and (contains? declaration/permission-keys k) row) (give-over-fault act row rows)
+      (contains? declaration/second-write-settings k)
+      (when-not (owner-over? acts-own {:covers [:default-group (:lane act)]})
+        :only-an-owner-writes-a-setting)
+      (not (:write (:allows acts-own))) :permission-does-not-allow-writing
+      :else nil)))
+
+(defn- whole-fault
+  "The result of an act, held as a whole.
+
+  No permission that the act gives is left lent from one that the same act
+  ends: it would be dead as it is made.
+
+  A lane always has an owner: an act that would leave it with no owner's
+  permission that stands on its own is refused. So the lane's first
+  permission ends like any other, in an act that leaves an owner, and a
+  whole lane is handed over in one act, which gives the new owner hers and
+  ends the old one's. `rows` holds the count of the owners only when the
+  act takes one away and makes none (`places-wanted`); a count that is not
+  there reads as none."
+  [act rows]
+  (let [ended-here (into #{} (comp (filter end-fact?) (map :e)) (:facts act))
+        {:keys [out in]} (owners-moved act rows)]
+    (cond
+      (some (fn [fact]
+              (and (permission-fact? fact)
+                   (some? (:v fact))
+                   (nil? (get rows (place-of act fact)))
+                   (contains? ended-here (:lent-from (:v fact)))))
+            (:facts act))
+      :permission-lent-from-one-the-act-ends
+
+      (and (seq out) (empty? in) (<= (long (get rows owners-key 0)) (count out)))
+      :lane-would-have-no-owner
+
       :else nil)))
 
 (defn places
-  "Checks (e), (f) and (g), then who may write a key that takes a second
-  write, then what a store key takes.
+  "The checks of an act's facts and of its result as a whole: nil, or the
+  first word that holds. What must hold: `standing` gave nil for the act,
+  and `places-wanted` gave nothing for these rows.
 
-  An act that makes its lane is held to (e) and (f) as any act is, with no
-  rows: nothing is current in a lane that is not made. It is not held to
-  (g) or to the last step: the permission that it writes is its own and not
-  one beneath its own, and its depot fact is the lane's first.
-
-  What must hold: `standing` gave nil for the act, and `rows` holds the
-  rows of the places that `places-needed` and `chains-needed` named, nil or
-  absent for an empty place."
-  [gate-depot act makes-the-lane? rows]
+  A fact that names something to replace, and a setting that is not on the
+  lane, are refused in every act. An act that makes its lane is held to
+  nothing more: its facts are the lane's first, and
+  `softland.store.gate.first-act/making-act?` held their form."
+  [gate-depot act rows]
   (let [facts (:facts act)]
     (or (some #(replaced-fact-fault gate-depot act rows %) facts)
         (some #(setting-fault act %) facts)
-        (when-not makes-the-lane?
-          (or (some #(permission-fact-fault act %) facts)
-              (some #(when (contains? declaration/second-write-keys (:k %))
-                       (who-may-write-fault act %))
-                    facts)
-              (some #(store-key-fault gate-depot act rows %) facts))))))
+        (when-not (makes-the-lane? gate-depot act rows)
+          (let [acts-own (under act rows)]
+            (or (some #(fact-fault gate-depot act acts-own rows %) facts)
+                (whole-fault act rows)))))))
 
 ;; ---------------------------------------------- the marked keys of the lane
 
@@ -493,56 +721,93 @@
       digest-now
       (conj [:by-value (key-of digest-now) entry]))))
 
-(defn- use-of-its-yes
-  "The row by which an accept uses up the yes for one act that the act was
-  taken under: an end at the yes's place, which names the yes itself as
-  the permission that the act named. So the yes stands no more, an act
-  under it is refused `:permission-used-up` (`used-up?`), it has nothing
-  left to end, and its place takes no give again.
+(defn- use-of-its-permission
+  "The row by which an accept uses up the permission for one exact act that
+  the act was taken under: a row with no value at the permission's place,
+  which no fact wrote (`softland.store.record.rows/use-row`). So the
+  permission stands no more, an act under it is refused
+  `:permission-used-up`, it has nothing left to end, and its id takes no
+  permission again.
 
-  No fact of the act wrote the row, so it names the act and no fact of it
-  (`softland.store.record.rows/use-row`): every fact id that a row of the
-  facts table names is the id of a fact that its act holds, which a reader
-  of the act finds at that index. [] for an act that is the yes's own end:
-  its own row at the place is that end and that use.
+  No fact of the act wrote the row, so it names the act and no fact of it:
+  every fact id that a row of the facts table names is the id of a fact
+  that its act holds, which a reader of the act finds at that index. [] for
+  an act that ends the permission itself: its own row at the place is that
+  end. An act that changes it writes the change's row and then this one at
+  the same place, which is the one that stays.
 
   The row is made of the act and its stamp alone, so a second run of the
-  gates writes it again, the same, on both gates. The base's gate copies
-  it to every task with the act's own rows
-  (`softland.store.module.walk/copies-of`)."
-  [act act-uuid stamp time-millis who-text permission-text]
-  (if (= :act (first (act/covers (:permission act))))
-    (let [k (permission-place act)]
-      (if (some #(= k (place-of act %)) (:facts act))
-        []
-        [[:fact k (record/use-row act-uuid stamp time-millis who-text permission-text)]]))
-    []))
+  gates writes it again, the same, on both gates."
+  [act act-uuid stamp time-millis who-text permission-text rows]
+  (let [k (permission-place act)]
+    (if (and k
+             (= :exact-act (first (:covers (record/held-permission (get rows k)))))
+             (not-any? #(and (end-fact? %) (= k (place-of act %))) (:facts act)))
+      [[:fact k (record/use-row act-uuid stamp time-millis who-text permission-text)]]
+      [])))
+
+(defn- permission-writes
+  "What a give, a change and an end write beside the fact's own row, in the
+  act's order.
+
+  `[:holder-permission key stamp]` puts a permission that covers a lane's
+  default group in the order by holder
+  (`softland.store.record.rows/by-holder-key`), with the stamp of the act
+  that gave it, and `[:holder-permission key nil]` takes it out at its
+  end. So a read finds the permissions of a holder that were not ended
+  with no id in hand. A change moves nothing there: it keeps the holder,
+  the cover and the sitting.
+
+  `[:owner id true]` puts a permission among the owners of the act's lane
+  and `[:owner id nil]` takes it out (`owners-key`). Each is the same write
+  however often it runs."
+  [act stamp rows]
+  (let [lane (:lane act)]
+    (into []
+          (mapcat (fn [fact]
+                    (when (permission-fact? fact)
+                      (let [row (get rows (place-of act fact))
+                            was (record/held-permission row)
+                            is (:v fact)
+                            by-holder (fn [says] (record/by-holder-key lane (:holder says) (:session says) (:e fact)))
+                            in-a-group? (fn [says] (= :default-group (first (:covers says))))
+                            was-owner? (owner-of-the-lane? lane was)
+                            is-owner? (owner-of-the-lane? lane is)]
+                        (cond-> []
+                          (and is (nil? row) (in-a-group? is)) (conj [:holder-permission (by-holder is) (long stamp)])
+                          (and was (nil? is) (in-a-group? was)) (conj [:holder-permission (by-holder was) nil])
+                          (and is-owner? (not was-owner?)) (conj [:owner (:e fact) true])
+                          (and was-owner? (not is-owner?)) (conj [:owner (:e fact) nil]))))))
+          (:facts act))))
 
 (defn- accept-writes
-  "In the act's order, then the yes's use. Each fact holds the text of its
-  value, from the declaration's check. `in-hand` is what `writes` takes."
+  "In the act's order; then what its gives, changes and ends write beside
+  their rows; then the use of its permission. Each fact holds the text of
+  its value, from the declaration's check. `in-hand` is what `writes`
+  takes."
   [act act-uuid stamp time-millis {:keys [since-by-place place-rows level-from]}]
   (let [lane (:lane act)
-        who-text (text/text (:who act))
-        permission-text (text/text (:permission act))]
-    (into (into []
-                (comp
-                 (map-indexed
-                  (fn [index fact]
-                    (let [place (record/place-key lane (:e fact) (:k fact))
-                          row (cond-> (record/fact-row fact act-uuid index stamp time-millis who-text permission-text)
-                                (and (= :softland.store/marked-keys (:k fact)) (some? (:v fact)))
-                                (record/with-level-since
-                                  (level-since-after (get place-rows place) (:v fact) level-from)))
-                          since (get since-by-place place)]
-                      (concat
-                       [[:fact place row]]
-                       (when since
-                         (by-value-writes act fact (record/plain-bytes-of row) (get place-rows place) since
-                                          (record/by-value-row who-text permission-text act-uuid index stamp time-millis)))))))
-                 cat)
-                (:facts act))
-          (use-of-its-yes act act-uuid stamp time-millis who-text permission-text))))
+        who-text (declaration/id-text (:who act))
+        permission-text (some-> (:permission act) declaration/id-text)]
+    (-> []
+        (into (comp
+               (map-indexed
+                (fn [index fact]
+                  (let [place (record/place-key lane (:e fact) (:k fact))
+                        row (cond-> (record/fact-row fact act-uuid index stamp time-millis who-text permission-text)
+                              (and (= :softland.store/marked-keys (:k fact)) (some? (:v fact)))
+                              (record/with-level-since
+                                (level-since-after (get place-rows place) (:v fact) level-from)))
+                        since (get since-by-place place)]
+                    (concat
+                     [[:fact place row]]
+                     (when since
+                       (by-value-writes act fact (record/plain-bytes-of row) (get place-rows place) since
+                                        (record/by-value-row who-text permission-text act-uuid index stamp time-millis)))))))
+               cat)
+              (:facts act))
+        (into (permission-writes act stamp place-rows))
+        (into (use-of-its-permission act act-uuid stamp time-millis who-text permission-text place-rows)))))
 
 (defn writes
   "Each row that one decision writes in the record, as [which key row].
@@ -551,15 +816,17 @@
   accept:
 
     :since-by-place  what `since-by-place` gave
-    :place-rows      the rows of the act's places that were read: the row
-                     before of each place of `:since-by-place`, and of the
-                     marked-keys place when the act writes it
+    :place-rows      every row that the checks read for the act, the row
+                     at the place of its permission among them; and the
+                     row before of each place of `:since-by-place`, and of
+                     the marked-keys place when the act writes it
     :level-from      the stamp that a newly marked key gets: the stamp of
                      the act, in both gates. So a mark holds from the next
                      act of the lane
 
-  A `:by-value` row that is nil says that the key is to be taken out.
-  `[:last-stamp nil n]` names no key: the walk writes it for the act's
+  A `:by-value` or `:holder-permission` row that is nil says that the key
+  is to be taken out. `[:last-stamp nil n]` names no key, and `[:owner id
+  true-or-nil]` names a permission: the walk writes each for the act's
   lane.
 
   The answer holds the time when the thing has a usable one, a refused
@@ -567,7 +834,9 @@
   the act that wrote it, so a read gives a fact's time with no second read.
 
   Every row is whole, at a fixed key, and a key that is taken out is fixed
-  too; so each write needs no read. No row holds anything but what the
+  too; so each write needs no read. An accept under a permission for one
+  exact act can write two rows at that permission's place, and the walk
+  writes them in the order given. No row holds anything but what the
   thing, the rows read and the stamp give: a second run of the same
   decision with the same stamp writes the same rows at the same keys.
 
@@ -607,12 +876,11 @@
   (if declarations-reason max-kept-weight-with-no-standing max-kept-weight))
 
 (defn kept-bound
-  "A sender has standing when the declaration took the thing and the act's
-  permission stands and is hers: `standing` gave nil, or
-  `:permission-does-not-allow-acting`, for a holder who may only see."
+  "A sender has standing when the declaration took the thing and `standing`
+  gave nil: the act's permission stands and is hers, a holder's who may
+  only see among them, or the act makes its lane or ends only her own."
   [declarations-reason refused-standing]
-  (if (and (nil? declarations-reason)
-           (or (nil? refused-standing) (= :permission-does-not-allow-acting refused-standing)))
+  (if (and (nil? declarations-reason) (nil? refused-standing))
     max-kept-weight
     max-kept-weight-with-no-standing))
 

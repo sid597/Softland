@@ -2,6 +2,15 @@
 
 [Parent: store](../README.md) · [Store source entry](../../../README.md).
 
+On 27 November 2026 one file of this folder is in the form of the permission
+fix: [lanes.clj](lanes.clj), which reads an asker's rights in a lane from the
+permissions that she holds there. [query.clj](query.clj),
+[sources.clj](sources.clj), [answer.clj](answer.clj) and [acts.clj](acts.clj)
+are in the form before it and do not load against it; what this page says of
+a lane's setting "members" or "everyone", of her permission's row and of the
+rows above it is of that earlier form
+([the store's page](../README.md) says which code is in which).
+
 The read path is [read_path.clj](../read_path.clj), one folder up, beside
 [door.clj](../door.clj) and [module.clj](../module.clj): the one piece of code by
 which a fact comes back out of the store to a caller in the runtime's process,

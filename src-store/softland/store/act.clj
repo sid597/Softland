@@ -11,16 +11,17 @@
   is the floor: it must hold when each fact is wrong. It is declared as data
   so that it can be read in one place, printed and shown.
 
-  A permission whose sixth slot is `[:run session]` covers one run: the
-  acts that carry that session, and the reads that are asked in it. One
-  whose sixth slot is `[:act yes digest]` is a yes for one act. `yes` is a
-  UUID that its giver makes, and the yes sits on it. `digest` is the digest
-  of the act as its maker made it, with its who and its session, and without
-  its act-id, its depot, its time and its permission
-  (`softland.store.door.digest/hex-for-a-yes`). So a yes is made before the
-  act has an act-id, and the act goes under any act-id of its maker's. A yes
-  covers its act once: a gate uses it up when it takes the act, and a try
-  that is refused uses nothing. A yes that said `:see` would allow nothing."
+  Who acts is a party, and a party's id says what it is: `:person.<id>`,
+  `:agent.<id>`, `:run.<id>`, or `:system`. A permission is held by a party
+  or by everyone: `:anyone`, which is anyone at all, and
+  `:anyone-signed-in`. Those two hold and never act: an act needs an
+  author.
+
+  An act names the permission that it acts under by that permission's id, a
+  UUID that its giver made. It names none when it makes its lane, and when
+  all it does is end permissions that its author holds. What a permission
+  says is a fact's value, and the door's declaration holds its shape
+  (`softland.store.door.declaration`, `:permission-value`)."
   (:import [clojure.lang BigInt]
            [java.math BigDecimal BigInteger]))
 
@@ -34,8 +35,7 @@
   256)
 
 (def max-depth
-  "How many collections a value can be inside. `nesting` reads the same
-  number for how deep a permission can be."
+  "How many collections a value can be inside."
   32)
 
 ;; ------------------------------------------------------- the declared shape
@@ -57,9 +57,9 @@
   {:act
    [:parts
     [:version      [:enum version]                    {:reason :unknown-version}]
-    [:who          :id]
+    [:who          :author-party                      {:reason :who-not-a-party}]
     [:lane        :id]
-    [:permission   :permission-id                     {:absent :no-permission}]
+    [:permission   :uuid                              {:optional true :reason :permission-not-an-id}]
     [:session      :id                                {:absent :no-session}]
     [:based-on     [:map-of :fact-id :carried-stamp]  {:optional true :default {}}]
     [:because-of   :act-id                            {:optional true}]
@@ -85,20 +85,6 @@
    :fact-id
    [:tuple :act-id [:int {:min 0}]]
 
-   ;; [who lane granted-in] is a first permission, with nothing above it.
-   ;; [who lane granted-in parent] is a given one. A fifth slot says what it
-   ;; allows, and a sixth what it covers: one run, or one act. A tuple fits
-   ;; only its own count, and the two forms of six slots differ in the word
-   ;; of the sixth, so each thing fits one alternative at most. The fifth
-   ;; and the sixth slot are no permission, so they do not count toward the
-   ;; nesting limit.
-   :permission-id
-   [:or [:tuple :id :id :id]
-        [:tuple :id :id :id :permission-id]
-        [:tuple :id :id :id :permission-id [:enum :see :see-and-act]]
-        [:tuple :id :id :id :permission-id [:enum :see :see-and-act] [:tuple [:enum :run] :id]]
-        [:tuple :id :id :id :permission-id [:enum :see-and-act] [:tuple [:enum :act] :uuid :digest-hex]]]
-
    ;; The stamp of a fact that the act is based on, as its maker saw it. A
    ;; label: no gate reads it, and the act's own stamp is not raised above
    ;; it (`softland.store.gate.stamp`). So it has no bound but its form.
@@ -108,28 +94,15 @@
 (def ^:private nesting
   "For a named shape, how many times it can be around one place, the place's
   own counted. A name that is not here has the number 1, so no shape goes
-  round. A permission whose count is over its number is `:malformed`.
-
-  The depth of a permission is `max-depth` on purpose. A permission is held
-  on two roads: as an act's own `:permission`, which this number bounds, and
-  as the value of a fact that gives a permission, which `value?` bounds
-  first. The innermost vector of a permission of depth d has d - 1
-  collections around it, so a given permission can have depth 32 too, and
-  the two roads agree because they read one number.
-
-  A greater number needs a greater `max-depth` too, and must stay under 62:
-  the one text of a thing (`softland.store.door.text`) writes a given
-  permission whole to depth 61 and no deeper."
-  {:permission-id max-depth})
+  round. No shape of this declaration is inside itself."
+  {})
 
 (def rules
   "What a shape cannot say: a rule relates two places of the act. Each entry
   is a rule and its reason, in the order of the checks; `rule-checks` holds
-  the code.
-
-  A permission cited for another lane cannot cover the act, whatever its
-  standing. Whether it stands is a gate's question."
-  [[:permission-is-in-the-acts-lane :permission-not-in-lane]])
+  the code. The maker's act has none: the permission that it names is an id,
+  and what that id holds is a gate's question."
+  [])
 
 ;; ------------------------------------------ what the declaration says, as sets
 
@@ -215,6 +188,46 @@
     (set? x) (into #{} (map normal-value) x)
     :else x))
 
+(def everyone
+  "The two holders that are everyone: anyone at all, and anyone signed in.
+  They hold a permission and never act or ask."
+  #{:anyone :anyone-signed-in})
+
+(def ^:private party-pattern
+  "The name of a party's id: its kind, a dot, and the id that the kind's
+  namer gave it."
+  #"(person|agent|run)\..+")
+
+(defn party-kind
+  "What a party is, read from its id: `:person`, `:agent`, `:run`,
+  `:system`, or `:everyone` for one of `everyone`; nil for anything else.
+  The kind is in the id so that a gate tells a person from an agent or a
+  run with no read. It never throws."
+  [x]
+  (cond
+    (= :system x) :system
+    (contains? everyone x) :everyone
+    (and (readable-keyword? x) (nil? (namespace x)))
+    (when-let [[_ kind] (re-matches party-pattern (name x))]
+      (keyword kind))
+    :else nil))
+
+(defn author-party?
+  "True for a party that can act, give and ask: a person, an agent, a run or
+  the system."
+  [x]
+  (contains? #{:person :agent :run :system} (party-kind x)))
+
+(defn holder-party?
+  "True for what can hold a permission: a party that can act, or everyone."
+  [x]
+  (some? (party-kind x)))
+
+(defn borrower?
+  "True for an agent or a run: a party that holds only what is lent."
+  [x]
+  (contains? #{:agent :run} (party-kind x)))
+
 (def ^:private leaves
   "The shapes that code checks, by name: the only places where the check of
   a shape is code and not data. Each takes a thing and gives [:ok, its
@@ -224,6 +237,8 @@
    :uuid  (fn [x] (when (uuid? x) [:ok x]))
    :int   (fn [x] (when (int? x) [:ok (long x)]))
    :value (fn [x] (when (value? x) [:ok (normal-value x)]))
+   :author-party (fn [x] (when (author-party? x) [:ok x]))
+   :holder-party (fn [x] (when (holder-party? x) [:ok x]))
    :digest-hex (fn [x] (when (and (string? x) (re-matches #"[0-9a-f]{64}" x)) [:ok x]))})
 
 ;; ---------------------------------------------------------------- the engine
@@ -357,38 +372,10 @@
 
 ;; ---------------------------------------------------------------- the check
 
-(defn allows
-  "What a permission allows: the word of its fifth slot, and `:see-and-act`
-  for a permission with three or four slots. So a permission that was given
-  before the slot existed reads as \"see and act\", and this is the one
-  place where that is code. A gate refuses an act under a permission that
-  allows `:see`. The read path does not ask: any permission that is there
-  allows seeing (`softland.store.read-path.lanes/standing`).
-
-  What must hold: the thing has the shape `:permission-id`. It never throws:
-  anything that is no vector of five slots or six gives `:see-and-act`, so a
-  caller that holds a thing of no shape tests the shape first."
-  [permission]
-  (if (and (vector? permission) (<= 5 (count permission) 6))
-    (nth permission 4)
-    :see-and-act))
-
-(defn covers
-  "What a permission covers, its sixth slot: `[:run session]`,
-  `[:act yes digest]`, or nil for a permission with no sixth slot, which
-  covers its lane until it is ended. The one place where that slot is read.
-
-  What must hold: the thing has the shape `:permission-id`. It never throws:
-  anything that is no vector of six slots gives nil."
-  [permission]
-  (when (and (vector? permission) (= 6 (count permission)))
-    (nth permission 5)))
-
 (def ^:private rule-checks
   "The code of each rule of `rules`. Each takes an act in its one form, which
-  has the shape. The second slot of a permission id is its lane."
-  {:permission-is-in-the-acts-lane
-   (fn [act] (= (:lane act) (nth (:permission act) 1)))})
+  has the shape."
+  {})
 
 (defn- parse*
   [x]
@@ -418,9 +405,9 @@
   `:unknown-part`: those three are the door's.
 
   Limits. It reads no clock and gives `:claimed-when` no default. It has no
-  rule about a session beyond its shape. It examines the shape of a
-  permission and its lane, not its standing. Facts that are a sequence with
-  no end do not come back from it."
+  rule about a session beyond its shape. Of the permission that the act
+  names it examines that it is an id, and nothing of what that id holds.
+  Facts that are a sequence with no end do not come back from it."
   [x]
   (try (parse* x)
        (catch Throwable _ {:refuse :malformed})))
