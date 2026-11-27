@@ -62,17 +62,22 @@
 ;; ------------------------------------------------------ a program's sign-in
 
 (defn ask
-  "The secret never leaves the program before a person has said yes: its
-  hash is posted. The runtime gives {:code :shown :link :ends}: the code
-  under which the ask is found, the code as a person reads it, the link
-  for her to open, and when the ask is over."
+  "The secret's hash is posted, and it is all that the runtime keeps of the
+  secret. The runtime gives {:code :shown :link :ends}: the code under
+  which the ask is found, the code as a person reads it, the link for her
+  to open, and when the ask is over."
   [url asks]
   (let [secret (credential/make-secret)
         got (post url "/sign-in/program" {:hash (credential/hash-of secret) :asks asks})]
     (if (:could-not got) got (assoc got :secret secret))))
 
 (defn waited
-  "The runtime says {:state :waiting}, {:state :yes :root :actor :sign-in},
+  "The secret is posted with the code: that is how the runtime knows that
+  the program that waits is the one that asked. So the secret is on the
+  wire before her yes, and is as safe as what carries it: over plain http,
+  whoever can read the wire has it.
+
+  The runtime says {:state :waiting}, {:state :yes :root :actor :sign-in},
   {:state :no} or {:state :over}."
   [url code secret]
   (let [got (post url "/sign-in/program/poll" {:code code :secret secret})]
