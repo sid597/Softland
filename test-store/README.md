@@ -19,11 +19,19 @@ clojure -M:store-module -m softland.store.door-proof
 clojure -M:store -m softland.store.read-path-pure-proof
 clojure -M:store-module -m softland.store.read-path-proof
 clojure -M:store-module -m softland.store.run-again-proof
+clojure -M:store -m softland.store.permission-proof
 ```
 
-The first two and the fifth need local Clojure and nothing else: the alias
-`:store` puts Clojure alone on the classpath. They start no browser, connect to
-no cluster and call no provider.
+The first two, the fifth and the eighth need local Clojure and nothing else: the
+alias `:store` puts Clojure alone on the classpath. They start no browser,
+connect to no cluster and call no provider.
+
+On 27 November 2026 the eighth, the proof of the permission rules, is the one
+that holds: the store's pure code is in the form of the permission fix, and the
+other seven, with the module and the clients that they run, are still in the
+form before it ([the store's page](../src-store/softland/store/README.md) says
+which code is in which). They fail or do not load until they are brought to the
+new form.
 
 The third, the fourth, the sixth and the seventh need Rama, which the alias
 `:store-module`

@@ -3,8 +3,8 @@
 [Parent: store](../README.md) · [Store source entry](../../../README.md).
 
 This folder says what the record is made of: its rows, the keys of its two
-orders of facts, the lane's line, and the schemas of the PStates that hold
-them. The first order is by place: lane, entity, key. The second, the facts by
+orders of facts, the permissions by holder, the lane's line, and the schemas
+of the PStates that hold them. The first order is by place: lane, entity, key. The second, the facts by
 value, is kept only for the keys that a lane marks: lane, key, the stamp
 since which the key is marked, the digest of the value, entity. The line is
 each decision of a lane by its stamp: a small row, the thing again when the
@@ -20,8 +20,9 @@ the lane's task. [rows.clj](rows.clj) says it row by row.
 
 | File | Responsibility | State and lifetime |
 |---|---|---|
-| [rows.clj](rows.clj) | The record's rows: the text of each key, the making and the reading of each row, the text that a fact's row holds for its value, the run of one value in the facts by value and the digest that its keys hold, the keys and runs of the line and of the rows by who, the line row and the answer that it gives, the routing id of an act-id, which is its lane, and the test of what a caller gave a read. And what only a reader of the tables needs: the two ends of a run of places, the order in which a table keeps its keys, and two tests of one row against another row or a value. Pure code; it loads with Clojure alone. | None. It holds no record. |
-| [tables.clj](tables.clj) | The record as PStates: the six schemas, written once for both gates. The answers, the facts, the facts by value, the line, the things, and what a gate keeps for a task: the last stamp of each lane, since a stamp is counted in its lane, the rows by who, and the strays. It requires Rama. | None. It declares nothing. |
+| [rows.clj](rows.clj) | The record's rows: the text of each key, the making and the reading of each row, the text that a fact's row holds for its value, the run of one value in the facts by value and the digest that its keys hold, the keys and runs of the line and of the rows by who, the line row and the answer that it gives, what the row at a permission's place says and whether it is an end or a use, the key of a permission in the order by holder, the routing id of an act-id, which is its lane, and the test of what a caller gave a read. And what only a reader of the tables needs: the two ends of a run of places, the order in which a table keeps its keys, and two tests of one row against another row or a value. Pure code; it loads with Clojure alone. | None. It holds no record. |
+| [in_memory.clj](in_memory.clj) | The record as one map in the memory of one process: how each read of a walk, and of an asker's rights, is answered from it, and how each row of a decision changes it. No gate uses it: a proof and a judge decide against it with no cluster. Pure code. | None of its own: a caller holds the map. |
+| [tables.clj](tables.clj) | The record as PStates, in the form before the permission fix: it has no table of the permissions by holder and no owners of a lane yet. The six schemas, written once for both gates. The answers, the facts, the facts by value, the line, the things, and what a gate keeps for a task: the last stamp of each lane, since a stamp is counted in its lane, the rows by who, and the strays. It requires Rama. | None. It declares nothing. |
 
 ## How the files relate
 
@@ -39,7 +40,7 @@ last step of the declaration's check, for a fact under a plain key and for a
 fact under a store key alike. A fact's row holds that text as a String, so that
 no field of a table that a reader is kept live on is a byte array;
 [tables.clj](tables.clj) says why. Who wrote a fact and the permission that its
-act named are kept as their one text too. The printed text of an id, the one
-text and the store keys are [door/](../door/README.md)'s. Whether a thing is a
-value, its normal form and the shape of a permission are
-[the act](../act.clj)'s.
+act named are kept as the printed text of an id. The printed text of an id, the
+one text, the store keys and the shape of what a permission says are
+[door/](../door/README.md)'s. Whether a thing is a value, its normal form and
+what a party is are [the act](../act.clj)'s.

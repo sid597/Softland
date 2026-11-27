@@ -35,6 +35,24 @@ written as data, and it gives the facts of the lanes that the asker may see,
 put together, the nearest lane that holds a fact first. In this build its
 proof is its only asker.
 
+## The state of this tree on 27 November 2026
+
+The store is between two forms of a permission. The pure code of the act, of
+the door's declaration and digest, of the record's rows, of the gate and of an
+asker's rights in a lane ([read_path/lanes.clj](read_path/lanes.clj)) is in the
+form of the permission fix: a permission is a fact on an id of its own, and an
+act names it by that id
+(`src/proposal/permissions-2026-11-27/BUILD.md`). Its check is
+[permission_proof.clj](../../../test-store/softland/store/permission_proof.clj).
+
+The rest is still in the form before it and does not load against that code:
+the module and its walk, the schemas of the tables, the door's client, the
+read path's client, and of the read path's pure code its query, sources,
+answers and acts. So is every other proof of the store. What this page and the
+maps of those folders say of a permission, a run's permission, a yes and who
+may see a lane, and the names of functions that they list for it, are of that
+earlier form until each is rebuilt.
+
 ## The parts
 
 | Part | Responsibility | State and lifetime |

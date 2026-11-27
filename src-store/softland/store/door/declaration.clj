@@ -16,9 +16,9 @@
   bytes of those texts. It is the last because it is the most costly: a
   thing that the shape or a rule refuses has no text made.
 
-  It reads no record: whether a permission stands, and whether a replaced
-  fact is current, are `softland.store.gate.decision`'s. A grammar check is
-  not built."
+  It reads no record: whether a permission stands, what it lets its holder
+  do, and whether a replaced fact is current, are
+  `softland.store.gate.decision`'s. A grammar check is not built."
   (:require [softland.store.act :as act]
             [softland.store.door.text :as text]))
 
@@ -40,22 +40,21 @@
 (def max-act-bytes
   "How many bytes of text an accept of one act can write into the rows of
   its facts. Counted for each fact: the UTF-8 bytes of the one text of its
-  value, under a plain key or a store key; and the UTF-8 bytes of the one
-  text of the act's `:who` and of its permission, which each fact's row
-  holds. So a deep permission with long ids is counted once for each fact
-  that is written under it.
+  value, under a plain key or a store key; and the UTF-8 bytes of the text
+  of the act's `:who` and of the id of its permission, which each fact's
+  row holds.
 
   The number is 18 times 2^20, which is `max-facts` times
   (`max-value-bytes` + 8,192): 256 values at the bound of one value, and
-  8,192 bytes of who and permission for each of 256 facts. A permission of
-  depth 32 whose ids are like UUIDs is about 4,400 bytes with its who, so
-  an act that is full under such a permission passes.
+  8,192 bytes more for each of 256 facts. The who and the id of the
+  permission are 294 bytes at most, for a who at the limit of an id whose
+  letters are of one byte each, so an act that is full passes.
 
   Not counted: the rows of the facts by value hold who and permission once
   more for each fact under a marked key, and which keys are marked is read
-  from the record, after this check. Nor the use of a yes for one act, the
-  one row more that an accept under a yes writes, which holds who and the
-  yes once more (`softland.store.gate.decision`, `use-of-its-yes`)."
+  from the record, after this check. Nor the use of a permission for one
+  exact act, the one row more that an accept under it writes
+  (`softland.store.gate.decision`, `use-of-its-permission`)."
   18874368)
 
 (def max-id-text
@@ -130,51 +129,41 @@
 
 (def store-keys
   "The keys that the store itself reads. `:value` is a name of `shapes`.
-  `:sits-on` is a word for the reader of this table; the rules of a
-  permission fact and the gate's check of a setting hold what it says.
+  `:sits-on` is a word for the reader of this table; a rule of the
+  declaration and the gate's check of a setting hold what it says.
 
   A fact under a store key keeps its value in the one form on arrival,
   beside the value's text, for the rules and a gate's checks to read. A
   setting is a key whose fact a gate takes only on the lane's own entity.
   A key that is `:written-again` takes a second write on its place, and a
-  third, by the lane's first holder alone
-  (`softland.store.gate.decision/who-may-write-fault`). A lane's depot
-  takes one write. A permission's place takes a give when it is empty, when
-  it holds an end, and when the permission that it holds no longer stands;
-  a fact with no value there is the end of the permission that the place
-  holds (`softland.store.gate.decision`, `end-fault` and
-  `give-over-fault`). A retract under any of the other five is refused.
+  third: a setting by an owner of the lane, a permission by one who may
+  change it (`softland.store.gate.decision`). A lane's depot takes one
+  write. A retract under any key but a permission's is refused.
 
-  What the settings say. Who may see a lane: `:members`, which is whoever
-  holds a permission in it, or `:everyone`. What a lane builds on: the
-  lanes that a read looks through after it, in the writer's order; an empty
-  vector says \"nothing\". The keys that a lane marks: for each of them a
-  gate keeps every fact in one more order, by value; the empty set says
-  \"none\", and a mark is taken off by writing the set again without it.
-  Who may read the lane's acts whole: `:members`, its holders and the who
-  that a thing names, or `:everyone`, whoever may see the lane
+  A permission sits on an id of its own, a UUID that its giver makes, and
+  its value says everything else: who holds it, what it allows, what it
+  covers, who gave it, under which permission, and what it is lent from
+  (`:permission-value`). So a holder has any number of permissions in a
+  lane, each stands or ends by itself, and an end names the one permission
+  that it ends. A fact with a value at an id that holds a permission
+  changes what that permission allows; a fact with no value there ends it,
+  and the id takes no permission again.
+
+  What the settings say. What a lane builds on: the lanes that a read looks
+  through after it, in the writer's order; an empty vector says
+  \"nothing\". The keys that a lane marks: for each of them a gate keeps
+  every fact in one more order, by value; the empty set says \"none\",
+  and a mark is taken off by writing the set again without it. Who may read
+  the lane's acts whole: `:members`, its holders and the who that a thing
+  names, or `:everyone`, whoever may see the lane
   (`softland.store.read-path.acts`). What each reads as when no fact says
-  it is `softland.store.gate.first-act/starts-with`.
+  it is `softland.store.gate.first-act/starts-with`. Who may see a lane is
+  no setting: it is the permissions that stand in it, a permission to
+  everyone among them.
 
   A bare word is no store key. A fact of a tool under `:depot` or
   `:permission` is a fact under a plain key, and the store reads nothing
-  from it.
-
-  A permission sits on what it covers, under a key of its own for each kind
-  (`softland.store.act/covers`): one that covers the lane on its holder,
-  one for a run on the run's session, a yes for one act on the yes's own
-  id, the uuid that its giver made. Three keys and not one: a holder, a
-  session and a yes are each named by an id of one kind, so under one key a
-  give for a run whose session has the id of a holder would land on that
-  holder's place. So a holder can have, beside her permission for the
-  lane, one for each of any number of runs, and any number of yeses for
-  acts. The gate finds the permission that an act names with one read, on
-  the place that the permission's own form names
-  (`softland.store.gate.chain/place`). A yes's place takes one give
-  (`softland.store.gate.decision`, `store-key-fault`).
-
-  A holder has one permission for the lane at a time: she cannot hold
-  \"see\" from one giver and \"see and act\" from another."
+  from it."
   {:softland.store/depot
    {:why           "a gate must read which gate a lane belongs to"
     :value         :depot-word
@@ -182,28 +171,10 @@
     :setting       true
     :written-again false}
    :softland.store/permission
-   {:why           "a gate must read whether an act's permission stands"
-    :value         :permission-id
-    :sits-on       :the-holder-that-the-permission-names
+   {:why           "a gate and a read must find what a permission says and whether it stands"
+    :value         :permission-value
+    :sits-on       :the-permissions-own-id
     :setting       false
-    :written-again false}
-   :softland.store/run-permission
-   {:why           "a gate must read whether the permission of an act's run stands"
-    :value         :permission-id
-    :sits-on       :the-run-that-the-permission-covers
-    :setting       false
-    :written-again false}
-   :softland.store/act-permission
-   {:why           "a gate must read whether a yes for one act stands and is not used up"
-    :value         :permission-id
-    :sits-on       :the-yes-own-id
-    :setting       false
-    :written-again false}
-   :softland.store/who-may-see
-   {:why           "a read must find who may see a lane"
-    :value         :who-may-see-word
-    :sits-on       :the-lane
-    :setting       true
     :written-again true}
    :softland.store/who-may-read-acts
    {:why           "a read must find who may read a lane's acts whole"
@@ -224,15 +195,15 @@
     :setting       true
     :written-again true}})
 
-(def permission-keys
-  "One for each thing that a permission covers: the lane, one run, one act."
-  #{:softland.store/permission :softland.store/run-permission :softland.store/act-permission})
+(def permission-key
+  :softland.store/permission)
 
 (def setting-keys
   (into #{} (keep (fn [[k entry]] (when (:setting entry) k))) store-keys))
 
-(def second-write-keys
-  (into #{} (keep (fn [[k entry]] (when (:written-again entry) k))) store-keys))
+(def second-write-settings
+  "The settings that take a second write: an owner of the lane writes each."
+  (into #{} (keep (fn [[k entry]] (when (and (:setting entry) (:written-again entry)) k))) store-keys))
 
 (defn store-key?
   [k]
@@ -248,7 +219,7 @@
 
 (def shapes
   "The door's map of shapes: each entry of `softland.store.act/shapes`, and
-  six more in the same language. `:arrived-act` is the three parts that the
+  more in the same language. `:arrived-act` is the three parts that the
   door adds and then the ten parts of the maker's `:act`, read from
   `act.clj`'s map in its order and with its options. `:lane-list` and
   `:key-set` say no limit: a rule holds each, with a word of its own. A
@@ -261,7 +232,22 @@
 
   A record that arrives with no time is refused, and the refusal is
   recorded under its act-id: such a thing has a usable act-id, so it is no
-  stray and a gate can answer it."
+  stray and a gate can answer it.
+
+  `:permission-value` is what a permission says. `:allows` holds some of
+  four rights, each there or absent: `:see`; `:write`, whose one value
+  today is `:all`; `:give`, the rights that its holder may pass on to
+  another, `:give` itself among them when she may pass the right to give;
+  and `:owner`. `:covers` is the default group of a lane, or one exact act
+  by the digest of the act as its maker made it
+  (`softland.store.door.digest/hex-for-a-yes`). `:session`, when it is
+  there, makes the permission good for the acts and the reads of one login
+  sitting. `:given-by` is the author of the act that gave it and `:under`
+  the permission that that act named; both stay as they are when the
+  permission is changed. `:lent-from`, when it is there, is the permission
+  that this one falls with and never allows more than; without it the
+  permission stands on its own. A part that is absent and a part that is
+  nil are one: the one form holds neither (`permission-value`)."
   (assoc act/shapes
          :arrived-act  (into [:parts
                               [:act-id :act-id]
@@ -269,45 +255,77 @@
                               [time-part [:int {:min 0}] {:reason :no-door-time}]]
                              (rest (get act/shapes :act)))
          :depot-word   [:enum :streaming :microbatch]
-         :who-may-see-word [:enum :members :everyone]
          :who-may-read-acts-word [:enum :members :everyone]
          :lane-list   [:seq-of :id]
-         :key-set      [:set-of :key]))
+         :key-set      [:set-of :key]
+         :permission-value
+         [:parts
+          [:holder    :holder-party]
+          [:allows    :allows]
+          [:covers    :covers]
+          [:session   :id            {:optional true :left-out true}]
+          [:given-by  :author-party]
+          [:under     :uuid          {:optional true :left-out true}]
+          [:lent-from :uuid          {:optional true :left-out true}]]
+         :allows
+         [:parts
+          [:see   [:enum true]                               {:optional true :left-out true}]
+          [:write [:enum :all]                               {:optional true :left-out true}]
+          [:give  [:set-of [:enum :see :write :give :owner]] {:optional true :left-out true :empty :malformed}]
+          [:owner [:enum true]                               {:optional true :left-out true}]]
+         :covers
+         [:or [:tuple [:enum :default-group] :id]
+              [:tuple [:enum :exact-act] :digest-hex]]))
+
+(def owner-allows
+  "What an owner's permission allows: everything over a lane. Seeing,
+  writing, giving each right on, the right to give and owning among them,
+  and with `:owner` its settings and the end of any permission over it."
+  {:see true :write :all :give #{:see :write :give :owner} :owner true})
+
+(defn permission-value
+  "The one form of what a permission says, or nil for a thing that is no
+  such value: one that does not fit `:permission-value`, that allows
+  nothing, or that allows owning and not everything (`owner-allows`). A
+  lane always has an owner, and an owner that could not see, write or give
+  owning on would hold a lane that nobody can hand over. A part that was
+  given as nil is absent from the one form, so two values that say the same
+  have one text. It never throws."
+  [v]
+  (try (let [[verdict one-form] (act/as-shape shapes :permission-value v)
+             allows (:allows one-form)]
+         (when (and (= :ok verdict)
+                    (seq allows)
+                    (or (not (:owner allows)) (= owner-allows allows)))
+           one-form))
+       (catch Throwable _ nil)))
 
 (def rules
   "What a thing that has the shape `:arrived-act` must also keep, each with
-  its reason, in the order of the checks. The first is the maker's own,
-  read from `softland.store.act/rules`. `rule-checks` holds the code. No
+  its reason, in the order of the checks. `rule-checks` holds the code. No
   rule reads the value of a fact under a plain key: the last step of the
   check holds the bytes of such a value (`with-texts`).
 
   No marked key is in the store's namespace, so the store's own facts are
   never kept by value. Each rule of a store key keeps a fact with no value;
-  a gate refuses the retract.
-
-  The rule of who may read a lane's acts stands right behind the rule of
-  who may see it. A thing that a gate refused `:store-key-not-known` for a
-  fact under that key, while the key was no store key, and that has another
-  fault that a later rule names, gets the later rule's word here
-  (src/proposal/runtime-2026-11-21/store-piece-3/PLAN_VALIDATION-gates-keep-the-line.md,
-  item d, traces it). A thing that an earlier rule or the shape refuses
-  keeps its word.
+  a gate refuses the retract, but for a permission's, which is its end.
 
   `:store-key-is-known` comes before the rules of a store key. So a fact
   whose key is in `softland.store` and is not one of `store-keys` gets
   `:store-key-not-known` and none of their words, whether it has a value or
-  none."
+  none.
+
+  `:place-named-once` holds a permission too: an act names the id of a
+  permission in one fact at most, so no permission is changed twice, or
+  given and ended, in one act."
   (into (vec act/rules)
         [[:depot-is-the-act-ids-depot          :depot-not-the-act-ids-depot]
          [:facts-within-the-limit              :too-many-facts]
          [:based-on-within-the-limit           :too-many-based-on]
          [:store-key-is-known                  :store-key-not-known]
          [:depot-fact-holds-a-depot-word       :depot-fact-not-a-depot-word]
+         [:permission-fact-sits-on-an-id       :permission-fact-not-on-an-id]
          [:permission-fact-holds-a-permission  :permission-fact-not-a-permission]
-         [:permission-fact-is-of-its-key       :permission-fact-under-another-key]
-         [:permission-fact-sits-on-its-holder  :permission-fact-not-on-its-holder]
-         [:permission-fact-sits-on-what-it-covers :permission-fact-not-on-what-it-covers]
-         [:who-may-see-fact-holds-its-word     :who-may-see-fact-not-members-or-everyone]
          [:who-may-read-acts-fact-holds-its-word :who-may-read-acts-fact-not-members-or-everyone]
          [:builds-on-fact-holds-lanes         :builds-on-fact-not-a-list-of-lanes]
          [:builds-on-within-the-limit          :builds-on-too-many-lanes]
@@ -394,15 +412,15 @@
                     (<= (count (:v fact)) most)))
               act))
 
-(defn- permission-ids
-  "Each id that a permission id holds: who, lane and granted-in, and the
-  session of a permission for a run, of itself and of each permission above
-  it."
-  [permission]
-  (when (vector? permission)
-    (concat (take 3 permission)
-            (when (= :run (first (act/covers permission))) [(second (act/covers permission))])
-            (when (<= 4 (count permission)) (permission-ids (nth permission 3))))))
+(defn- permission-value-ids
+  "Each id that what a permission says holds, of which a key of a row is
+  made: its holder, its giver, its sitting, and the lane whose default
+  group it covers. A UUID prints to 36 characters and is not among them."
+  [v]
+  (when (map? v)
+    (let [[kind what] (:covers v)]
+      (remove nil? [(:holder v) (:given-by v) (:session v)
+                    (when (= :default-group kind) what)]))))
 
 (defn- ids-of
   "Each id that an act holds, wherever it sits, and each fact's key. A key
@@ -414,15 +432,14 @@
   (let [lane-of (fn [act-id] (when act-id [(nth act-id 0)]))]
     (concat [(:who act) (:lane act) (:session act)]
             (:subjects act)
-            (permission-ids (:permission act))
             (lane-of (:act-id act))
             (lane-of (:because-of act))
             (mapcat (fn [[act-id _]] (lane-of act-id)) (keys (:based-on act)))
             (mapcat (fn [fact]
                       (concat [(:e fact) (:k fact)]
                               (lane-of (first (:replaces fact)))
-                              (when (contains? permission-keys (:k fact))
-                                (permission-ids (:v fact)))
+                              (when (= permission-key (:k fact))
+                                (permission-value-ids (:v fact)))
                               (when (contains? #{:softland.store/builds-on :softland.store/marked-keys}
                                                (:k fact))
                                 (:v fact))))
@@ -431,14 +448,8 @@
 (def ^:private rule-checks
   "The code of each rule of `rules`. Each takes an act that has the shape
   `:arrived-act`, in the one form that the engine gave, and may rest on the
-  rules before it: `check` stops at the first that is broken.
-
-  The maker's rule is written here a second time, one line: its code is
-  private to `act.clj`."
-  {:permission-is-in-the-acts-lane
-   (fn [act] (= (:lane act) (nth (:permission act) 1)))
-
-   :depot-is-the-act-ids-depot
+  rules before it: `check` stops at the first that is broken."
+  {:depot-is-the-act-ids-depot
    (fn [act] (= (:depot act) (nth (:act-id act) 1)))
 
    :facts-within-the-limit
@@ -455,40 +466,20 @@
    :depot-fact-holds-a-depot-word
    (fn [act] (value-fits-its-key? :softland.store/depot act))
 
-   :permission-fact-holds-a-permission
-   (fn [act] (every? (fn [k] (value-fits-its-key? k act)) permission-keys))
-
-   :permission-fact-is-of-its-key
-   (fn [act] (each-fact? (fn [fact]
-                           (or (not (contains? permission-keys (:k fact)))
-                               (nil? (:v fact))
-                               (= (:k fact)
-                                  (case (first (act/covers (:v fact)))
-                                    :run :softland.store/run-permission
-                                    :act :softland.store/act-permission
-                                    :softland.store/permission))))
+   ;; A permission's id is a UUID: a holder, a sitting and a lane are named
+   ;; by ids of other kinds, so no permission lands on the place of one.
+   :permission-fact-sits-on-an-id
+   (fn [act] (each-fact? (fn [fact] (or (not= permission-key (:k fact))
+                                        (uuid? (:e fact))))
                          act))
 
-   ;; A permission fact with no value names no holder: it is an end, and a
+   ;; A permission fact with no value says nothing: it is an end, and a
    ;; gate holds it to the permission at its place.
-   :permission-fact-sits-on-its-holder
-   (fn [act] (each-fact? (fn [fact] (or (not= :softland.store/permission (:k fact))
+   :permission-fact-holds-a-permission
+   (fn [act] (each-fact? (fn [fact] (or (not= permission-key (:k fact))
                                         (nil? (:v fact))
-                                        (= (:e fact) (nth (:v fact) 0))))
+                                        (some? (permission-value (:v fact)))))
                          act))
-
-   ;; A permission for a run sits on the run's session, and a yes for one
-   ;; act on its own id.
-   :permission-fact-sits-on-what-it-covers
-   (fn [act] (each-fact? (fn [fact]
-                           (or (not (contains? #{:softland.store/run-permission :softland.store/act-permission}
-                                               (:k fact)))
-                               (nil? (:v fact))
-                               (= (:e fact) (second (act/covers (:v fact))))))
-                         act))
-
-   :who-may-see-fact-holds-its-word
-   (fn [act] (value-fits-its-key? :softland.store/who-may-see act))
 
    :who-may-read-acts-fact-holds-its-word
    (fn [act] (value-fits-its-key? :softland.store/who-may-read-acts act))
@@ -561,7 +552,8 @@
 
   Under a plain key the fact's `:v` becomes nil: a gate reads nothing of a
   tool's value. Under a store key `:v` stays beside the text, for a gate's
-  checks.
+  checks. What a permission says is put in its one form first
+  (`permission-value`), so the row's text is the text of that form.
 
   The step ends at the first value over `max-value-bytes`: no text of a
   later value is made. So of an act with both faults the word is
@@ -571,7 +563,9 @@
   permission once. The count of a text makes no array."
   [act]
   (let [texted (reduce (fn [[facts total] fact]
-                         (let [v (:v fact)]
+                         (let [v (if (= permission-key (:k fact))
+                                   (some-> (:v fact) permission-value)
+                                   (:v fact))]
                            (if (nil? v)
                              [(conj facts (assoc fact :text nil)) total]
                              (let [^String value-text (text/text v)
@@ -579,7 +573,7 @@
                                    plain? (not (store-key? (:k fact)))]
                                (if (and plain? (< max-value-bytes size))
                                  (reduced :value-too-large)
-                                 [(conj facts (cond-> (assoc fact :text value-text)
+                                 [(conj facts (cond-> (assoc fact :v v :text value-text)
                                                 plain? (assoc :v nil)))
                                   (+ total size)])))))
                        [[] 0]
@@ -587,8 +581,10 @@
     (if (= :value-too-large texted)
       {:refuse :value-too-large}
       (let [[facts values-total] texted
-            for-each-fact (+ (long (text/utf8-count (text/text (:who act))))
-                             (long (text/utf8-count (text/text (:permission act)))))
+            for-each-fact (+ (long (text/utf8-count (id-text (:who act))))
+                             (long (if-let [permission (:permission act)]
+                                     (text/utf8-count (id-text permission))
+                                     0)))
             total (+ (long values-total) (* (count facts) for-each-fact))]
         (if (< max-act-bytes total)
           {:refuse :act-too-large}

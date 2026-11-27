@@ -6,12 +6,12 @@
   Two digests, of two things. The digest of a thing, `digest` and `hex-of`,
   is of the thing as it arrived: it holds the act-id, the depot and the
   maker's syntax, so that a maker tells her own answer from another thing's
-  under the same act-id. The digest that a yes for one act holds,
-  `hex-for-a-yes`, is of the act as its maker made it, in the one form that
-  `softland.store.act/parse` gives, without the act-id, the depot, the time
-  and the permission. So it is made before the act has an act-id or a
-  permission, and the gate makes the same of the thing that arrives under
-  any act-id of hers.
+  under the same act-id. The digest by which a permission for one exact act
+  names its act, `hex-for-a-yes`, is of the act as its maker made it, in
+  the one form that `softland.store.act/parse` gives, without the act-id,
+  the depot, the time and the permission. So it is made before the act has
+  an act-id or a permission, and the gate makes the same of the thing that
+  arrives under any act-id of hers.
 
   Why the time is left out: a maker's second send of one act under one
   act-id carries another time, and both sends must read the one answer as
@@ -178,12 +178,12 @@
          :act-for-a-yes (into [:parts] (remove #(= :permission (first %))) (rest (get act/shapes :act)))))
 
 (def ^:private no-part-of-the-act-a-yes-names
-  "A yes names its act before the act has any of them: the act names its
-  permission, and the permission names the act."
+  "A permission for one exact act names its act before the act has any of
+  them: the act names its permission, and the permission names the act."
   [:act-id :depot declaration/time-part :permission])
 
 (defn act-for-a-yes
-  "The act that a yes for one act names: the one form that
+  "The act that a permission for one exact act names: the one form that
   `softland.store.act/parse` gives, without its act-id, its depot, its time
   and its permission. `x` is a maker's act, with its permission or without
   one, or a thing as it arrives on a depot. nil for a thing whose other
@@ -199,26 +199,14 @@
       (when (= :ok verdict) one-form))))
 
 (defn hex-of-the-act
-  "The digest that a yes for one act holds in its sixth slot. It holds the
-  act to nothing more than `act-for-a-yes` does: it is the gate's, for a
+  "The digest by which a permission for one exact act names its act. It
+  holds the act to nothing more than `act-for-a-yes` does: it is the gate's, for a
   thing that its declaration took already. A maker calls `hex-for-a-yes`,
   which gives the same text for every act that the declaration can take.
   It never throws."
   [x]
   (when-let [one-form (act-for-a-yes x)]
     (hex-of one-form)))
-
-(def ^:private shortest-holder
-  "An id whose text is the shortest that an id of the form can have, two
-  characters. The yes of `under-the-least-yes` is given beneath the first
-  permission of this holder, so that no yes that a giver can give is
-  shorter in text."
-  :a)
-
-(def ^:private a-digest
-  "A text in the form of a digest. Every digest has that length, so the text
-  of a yes is as long whatever act it names."
-  (apply str (repeat 64 \0)))
 
 (defn- replaced-uuids
   "The uuids of the act-ids that the act's facts replace, so that an act-id
@@ -230,43 +218,39 @@
                      (catch Throwable _ nil))))
         (try (seq (:facts x)) (catch Throwable _ nil))))
 
-(defn- under-the-least-yes
-  "The thing as the door would append it under the least demanding yes
-  there is: an act-id whose uuid no fact of the act replaces, the time 0,
-  and a yes whose text is no longer than that of any yes that a giver can
-  give. So the declaration refuses this thing only when it refuses the act
-  under every yes, every act-id and every time: what it holds against the
-  permission, the bound on an act's bytes and the limit of an id, is held
-  here at its least."
+(defn- under-some-permission
+  "The thing as the door would append it under a permission: an act-id
+  whose uuid no fact of the act replaces, the time 0, and an id for its
+  permission. The id of a permission has one length, so the declaration
+  refuses this thing only when it refuses the act under every permission,
+  every act-id and every time."
   [x one-form]
-  (let [{:keys [who lane]} one-form
+  (let [{:keys [lane]} one-form
         taken (replaced-uuids x)
         uuid (first (remove taken (map #(java.util.UUID. 0 (long %)) (range))))]
     (assoc (apply dissoc x no-part-of-the-act-a-yes-names)
            :act-id [lane :streaming uuid]
            :depot :streaming
            declaration/time-part 0
-           :permission [who lane lane [shortest-holder lane lane] :see-and-act [:act uuid a-digest]])))
+           :permission uuid)))
 
 (defn hex-for-a-yes
-  "The digest that a yes for one act holds in its sixth slot, for a maker
-  who asks a yes for her act. nil where `act-for-a-yes` gives nil, and for
-  an act that the declaration refuses under every yes that could name it
-  (`under-the-least-yes`): a yes for such an act could never be used. It
-  never throws.
+  "The digest by which a permission for one exact act names its act, for a
+  maker who asks a yes for her act. nil where `act-for-a-yes` gives nil,
+  and for an act that the declaration refuses under every permission that
+  could name it (`under-some-permission`): a yes for such an act could
+  never be used. It never throws.
 
-  The gate makes the same text of the thing that arrives under a yes
-  (`hex-of-the-act`). The act-id is no part of what the yes names, so the
-  act goes under any act-id of its maker's.
+  The gate makes the same text of the thing that arrives under such a
+  permission (`hex-of-the-act`). The act-id is no part of what it names, so
+  the act goes under any act-id of its maker's.
 
   What it cannot hold: a giver who makes the text by another hand gives a
-  yes that names an act which no gate takes, and the gate cannot tell,
-  since a yes names its act by the digest alone. And the bound on an act's
-  bytes and the limit of an id are held under the shortest yes, so a long
-  permission of the giver's can still bring an act of the form over them."
+  permission that names an act which no gate takes, and the gate cannot
+  tell, since the act is named by the digest alone."
   [x]
   (when-let [one-form (act-for-a-yes x)]
-    (when (:ok (declaration/check (under-the-least-yes x one-form)))
+    (when (:ok (declaration/check (under-some-permission x one-form)))
       (hex-of one-form))))
 
 (defn is-digest-of?

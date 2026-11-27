@@ -1,7 +1,7 @@
-(ns gate-histories.sketch
+(ns gate-histories.piece-2.sketch
   "A sketch of a gate that takes the form of 22 November for a yes for one
   act (store-piece-2/SPEC.md), put in place of four functions of the
-  store's gate for a run only: `clojure -M:run sketch` and `clojure -M:run
+  store's gate for a run only: `clojure -M:piece-2 sketch` and `clojure -M:piece-2
   sketch mutants`. Pure code. No file of the store changes.
 
   Why. Before the store takes the form, every act under a yes is refused by
