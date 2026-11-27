@@ -7,8 +7,12 @@
   A word of this library's own is a map that holds `:could-not`:
   `:reach-the-runtime` when a request or the connection failed, with what
   failed; `:hear-the-runtime` when a wait for a result passed. A word of
-  the runtime's comes back as it is. No call throws for what the runtime
-  did.
+  the runtime's comes back as it is: a result, the word with which it
+  refused an opening, and the word of its `:bye`, which everything that
+  waits on the connection and each later call on it is handed. One does
+  not: a word that names no number, for a frame that the runtime could not
+  read, is kept and handed to nobody, and the call that sent the frame ends
+  as `:hear-the-runtime`. No call throws for what the runtime did.
 
   One connection is one session. A program that was cut off connects again
   under the same session and sends the act again under the same UUID: the
@@ -28,12 +32,22 @@
 (def ^:private connect-ms
   15000)
 
+(defn- refusal
+  "The runtime answers an opening that it refuses over HTTP, with its own
+  word as the body. Nil when the body is no such word."
+  [^WebSocketHandshakeException refused]
+  (let [response (.getResponse refused)
+        [outcome form] (frame/read-one (.body response))]
+    (when (and (= :ok outcome) (map? form) (contains? form :could-not))
+      (assoc form :status (.statusCode response)))))
+
 (defn- what-threw
   [^Throwable t]
-  (let [cause (or (.getCause t) t)]
-    (cond-> {:could-not :reach-the-runtime :threw (.getName (class cause)) :said (.getMessage cause)}
-      (instance? WebSocketHandshakeException cause)
-      (assoc :status (.statusCode (.getResponse ^WebSocketHandshakeException cause))))))
+  (let [cause (or (.getCause t) t)
+        refused? (instance? WebSocketHandshakeException cause)]
+    (or (when refused? (refusal cause))
+        (cond-> {:could-not :reach-the-runtime :threw (.getName (class cause)) :said (.getMessage cause)}
+          refused? (assoc :status (.statusCode (.getResponse ^WebSocketHandshakeException cause)))))))
 
 (def ^:private shared-http-client
   "Shared, so that polling `waited` and opening connections do not leak a
@@ -99,9 +113,14 @@
   (cond
     (contains? form :hello) (deliver (:hello @state) (:hello form))
     (contains? form :bye) (swap! state assoc :bye (:bye form))
-    (contains? form :gives) (when-let [waits (get-in @state [:waits (:id form)])]
-                              (swap! state update :waits dissoc (:id form))
-                              (deliver waits (:gives form)))
+    ;; Each word and each watch has a number of its own here, so a result
+    ;; under a watch's number answers its `:watch`: the line did not open it.
+    (contains? form :gives) (if-let [waits (get-in @state [:waits (:id form)])]
+                              (do (swap! state update :waits dissoc (:id form))
+                                  (deliver waits (:gives form)))
+                              (when-let [f (get-in @state [:watches (:id form)])]
+                                (swap! state update :watches dissoc (:id form))
+                                (try (f {:ended (:gives form)}) (catch Throwable _ nil))))
     (contains? form :id) (when-let [f (get-in @state [:watches (:id form)])]
                            (when (contains? form :ended)
                              (swap! state update :watches dissoc (:id form)))
@@ -110,14 +129,24 @@
     ;; that it could not read.
     :else (swap! state assoc :said form)))
 
+(defn- last-word
+  "What a connection that has ended answers with: the word of the runtime's
+  `:bye` as it is, or else what `gone!` kept."
+  [st]
+  (or (:bye st) (:gone st)))
+
 (defn- gone!
   [state why]
-  (let [[before _] (swap-vals! state assoc :gone why :waits {} :watches {})]
-    (deliver (:hello before) (assoc why :could-not :reach-the-runtime))
+  (let [[before after] (swap-vals! state (fn [st]
+                                           (assoc st
+                                                  :gone (assoc why :could-not :reach-the-runtime)
+                                                  :waits {} :watches {})))
+        word (last-word after)]
+    (deliver (:hello before) word)
     (doseq [waits (vals (:waits before))]
-      (deliver waits (assoc why :could-not :reach-the-runtime)))
+      (deliver waits word))
     (doseq [f (vals (:watches before))]
-      (try (f {:ended (assoc why :could-not :reach-the-runtime)}) (catch Throwable _ nil)))))
+      (try (f {:ended word}) (catch Throwable _ nil)))))
 
 (defn- listener
   "A text can arrive in parts."
@@ -143,9 +172,11 @@
 
 (defn connect
   "A nil `:credential` is a visitor; a nil `:session` asks for a new one. A
-  refused opening gives the `:status` of the runtime's answer: 401 for a
-  credential that stands for nobody, or a session that is not open under
-  it."
+  refused opening gives the runtime's own word, with the `:status` of its
+  answer added: `:find-her-sign-in` for a credential that stands for
+  nobody, `:find-her-session` for a session that is not open under it. An
+  answer that holds no word of the runtime's gives `:reach-the-runtime`
+  with the `:status`."
   [{:keys [url credential session]}]
   (try
     (let [state (atom {:hello (promise) :next 0 :waits {} :watches {}})
@@ -182,14 +213,14 @@
          reg (volatile! nil)]
      (swap! state
             (fn [st]
-              (if-let [gone (:gone st)]
+              (if-let [gone (last-word st)]
                 (do (vreset! reg [:gone gone]) st)
                 (let [id (:next st)]
                   (vreset! reg [:ok id])
                   (-> st (assoc :next (inc id)) (assoc-in [:waits id] waits))))))
      (let [[status val] @reg]
        (if (= :gone status)
-         (assoc val :could-not :reach-the-runtime)
+         val
          (let [id val]
            (if-let [err (send! connection (assoc word :id id))]
              (do (swap! state update :waits dissoc id)
@@ -202,20 +233,24 @@
 
 (defn watch
   "`f` is called with each message of the watch: {:anew answer}, {:changed
-  {place place-answer}}, and {:ended word} as the last."
+  {place place-answer}}, and, for a watch that is not left, {:ended word}
+  as the last: the word with which the runtime ended the watch or did not
+  open it, or the one that the connection went with. Gives the watch's
+  number, or a word that holds `:could-not` when the watch could not be
+  sent; `f` is not called for that."
   [connection query f]
   (let [state (:state connection)
         reg (volatile! nil)]
     (swap! state
            (fn [st]
-             (if-let [gone (:gone st)]
+             (if-let [gone (last-word st)]
                (do (vreset! reg [:gone gone]) st)
                (let [id (:next st)]
                  (vreset! reg [:ok id])
                  (-> st (assoc :next (inc id)) (assoc-in [:watches id] f))))))
     (let [[status val] @reg]
       (if (= :gone status)
-        (assoc val :could-not :reach-the-runtime)
+        val
         (let [id val]
           (if-let [err (send! connection {:id id :word :watch :query query})]
             (do (swap! state update :watches dissoc id)
