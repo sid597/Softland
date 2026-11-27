@@ -1,6 +1,6 @@
 {:track      "permissions-2026-11-27"
  :summary    "Store permissions rebuild (Batches 1-4 unified across Rings 1-3)"
  :status-dir "state"
- :waiting-on "Parallel Stage 2: Loop 0d (Cloud Claude) || Loop 1 (Carbon) || Loop 2A Part 1 (Cloud Claude)"
- :next       "Push HEAD, then run Loop 0d + Loop 2A Part 1 in Cloud Claude and Loop 1 in Carbon on other computer"
- :notes      "PERMISSIONS.md §6 items 22-25 verbatim, BUILD.md:164 exception, and clean working tree committed"}
+ :waiting-on "Parallel Stage 3: Session 1 Loop 2A Part 2 (Cloud Fable xhigh) || Session 2 Loop 3 (Local Fable xhigh / Carbon High)"
+ :next       "Push main, close PR #44, then run Loop 2A Part 2 (gate-histories/) || Loop 3 (src-store/) in parallel"
+ :notes      "Loop 1 (ca33cd09) + Loop 2A Part 1 + Loop 2B merged on main (fa9b7256); Option B (:everyone in :give) + Loop 0d read-set locked"}

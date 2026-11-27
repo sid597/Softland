@@ -36,8 +36,10 @@ for lid in LOOPS:
     f = sdir / f"loop-{lid}.md"
     if f.exists():
         kv = parse_kv(f)
-        print(f"  loop-{lid:<2}  {kv.get('status','?'):<22} commit={kv.get('commit','none'):<10} verified={kv.get('verified','not run')}")
-        if kv.get("status") != "DONE" and not active_next:
+        st_val = kv.get("status", "?")
+        st_short = "DONE" if st_val.startswith("DONE") else st_val
+        print(f"  loop-{lid:<2}  {st_short:<22} commit={kv.get('commit','none')[:18]:<18} verified={kv.get('verified','not run')[:72]}")
+        if not st_val.startswith("DONE") and not active_next:
             active_next = kv.get("next")
     else:
         print(f"  loop-{lid:<2}  PENDING")

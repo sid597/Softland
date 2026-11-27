@@ -53,40 +53,47 @@ holder-party = author-party | :anyone | :anyone-signed-in
 ```clojure
 ;; Grant or in-place change at {:e perm-uuid :k :softland.store/permission :v permission-value}:
 {:holder    holder-party
- :allows    {:see   true                        ;; optional boolean
-             :write :all                        ;; optional :all
-             :give  #{:see :write :give :owner} ;; optional non-empty subset of passable keys
-             :owner true}                       ;; optional boolean (at least one key in :allows present)
- :covers    [:default-group lane]               ;; or [:exact-act 64-hex-digest]
- :session   id                                  ;; optional :id (sitting scope until F28; omitted/nil = any)
- :given-by  author-party                        ;; granting act's :who
- :under     uuid                                ;; optional :uuid (granting act's :permission; nil when none)
- :lent-from uuid}                               ;; optional :uuid (nil = stands on its own)
+ :allows    {:see   true                                  ;; optional boolean
+             :write :all                                  ;; optional :all
+             :give  #{:see :write :give :owner :everyone} ;; optional non-empty subset of passable keys
+             :owner true}                                 ;; optional boolean (at least one key in :allows present)
+ :covers    [:default-group lane]                         ;; or [:exact-act 64-hex-digest]
+ :session   id                                            ;; optional :id (sitting scope until F28; omitted/nil = any)
+ :given-by  author-party                                  ;; granting act's :who
+ :under     uuid                                          ;; optional :uuid (granting act's :permission; nil when none)
+ :lent-from uuid}                                         ;; optional :uuid (nil = stands on its own)
 ;; Day-1 allows presets: see = {:see true}; sitting/yes write = {:see true :write :all} / {:write :all};
-;;   member = {:see true :write :all :give #{:see :write :give}};
-;;   owner  = {:see true :write :all :give #{:see :write :give :owner} :owner true}.
+;;   member    = {:see true :write :all :give #{:see :write :give}}  ;; invites named parties, not :anyone
+;;   publisher = {:see true :write :all :give #{:see :write :give :everyone}}
+;;   owner     = {:see true :write :all :give #{:see :write :give :owner :everyone} :owner true}.
 ;; Explicit end: {:e perm-uuid :k :softland.store/permission :v nil} (fact-row with :value nil & :by-index).
 ;; Exact-act use: rows/use-row at (lane, perm-uuid, :softland.store/permission) (:value nil, no :by-index).
 ;; Chain depth bound: max-lent-depth = 32 (<= 31 :lent-from hops, cycle-free).
 ```
 
-### 2.4 PState Schemas & Single-Task Rights Query (`tables.clj`, `walk.clj`, `module.clj`, `read_path.clj`)
+### 2.4 PState Schemas & Read-Set Validated Rights Query (`tables.clj`, `walk.clj`, `module.clj`, `read_path.clj`)
 ```clojure
 ;; Existing 5 PStates (answers, facts, facts-by-value, line, things): schemas unchanged
 ;;   (:who String = id-text(author-party); :permission String = id-text(perm-uuid), absent when nil).
 ;; 7th PState per gate ($$streaming-permissions-by-holder, $$microbatch-permissions-by-holder):
 ;;   {String Long}  key "<lane> <holder> <session-or-*> <perm-uuid>" -> stamp
-;;   (holds un-ended [:default-group lane] permissions; copied in walk/copies-of as :holder-permission & |all).
+;;   (written with the decision's new stamp on BOTH grant and in-place change, and removed via NONE> on end,
+;;    for [:default-group lane] permissions; copied in walk/copies-of as :holder-permission & |all).
 ;; $$streaming-task & $$microbatch-task add:
 ;;   :owners (map-schema String (set-schema UUID {:subindex? true})
 ;;                       {:subindex? true :subindex-options {:track-size? false}})
 ;;   (lane-text -> standing non-lent :owner perm-uuids on deciding task; zero |all copy).
 
-(<<query-topology topologies "lane-rights" [*routing-id *lane *asker *session :> *snapshot]
-  (|hash *routing-id) ... (|origin)) ;; zero intermediate hops, zero yields
+(<<query-topology topologies "lane-rights" [*routing-id *lane *question *asker *session :> *snapshot]
+  (|hash *routing-id) ... (|origin)) ;; zero intermediate hops, zero yields, bounded holder scan & chain (<= 32)
 ;; *routing-id: lane (:streaming fact reads & all acts.clj line reads incl. :base); home (:base fact reads).
-;; *asker: author-party or nil; *session: id or nil; max holder-scan/chain bounded (max-lent-depth = 32).
-;; Live-read invalidation watches (no :read-after): own-rows in facts; "<lane> :anyone * " and (when signed in)
-;;   "<lane> <asker> * " + "<lane> <asker> <session> " in permissions-by-holder; and (lane, g, :softland.store/permission)
-;;   in facts for each lender g along active :lent-from chains.
+;; *question: :see (fact reads — reads :anyone first & short-circuits on first standing :see)
+;;          | :acts (acts.clj line reads — distinguishes :holder vs :visitor vs :outside).
+;; *asker: author-party or nil; *session: id or nil.
+;; *snapshot: {:standing (:yes | :may-not-see | :holder | :visitor | :outside | :too-many-permissions)
+;;             :read-set {source-key expected-stamp-or-run-stamps ...}}
+;;   Every row (in facts) and holder-prefix run (in permissions-by-holder) read during the turn is in :read-set
+;;   with its stamp(s) (includes :anyone-signed-in when signed in, and all climbed :lent-from rows).
+;;   Live-read validity: (:standing *snapshot) holds ONLY while open Rama pushes match :read-set entry-for-entry;
+;;   otherwise :not-known-yet (no hand-kept watch list; read-once asks lane-rights after last fact select returns).
 ```

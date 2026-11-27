@@ -652,6 +652,24 @@ Sid: "yeah confirm all 4 ..." and "yes".
 Stands as: `:softland.store/who-may-read-acts` stays in place in this build,
 written by any owner.
 
+**26. Separating "invite named parties" from "publish to `:anyone`" inside
+`:give` (`Option B`), plus `Loop 0d` read-set validation & demoted-giver
+fix.**
+Asked: after `Loop 0d` and `Loop 2B` merged (`fa9b7256`), (1) adopt the
+stamp-checked `lane-rights` query (`[standing, read-set-stamps]`) and fix
+`decision.clj:348` so a giver lowered in place cannot revoke writers/owners
+she could no longer grant; and (2) inside a group `X`, choose between
+`Option A` (`{:give #{:see}}` also grants to `:anyone`) and `Option B`
+(`{:give #{:see}}` invites specific people, while granting/raising for
+`:anyone` or `:anyone-signed-in` requires `:everyone` inside `:give`, on by
+default for `:owner` and grantable to non-owner publishers).
+Sid: "1. agree" and then "I go with option b as stated".
+Stands as: `Option B` (`:everyone` in `:give` required to grant/raise for
+`:anyone` or `:anyone-signed-in`, included in `owner-allows`); live views
+validate standing against `read-set` stamps; ending/lowering another's
+permission as `:given-by` requires still holding what `may-pass?` needs for
+the target.
+
 ## 7. The solution as discussed (A SESSION'S, built on section 6)
 
 Second pass: for the first slice, section 12 replaces three things below:
