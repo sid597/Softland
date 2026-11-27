@@ -1,4 +1,4 @@
-(ns gate-histories.cluster
+(ns gate-histories.piece-2.cluster
   "The smallest histories of a run, sent through the store's own module on
   an in-process cluster: the door's `send-act` and `answer-of`, the gate's
   walk in Rama (`softland.store.module.walk/decide`), and the read path's
@@ -13,8 +13,8 @@
   walk in memory gave. For the live reads of a history, each asker's
   function is counted on the cluster as well.
 
-  What it takes and does. `clojure -M:cluster [histories [seed]]` plays the
-  run of `gate-histories.run` with that count and seed, takes the smallest
+  What it takes and does. `clojure -M:piece-2-cluster [histories [seed]]` plays the
+  run of `gate-histories.piece-2.run` with that count and seed, takes the smallest
   history of each kind of break, and for each one launches the module
   `Store` on a fresh in-process cluster, sends the history's things up to
   the first step at which the kind broke, and prints, for each thing, the
@@ -28,20 +28,20 @@
   One in-process cluster at a time runs on this machine: run it behind the
   machine's cluster lock,
 
-    flock ../../backend-on-rama-2026-10-02/before-real-data/runs/cluster.lock clojure -M:cluster 3000 1
+    flock ../../backend-on-rama-2026-10-02/before-real-data/runs/cluster.lock clojure -M:piece-2-cluster 3000 1
 
   What it does not reach: the base and the microbatch gate (every history is
   one streaming lane), and every order of the pushes of a live read, which
   Rama gives as it gives them."
   (:require [com.rpl.rama :as rama]
             [com.rpl.rama.test :as rtest]
-            [gate-histories.run :as run]
+            [gate-histories.piece-2.run :as run]
             [softland.store.door :as door]
             [softland.store.module :as module]
             [softland.store.read-path :as read-path]))
 
-(def ^:private live-askers @#'gate-histories.run/live-askers)
-(def ^:private live-asks @#'gate-histories.run/live-asks)
+(def ^:private live-askers @#'gate-histories.piece-2.run/live-askers)
+(def ^:private live-asks @#'gate-histories.piece-2.run/live-asks)
 (def ^:private the-lane run/lane)
 
 (defn- answer-word
@@ -112,15 +112,15 @@
                 (when-let [h (:leave-with live)] (read-path/leave rp h))))))))))
 
 (defn -main
-  "`clojure -M:cluster [histories [seed]]`: the smallest history of each
+  "`clojure -M:piece-2-cluster [histories [seed]]`: the smallest history of each
   kind of break of that run, sent through the module on a cluster. Exits 1
   when an answer on the cluster is not the answer in memory."
   [& args]
   (let [[histories seed] args
         histories (if histories (parse-long histories) 2000)
         seed (if seed (parse-long seed) 1)
-        found (@#'gate-histories.run/kinds-of-break histories seed)
-        smallest-of @#'gate-histories.run/smallest-of
+        found (@#'gate-histories.piece-2.run/kinds-of-break histories seed)
+        smallest-of @#'gate-histories.piece-2.run/smallest-of
         differs (atom 0)]
     (println (format "%d histories, seed %d: %d kinds of break, each one's smallest history on a cluster"
                      histories seed (count found)))
