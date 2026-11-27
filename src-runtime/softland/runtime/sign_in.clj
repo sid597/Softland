@@ -28,10 +28,14 @@
             [missionary.core :as m]
             [softland.auth.client :as auth]
             [softland.runtime.seam :as seam]
+            [softland.store.door.declaration :as declaration]
             [softland.store.gate.first-act :as first-act]
             [softland.wire.credential :as credential]
             [softland.wire.words :as words])
-  (:import [java.util Locale UUID]))
+  (:import [java.nio ByteBuffer]
+           [java.nio.charset StandardCharsets]
+           [java.security MessageDigest]
+           [java.util Locale UUID]))
 
 (def name-key
   "The key under which a person's own id holds the name that she
@@ -50,45 +54,63 @@
   [step got]
   {:could-not :write-her-sign-in :at step :got got})
 
+(defn- id-from-text
+  [^String text]
+  (let [hash (.digest (MessageDigest/getInstance "SHA-256") (.getBytes text StandardCharsets/UTF_8))
+        buffer (ByteBuffer/wrap hash 0 16)
+        high (.getLong buffer)
+        low (.getLong buffer)]
+    (UUID. (bit-or (bit-and high (bit-not 0xF000)) 0x8000)
+           (bit-or (bit-and low 0x3FFFFFFFFFFFFFFF) Long/MIN_VALUE))))
+
 (defn- person-party
-  "The store's party ID for a person UUID (raw UUID in Loop 1; `:person.<id>` in Loop 4)."
+  "The store's party ID for a person UUID (`CONTRACT.md` §2.1: `:person.<id>`)."
   [id]
-  id)
+  (keyword (str "person." id)))
 
 (defn- first-permission
-  "A lane's first owner permission value for `holder`."
-  [holder lane]
-  [holder lane lane])
-
-(defn- given-permission
-  "A given permission value beneath `parent` for `holder` in `lane`."
-  [holder lane parent allows]
-  [holder lane lane parent allows])
+  "A lane's first owner permission for `holder` (`CONTRACT.md` §2.1, §2.3)."
+  ([holder lane] (first-permission holder lane holder))
+  ([holder lane given-by]
+   {:id (first-act/first-permission-id lane)
+    :value {:holder holder
+            :allows declaration/owner-allows
+            :covers [:default-group lane]
+            :given-by given-by}}))
 
 (defn- permission-id
   "The `:permission` slot of an act for `permission`."
   [permission]
-  permission)
+  (:id permission))
 
 (defn- permission-fact
   "The store fact that writes `permission`."
   [permission]
-  {:e (nth permission 0) :k :softland.store/permission :v permission})
+  {:e (:id permission) :k declaration/permission-key :v (:value permission)})
 
 (defn- making-act
   "The act that makes a lane, in the form of
   `softland.store.gate.first-act/making-act?`. When the holder is a person,
   the act names her as its subject, so that what the log holds of her can
-  be found by her id."
+  be found by her id. When the lane is `first-act/base`, opens it to
+  `:anyone` for reading in the making act."
   [lane holder session]
-  (let [permission (first-permission holder lane)]
+  (let [permission (first-permission holder lane first-act/system)
+        facts (cond-> [{:e lane :k :softland.store/depot :v (first-act/depot-at-making lane)}
+                       (permission-fact permission)]
+                (= first-act/base lane)
+                (conj {:e (first-act/first-anyone-id lane)
+                       :k declaration/permission-key
+                       :v {:holder :anyone
+                           :allows {:see true}
+                           :covers [:default-group lane]
+                           :given-by first-act/system
+                           :under (permission-id permission)}}))]
     (cond-> {:version 1
              :who first-act/system
              :session session
              :lane lane
-             :permission (permission-id permission)
-             :facts [{:e lane :k :softland.store/depot :v (first-act/depot-at-making lane)}
-                     (permission-fact permission)]}
+             :facts facts}
       (not= first-act/system holder) (assoc :subjects #{holder}))))
 
 (defn- accepted?
@@ -155,12 +177,13 @@
   her own lane, as herself."
   [the-seam caller]
   (when-let [lane (seam/own-lane-of caller)]
-    (let [who (seam/root-of caller)
-          answer (m/? (seam/call the-seam caller
-                                 {:word :read
-                                  :query {:asks [:place who name-key] :asker (seam/who-of caller) :lanes [lane]}}))
-          value (get-in answer [:place :value])]
-      (when (string? value) value))))
+    (when-let [root (seam/root-of caller)]
+      (let [who (person-party root)
+            answer (m/? (seam/call the-seam caller
+                                   {:word :read
+                                    :query {:asks [:place who name-key] :asker (seam/who-of caller) :lanes [lane]}}))
+            value (get-in answer [:place :value])]
+        (when (string? value) value)))))
 
 (defn name!
   "The caller must be the person herself, in a session. `uuid` is the
@@ -288,29 +311,39 @@
       :else
       (let [base first-act/base
             system first-act/system
-            session (UUID/randomUUID)
+            base-session (id-from-text "softland/setup-base-session")
+            base-act-id (id-from-text "softland/setup-base-act")
+            give-session (id-from-text (str "softland/setup-give-session/" person))
+            give-act-id (id-from-text (str "softland/setup-give-act/" person))
+            give-perm-id (id-from-text (str "softland/setup-give-permission/" person))
             born (born? the-seam)
             made (cond
                    (true? born) :was-made
-                   (false? born) (seam/send-as-system the-seam (making-act base system session)
-                                                      (UUID/randomUUID) answer-wait-ms)
+                   (false? born) (seam/send-as-system the-seam (making-act base system base-session)
+                                                      base-act-id answer-wait-ms)
                    :else born)]
         (cond
           (and (map? made) (:could-not made)) made
           (and (map? made) (not (accepted? made)) (not (true? (born? the-seam)))) (could-not :make-the-base made)
           :else
-          (let [above (first-permission system base)
+          (let [above (permission-id (first-permission system base))
                 her-party (person-party person)
                 given (seam/send-as-system
                        the-seam
                        {:version 1
                         :who system
-                        :session session
+                        :session give-session
                         :lane base
-                        :permission (permission-id above)
+                        :permission above
                         :subjects #{her-party}
-                        :facts [(permission-fact (given-permission her-party base above :see-and-act))]}
-                       (UUID/randomUUID)
+                        :facts [{:e give-perm-id
+                                 :k declaration/permission-key
+                                 :v {:holder her-party
+                                     :allows {:see true :write :all :give #{:see :write :give}}
+                                     :covers [:default-group base]
+                                     :given-by system
+                                     :under above}}]}
+                       give-act-id
                        answer-wait-ms)]
             (if (:could-not given)
               given

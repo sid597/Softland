@@ -77,6 +77,7 @@
   seam, as the system, and reads through it."
   (:require [missionary.core :as m]
             [softland.server.seam :as seam]
+            [softland.store.door.declaration :as declaration]
             [softland.store.gate.first-act :as first-act])
   (:import [java.util UUID]))
 
@@ -142,36 +143,40 @@
   (cond-> act person (assoc :subjects #{person})))
 
 (defn- person-party
-  "The store's party ID for a person UUID (raw UUID in Loop 1; `:person.<id>` in Loop 4)."
+  "The store's party ID for a person UUID (`CONTRACT.md` §2.1: `:person.<id>`)."
   [id]
-  id)
+  (keyword (str "person." id)))
 
 (defn first-permission
-  "A lane's first owner permission value for `holder`."
-  [holder lane]
-  [holder lane lane])
+  "A lane's first owner permission for `holder` (`CONTRACT.md` §2.1, §2.3)."
+  ([holder lane] (first-permission holder lane first-act/system))
+  ([holder lane given-by]
+   {:id (first-act/first-permission-id lane)
+    :value {:holder holder
+            :allows declaration/owner-allows
+            :covers [:default-group lane]
+            :given-by given-by}}))
 
 (defn permission-id
-  "The `:permission` slot of an act for `permission`."
+  "The `:permission` slot of an act for `permission`: its `UUID`."
   [permission]
-  permission)
+  (:id permission))
 
 (defn- permission-fact
   "The store fact that writes `permission`."
   [permission]
-  {:e (nth permission 0) :k :softland.store/permission :v permission})
+  {:e (:id permission) :k declaration/permission-key :v (:value permission)})
 
 (defn- making-act
   "Takes a lane and the holder of its first permission. Gives the act
   that makes the lane, without `:who` and `:session`: the lane's depot on
-  the lane, and the first permission on its holder
+  the lane, and the first permission on its own id
   (`softland.store.gate.first-act/making-act?`). When the holder is a
   person, the act is about her."
   [lane holder]
-  (let [permission (first-permission holder lane)]
+  (let [permission (first-permission holder lane first-act/system)]
     (about {:version 1
             :lane lane
-            :permission (permission-id permission)
             :facts [{:e lane :k :softland.store/depot :v (first-act/depot-at-making lane)}
                     (permission-fact permission)]}
            (when-not (= first-act/system holder) holder))))

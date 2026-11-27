@@ -9,7 +9,7 @@
   is not zero when a check fails.
 
   The form that it checks is the maker's act, with plain values, as the
-  decisions of 6 October 2026 give it (src-store/README.md). The proof makes
+  decisions of 6 October 2026 and 27 November 2026 give it. The proof makes
   no act-id and opens nothing.
 
   Approach. Each check is a case: what it is about, a function of no
@@ -23,12 +23,12 @@
 
   State. The proof owns one atom: the lines that it showed, for the recap.
 
-  What it shows, in order: the declared shape and the rule, and that the
+  What it shows, in order: the declared shape and the rules, and that the
   check reads them; acts that pass, from the least act to one with each
   optional part, each in its one form; one refused act for each fault, and
   each reason word earned; the order of the checks, which is the order of
-  the declarations; that nothing throws; the limits at their edges, and the
-  three forms of a permission; ids and values."
+  the declarations; that nothing throws; the limits at their edges; party
+  ids, ids and values."
   (:refer-clojure :exclude [agent])
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests]]
@@ -106,8 +106,8 @@
 (defrecord Thing [e k])
 
 (defn- act-of
-  "Alice's act into her own lane, in her session, with these facts and no
-  optional part."
+  "Alice's act into her own lane, in her session, with these facts and her
+  first permission's id."
   [& facts]
   {:version 1 :who (person :alice) :lane :alice :permission (perm/permission-id alice-own) :session :alice-s1
    :facts (vec facts)})
@@ -119,7 +119,7 @@
    :based-on {} :because-of nil :claimed-when nil :subjects #{} :facts (vec facts)})
 
 (def ^:private good
-  "The least act: version, who, lane, permission, session and one fact. Each
+  "An act with version, who, lane, permission, session and one fact. Each
   refused act differs from it in one thing."
   (act-of a-fact))
 
@@ -139,8 +139,7 @@
   (set (map #(keyword (str "p" %)) (range n))))
 
 (defn- deep-permission
-  "A permission id in Alice's lane that holds n permission ids, itself
-  counted."
+  "A permission in Alice's lane at depth n."
   [n]
   (perm/deep-permission (person :alice) :alice n))
 
@@ -152,9 +151,9 @@
   purpose."
   {:act [:parts
          [:version [:enum 1] {:reason :unknown-version}]
-         [:who :id]
+         [:who :author-party {:reason :who-not-a-party}]
          [:lane :id]
-         [:permission :permission-id {:absent :no-permission}]
+         [:permission :uuid {:optional true :reason :permission-not-an-id}]
          [:session :id {:absent :no-session}]
          [:based-on [:map-of :fact-id :carried-stamp] {:optional true :default {}}]
          [:because-of :act-id {:optional true}]
@@ -168,11 +167,6 @@
           [:replaces :fact-id {:optional true}]]
    :act-id [:tuple :id [:enum :streaming :microbatch] :uuid]
    :fact-id [:tuple :act-id [:int {:min 0}]]
-   :permission-id [:or [:tuple :id :id :id]
-                       [:tuple :id :id :id :permission-id]
-                       [:tuple :id :id :id :permission-id [:enum :see :see-and-act]]
-                       [:tuple :id :id :id :permission-id [:enum :see :see-and-act] [:tuple [:enum :run] :id]]
-                       [:tuple :id :id :id :permission-id [:enum :see-and-act] [:tuple [:enum :act] :uuid :digest-hex]]]
    :carried-stamp [:int {:min 0}]})
 
 (def ^:private parts-cases
@@ -180,8 +174,8 @@
   a second time, so a change of the form is made in two places on purpose."
   [["the declared shape of an act and of each thing that an act holds"
     (fn [] act/shapes) declared]
-   ["the one rule, with its reason"
-    (fn [] act/rules) [[:permission-is-in-the-acts-lane :permission-not-in-lane]]]
+   ["the maker's act has no rule: what a permission id holds is a gate's question"
+    (fn [] act/rules) []]
    ["the ten parts of an act"
     (fn [] act/act-parts)
     #{:version :who :lane :permission :session :based-on :because-of :claimed-when :subjects :facts}]
@@ -194,14 +188,13 @@
     [false false false false false false false]]
    ["the seven reason words, read from the two declarations"
     (fn [] act/reasons)
-    #{:malformed :unknown-part :unknown-version :no-permission :no-session :empty-act
-      :permission-not-in-lane}]
+    #{:malformed :unknown-part :unknown-version :who-not-a-party :permission-not-an-id :no-session :empty-act}]
    ["the version that this code knows, and the two limits: subjects, collections. A carried stamp has no limit of its own: no gate reads it, so its form is its one bound"
     (fn [] [act/version act/max-subjects act/max-depth])
     [1 256 32]]
-   ["the one shape with a number of its own for how often it may hold itself is a permission id, and its number is the value's: 32"
-    (fn [] [@#'act/nesting (= act/max-depth (:permission-id @#'act/nesting))])
-    [{:permission-id 32} true]]])
+   ["no shape of the maker's declaration holds itself"
+    (fn [] @#'act/nesting)
+    {}]])
 
 (def ^:private whole
   "An act with each optional part. It is built with subvectors, narrow
@@ -209,7 +202,9 @@
   was given."
   {:version (int 1)
    :who (person :alice) :lane :alice
-   :permission (subvec [:x (person :alice) :alice :alice [(person :operator) :alice :alice]] 1)
+   :permission (perm/permission-id
+                (perm/given-permission (person :alice) :alice
+                                       (perm/first-permission (person :operator) :alice)))
    :session :alice-s1
    :based-on {[(subvec (into [:x] earlier-act-id) 1) (int 0)] (int 41)}
    :because-of (subvec (into [:x] earlier-act-id) 1)
@@ -238,10 +233,10 @@
 (def ^:private passing-rows
   "Acts that the check takes, from the least act to one with each optional
   part, each with its one form."
-  (let [w (uuid 11) l (uuid 12) s (uuid 13) e (uuid 14)]
-    [["the least act: version, who, lane, permission, session and one fact"
-      good
-      (one-form {:e :note-1 :k :note :v "a text" :replaces nil})]
+  (let [w (person (uuid 11)) l (uuid 12) p (uuid 15) s (uuid 13) e (uuid 14)]
+    [["the least act: version, who, lane, session and one fact, with no permission"
+      (dissoc good :permission)
+      (assoc (one-form {:e :note-1 :k :note :v "a text" :replaces nil}) :permission nil)]
      ["a retract: a fact with no :v"
       (act-of {:e :note-1 :k :note :replaces [earlier-act-id 0]})
       (one-form {:e :note-1 :k :note :v nil :replaces [earlier-act-id 0]})]
@@ -250,23 +245,22 @@
       (one-form {:e :note-1 :k :note :v "a text" :replaces nil}
                 {:e :alice-s1 :k :tally :v {:count 1} :replaces nil}
                 {:e :note-2 :k :link :v (uuid 5) :replaces nil})]
-     ["an act whose ids are UUIDs: who, the lane, the permission, the session, an entity and a subject"
-      {:version 1 :who w :lane l :permission (perm/permission-id (perm/first-permission w l)) :session s :subjects #{w}
+     ["an act whose party is a person with a UUID, and whose lane, permission, session, entity and subject are UUIDs"
+      {:version 1 :who w :lane l :permission p :session s :subjects #{(uuid 11)}
        :facts [{:e e :k :note :v 1}]}
-      {:version 1 :who w :lane l :permission (perm/permission-id (perm/first-permission w l)) :session s :based-on {} :because-of nil
-       :claimed-when nil :subjects #{w} :facts [{:e e :k :note :v 1 :replaces nil}]}]
-     ["an act under a permission that a parent permission granted"
+      {:version 1 :who w :lane l :permission p :session s :based-on {} :because-of nil
+       :claimed-when nil :subjects #{(uuid 11)} :facts [{:e e :k :note :v 1 :replaces nil}]}]
+     ["an act under the id of a given permission"
       (assoc good :who (person :bob) :permission (perm/permission-id (perm/given-permission (person :bob) :alice alice-own)))
       (assoc (one-form {:e :note-1 :k :note :v "a text" :replaces nil})
              :who (person :bob) :permission (perm/permission-id (perm/given-permission (person :bob) :alice alice-own)))]
-     ["an act under a given permission that says what it allows: see"
-      (assoc good :who (person :bob) :permission (perm/permission-id (perm/given-permission (person :bob) :alice alice-own :see)))
+     ["an act by an agent under the id of a borrowed permission"
+      (assoc good :who (agent :bot) :permission (perm/permission-id (perm/given-permission (agent :bot) :alice alice-own :see)))
       (assoc (one-form {:e :note-1 :k :note :v "a text" :replaces nil})
-             :who (person :bob) :permission (perm/permission-id (perm/given-permission (person :bob) :alice alice-own :see)))]
-     ["an act under a given permission that says what it allows: see and act"
-      (assoc good :who (person :bob) :permission (perm/permission-id (perm/given-permission (person :bob) :alice alice-own :see-and-act)))
-      (assoc (one-form {:e :note-1 :k :note :v "a text" :replaces nil})
-             :who (person :bob) :permission (perm/permission-id (perm/given-permission (person :bob) :alice alice-own :see-and-act)))]
+             :who (agent :bot) :permission (perm/permission-id (perm/given-permission (agent :bot) :alice alice-own :see)))]
+     ["an act with nil in :permission: the same one form as leaving :permission out"
+      (assoc good :permission nil)
+      (assoc (one-form {:e :note-1 :k :note :v "a text" :replaces nil}) :permission nil)]
      ["an act that replaces a fact, says what it was based on and what it came from"
       (assoc (act-of (assoc a-fact :replaces [earlier-act-id 0]))
              :based-on {[earlier-act-id 0] 41 [other-act-id 1] 7} :because-of other-act-id)
@@ -282,7 +276,7 @@
   (let [[fact-id stamp] (first (:based-on ok))
         fact (first (:facts ok))]
     (mapv #(.getSimpleName (class %))
-          [(:version ok) (:permission ok) (:because-of ok)
+          [(:version ok) (:because-of ok)
            fact-id (first fact-id) (second fact-id) stamp (:claimed-when ok)
            (:replaces fact) (second (:replaces fact))
            (get-in fact [:v :count]) (get-in fact [:v :path]) (:facts ok)])))
@@ -292,7 +286,7 @@
   (into (mapv (fn [[what x form]] [what (fn [] (act/parse x)) {:ok form}]) passing-rows)
         [["in the one form of the act with each optional part, each vector is plain and each number is a long"
           (fn [] (classes-of (:ok (act/parse whole))))
-          ["Long" "PersistentVector" "PersistentVector" "PersistentVector" "PersistentVector" "Long"
+          ["Long" "PersistentVector" "PersistentVector" "PersistentVector" "Long"
            "Long" "Long" "PersistentVector" "Long" "Long" "PersistentVector" "PersistentVector"]]
          ["to parse a one form again gives the same"
           (fn [] (mapv (fn [[_ x _]] (let [ok (:ok (act/parse x))] (= {:ok ok} (act/parse ok)))) passing-rows))
@@ -313,29 +307,23 @@
    ["version 2" (assoc good :version 2) :unknown-version]
    ["no version" (dissoc good :version) :unknown-version]
    ;; who and the lane
-   ["no :who" (dissoc good :who) :malformed]
-   ["a :who that is a string" (assoc good :who "alice") :malformed]
+   ["no :who" (dissoc good :who) :who-not-a-party]
+   ["a :who that is a string" (assoc good :who "alice") :who-not-a-party]
    ["no lane" (dissoc good :lane) :malformed]
    ["a lane that is a string" (assoc good :lane "alice") :malformed]
-   ;; the permission
-   ["no permission" (dissoc good :permission) :no-permission]
-   ["a permission of two items" (assoc good :permission [:alice :alice]) :malformed]
-   ["a permission that is a list" (assoc good :permission '(:alice :alice :alice)) :malformed]
-   ["a permission with an item that is a string" (assoc good :permission [:alice "alice" :alice]) :malformed]
-   ["a permission whose parent is no permission" (assoc good :permission [:alice :alice :alice [:alice]]) :malformed]
-   ["a permission whose fourth slot is a word for what it allows, and no permission"
-    (assoc good :permission [:alice :alice :alice :see]) :malformed]
-   ["a permission whose fifth slot is a third word"
-    (assoc good :permission [:alice :alice :alice alice-own :act]) :malformed]
-   ["a permission whose fifth slot is a permission"
-    (assoc good :permission [:alice :alice :alice alice-own alice-own]) :malformed]
-   ["a permission of six items"
-    (assoc good :permission [:alice :alice :alice alice-own :see :see]) :malformed]
-   ["a first permission with a word after it: the slot is only for a given permission"
-    (assoc good :permission [:alice :alice :alice nil :see]) :malformed]
-   ["a permission in another lane" (assoc good :permission (perm/permission-id (perm/first-permission (person :alice) :bob))) :permission-not-in-lane]
-   ["a permission whose parent is in the act's lane, but itself in another"
-    (assoc good :permission (perm/permission-id (perm/given-permission (person :alice) :bob alice-own))) :permission-not-in-lane]
+   ;; party and permission id
+   ["a :who that is a bare keyword with no party kind" (assoc good :who :alice) :who-not-a-party]
+   ["a :who that is :anyone: everyone holds and never acts" (assoc good :who :anyone) :who-not-a-party]
+   ["a :who that is :anyone-signed-in: everyone holds and never acts" (assoc good :who :anyone-signed-in) :who-not-a-party]
+   ["a :who with a namespace" (assoc good :who :ns/person.alice) :who-not-a-party]
+   ["a :who with an unknown party kind" (assoc good :who :bot.alice) :who-not-a-party]
+   ["a :who with nothing after the dot" (assoc good :who :person.) :who-not-a-party]
+   ["a permission in the old vector form" (assoc good :permission [(person :alice) :alice :alice]) :permission-not-an-id]
+   ["a permission that is a keyword" (assoc good :permission :perm-1) :permission-not-an-id]
+   ["a permission that is a string" (assoc good :permission (str (uuid 1))) :permission-not-an-id]
+   ["a permission that is a map" (assoc good :permission (:value alice-own)) :permission-not-an-id]
+   ["a permission that is a list" (assoc good :permission (list (uuid 1))) :permission-not-an-id]
+   ["a permission that is an integer" (assoc good :permission 42) :permission-not-an-id]
    ;; the session
    ["no session" (dissoc good :session) :no-session]
    ["a session that is a string" (assoc good :session "s1") :malformed]
@@ -379,21 +367,24 @@
 ;; ----------------------------------------------------------------- order
 
 (def ^:private order-rows
-  "Acts with two faults. The order of the two declarations gives the reason:
-  first the shape, part by part and fact by fact; then the rule."
+  "Acts with two faults. The order of the declaration gives the reason:
+  part by part and fact by fact."
   [["another part, and version 2: a part that the form does not name, first"
     (assoc good :signature "x" :version 2) :unknown-part]
-   ["version 2, and no permission" (-> good (assoc :version 2) (dissoc :permission)) :unknown-version]
-   ["a :who that is a string, and no permission" (-> good (assoc :who "alice") (dissoc :permission)) :malformed]
-   ["no permission, and no session" (dissoc good :permission :session) :no-permission]
+   ["version 2, and a permission that is no id"
+    (assoc good :version 2 :permission :not-an-id) :unknown-version]
+   ["a :who that is a string, and a permission that is no id"
+    (assoc good :who "alice" :permission :not-an-id) :who-not-a-party]
+   ["a permission that is no id, and no session"
+    (-> good (assoc :permission :not-an-id) (dissoc :session)) :permission-not-an-id]
    ["no session, and no fact" (-> good (dissoc :session) (assoc :facts [])) :no-session]
    ["257 subjects, and no fact" (assoc good :subjects (subjects 257) :facts []) :malformed]
-   ["a permission in another lane, and no session: the shape comes before the rule"
-    (-> good (assoc :permission (perm/permission-id (perm/first-permission (person :alice) :bob))) (dissoc :session)) :no-session]
-   ["a permission in another lane, and no fact: the shape comes before the rule"
-    (assoc good :permission (perm/permission-id (perm/first-permission (person :alice) :bob)) :facts []) :empty-act]
-   ["a permission in another lane, and a mark on a fact: the shape comes before the rule"
-    (assoc good :permission (perm/permission-id (perm/first-permission (person :alice) :bob)) :facts [(assoc a-fact :mark #{})]) :unknown-part]
+   ["no lane, and a permission that is no id: lane comes before permission"
+    (-> good (dissoc :lane) (assoc :permission :not-an-id)) :malformed]
+   ["a permission that is no id, and no fact: permission comes before facts"
+    (assoc good :permission :not-an-id :facts []) :permission-not-an-id]
+   ["a permission that is no id, and a mark on a fact: permission comes before facts"
+    (assoc good :permission :not-an-id :facts [(assoc a-fact :mark #{})]) :permission-not-an-id]
    ["two facts with a fault: the first one's"
     (act-of (assoc a-fact :lane :alice) {:e :note-2 :k "note" :v 1}) :unknown-part]
    ["the same two, the other way round"
@@ -450,27 +441,23 @@
    ["a carried stamp of 2^62: no gate reads a carried stamp, so no number of a long is too great" (assoc good :based-on {[earlier-act-id 0] (bit-shift-left 1 62)}) :ok]
    ["a carried stamp of 2^63 - 1, the greatest long" (assoc good :based-on {[earlier-act-id 0] Long/MAX_VALUE}) :ok]
    ["a carried stamp of 2^63, a big integer and no fixed-width integer" (assoc good :based-on {[earlier-act-id 0] (inc (bigint Long/MAX_VALUE))}) :malformed]
-   ["a permission five deep" (assoc good :permission (perm/permission-id (deep-permission 5))) :ok]
-   ["a permission 32 deep" (assoc good :permission (perm/permission-id (deep-permission 32))) :ok]
-   ["a permission 33 deep" (assoc good :permission (perm/permission-id (deep-permission 33))) :malformed]
-   ["a permission 32 deep that says what it allows: the slot is a word, and counts for no depth"
-    (assoc good :permission (perm/permission-id (perm/given-permission (person :alice) :alice (deep-permission 31) :see))) :ok]
-   ["a permission 33 deep that says what it allows"
-    (assoc good :permission (perm/permission-id (perm/given-permission (person :alice) :alice (deep-permission 32) :see))) :malformed]])
+   ["a permission id at depth 5: the id is a UUID, so chain depth is no bound of the act's form" (assoc good :permission (perm/permission-id (deep-permission 5))) :ok]
+   ["a permission id at depth 32" (assoc good :permission (perm/permission-id (deep-permission 32))) :ok]
+   ["a permission id at depth 33: still a UUID, and a gate checks the chain" (assoc good :permission (perm/permission-id (deep-permission 33))) :ok]])
 
 (def ^:private limit-cases "The limit rows as cases." (verdicts limit-rows))
 
 ;; ---------------------------------------------------------- ids and values
 
 (def ^:private id-rows
-  "Ids and keys in an act. An id is a readable keyword or a UUID; a key is a
-  readable keyword only."
-  [["who as a UUID" (assoc good :who (uuid 7) :permission (perm/permission-id (perm/first-permission (uuid 7) :alice))) :ok]
-   ["the lane as a UUID, with the permission in it" (assoc good :lane (uuid 8) :permission (perm/permission-id (perm/first-permission (person :alice) (uuid 8)))) :ok]
+  "Ids and keys in an act. An author is an author-party; an id is a readable
+  keyword or a UUID; a key is a readable keyword only."
+  [["who as a raw UUID is no party" (assoc good :who (uuid 7)) :who-not-a-party]
+   ["the lane as a UUID, with a permission UUID" (assoc good :lane (uuid 8) :permission (perm/permission-id (perm/first-permission (person :alice) (uuid 8)))) :ok]
    ["the session as a UUID" (assoc good :session (uuid 9)) :ok]
    ["a subject as a UUID" (assoc good :subjects #{(uuid 10)}) :ok]
    ["an entity as a UUID" (act-of (assoc a-fact :e (uuid 9))) :ok]
-   ["who as a string" (assoc good :who "alice") :malformed]
+   ["who as a string" (assoc good :who "alice") :who-not-a-party]
    ["an entity as a string" (act-of (assoc a-fact :e "note-1")) :malformed]
    ["an id as a keyword that does not read back" (assoc good :session (keyword "a b")) :malformed]
    ["a key as a keyword" (act-of (assoc a-fact :k :note)) :ok]
@@ -485,8 +472,8 @@
    (subvec [0 1 2] 1) (sorted-map :b 2 :a 1) (sorted-set 3 1)])
 
 (def ^:private value-cases
-  "Ids, keys, values, the one normal form, and the shapes that an act refers
-  to: an act-id, a fact id and a permission id."
+  "Ids, keys, values, the one normal form, party kinds, and the shapes that
+  an act refers to: an act-id, a fact id and a UUID permission id."
   (into (verdicts id-rows)
         [["a retract is a fact with no :v, and a fact with a nil :v is the same retract"
           (fn [] [(-> (act/parse (act-of {:e :note-1 :k :note})) :ok :facts first)
@@ -521,19 +508,21 @@
                        [[earlier-act-id 0] [earlier-act-id (int 3)] [earlier-act-id -1] [earlier-act-id 1N]
                         (list earlier-act-id 0) [:alice 0]]))
           [true true false false false false]]
-         ["permission ids: three ids, UUIDs too; with a parent; five deep; 32 deep; not two items, not a list, not 33 deep"
-          (fn [] (mapv #(act/has-shape? :permission-id %)
-                       [alice-own (perm/first-permission (uuid 1) (uuid 2)) (deep-permission 2) (deep-permission 5)
-                        (deep-permission 32) [:alice :alice] '(:alice :alice :alice) (deep-permission 33)]))
-          [true true true true true false false false]]
-         ["permission ids with the slot that says what one allows: see; see and act; above a permission that has the slot too; not a third word, not a word in the fourth slot, not six items"
-          (fn [] (mapv #(act/has-shape? :permission-id %)
-                       [(perm/given-permission (person :bob) :alice alice-own :see)
-                        (perm/given-permission (person :bob) :alice alice-own :see-and-act)
-                        (perm/given-permission (person :carol) :alice (perm/given-permission (person :bob) :alice alice-own :see-and-act) :see)
-                        [:bob :alice :alice alice-own :act]
-                        [:bob :alice :alice :see]
-                        [:bob :alice :alice alice-own :see :see]]))
+         ["author parties and holder parties: person, agent, run and system act and hold; everyone holds and never acts; bare keywords, namespaced keywords and UUIDs are neither"
+          (fn [] [(mapv act/author-party? [(person :alice) (agent :bot) (run :r1) :system :anyone :anyone-signed-in :alice :ns/person.a (uuid 1)])
+                  (mapv act/holder-party? [(person :alice) (agent :bot) (run :r1) :system :anyone :anyone-signed-in :alice :ns/person.a (uuid 1)])
+                  (mapv act/borrower? [(person :alice) (agent :bot) (run :r1) :system :anyone])])
+          [[true true true true false false false false false]
+           [true true true true true true false false false]
+           [false true true false false]]]
+         ["permission ids on an act are UUIDs: a first permission's id, a given permission's id, or omitted/nil; never a vector, a keyword or a string"
+          (fn [] (mapv #(act/has-shape? :uuid %)
+                       [(perm/permission-id alice-own)
+                        (perm/permission-id (perm/given-permission (person :bob) :alice alice-own :see))
+                        (uuid 99)
+                        [(person :alice) :alice :alice]
+                        :alice
+                        "not-a-uuid"]))
           [true true true false false false]]]))
 
 ;; ------------------------------------------------------------- the checks
@@ -545,9 +534,8 @@
     (shown "  " part (pr-str shape) (if opts (pr-str opts) "")))
   (shown "a fact:" (pr-str (vec (rest (:fact act/shapes)))))
   (shown "an act-id:" (pr-str (:act-id act/shapes)) "| a fact id:" (pr-str (:fact-id act/shapes))
-         "| a permission id:" (pr-str (:permission-id act/shapes))
          "| a carried stamp:" (pr-str (:carried-stamp act/shapes)))
-  (shown "the rule:" (pr-str act/rules))
+  (shown "the rules:" (pr-str act/rules))
   (shown "read from the declarations:" (count act/act-parts) "parts on an act," (count act/fact-parts)
          "on a fact," (count act/reasons) "reason words | version" act/version
          "| limits:" (pr-str [act/max-subjects act/max-depth])
@@ -608,17 +596,7 @@
 
 (deftest the-limits
   (holds limit-cases)
-  (shown "the limits at their edges:" (words limit-rows))
-  (shown "a permission has three forms: [who lane granted-in], a first permission;"
-         "[who lane granted-in parent], a given one; and [who lane granted-in parent allows],"
-         "a given one that says :see or :see-and-act. The check takes an act under each:"
-         (pr-str (mapv (fn [p] (verdict (act/parse (assoc good :who (first p) :permission (perm/permission-id p)))))
-                       [alice-own (perm/given-permission (person :bob) :alice alice-own)
-                        (perm/given-permission (person :bob) :alice alice-own :see)
-                        (perm/given-permission (person :bob) :alice alice-own :see-and-act)]))
-         "| a third word in the slot, and a word in the place of the permission above:"
-         (pr-str (mapv (fn [p] (verdict (act/parse (assoc good :who (person :bob) :permission p))))
-                       [[:bob :alice :alice alice-own :act] [:bob :alice :alice :see]]))))
+  (shown "the limits at their edges:" (words limit-rows)))
 
 (deftest ids-and-values
   (holds value-cases)

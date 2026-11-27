@@ -7,7 +7,7 @@
     clojure -M:store -m softland.store.read-path-pure-proof
 
   It runs on the alias that holds Clojure alone, so a pass also holds that
-  the five namespaces under `softland/store/read_path/` load with no Rama.
+  the namespaces under `softland/store/read_path/` load with no Rama.
   It prints each thing that it showed on a line that starts with SHOWN,
   prints those lines again together at the end, and exits with a status
   that is not zero when a check fails.
@@ -16,31 +16,33 @@
   sorted map from a row's key to the row, in the order of
   `softland.store.record.rows/before?`. A small function of the proof's own,
   `write`, stands for a gate: it puts the rows of one accepted act in those
-  maps, with the rows of `softland.store.record.rows`, and keeps the order
-  by value of a marked key as the store's page says a gate keeps it. A
-  source is read from the maps by `table-value`. No task is played: a
-  source's routing id is not looked at when it is read, so a source of the
-  base gives the same rows under every home, as the store's tables do when
-  every task holds the base's rows. That every task holds them is the proof
-  on the cluster's.
+  maps, with the rows of `softland.store.record.rows`, keeps the order by
+  holder of permissions and the order by value of a marked key as a gate
+  keeps them. A PState source is read from the maps by `table-value`, and a
+  single-turn `lane-rights` query on a task by `run-rights`. No task is
+  played: a source's routing id is not looked at when it is read, so a
+  source of the base gives the same rows under every home, as the store's
+  tables do when every task holds the base's rows. That every task holds
+  them is the proof on the cluster's.
 
   The player. For a live read the proof holds a world: the tables; the
   writes that are still to come; for each push that the read holds, the
   value that the push holds, the changes that it has not taken, and the
-  callbacks that are not handled; the read's sources and its mark; and the
-  asker's screen, which is the first answer, then each `{:changed}` put in
-  and each `{:anew}` in the place of all. One move changes one thing: a
-  write; a push takes its next value; a callback is handled; a push that
-  the read asked for is served with the table as it is then; its arrival is
-  handled. A callback and an arrival are handled by the functions that
-  `softland.store.read-path` calls for them, in its order:
-  `softland.store.read-path.sources/named`, `reading` and `moves`, and
-  `softland.store.read-path.answer/meanings`, `after-change` and
-  `after-arrival`. The player plays EVERY order of the moves, and holds, at
-  each end, the screen against what a read asked once gives from the tables
-  as they are then. That Rama's client delivers in these ways and no other
-  is not this proof's: it is what the probes of this build ran
-  (reads/plan-probes-read-path, reads/plan-check-probes-read-path).
+  callbacks that are not handled; for each lane, its held `lane-rights`
+  snapshot and any in-flight `lane-rights` query; the read's sources and its
+  mark; and the asker's screen, which is the first answer, then each
+  `{:changed}` put in and each `{:anew}` in the place of all. One move
+  changes one thing: a write; a push takes its next value; a callback is
+  handled; a push that the read asked for is served with the table as it is
+  then; its arrival is handled; an in-flight `lane-rights` query is served
+  from the tables as they are then; its answer arrives. Callbacks and
+  arrivals are handled by the functions that `softland.store.read-path`
+  calls for them, in its order: `softland.store.read-path.sources/named`,
+  `reading`, `moves` and `source-matches-snapshot?`, and
+  `softland.store.read-path.answer/meanings`, `after-change`,
+  `after-arrival` and `after-rights`. The player plays EVERY order of the
+  moves, and holds, at each end, the screen against what a read asked once
+  gives from the tables as they are then.
 
   State. The proof owns one atom, the lines that it showed. Its row makers
   remember each row that they made, so that one write makes one row object
@@ -67,6 +69,9 @@
             [softland.store.read-path.words :as words]
             [softland.store.record.rows :as rows])
   (:import [clojure.lang PersistentQueue]
+           [java.nio ByteBuffer]
+           [java.nio.charset StandardCharsets]
+           [java.security MessageDigest]
            [java.util UUID]))
 
 (defonce ^{:private true
@@ -123,22 +128,40 @@
   [stamp]
   (- 1760000000000 (* 1000 (long stamp))))
 
-(def ^:private fact-row*
-  "Makes the row of a fact as a gate would keep it, and remembers it. Takes
-  the lane, who wrote it, the entity, the key, the value (nil for a
-  retract) and the stamp. The fact is given to
-  `softland.store.record.rows/fact-row` in its one form on arrival: with the
-  one text of its value in its normal form, which the row keeps, and with
-  the value itself under a store key alone. The row holds the time on its
-  act (`time-of`), and the texts of who wrote it and of a first permission
-  of that who in the lane."
+(def ^:private uuid-of
+  "A deterministic version-8 UUID made of any Clojure value, so every order of
+  moves mints the same permission ids."
   (memoize
-   (fn [lane who e k v stamp]
-     (let [fact {:e e :k k :replaces nil
-                 :v (when (declaration/store-key? k) v)
-                 :text (when (some? v) (text/text (act/normal-value v)))}]
-       (rows/fact-row fact (UUID. 0 (long stamp)) 0 stamp (time-of stamp) (text/text who)
-                      (text/text (perm/permission-id (perm/first-permission who lane))))))))
+   (fn [x]
+     (let [bytes (.getBytes (str "softland/read-path-pure-proof/" (pr-str x)) StandardCharsets/UTF_8)
+           hash (.digest (MessageDigest/getInstance "SHA-256") bytes)
+           buf (ByteBuffer/wrap hash 0 16)
+           hi (.getLong buf)
+           lo (.getLong buf)]
+       (UUID. (bit-or (bit-and hi (bit-not 0xF000)) 0x8000)
+              (bit-or (bit-and lo 0x3FFFFFFFFFFFFFFF) Long/MIN_VALUE))))))
+
+(defn- standing-perm-id
+  "The deterministic permission UUID of `holder`'s initial standing permission
+  in `lane`."
+  [lane holder]
+  (uuid-of [:standing lane holder]))
+
+(def ^:private fact-row*
+  "Makes the row of a fact as a gate would keep it, and remembers it."
+  (memoize
+   (fn
+     ([lane who e k v stamp]
+      (fact-row* lane who (standing-perm-id lane who) e k v stamp))
+     ([lane who perm-id e k v stamp]
+      (let [v-norm (if (and (= declaration/permission-key k) (some? v))
+                     (declaration/permission-value v)
+                     v)
+            fact {:e e :k k :replaces nil
+                  :v (when (declaration/store-key? k) v-norm)
+                  :text (when (some? v-norm) (text/text (act/normal-value v-norm)))}]
+        (rows/fact-row fact (UUID. 0 (long stamp)) 0 stamp (time-of stamp) (declaration/id-text who)
+                       (when perm-id (declaration/id-text perm-id))))))))
 
 (def ^:private marks-row*
   "Makes the row of a lane's marked keys, with the stamp since which each
@@ -154,7 +177,7 @@
   (`time-of`), and remembers it."
   (memoize
    (fn [lane who stamp]
-     (rows/by-value-row (text/text who) (text/text (perm/permission-id (perm/first-permission who lane)))
+     (rows/by-value-row (declaration/id-text who) (declaration/id-text (standing-perm-id lane who))
                         (UUID. 0 (long stamp)) 0 stamp (time-of stamp)))))
 
 (defn- put
@@ -162,152 +185,203 @@
   [tables gate table-name k row]
   (assoc tables [gate table-name] (assoc (table tables gate table-name) k row)))
 
+(defn- drop-key
+  "Removes a key from one table."
+  [tables gate table-name k]
+  (assoc tables [gate table-name] (dissoc (table tables gate table-name) k)))
+
+(defn- climb-in-facts
+  [lane id facts]
+  (loop [known-rows {}]
+    (let [{:keys [wants] :as res} (chain/climb lane id known-rows)]
+      (if wants
+        (recur (assoc known-rows wants (get facts wants)))
+        res))))
+
+(defn- holder-perm-ids
+  [tables gate lane holder session]
+  (let [[from to] (rows/by-holder-run lane holder session)]
+    (vec (keep rows/permission-of-by-holder-key
+               (keys (subseq (table tables gate :permissions-by-holder) >= from < to))))))
+
+(defn- standing-holder-perm
+  [tables gate lane holder session]
+  (let [facts (table tables gate :facts)]
+    (some (fn [id]
+            (let [{:keys [values whole?]} (climb-in-facts lane id facts)]
+              (when whole?
+                [id (first values) (chain/allows-now values)])))
+          (holder-perm-ids tables gate lane holder session))))
+
+(defn- grant-perm
+  [tables gate lane giver under-id perm-id perm-val stamp]
+  (let [v (declaration/permission-value perm-val)
+        place (chain/place lane perm-id)
+        tables (put tables gate :facts place
+                    (fact-row* lane giver under-id perm-id declaration/permission-key v stamp))]
+    (if (= :default-group (first (:covers v)))
+      (put tables gate :permissions-by-holder
+           (rows/by-holder-key lane (:holder v) (:session v) perm-id)
+           (long stamp))
+      tables)))
+
+(defn- end-perm
+  [tables gate lane ender under-id perm-id stamp]
+  (let [facts (table tables gate :facts)
+        place (chain/place lane perm-id)
+        was (rows/held-permission (get facts place))]
+    (if (nil? was)
+      tables
+      (let [tables (put tables gate :facts place
+                        (fact-row* lane ender under-id perm-id declaration/permission-key nil stamp))]
+        (if (= :default-group (first (:covers was)))
+          (drop-key tables gate :permissions-by-holder
+                    (rows/by-holder-key lane (:holder was) (:session was) perm-id))
+          tables)))))
+
 (defn- write
-  "Stands for a gate: puts the rows of one accepted act in the tables. Takes
-  the tables and a write, one of:
-
-    [:make lane stamp]                     the lane's depot fact
-    [:setting lane word stamp]             who may see the lane
-    [:permission lane holder stamp]        a first permission for a
-                                            holder. Its place takes one
-                                            write: a second one changes
-                                            nothing
-    [:give lane holder giver stamp]        a permission for a holder,
-                                            straight beneath the one that
-                                            the giver's row holds. As a
-                                            gate, it is written only when
-                                            the giver's permission stands
-                                            and the holder has none that
-                                            stands; else nothing changes
-    [:end lane holder stamp]               the end of the permission at a
-                                            holder's place: a row with no
-                                            value. Nothing changes when the
-                                            place holds no permission
-    [:give-run lane session holder giver stamp]
-                                            a permission for one run of a
-                                            holder, straight beneath the
-                                            giver's permission for the
-                                            lane, on the session. As a
-                                            gate: only when the giver's
-                                            stands, and the run has none
-                                            that stands
-    [:end-run lane session stamp]          the end of the permission at a
-                                            run's place
-    [:end-and-give lane giver holder stamp] the giver ends her own
-                                            permission and, in the same
-                                            act, gives the holder one
-                                            straight beneath it: as a gate,
-                                            when the giver's stands. The
-                                            holder's does not stand
-    [:end-and-give-run lane giver session holder stamp] the same, with a
-                                            permission for the holder's run
-    [:give-act lane yes holder giver stamp] a yes for one act of a holder,
-                                            straight beneath the giver's
-                                            permission for the lane, on
-                                            the yes's own id. As a gate:
-                                            only when the giver's stands and
-                                            the place is empty. Its digest
-                                            is one of the proof's own: the
-                                            read path reads none
-    [:list lane lanes stamp]              what the lane builds on
-    [:marks lane keys stamp]               the lane's marked keys. A key
-                                            that was marked keeps its stamp;
-                                            a new one gets this stamp
-    [:fact lane who entity key value stamp] a fact; nil is a retract. For
-                                            a key that the lane marks, the
-                                            row of the value before leaves
-                                            the order by value, and a value
-                                            whose stamp is later than the
-                                            key's stamp enters it
-
-  What must hold: each stamp is later than the stamps before it in its
-  lane."
+  "Stands for a gate: puts the rows of one accepted act in the tables (`:facts`,
+  `:permissions-by-holder`, and `:facts-by-value`)."
   [tables [kind lane & more]]
   (let [gate (first-act/depot-at-making lane)
         facts (table tables gate :facts)
-        own (fn [k v stamp] (put tables gate :facts (rows/place-key lane lane k) (fact-row* lane (person :maker) lane k v stamp)))]
+        own (fn [k v stamp]
+              (put tables gate :facts (rows/place-key lane lane k)
+                   (fact-row* lane (person :maker) (when (not= :softland.store/depot k)
+                                                     (standing-perm-id lane (person :maker)))
+                              lane k v stamp)))]
     (case kind
       :make (let [[stamp] more] (own :softland.store/depot gate stamp))
-      :setting (let [[word stamp] more] (own :softland.store/who-may-see word stamp))
+      :open (let [[stamp] more]
+              (if (standing-holder-perm tables gate lane :anyone nil)
+                tables
+                (let [id0 (first-act/first-anyone-id lane)
+                      id (if (nil? (get facts (chain/place lane id0))) id0 (uuid-of [:open lane stamp]))
+                      giver (person :maker)]
+                  (grant-perm tables gate lane giver (standing-perm-id lane giver) id
+                              {:holder :anyone
+                               :allows {:see true}
+                               :covers [:default-group lane]
+                               :given-by giver
+                               :under (standing-perm-id lane giver)}
+                              stamp))))
+      :close (let [[stamp] more
+                   ender (person :maker)]
+               (reduce (fn [t id]
+                         (end-perm t gate lane ender (standing-perm-id lane ender) id stamp))
+                       tables
+                       (holder-perm-ids tables gate lane :anyone nil)))
       :list (let [[listed stamp] more] (own :softland.store/builds-on listed stamp))
-      :permission (let [[holder stamp] more
-                        p (perm/first-permission holder lane)
-                        {:keys [e k v]} (perm/permission-fact p)
-                        place (rows/place-key lane e k)]
-                    (if (get facts place)
+      :permission (let [[holder stamp] more]
+                    (if (standing-holder-perm tables gate lane holder nil)
                       tables
-                      (put tables gate :facts place
-                           (fact-row* lane (person :maker) e k v stamp))))
-      :give (let [[holder giver stamp] more
-                  above (rows/held-permission (get facts (rows/place-key lane giver :softland.store/permission)))]
-              (if (and above (chain/stands? lane above facts))
-                (let [p (perm/given-permission holder lane above)
-                      {:keys [e k v]} (perm/permission-fact p)
-                      place (rows/place-key lane e k)
-                      there (rows/held-permission (get facts place))]
-                  (if (and there (chain/stands? lane there facts))
-                    tables
-                    (put tables gate :facts place (fact-row* lane giver e k v stamp))))
+                      (let [id0 (standing-perm-id lane holder)
+                            id (if (nil? (get facts (chain/place lane id0)))
+                                 id0
+                                 (uuid-of [:standing lane holder stamp]))]
+                        (grant-perm tables gate lane holder nil id
+                                    {:holder holder
+                                     :allows declaration/owner-allows
+                                     :covers [:default-group lane]
+                                     :given-by holder}
+                                    stamp))))
+      :give (let [[holder giver stamp opts] more]
+              (if-let [[giver-id _ giver-allows] (standing-holder-perm tables gate lane giver nil)]
+                (if (or (:see giver-allows) (:write giver-allows))
+                  (let [id (or (:id opts) (uuid-of [:give lane holder giver stamp (dissoc opts :id)]))
+                        lent-id (if (= false (:lent? opts)) nil giver-id)
+                        allows (or (:allows opts)
+                                   (if (act/borrower? holder)
+                                     {:see true :write :all}
+                                     perm/member-allows))
+                        val (cond-> {:holder holder
+                                     :allows allows
+                                     :covers (or (:covers opts) [:default-group lane])
+                                     :given-by giver
+                                     :under giver-id}
+                              (:session opts) (assoc :session (:session opts))
+                              lent-id (assoc :lent-from lent-id))]
+                    (if (get facts (chain/place lane id))
+                      tables
+                      (grant-perm tables gate lane giver giver-id id val stamp)))
+                  tables)
                 tables))
-      :give-run (let [[session holder giver stamp] more
-                      above (rows/held-permission (get facts (rows/place-key lane giver :softland.store/permission)))]
-                  (if (and above (chain/stands? lane above facts))
-                    (let [p (perm/run-permission holder lane above session :see)
-                          {:keys [e k v]} (perm/permission-fact p)
-                          place (rows/place-key lane e k)
-                          there (rows/held-permission (get facts place))]
-                      (if (and there (chain/stands? lane there facts))
-                        tables
-                        (put tables gate :facts place (fact-row* lane giver e k v stamp))))
+      :give-run (let [[session holder giver stamp opts] more]
+                  (if-let [[giver-id _ giver-allows] (standing-holder-perm tables gate lane giver nil)]
+                    (if (or (:see giver-allows) (:write giver-allows))
+                      (let [id (or (:id opts) (uuid-of [:give-run lane session holder giver stamp (dissoc opts :id)]))
+                            lent-id (if (= false (:lent? opts)) nil giver-id)
+                            allows (or (:allows opts) {:see true})
+                            val (cond-> {:holder holder
+                                         :allows allows
+                                         :covers [:default-group lane]
+                                         :session session
+                                         :given-by giver
+                                         :under giver-id}
+                                  lent-id (assoc :lent-from lent-id))]
+                        (if (get facts (chain/place lane id))
+                          tables
+                          (grant-perm tables gate lane giver giver-id id val stamp)))
+                      tables)
                     tables))
-      :end-and-give (let [[giver holder stamp] more
-                          giver-key (rows/place-key lane giver :softland.store/permission)
-                          above (rows/held-permission (get facts giver-key))]
-                      (if (and above (chain/stands? lane above facts))
-                        (let [end (perm/end-fact above)
-                              p (perm/given-permission holder lane above)
-                              grant (perm/permission-fact p)]
-                          (-> tables
-                              (put gate :facts giver-key (fact-row* lane giver (:e end) (:k end) nil stamp))
-                              (put gate :facts (rows/place-key lane (:e grant) (:k grant))
-                                   (fact-row* lane giver (:e grant) (:k grant) (:v grant) stamp))))
-                        tables))
-      :end-and-give-run (let [[giver session holder stamp] more
-                              giver-key (rows/place-key lane giver :softland.store/permission)
-                              above (rows/held-permission (get facts giver-key))]
-                          (if (and above (chain/stands? lane above facts))
-                            (let [end (perm/end-fact above)
-                                  p (perm/run-permission holder lane above session :see)
-                                  grant (perm/permission-fact p)]
-                              (-> tables
-                                  (put gate :facts giver-key (fact-row* lane giver (:e end) (:k end) nil stamp))
-                                  (put gate :facts (rows/place-key lane (:e grant) (:k grant))
-                                       (fact-row* lane giver (:e grant) (:k grant) (:v grant) stamp))))
-                            tables))
-      :give-act (let [[yes holder giver stamp] more
-                      above (rows/held-permission (get facts (rows/place-key lane giver :softland.store/permission)))]
-                  (if (and above (chain/stands? lane above facts))
-                    (let [p (perm/act-permission holder lane above yes (apply str (repeat 64 "a")))
-                          {:keys [e k v]} (perm/permission-fact p)
-                          place (rows/place-key lane e k)]
-                      (if (nil? (get facts place))
-                        (put tables gate :facts place (fact-row* lane giver e k v stamp))
+      :change (let [[perm-id allows stamp] more
+                    was (rows/held-permission (get facts (chain/place lane perm-id)))]
+                (if (nil? was)
+                  tables
+                  (grant-perm tables gate lane (:given-by was) (:under was) perm-id
+                              (assoc was :allows allows) stamp)))
+      :swap (let [[holder old-id new-id allows stamp] more
+                  maker (person :maker)
+                  under-id (standing-perm-id lane maker)]
+              (-> tables
+                  (end-perm gate lane maker under-id old-id stamp)
+                  (grant-perm gate lane maker under-id new-id
+                              {:holder holder
+                               :allows allows
+                               :covers [:default-group lane]
+                               :given-by maker
+                               :under under-id}
+                              stamp)))
+      :give-act (let [[yes holder giver stamp] more]
+                  (if-let [[giver-id _ _] (standing-holder-perm tables gate lane giver nil)]
+                    (let [p (perm/act-permission holder lane {:id giver-id :value {:holder giver}}
+                                                 yes (apply str (repeat 64 "a")))
+                          {:keys [e v]} (perm/permission-fact p)]
+                      (if (nil? (get facts (chain/place lane e)))
+                        (grant-perm tables gate lane giver giver-id e v stamp)
                         tables))
                     tables))
-      :end-run (let [[session stamp] more
-                     k (rows/place-key lane session :softland.store/run-permission)]
-                 (if-let [there (rows/held-permission (get facts k))]
-                   (let [{:keys [e k]} (perm/end-fact there)]
-                     (put tables gate :facts (rows/place-key lane e k)
-                          (fact-row* lane (person :maker) e k nil stamp)))
-                   tables))
+      :use-act (let [[yes who stamp] more
+                     place (chain/place lane yes)]
+                 (put tables gate :facts place
+                      (rows/use-row (UUID. 0 (long stamp)) stamp (time-of stamp)
+                                    (declaration/id-text who) (declaration/id-text yes))))
+      :end-id (let [[perm-id stamp] more
+                    ender (person :maker)]
+                (end-perm tables gate lane ender (standing-perm-id lane ender) perm-id stamp))
+      :end-run (let [[session a b] more
+                     [holder stamp] (if (some? b) [a b] [nil a])
+                     ender (person :maker)
+                     ids (if holder
+                           (holder-perm-ids tables gate lane holder session)
+                           (let [l-prefix (str (declaration/id-text lane) " ")
+                                 l-end (str (declaration/id-text lane) "!")
+                                 s-text (declaration/id-text session)]
+                             (keep (fn [[k _]]
+                                     (let [parts (str/split k #" ")]
+                                       (when (and (= 4 (count parts)) (= s-text (nth parts 2)))
+                                         (rows/permission-of-by-holder-key k))))
+                                   (subseq (table tables gate :permissions-by-holder) >= l-prefix < l-end))))]
+                 (reduce (fn [t id]
+                           (end-perm t gate lane ender (standing-perm-id lane ender) id stamp))
+                         tables
+                         ids))
       :end (let [[holder stamp] more
-                 k (rows/place-key lane holder :softland.store/permission)]
-             (if-let [there (rows/held-permission (get facts k))]
-               (let [{:keys [e k]} (perm/end-fact there)]
-                 (put tables gate :facts (rows/place-key lane e k)
-                      (fact-row* lane (person :maker) e k nil stamp)))
-               tables))
+                 ender (person :maker)]
+             (reduce (fn [t id]
+                       (end-perm t gate lane ender (standing-perm-id lane ender) id stamp))
+                     tables
+                     (holder-perm-ids tables gate lane holder nil)))
       :marks (let [[marked stamp] more
                    before (rows/marked-keys-of (get facts (rows/place-key lane lane :softland.store/marked-keys)))
                    since-by-key (into {} (map (fn [k] [k (get before k stamp)])) marked)]
@@ -331,8 +405,7 @@
 (defn- table-value
   "Takes the tables and a source. Gives what Rama would give for the source
   now: the row or nil for a source of one row, the rows of the run for the
-  two kinds of run. The routing id is not looked at: the proof plays no
-  task."
+  runs (`:own-rows`, `:run`, `:holders`)."
   [tables source]
   (let [t (table tables (:gate source) (:table source))
         [kind a b] (:path source)]
@@ -340,28 +413,131 @@
       (get t a)
       (into (sorted-map-by by-code-point) (subseq t >= a < b)))))
 
+(defn- run-rights
+  "Runs one single-turn `lane-rights` query on `tables`, bounded at
+  `max-holder-permissions + 1` entries per holder scan just as
+  `softland.store.module.door-reads/read-lane-rights` runs on the task."
+  ([tables lane asker session]
+   (run-rights tables lane :see asker session))
+  ([tables lane question asker session]
+   (let [gate (first-act/depot-at-making lane)
+         limit (inc lanes/max-holder-permissions)]
+     (loop [state (lanes/rights-begin lane question asker session)]
+       (if-let [reads (seq (lanes/rights-reads state))]
+         (recur (lanes/rights-resume
+                 state
+                 (into {}
+                       (map (fn [[which a b :as r]]
+                              [r (case which
+                                   :fact (get (table tables gate :facts) a)
+                                   :holders (let [h (table tables gate :permissions-by-holder)
+                                                  entries (if (lanes/holder-range-agreed? a b)
+                                                            (take limit (subseq h >= a < b))
+                                                            (take limit (subseq h >= a)))]
+                                              (lanes/clean-holder-run a b (into {} entries))))]))
+                       reads)))
+         (lanes/rights-snapshot state))))))
+
+(defn- rights-state
+  "Runs `rights-begin`/`rights-resume` to completion on `tables` and returns
+  `(lanes/rights state)` (`{:made? :sees? :standing}`)."
+  [tables lane asker session]
+  (let [gate (first-act/depot-at-making lane)
+        limit (inc lanes/max-holder-permissions)]
+    (loop [state (lanes/rights-begin lane :see asker session)]
+      (if-let [reads (seq (lanes/rights-reads state))]
+        (recur (lanes/rights-resume
+                state
+                (into {}
+                      (map (fn [[which a b :as r]]
+                             [r (case which
+                                  :fact (get (table tables gate :facts) a)
+                                  :holders (lanes/clean-holder-run
+                                            a b (into {} (take limit (subseq (table tables gate :permissions-by-holder) >= a < b)))))]))
+                      reads)))
+        (lanes/rights state)))))
+
 (defn- play-once
-  "Plays a read asked once on the tables: what is wanted, fetch what is
-  missing from the tables, again. Takes the tables and a query in its one
-  form. Gives {:rounds how many rounds fetched something, :calls how many
-  calls each round would make, :first-missing the sources of the first
-  round, :reading what `reading` gave at the end, :known what was fetched,
-  :answer the answer}; `:answer` is `:did-not-settle` when nine rounds were
-  not enough."
+  "Plays a read asked once on the tables, as `softland.store.read-path/read-once*`
+  does: fetch missing PState sources in batched calls per table and routing id,
+  and ask `lane-rights` after each made lane's last fact select returns."
   [tables query]
-  (loop [round 0 known {} calls [] first-missing nil]
-    (let [reading (sources/reading query known :once numbers)
-          missing (:missing reading)]
-      (cond
-        (empty? missing) {:rounds round :calls calls :first-missing first-missing
-                          :reading reading :known known
-                          :answer (answer/whole query reading known)}
-        (< 8 round) {:rounds round :calls calls :first-missing first-missing
-                     :reading reading :known known :answer :did-not-settle}
-        :else (recur (inc round)
-                     (into known (map (fn [source] [source (table-value tables source)])) missing)
-                     (conj calls (count (sources/calls-for-once missing numbers)))
-                     (or first-missing missing))))))
+  (let [bump (fn [epochs sources]
+               (reduce (fn [m lane] (update m lane (fnil inc 0)))
+                       epochs
+                       (distinct (map :lane sources))))]
+    (loop [sel-round 0
+           ask-round 0
+           known {}
+           fact-epochs {}
+           rights-at {}
+           calls []
+           rights-calls []
+           first-missing nil]
+      (let [snapshots (into {}
+                            (keep (fn [[lane {:keys [epoch snapshot]}]]
+                                    (when (or (= :too-many-permissions (:standing snapshot))
+                                              (= epoch (get fact-epochs lane 0)))
+                                      [lane snapshot])))
+                            rights-at)
+            reading (sources/reading query known :once numbers nil snapshots)
+            missing (:missing reading)
+            needs-rights (:needs-rights reading)]
+        (cond
+          (:too-many-permissions reading)
+          {:rounds sel-round :ask-rounds ask-round :calls calls :rights-calls rights-calls
+           :first-missing first-missing :reading reading :known known :snapshots snapshots
+           :answer (words/word :too-many-permissions (:too-many-permissions reading))}
+
+          (:too-large reading)
+          {:rounds sel-round :ask-rounds ask-round :calls calls :rights-calls rights-calls
+           :first-missing first-missing :reading reading :known known :snapshots snapshots
+           :answer (words/word :serve-a-read-that-large (:too-large reading))}
+
+          (seq missing)
+          (if (<= 6 sel-round)
+            {:rounds sel-round :ask-rounds ask-round :calls calls :rights-calls rights-calls
+             :first-missing first-missing :reading reading :known known :snapshots snapshots
+             :answer :did-not-settle}
+            (recur (inc sel-round)
+                   ask-round
+                   (into known (map (fn [source] [source (table-value tables source)])) missing)
+                   (bump fact-epochs missing)
+                   rights-at
+                   (conj calls (count (sources/calls-for-once missing numbers)))
+                   rights-calls
+                   (or first-missing missing)))
+
+          (seq needs-rights)
+          (if (<= 12 ask-round)
+            {:rounds sel-round :ask-rounds ask-round :calls calls :rights-calls rights-calls
+             :first-missing first-missing :reading reading :known known :snapshots snapshots
+             :answer :did-not-settle}
+            (let [snaps (into {}
+                              (map (fn [[_routing-id lane]]
+                                     [lane (run-rights tables lane :see (:asker query) (:session query))]))
+                              needs-rights)]
+              (recur sel-round
+                     (inc ask-round)
+                     known
+                     fact-epochs
+                     (reduce (fn [m [lane snap]]
+                               (assoc m lane {:epoch (get fact-epochs lane 0) :snapshot snap}))
+                             rights-at
+                             snaps)
+                     calls
+                     (conj rights-calls (count needs-rights))
+                     first-missing)))
+
+          (sources/settled? reading)
+          {:rounds sel-round :ask-rounds ask-round :calls calls :rights-calls rights-calls
+           :first-missing first-missing :reading reading :known known :snapshots snapshots
+           :answer (answer/whole query reading known)}
+
+          :else
+          {:rounds sel-round :ask-rounds ask-round :calls calls :rights-calls rights-calls
+           :first-missing first-missing :reading reading :known known :snapshots snapshots
+           :answer :did-not-settle})))))
 
 ;; -------------------------------------------------------------- the player
 
@@ -381,20 +557,47 @@
                     [source (:value push)]))))
         (:held world)))
 
+(defn- snapshots-of
+  [world]
+  (into {}
+        (keep (fn [[lane st]]
+                (when-let [s (:snapshot st)]
+                  [lane s])))
+        (:rights world)))
+
+(defn- ensure-rights
+  "Single-flight `lane-rights` launcher per `(read, lane)`, mirroring
+  `softland.store.read-path/ensure-rights-queries!`."
+  [world reading]
+  (reduce (fn [w [_routing-id lane]]
+            (let [st (get-in w [:rights lane])]
+              (if (and (nil? (:in-flight st)) (get st :dirty? true))
+                (assoc-in w [:rights lane]
+                          (assoc (or st {}) :dirty? false :in-flight {:phase :asked}))
+                w)))
+          world
+          (:needs-rights reading)))
+
 (defn- settle
   "The first line of a step, as `softland.store.read-path/settle!` makes it:
-  what the read wants on the values that its pushes hold now; join what is
-  wanted and not held, as a push that is asked for; leave what is held and
-  no longer wanted, whose push is gone with what it had not delivered; and
-  `known` again. Gives [the world, {:reading :known :joined :left
-  :known-before}]."
+  recomputes `reading` (validating `:read-set` stamps entry-for-entry), joins
+  newly wanted pushes, and leaves unwanted pushes until moves stabilize."
   [world]
   (loop [world world joined #{} left #{} known-before nil round 0]
     (let [known (known-of world)
-          reading (sources/reading (:query world) known :live numbers (:held world))
+          snapshots (snapshots-of world)
+          reading (sources/reading (:query world) known :live numbers (:held world) snapshots)
           {:keys [join leave]} (sources/moves reading (:held world))]
-      (if (or (and (empty? join) (empty? leave)) (< 8 round))
-        [world {:reading reading :known known :joined joined :left left :known-before (or known-before known)}]
+      (if (or (and (empty? join) (empty? leave)) (< 24 round))
+        [(reduce (fn [w [lane st]]
+                   (if (and (contains? #{:yes :may-not-see} st)
+                            (nil? (get-in w [:rights lane :in-flight])))
+                     (assoc-in w [:rights lane :dirty?] false)
+                     w))
+                 world
+                 (:standing reading))
+         {:reading reading :known known :snapshots snapshots
+          :joined joined :left left :known-before (or known-before known)}]
         (recur (-> world
                    (update :held #(into (reduce disj % leave) join))
                    (update :pushes #(into (reduce dissoc % leave)
@@ -434,41 +637,68 @@
       (told tell)))
 
 (defn- handle
-  "One callback of a push is handled, as `softland.store.read-path` handles
-  it: the keys that changed; nothing for a row that is the same or a source
-  that the read no longer holds; else the step."
+  "One callback of a push is handled, as `softland.store.read-path/on-change`
+  handles it."
   [world source fault]
   (let [[old new] (first (get-in world [:pushes source :pend]))
         world (update-in world [:pushes source :pend] subvec 1)
         changed (sources/named source :all old new)]
     (if (or (empty? changed) (not (contains? (:held world) source)))
       world
-      (let [[world {:keys [reading known joined left known-before]}] (settle world)
-            query (:query world)
-            [meant-before meant-after] (answer/meanings query known source old new)]
-        (after-a-step world
-                      (binding [*known-before-the-leaving* known-before]
-                        (answer/after-change query reading known source
-                                             (sources/places-of query source changed)
-                                             meant-before meant-after joined left (:owed? world)))
-                      fault)))))
+      (let [query (:query world)
+            world (if (sources/rights-kind query source)
+                    (assoc-in world [:rights (:lane source) :dirty?] true)
+                    world)
+            [world {:keys [reading known snapshots joined left known-before]}] (settle world)
+            [meant-before meant-after] (answer/meanings query snapshots known source old new)]
+        (-> (after-a-step world
+                          (binding [*known-before-the-leaving* known-before]
+                            (answer/after-change query reading known source
+                                                 (sources/places-of query source changed)
+                                                 meant-before meant-after joined left (:owed? world)))
+                          fault)
+            (ensure-rights reading))))))
 
 (defn- arrive
   "The arrival of a push that the read asked for is handled, as
-  `softland.store.read-path` handles it."
+  `softland.store.read-path/on-arrival` handles it."
   [world source fault]
   (let [world (assoc-in world [:pushes source :phase] :given)]
     (if-not (contains? (:held world) source)
       world
-      (let [[world {:keys [reading known joined left]}] (settle world)]
-        (after-a-step world
-                      (answer/after-arrival (:query world) reading known source joined left (:owed? world))
-                      fault)))))
+      (let [query (:query world)
+            lane (:lane source)
+            home (lanes/home query)
+            snap (get-in world [:rights lane :snapshot])
+            known-now (known-of world)
+            world (if (and (sources/rights-kind query source)
+                           snap
+                           (not (sources/source-matches-snapshot? home lane snap source known-now)))
+                    (assoc-in world [:rights lane :dirty?] true)
+                    world)
+            [world {:keys [reading known joined left]}] (settle world)]
+        (-> (after-a-step world
+                          (answer/after-arrival query reading known source joined left (:owed? world))
+                          fault)
+            (ensure-rights reading))))))
+
+(defn- arrive-rights
+  "The arrival of an async `lane-rights` snapshot is handled, as
+  `softland.store.read-path/on-rights` handles it."
+  [world lane fault]
+  (let [snap (get-in world [:rights lane :in-flight :snapshot])
+        world (update-in world [:rights lane] #(-> (or % {}) (assoc :snapshot snap) (dissoc :in-flight)))
+        [world {:keys [reading known joined left]}] (settle world)]
+    (-> (after-a-step world
+                      (answer/after-rights (:query world) reading known lane joined left (:owed? world))
+                      fault)
+        (ensure-rights reading))))
 
 (defn- moves-of
-  "Takes a world. Gives every move that can be made now: the next write; and
-  for each push, by its state, to be served, to have its arrival handled,
-  to take its next value, to have its next callback handled."
+  "Takes a world. Gives every move that can be made now: the next write; for
+  each push, by its state, to be served, to have its arrival handled, to take
+  its next value, to have its next callback handled; and for each in-flight
+  `lane-rights` query, to be served on the tables or to have its answer arrive."
   [world]
   (concat
    (when (seq (:writes world)) [[:write]])
@@ -478,7 +708,13 @@
                        (when (= :served (:phase push)) [[:arrive source]])
                        (when (and open? (seq (:queue push))) [[:take source]])
                        (when (and open? (seq (:pend push))) [[:handle source]]))))
-           (:pushes world))))
+           (:pushes world))
+   (mapcat (fn [[lane st]]
+             (case (get-in st [:in-flight :phase])
+               :asked  [[:serve-rights lane]]
+               :served [[:arrive-rights lane]]
+               nil))
+           (:rights world))))
 
 (defn- move
   "Makes one move in a world."
@@ -508,35 +744,60 @@
                           (update :queue subvec 1)
                           (update :pend conj [(:value push) new]))))
     :handle (handle world source fault)
-    :arrive (arrive world source fault)))
+    :arrive (arrive world source fault)
+    :serve-rights (let [query (:query world)
+                        snap (run-rights (:tables world) source :see (:asker query) (:session query))]
+                    (assoc-in world [:rights source :in-flight] {:phase :served :snapshot snap}))
+    :arrive-rights (arrive-rights world source fault)))
 
 (defn- open-live
   "Opens a live read in a world, as `softland.store.read-path/read-live`
-  does: what is wanted, join what is missing and serve it from the tables
-  at once, again; then the first answer is the asker's screen, and the
-  read's mark is made of it (`softland.store.read-path.answer/mark-of`).
-  Takes the tables, the writes that are to come and a query in its one
-  form. Gives the world, with `:rounds`, how many rounds joined something,
-  and `:first-joined`, the sources of the first round."
+  does: join missing pushes and serve them from the tables, ask `lane-rights`
+  for made lanes that need rights, join their `:read-set` watches, and repeat
+  until settled; then the first answer is the asker's screen and `mark-of` its
+  mark."
   [tables writes query]
-  (loop [world {:tables tables :writes (vec writes) :query query :held #{} :pushes {} :owed? false}
+  (loop [world {:tables tables :writes (vec writes) :query query
+                :held #{} :pushes {} :rights {} :owed? false}
          round 0
          first-joined nil]
     (let [known (known-of world)
-          reading (sources/reading query known :live numbers (:held world))
-          {:keys [join leave]} (sources/moves reading (:held world))]
-      (if (and (empty? join) (empty? leave))
-        (let [screen (answer/whole query reading known)]
-          (assoc world :screen screen :owed? (answer/mark-of screen) :rounds round :first-joined first-joined))
+          snapshots (snapshots-of world)
+          reading (sources/reading query known :live numbers (:held world) snapshots)
+          {:keys [join leave]} (sources/moves reading (:held world))
+          needs-rights (:needs-rights reading)]
+      (cond
+        (or (< 24 round) (:too-large reading) (:too-many-permissions reading))
+        (assoc world :screen :did-not-open :rounds round :first-joined first-joined)
+
+        (or (seq join) (seq leave))
         (recur (-> world
                    (update :held #(into (reduce disj % leave) join))
                    (update :pushes #(into (reduce dissoc % leave)
                                           (map (fn [source]
-                                                 [source {:phase :given :value (table-value tables source)
+                                                 [source {:phase :given
+                                                          :value (table-value tables source)
                                                           :queue [] :pend []}]))
                                           join)))
                (inc round)
-               (or first-joined join))))))
+               (or first-joined join))
+
+        (seq needs-rights)
+        (let [snaps (into {}
+                          (map (fn [[_routing-id lane]]
+                                 [lane (run-rights tables lane :see (:asker query) (:session query))]))
+                          needs-rights)]
+          (recur (reduce (fn [w [lane snap]]
+                           (assoc-in w [:rights lane] {:snapshot snap :dirty? false}))
+                         world
+                         snaps)
+                 (inc round)
+                 first-joined))
+
+        :else
+        (let [screen (answer/whole query reading known)]
+          (assoc world :screen screen :owed? (answer/mark-of screen)
+                       :rounds round :first-joined first-joined))))))
 
 (defn- every-order
   "Plays every order of the moves from a world. Takes the world and the
@@ -582,23 +843,15 @@
   {:v :canvas-1 :u :canvas-u :x :canvas-x :w :canvas-w})
 
 (defn- points-at-world
-  "A world for what points at a thing, after the check's model of the plan
-  (reads/plan-check-probes-read-path/model/crossing.py). Takes how many
-  lanes; which of them mark the key; the facts at the start, a map from
-  [lane place] to [thing, version]; the lanes that the asker may see at
-  the start; and the writes: `[:w lane place thing]`, a fact, and
-  `[:see lane]`, a permission that is given to her. A lane that she may
-  see is \"everyone\"; one that she may not is \"members\", and she holds
-  no permission in it. With a first argument, a function from a lane's
-  number to its id, the lanes have those ids; with none they are
-  `lane-n`'s."
+  "A world for what points at a thing. Lanes in `seen` start open to `:anyone`;
+  the others start closed, with no permission for the asker until `[:see lane]`."
   ([k marks facts seen writes]
    (points-at-world lane-n k marks facts seen writes))
   ([lane-n k marks facts seen writes]
    (let [tables (reduce write {}
                         (concat
                          (for [n (range 1 (inc k))] [:make (lane-n n) 1])
-                         (for [n (range 1 (inc k))] [:setting (lane-n n) (if (contains? seen n) :everyone :members) 2])
+                         (for [n (range 1 (inc k)) :when (contains? seen n)] [:open (lane-n n) 2])
                          (for [n (range 1 (inc k)) :when (get marks n)] [:marks (lane-n n) #{:parent} 3])
                          (for [[[n place] [thing version]] (sort-by (comp second val) facts)]
                            [:fact (lane-n n) (person :maker) place :parent (get things thing) (+ 10 version)])))
@@ -611,19 +864,10 @@
                 (q {:asks [:points-at :parent :canvas-1] :asker (person :ann) :lanes (mapv lane-n (range 1 (inc k)))})))))
 
 (defn- base-at
-  "Takes the number of a lane of a played list, 1 the nearest. Gives a
-  function from a lane's number to its id, for `points-at-world`: that
-  lane is the base, a microbatch lane, and each other one is `lane-n`'s.
-  With the base nearest, the read's home is the base. With the base second
-  or farther, the home is a streaming lane, and the base's order by value
-  and the checks of the base are read under that lane's routing id."
   [i]
   (fn [n] (if (= n i) :base (lane-n n))))
 
 (def ^:private points-at-scenarios
-  "The thirteen scenarios of the check's model, each as: what it is, the
-  count of lanes, which mark the key, the facts at the start, the lanes
-  that she may see at the start, and the writes."
   [["1. the farther order loses p while the nearer lane gets another row at p"
     2 {1 true 2 true} {[2 :p] [:v 1]} #{1 2}
     [[:w 1 :p :u] [:w 2 :p :x]]]
@@ -665,18 +909,12 @@
     [[:w 3 :p :v] [:see 1] [:w 2 :p :v]]]])
 
 (defn- lists-up-to
-  "Every list of 1 to n of the things given, in every order, with
-  repeats."
   [n options]
   (mapcat (fn [length]
             (reduce (fn [lists _] (for [l lists o options] (conj l o))) [[]] (range length)))
           (range 1 (inc n))))
 
 (defn- every-small-points-at
-  "Every list of up to three writes on one place in two lanes, the nearer
-  marking the key or not, from four starts: the check's model's small
-  lists. Takes the fault that the player is to make, or nil. Gives {:lists
-  :states :wrong the lists that have an order which ends wrong}."
   [fault]
   (let [options (for [n [1 2] thing [:v :u]] [:w n :p thing])
         starts [{} {[2 :p] [:v 1]} {[1 :p] [:u 1] [2 :p] [:v 2]} {[1 :p] [:v 1] [2 :p] [:v 2]}]
@@ -690,22 +928,20 @@
      :wrong (vec (keep (fn [p] (when (:wrong p) (:is p))) played))}))
 
 (defn- standing-world
-  "A world for one place, or one entity, through two lanes, after the
-  check's second model (model/standing.py). The nearer lane has a setting
-  and, for the asker, a permission or none; the farther is \"everyone\" and
-  holds a fact at the place. Takes the nearer lane's setting at the start,
-  whether she holds a permission there, the writes, and what is asked. A
-  write is `[:setting word]`, `[:permission]`, `[:near]` (a fact of the
-  nearer lane at the place) or `[:far]`."
-  [setting permission? writes asks]
+  "A world for one place, or one entity, through two lanes: `:near` starts open
+  to `:anyone` or closed, with a permission for `:ann` or none; `:far` is open
+  to `:anyone` and holds a fact at the place. Writes: `[:open]`, `[:close]`,
+  `[:permission]`, `[:near]`, `[:far]`."
+  [open? permission? writes asks]
   (let [tables (reduce write {}
-                       (concat [[:make :near 1] [:make :far 1]
-                                [:setting :near setting 2] [:setting :far :everyone 2]]
+                       (concat [[:make :near 1] [:make :far 1] [:open :far 2]]
+                               (when open? [[:open :near 2]])
                                (when permission? [[:permission :near (person :ann) 3]])
                                [[:fact :far (person :maker) :p :text "f0" 11]]))
-        writes (map-indexed (fn [i [kind word]]
+        writes (map-indexed (fn [i [kind]]
                               (case kind
-                                :setting    [:setting :near word (+ 100 i)]
+                                :open       [:open :near (+ 100 i)]
+                                :close      [:close :near (+ 100 i)]
                                 :permission [:permission :near (person :ann) (+ 100 i)]
                                 :near       [:fact :near (person :maker) :p :text (str "n" i) (+ 100 i)]
                                 :far        [:fact :far (person :maker) :p :text (str "f" i) (+ 100 i)]))
@@ -713,25 +949,19 @@
     (open-live tables writes (q {:asks asks :asker (person :ann) :lanes [:near :far]}))))
 
 (defn- base-world
-  "A world for one place, or one entity, through an asker's own lane and
-  the base. Her own lane, `:mine`, is the read's home: a streaming lane
-  that is \"everyone\" and holds nothing at the start. The base, a
-  microbatch lane, has a setting and, for the asker, a permission or none,
-  and holds a fact at the place. So each source of the base, its own rows,
-  her permission and the fact, is read under the routing id of her own
-  lane. Takes the base's setting at the start, whether she holds a
-  permission there, the writes, and what is asked. A write is `[:setting
-  word]` and `[:permission]`, of the base; `[:mine]`, a fact of her own
-  lane at the place; or `[:base]`, a fact of the base there."
-  [setting permission? writes asks]
+  "A world for one place, or one entity, through `:mine` (the asker's home,
+  open to `:anyone`) and `:base` (microbatch, starting open to `:anyone` or
+  closed, with a permission for `:ann` or none, read under `:mine`'s routing id)."
+  [open? permission? writes asks]
   (let [tables (reduce write {}
-                       (concat [[:make :mine 1] [:make :base 1]
-                                [:setting :mine :everyone 2] [:setting :base setting 2]]
+                       (concat [[:make :mine 1] [:make :base 1] [:open :mine 2]]
+                               (when open? [[:open :base 2]])
                                (when permission? [[:permission :base (person :ann) 3]])
                                [[:fact :base (person :maker) :p :text "b0" 11]]))
-        writes (map-indexed (fn [i [kind word]]
+        writes (map-indexed (fn [i [kind]]
                               (case kind
-                                :setting    [:setting :base word (+ 100 i)]
+                                :open       [:open :base (+ 100 i)]
+                                :close      [:close :base (+ 100 i)]
                                 :permission [:permission :base (person :ann) (+ 100 i)]
                                 :mine       [:fact :mine (person :maker) :p :text (str "m" i) (+ 100 i)]
                                 :base       [:fact :base (person :maker) :p :text (str "b" i) (+ 100 i)]))
@@ -739,20 +969,11 @@
     (open-live tables writes (q {:asks asks :asker (person :ann) :lanes [:mine :base]}))))
 
 (defn- chain-world
-  "A world for one place through two lanes, for an asker whose permission
-  in the nearer lane is two beneath the lane's first: `:root` holds the
-  first, `:bea` one beneath it, and the asker `:ann` one beneath Bea's. The
-  nearer lane is open to its members and holds a fact at the place; the
-  farther is open to everyone and holds one too. Takes the writes and what
-  is asked. A write is `[:end-above]`, the end of Bea's permission;
-  `[:give-above]`, Bea given hers again by the first holder; `[:end-own]`,
-  the end of the asker's; `[:give-own]`, the asker given hers again by Bea;
-  `[:give-by-root]`, the asker given one straight beneath the first; or
-  `[:near]`, a fact of the nearer lane at the place. The world's gate
-  writes a give only where a gate would take it (`write`)."
+  "A world for one place through two lanes, for an asker whose lent permission
+  in `:near` is two beneath the lane's first (`:root` -> `:bea` -> `:ann`)."
   [writes asks]
   (let [tables (reduce write {}
-                       [[:make :near 1] [:make :far 1] [:setting :far :everyone 2]
+                       [[:make :near 1] [:make :far 1] [:open :far 2]
                         [:permission :near (person :root) 2] [:give :near (person :bea) (person :root) 3] [:give :near (person :ann) (person :bea) 4]
                         [:fact :near (person :maker) :p :text "n0" 10] [:fact :far (person :maker) :p :text "f0" 11]])
         writes (map-indexed (fn [i [kind]]
@@ -767,25 +988,17 @@
     (open-live tables writes (q {:asks asks :asker (person :ann) :lanes [:near :far]}))))
 
 (defn- run-world
-  "A world for one place through two lanes, for an asker who asks in a run:
-  the query names the session `:run-7`. `:root` holds the nearer lane's
-  first permission and `:bea` one beneath it. At the start the asker `:ann`
-  holds no permission for the lane, and her run holds one, given by Bea.
-  The nearer lane is open to its members. Takes the writes and what is
-  asked. A write is `[:end-run]`, the end of the run's permission;
-  `[:give-run]`, the run given one again by Bea; `[:end-above]`, the end of
-  Bea's; `[:give-above]`, Bea given hers again; `[:give-own]`, the asker
-  given a permission for the lane by the first holder; `[:end-own]`, its
-  end; `[:give-run-to-another]`, the run given a permission whose holder is
-  another who; or `[:near]`, a fact of the nearer lane at the place."
+  "A world for one place through two lanes, for an asker who asks in sitting
+  `:run-7`, holding a sitting-scoped permission lent from `:bea`."
   [writes asks]
   (let [tables (reduce write {}
-                       [[:make :near 1] [:make :far 1] [:setting :far :everyone 2]
-                        [:permission :near (person :root) 2] [:give :near (person :bea) (person :root) 3] [:give-run :near :run-7 (person :ann) (person :bea) 4]
+                       [[:make :near 1] [:make :far 1] [:open :far 2]
+                        [:permission :near (person :root) 2] [:give :near (person :bea) (person :root) 3]
+                        [:give-run :near :run-7 (person :ann) (person :bea) 4]
                         [:fact :near (person :maker) :p :text "n0" 10] [:fact :far (person :maker) :p :text "f0" 11]])
         writes (map-indexed (fn [i [kind]]
                               (case kind
-                                :end-run    [:end-run :near :run-7 (+ 100 i)]
+                                :end-run    [:end-run :near :run-7 (person :ann) (+ 100 i)]
                                 :give-run   [:give-run :near :run-7 (person :ann) (person :bea) (+ 100 i)]
                                 :end-above  [:end :near (person :bea) (+ 100 i)]
                                 :give-above [:give :near (person :bea) (person :root) (+ 100 i)]
@@ -798,24 +1011,16 @@
 
 (defn- unseen-world
   "A world for one place through two lanes, for an asker who may not see
-  the nearer one: it is open to its members, `:root` holds its first
-  permission and `:bea` one beneath it, and the asker `:ann` holds none
-  there, for the lane or for her run. She asks in the run `:run-7`. The
-  farther lane is open to everyone and holds a fact at the place, and no
-  write is made there, so nothing that is written may reach her. Takes the
-  writes: `[:give-run-to-another]`, the run given a permission whose holder
-  is `:dov`, beneath Bea's; `[:end-run]`, the end of the run's permission;
-  `[:end-above]`, the end of Bea's; `[:give-above]`, Bea given hers again;
-  and `[:near]`, a fact of the nearer lane at the place."
+  `:near` while `:dov` is given and loses permissions in sitting `:run-7`."
   [writes]
   (let [tables (reduce write {}
-                       [[:make :near 1] [:make :far 1] [:setting :far :everyone 2]
+                       [[:make :near 1] [:make :far 1] [:open :far 2]
                         [:permission :near (person :root) 2] [:give :near (person :bea) (person :root) 3]
                         [:fact :near (person :maker) :p :text "n0" 10] [:fact :far (person :maker) :p :text "f0" 11]])
         writes (map-indexed (fn [i [kind]]
                               (case kind
                                 :give-run-to-another [:give-run :near :run-7 (person :dov) (person :bea) (+ 100 i)]
-                                :end-run    [:end-run :near :run-7 (+ 100 i)]
+                                :end-run    [:end-run :near :run-7 (person :dov) (+ 100 i)]
                                 :end-above  [:end :near (person :bea) (+ 100 i)]
                                 :give-above [:give :near (person :bea) (person :root) (+ 100 i)]
                                 :near       [:fact :near (person :maker) :p :text (str "n" i) (+ 100 i)]))
@@ -824,38 +1029,27 @@
 
 (defn- own-unseen-world
   "A world for one place through two lanes, for an asker who may not see
-  the nearer one, and whose own permissions there never stand: it is open
-  to its members, `:root` holds its first permission, and `:bea` and `:cal`
-  each one beneath it. She asks in the run `:run-7`; the farther lane is
-  open to everyone, holds a fact at the place, and no write is made there.
-  Takes the writes: `[:bea-ends-and-gives]`, Bea ends her own and in the
-  same act gives the asker one beneath it, the road that the generated
-  histories found; `[:cal-ends-and-gives-run]`, Cal ends hers and gives the
-  asker's run one beneath it; `[:root-ends-hers]` and `[:root-ends-the-run]`,
-  the first holder ends the asker's and her run's; `[:near]`, a fact of the
-  nearer lane at the place."
+  `:near`, and whose own holder runs there receive write-only permissions
+  (`{:write :all}`) and ends that never allow seeing."
   [writes]
   (let [tables (reduce write {}
-                       [[:make :near 1] [:make :far 1] [:setting :far :everyone 2]
+                       [[:make :near 1] [:make :far 1] [:open :far 2]
                         [:permission :near (person :root) 2] [:give :near (person :bea) (person :root) 3] [:give :near (person :cal) (person :root) 4]
                         [:fact :near (person :maker) :p :text "n0" 10] [:fact :far (person :maker) :p :text "f0" 11]])
         writes (map-indexed (fn [i [kind]]
                               (case kind
-                                :bea-ends-and-gives     [:end-and-give :near (person :bea) (person :ann) (+ 100 i)]
-                                :cal-ends-and-gives-run [:end-and-give-run :near (person :cal) :run-7 (person :ann) (+ 100 i)]
+                                :bea-write-only         [:give :near (person :ann) (person :bea) (+ 100 i) {:allows {:write :all}}]
+                                :cal-run-write-only     [:give-run :near :run-7 (person :ann) (person :cal) (+ 100 i) {:allows {:write :all}}]
                                 :root-ends-hers         [:end :near (person :ann) (+ 100 i)]
-                                :root-ends-the-run      [:end-run :near :run-7 (+ 100 i)]
+                                :root-ends-the-run      [:end-run :near :run-7 (person :ann) (+ 100 i)]
                                 :near                   [:fact :near (person :maker) :p :text (str "n" i) (+ 100 i)]))
                             writes)]
     (open-live tables writes (q {:asks [:place :p :text] :asker (person :ann) :session :run-7 :lanes [:near :far]}))))
 
 (defn- every-small-own-unseen
-  "Every list of up to three writes of `own-unseen-world`, each played in
-  every order. Gives {:lists :states :tells :wrong}, as `every-small-unseen`
-  does."
   []
   (let [tells (atom 0)
-        options [[:bea-ends-and-gives] [:cal-ends-and-gives-run] [:root-ends-hers] [:root-ends-the-run] [:near]]
+        options [[:bea-write-only] [:cal-run-write-only] [:root-ends-hers] [:root-ends-the-run] [:near]]
         played (with-redefs [told (let [told* told]
                                     (fn [world tell]
                                       (when tell (swap! tells inc))
@@ -868,45 +1062,27 @@
      :wrong (vec (keep (fn [p] (when (:wrong p) (:is p))) played))}))
 
 (defn- stale-chain-world
-  "A world for one place through two lanes, for an asker who may not see
-  the nearer one and who holds pushes on a chain above her that ended: the
-  overnight review of 22 November 2026 (REVIEW-store-2026-11-22.md, P1).
-  The nearer lane is open to its members: `:root` holds its first
-  permission, `:dave` one beneath it, `:bea` one beneath Dave's, and the
-  asker `:ann` one beneath Bea's, for the lane and for her run `:run-7`;
-  then the first holder ends Dave's, so neither of Ann's stands, and
-  writes a fact at the place after that, which Ann never had a right to;
-  then he gives Bea a permission again, straight beneath his own. Ann asks
-  in `:run-7`; the farther lane is open to everyone and holds a fact at
-  the place, and no write is made there. Takes the writes:
-  `[:bea-ends-and-gives]`, Bea gives Ann a permission beneath her new one
-  and ends her own in the same act, so it stands at no stamp;
-  `[:bea-ends-and-gives-run]`, the same for Ann's run; `[:bea-again]`, the
-  first holder gives Bea one again; `[:near]`, a fact of the nearer lane
-  at the place; and `[:bea-gives]`, Bea gives Ann one beneath her own,
-  which stands while Bea's does."
+  "A world for one place through two lanes, where `:ann`'s earlier lent
+  permissions fell when `:dave`'s ended before `\"the secret\"` was written,
+  and `:bea` then receives a new permission from `:root`."
   [writes]
   (let [tables (reduce write {}
-                       [[:make :near 1] [:make :far 1] [:setting :far :everyone 2]
+                       [[:make :near 1] [:make :far 1] [:open :far 2]
                         [:permission :near (person :root) 2] [:give :near (person :dave) (person :root) 3] [:give :near (person :bea) (person :dave) 4]
                         [:give :near (person :ann) (person :bea) 5] [:give-run :near :run-7 (person :ann) (person :bea) 6] [:end :near (person :dave) 7]
                         [:fact :near (person :maker) :p :text "the secret" 8] [:fact :far (person :maker) :p :text "f0" 9]
                         [:give :near (person :bea) (person :root) 10]])
         writes (map-indexed (fn [i [kind]]
                               (case kind
-                                :bea-ends-and-gives     [:end-and-give :near (person :bea) (person :ann) (+ 100 i)]
-                                :bea-ends-and-gives-run [:end-and-give-run :near (person :bea) :run-7 (person :ann) (+ 100 i)]
-                                :bea-again              [:give :near (person :bea) (person :root) (+ 100 i)]
-                                :near                   [:fact :near (person :maker) :p :text (str "n" i) (+ 100 i)]
-                                :bea-gives              [:give :near (person :ann) (person :bea) (+ 100 i)]))
+                                :bea-write-only     [:give :near (person :ann) (person :bea) (+ 100 i) {:allows {:write :all}}]
+                                :bea-run-write-only [:give-run :near :run-7 (person :ann) (person :bea) (+ 100 i) {:allows {:write :all}}]
+                                :bea-again          [:give :near (person :bea) (person :root) (+ 100 i)]
+                                :near               [:fact :near (person :maker) :p :text (str "n" i) (+ 100 i)]
+                                :bea-gives          [:give :near (person :ann) (person :bea) (+ 100 i)]))
                             writes)]
     (open-live tables writes (q {:asks [:place :p :text] :asker (person :ann) :session :run-7 :lanes [:near :far]}))))
 
 (defn- every-small-stale-chain
-  "Every list of up to three of the given writes of `stale-chain-world`,
-  each played in every order. Gives {:lists :states :tells :wrong :given},
-  as `every-small-unseen` does, and `:given`, each text of the nearer lane
-  that a step handed her."
   [options]
   (let [tells (atom 0)
         given (atom #{})
@@ -927,10 +1103,6 @@
      :wrong (vec (keep (fn [p] (when (:wrong p) (:is p))) played))}))
 
 (defn- every-small-unseen
-  "Every list of up to three writes of `unseen-world`, each played in every
-  order. Gives {:lists :states :tells :wrong}: `:tells`, how many times a
-  step handed the asker anything, over every order; `:wrong`, the lists that
-  have an order which ends wrong."
   []
   (let [tells (atom 0)
         options [[:give-run-to-another] [:end-run] [:end-above] [:give-above] [:near]]
@@ -946,9 +1118,6 @@
      :wrong (vec (keep (fn [p] (when (:wrong p) (:is p))) played))}))
 
 (defn- every-small-run
-  "Every list of up to n writes of `run-world`. Takes n, what is asked, and
-  the fault that the player is to make, or nil. Gives {:lists :states
-  :wrong}, as `every-small-standing` does."
   [n asks fault]
   (let [options [[:end-run] [:give-run] [:end-above] [:give-above] [:give-own] [:end-own] [:give-run-to-another] [:near]]
         played (for [writes (lists-up-to n options)]
@@ -958,9 +1127,6 @@
      :wrong (vec (keep (fn [p] (when (:wrong p) (:is p))) played))}))
 
 (defn- every-small-chain
-  "Every list of up to n writes of `chain-world`. Takes n, what is asked, and
-  the fault that the player is to make, or nil. Gives {:lists :states
-  :wrong}, as `every-small-standing` does."
   [n asks fault]
   (let [options [[:end-above] [:give-above] [:end-own] [:give-own] [:give-by-root] [:near]]
         played (for [writes (lists-up-to n options)]
@@ -970,17 +1136,15 @@
      :wrong (vec (keep (fn [p] (when (:wrong p) (:is p))) played))}))
 
 (defn- every-small-standing
-  "Every list of up to n writes of the setting, the permission and the two
-  facts, from four starts. Takes a world, `standing-world` or `base-world`,
-  with the two words of its facts' writes; n; what is asked; and the fault
-  that the player is to make, or nil. Gives {:lists :states :wrong}."
+  "Every list of up to n writes of `:close`, `:open`, `:permission` and the two
+  facts, from four starts."
   [world [nearer farther] n asks fault]
-  (let [options [[:setting :members] [:setting :everyone] [:permission] [nearer] [farther]]
-        played (for [setting [:everyone :members]
+  (let [options [[:close] [:open] [:permission] [nearer] [farther]]
+        played (for [open? [true false]
                      permission? [false true]
                      writes (lists-up-to n options)]
-                 (assoc (every-order (world setting permission? writes asks) fault)
-                        :is [setting permission? writes]))]
+                 (assoc (every-order (world open? permission? writes asks) fault)
+                        :is [open? permission? writes]))]
     {:lists (count played)
      :states (reduce + (map :states played))
      :wrong (vec (keep (fn [p] (when (:wrong p) (:is p))) played))}))
@@ -991,12 +1155,12 @@
 
 (def ^:private traces
   "The tables of the plan's traces. `:alice-notes` and `:team` are streaming
-  and \"members\"; `:base` is microbatch and \"everyone\". Alice holds a
-  permission in the first two, Bob in `:team` only. `:alice-notes` builds
-  on `:team` and `:base`. `:team` marks `:parent` since the stamp 700, the
-  base since 300; `:alice-notes` marks nothing."
+  and closed; `:base` is microbatch and open to `:anyone`. Alice holds a
+  permission in the first two, Bob in `:team` only. `:alice-notes` builds on
+  `:team` and `:base`. `:team` marks `:parent` since the stamp 700, the base
+  since 300; `:alice-notes` marks nothing."
   (reduce write {}
-          [[:make :alice-notes 1] [:make :team 1] [:make :base 1]
+          [[:make :alice-notes 1] [:make :team 1] [:make :base 1] [:open :base 1]
            [:permission :alice-notes (person :alice) 2] [:permission :team (person :alice) 2] [:permission :team (person :bob) 3]
            [:list :alice-notes [:team :base] 4]
            [:marks :team #{:parent} 700] [:marks :base #{:parent} 300]
@@ -1009,21 +1173,14 @@
            [:fact :team (person :bob) :note-41 :text "from the team" 712]]))
 
 (def ^:private chains
-  "Tables in which each permission of the asker's is a given one, so that
-  the rights of every lane take their whole chain. `:start`, `:mid`,
-  `:far` and `:extra` are each open to its members; in each, `:root` holds
-  the first permission, `:bea` one beneath it, `:cal` one beneath the
-  first, the asker `:ann` one beneath Bea's, and her run `:run-7` one of
-  hers beneath Cal's, whose rows above are not hers. `:start` builds on
-  `:mid` and `:far`. Each marks `:parent`; `:mid` and `:far` each hold a
-  place that points at `:canvas-1`, so that a read of what points at it
-  wants checks of nearer lanes, and `:extra` holds one too, for a list
-  that gains it."
+  "Tables in which each permission of the asker's is lent two deep beneath
+  `:root`, and her sitting `:run-7` holds one lent beneath `:cal`."
   (reduce write {}
           (concat
            (for [l [:start :mid :far :extra]
-                 w [[:make l 1] [:setting l :members 2] [:permission l (person :root) 3] [:give l (person :bea) (person :root) 4]
-                    [:give l (person :cal) (person :root) 5] [:give l (person :ann) (person :bea) 6] [:give-run l :run-7 (person :ann) (person :cal) 7]
+                 w [[:make l 1] [:permission l (person :root) 3] [:give l (person :bea) (person :root) 4]
+                    [:give l (person :cal) (person :root) 5] [:give l (person :ann) (person :bea) 6]
+                    [:give-run l :run-7 (person :ann) (person :cal) 7]
                     [:marks l #{:parent} 8]]]
              w)
            [[:list :start [:mid :far] 9]
@@ -1032,39 +1189,75 @@
             [:fact :extra (person :maker) :b3 :parent :canvas-1 22]])))
 
 (defn- play-once-while-written
-  "Plays a read asked once as `play-once` does, with one write while it
-  reads: before the round that `round` names, the write is made in the
-  tables, so that each source fetched from that round on is read from the
-  tables after it. Gives how many rounds fetched something."
+  "Plays a read asked once as `play-once` does, with one write before the
+  select round that `at-round` names. Gives how many select rounds fetched
+  something."
   [tables query at-round a-write]
-  (loop [tables tables round 0 known {}]
-    (let [tables (if (= round at-round) (write tables a-write) tables)
-          missing (:missing (sources/reading query known :once numbers))]
-      (if (or (empty? missing) (< 20 round))
-        round
-        (recur tables (inc round)
-               (into known (map (fn [source] [source (table-value tables source)])) missing))))))
+  (let [bump (fn [epochs sources]
+               (reduce (fn [m lane] (update m lane (fnil inc 0)))
+                       epochs
+                       (distinct (map :lane sources))))]
+    (loop [tables tables sel-round 0 ask-round 0 known {} fact-epochs {} rights-at {}]
+      (let [tables (if (= sel-round at-round) (write tables a-write) tables)
+            at-round (if (= sel-round at-round) -1 at-round)
+            snapshots (into {}
+                            (keep (fn [[lane {:keys [epoch snapshot]}]]
+                                    (when (= epoch (get fact-epochs lane 0))
+                                      [lane snapshot])))
+                            rights-at)
+            reading (sources/reading query known :once numbers nil snapshots)
+            missing (:missing reading)
+            needs-rights (:needs-rights reading)]
+        (cond
+          (or (> sel-round 20) (> ask-round 40)) sel-round
+          (seq missing)
+          (recur tables (inc sel-round) ask-round
+                 (into known (map (fn [source] [source (table-value tables source)])) missing)
+                 (bump fact-epochs missing)
+                 rights-at)
+          (seq needs-rights)
+          (let [snaps (into {}
+                            (map (fn [[_ lane]]
+                                   [lane (run-rights tables lane :see (:asker query) (:session query))]))
+                            needs-rights)]
+            (recur tables sel-round (inc ask-round) known fact-epochs
+                   (reduce (fn [m [lane snap]]
+                             (assoc m lane {:epoch (get fact-epochs lane 0) :snapshot snap}))
+                           rights-at snaps)))
+          :else sel-round)))))
 
 (defn- open-live-while-written
-  "Opens a live read as `open-live` does, with one write while it opens:
-  before the round that `round` names, the write is made, and each push
-  that the read holds takes the value that the tables then give. Gives how
-  many rounds joined something."
+  "Opens a live read as `open-live` does, with one write before the round that
+  `at-round` names. Gives how many rounds ran."
   [tables query at-round a-write]
-  (loop [tables tables held {} round 0]
-    (let [tables (if (= round at-round) (write tables a-write) tables)
-          held (into {} (map (fn [[source _]] [source (table-value tables source)])) held)
-          reading (sources/reading query held :live numbers (set (keys held)))
-          {:keys [join leave]} (sources/moves reading (set (keys held)))]
-      (if (or (and (empty? join) (empty? leave)) (< 40 round))
-        round
+  (loop [tables tables held {} snapshots {} round 0 at-round at-round]
+    (let [[tables held at-round]
+          (if (= round at-round)
+            (let [t (write tables a-write)]
+              [t (into {} (map (fn [[source _]] [source (table-value t source)])) held) -1])
+            [tables held at-round])
+          reading (sources/reading query held :live numbers (set (keys held)) snapshots)
+          {:keys [join leave]} (sources/moves reading (set (keys held)))
+          needs-rights (:needs-rights reading)]
+      (cond
+        (> round 40) round
+        (or (seq join) (seq leave))
         (recur tables
                (into (reduce dissoc held leave) (map (fn [source] [source (table-value tables source)])) join)
-               (inc round))))))
+               snapshots
+               (inc round)
+               at-round)
+        (seq needs-rights)
+        (let [snaps (into {}
+                          (map (fn [[_ lane]]
+                                 [lane (run-rights tables lane :see (:asker query) (:session query))]))
+                          needs-rights)]
+          (recur tables held (merge snapshots snaps) (inc round) at-round))
+        :else round))))
 
 (defn- live-rounds
   "Opens a live read of a query on the traces' tables. Gives how many rounds
-  joined something, and how many pushes the read holds."
+  ran, and how many pushes the read holds."
   [query]
   (let [world (open-live traces [] query)]
     [(:rounds world) (count (:held world))]))
@@ -1075,12 +1268,12 @@
   (let [refuses (fn [thing] (let [{:keys [refuse at]} (query/check thing)] [refuse at]))
         good {:asks [:place :note-41 :text] :asker (person :alice) :lanes [:team]}
         forms {"a place"                 {:asks [:place :note-41 :text] :asker (person :alice) :lanes [:team]}
-               "an entity"               {:asks [:entity :note-41] :asker (person :alice) :from-lane :team}
-               "a run of keys"           {:asks [:run [:e :a] [:e :m]] :asker (person :alice) :lanes [:team]}
-               "a run of entities"       {:asks [:run [:e1] [:e2]] :asker (person :alice) :lanes [:team]}
+               "an entity"               {:asks [:entity :note-41] :asker (agent :ada) :from-lane :team}
+               "a run of keys"           {:asks [:run [:e :a] [:e :m]] :asker (run :r1) :lanes [:team]}
+               "a run of entities"       {:asks [:run [:e1] [:e2]] :asker :system :lanes [:team]}
                "a run from an entity on" {:asks [:run [:e] :last] :asker (person :alice) :lanes [:team]}
                "a whole lane"           {:asks [:run :first :last] :not-signed-in true :lanes [:base]}
-               "a run to a place"        {:asks [:run :first [:e :k]] :asker (UUID. 1 2) :lanes '(:team)}
+               "a run to a place"        {:asks [:run :first [:e :k]] :asker (person (UUID. 1 2)) :lanes '(:team)}
                "what points at a thing"  {:asks [:points-at :parent (UUID. 0 7)] :asker (person :alice) :lanes [:team]
                                           :with #{:writer :permission} :stores-own-facts true}
                "a place, with each part of a row" {:asks [:place :note-41 :text] :asker (person :alice) :lanes [:team]
@@ -1103,7 +1296,11 @@
                 ["a read of acts of no count"      (assoc good :asks [:acts 0 0])                   [:acts-not-named :asks]]
                 ["a read of acts from a start that is no whole number" (assoc good :asks [:acts 1.5 5]) [:acts-not-named :asks]]
                 ["a read of acts of two lanes"    (assoc good :asks [:acts 0 5] :lanes [:team :base]) [:acts-not-of-one-lane :lanes]]
-                ["an asker that is no id"          (assoc good :asker "alice")                      [:asker-is-no-id :asker]]
+                ["an asker that is no party"       (assoc good :asker "alice")                      [:asker-not-a-party :asker]]
+                ["an asker that is a bare keyword" (assoc good :asker :asha)                        [:asker-not-a-party :asker]]
+                ["anyone as the asker"             (assoc good :asker :anyone)                      [:asker-not-a-party :asker]]
+                ["anyone signed in as the asker"   (assoc good :asker :anyone-signed-in)            [:asker-not-a-party :asker]]
+                ["an asker that is a UUID"         (assoc good :asker (UUID. 1 2))                  [:asker-not-a-party :asker]]
                 ["no asker"                        (dissoc good :asker)                             [:no-one-asker :asker]]
                 ["an asker, and not signed in"     (assoc good :not-signed-in true)                 [:no-one-asker :asker]]
                 ["not signed in, said with false"  (assoc (dissoc good :asker) :not-signed-in false) [:no-one-asker :not-signed-in]]
@@ -1127,7 +1324,7 @@
                 ["a run that ends at :first"       (assoc good :asks [:run [:e] :first])            [:run-ends-out-of-order :asks]]
                 ["a run whose end holds a letter outside the first plane" (assoc good :asks [:run [:e] [(keyword (str "x" (String. (Character/toChars 0x1D49C))))]]) [:run-end-not-ordered :asks]]
                 ["a run whose end holds a letter from U+E000 on" (assoc good :asks [:run [(keyword "x\uFB00") :k] :last]) [:run-end-not-ordered :asks]]
-                ["a place under a store key, not asked for" (assoc good :asks [:place :team :softland.store/who-may-see]) [:store-key-not-asked-for :asks]]
+                ["a place under a store key, not asked for" (assoc good :asks [:place :team :softland.store/depot]) [:store-key-not-asked-for :asks]]
                 ["what points at, under a store key" (assoc good :asks [:points-at :softland.store/permission :x] :stores-own-facts true) [:store-key-not-asked-for :asks]]
                 ["a :stores-own-facts that is no true or false" (assoc good :stores-own-facts "yes") [:not-a-query :stores-own-facts]]]
         given (set (map (comp first #(nth % 2)) faults))
@@ -1175,7 +1372,7 @@
             :max-pushes-under-one-routing-id 900 :max-paths-in-one-call 2000 :wait-ms 10000
             :max-acts-of-one-read 1000 :max-thing-weight-of-one-read 33554432}
            query/default-numbers)
-    (shown "the form of a query:" (count forms) "queries are taken, one for each word and each kind of end;"
+    (shown "the form of a query:" (count forms) "queries are taken, one for each word, party kind and kind of end;"
            (count faults) "faults are each turned away with a word and the part,"
            (count given) "different words, every word that the declaration holds:" (pr-str (sort given)))
     (shown "the check never throws: a thing that throws when it is read gives :not-a-query, and a list of lanes with no end gives :too-many-lanes after 66 are counted")))
@@ -1190,11 +1387,12 @@
 
 (deftest the-lanes
   (let [own (fn [lane] (table-value traces (sources/own-rows-source lane lane)))
-        permission (fn [lane who] (table-value traces (sources/permission-source lane lane who)))
+        standing-in (fn [tables lane asker session] (lanes/standing (rights-state tables lane asker session)))
         from (q {:asks [:place :note-41 :text] :asker (person :alice) :from-lane :alice-notes})
         points (q {:asks [:points-at :parent :canvas-1] :asker (person :bob) :lanes [:team]})
-        with-setting (fn [word stamp] (table-value (write traces [:setting :team word stamp]) (sources/own-rows-source :team :team)))
-        with-list (fn [listed] (table-value (write traces [:list :alice-notes listed 900]) (sources/own-rows-source :alice-notes :alice-notes)))
+        with-list-on (fn [lane listed stamp]
+                       (table-value (write traces [:list lane listed stamp]) (sources/own-rows-source lane lane)))
+        with-list (fn [listed] (with-list-on :alice-notes listed 900))
         with-mark (fn [marked] (table-value (write traces [:marks :team marked 900]) (sources/own-rows-source :team :team)))]
     (check "the lanes of a list: each once, at its first place"
            [:alice-notes :team :nowhere :base]
@@ -1223,131 +1421,211 @@
               [(lanes/home nowhere) (lanes/in-order nowhere {} :not-made)])
             (let [bob-from (assoc from :asker (person :bob))]
               [(lanes/home bob-from) (lanes/in-order bob-from (own :alice-notes) :may-not-see)])])
-    (check "a permission beneath another, in a lane open to its members: she may see the lane while each permission above hers stands with an older row. The one above ends: she may not. The one above is given again: hers is older, and she still may not. Hers is given again: she may. Her own ends: she may not. A row above that is not read: not known yet"
-           [:yes :may-not-see :may-not-see :yes :may-not-see :not-known-yet]
-           (let [lab [[:make :lab 1] [:permission :lab (person :root) 2] [:give :lab (person :bea) (person :root) 3] [:give :lab (person :cal) (person :bea) 4]]
-                 of (fn [more read-above?]
-                      (let [tables (reduce write {} (concat lab more))
-                            row (table-value tables (sources/permission-source :lab :lab (person :cal)))
-                            known (if read-above?
-                                    (into {} (map (fn [source] [source (table-value tables source)]))
-                                          (sources/chain-sources :lab :lab row))
-                                    {})]
-                        (lanes/standing :lab (table-value tables (sources/own-rows-source :lab :lab))
-                                         (lanes/permission-state :lab row (sources/chain-rows :lab :lab row known))
-                                         true)))]
-             [(of [] true)
-              (of [[:end :lab (person :bea) 5]] true)
-              (of [[:end :lab (person :bea) 5] [:give :lab (person :bea) (person :root) 6]] true)
-              (of [[:end :lab (person :bea) 5] [:give :lab (person :bea) (person :root) 6] [:give :lab (person :cal) (person :bea) 7]] true)
-              (of [[:end :lab (person :cal) 5]] true)
-              (of [] false)]))
-    (check "an asker who asks in a run, in a lane open to its members: she may see it under the run's permission when it names her as its holder and stands; not when the query names no run or another run; not when the run's permission names another holder; not when it is ended, or the one above it is; and under her permission for the lane whatever her run holds"
+    (check "lent and standing permissions in a lane: a lent permission lets her see while each permission it is lent from stands and allows seeing; when the lender ends, or is lowered to write-only, she may not; a new permission to the lender on a new id does not bring hers back; a standing give to a person stays when her inviter's ends; an unfinished rights walk is not known yet"
+           [:yes :may-not-see :may-not-see :yes :may-not-see :yes :yes :not-known-yet]
+           (let [bea-id (uuid-of [:bea-1])
+                 lab [[:make :lab 1]
+                      [:permission :lab (person :root) 2]
+                      [:give :lab (person :bea) (person :root) 3 {:id bea-id :lent? false}]
+                      [:give :lab (person :cal) (person :bea) 4]]
+                 of (fn [more] (standing-in (reduce write {} (concat lab more)) :lab (person :cal) nil))]
+             [(of [])
+              (of [[:end :lab (person :bea) 5]])
+              (of [[:end :lab (person :bea) 5] [:give :lab (person :bea) (person :root) 6]])
+              (of [[:end :lab (person :bea) 5] [:give :lab (person :bea) (person :root) 6] [:give :lab (person :cal) (person :bea) 7]])
+              (of [[:change :lab bea-id {:write :all} 5]])
+              (of [[:change :lab bea-id {:write :all} 5] [:change :lab bea-id perm/member-allows 6]])
+              (standing-in (reduce write {} (concat lab [[:end :lab (person :root) 5]])) :lab (person :bea) nil)
+              (lanes/standing (lanes/rights (lanes/rights-begin :lab (person :cal) nil)))]))
+    (check "lane-rights unions across multiple permissions of a holder, reads :anyone first on :see, lets a person and no agent see through :anyone-signed-in, lets an agent see when lent from :anyone, and returns :too-many-permissions past the 32 holder-scan or lent-chain bound"
+           [:yes true :yes :may-not-see :yes :yes :too-many-permissions :too-many-permissions [true false false]]
+           (let [multi (reduce write {}
+                               [[:make :lab 1]
+                                [:permission :lab (person :root) 2]
+                                [:give :lab (person :cal) (person :root) 3 {:allows {:write :all}}]
+                                [:give :lab (person :cal) (person :root) 4 {:allows {:see true}}]])
+                 open-lab (reduce write {} [[:make :lab 1] [:permission :lab (person :root) 2] [:open :lab 3]])
+                 signed-in-id (uuid-of [:signed-in])
+                 signed-in-lab (reduce write {}
+                                       [[:make :lab 1]
+                                        [:permission :lab (person :root) 2]
+                                        [:give :lab :anyone-signed-in (person :root) 3 {:id signed-in-id :allows {:see true :write :all} :lent? false}]])
+                 agent-lent (let [open-id (first-act/first-anyone-id :lab)
+                                  agent-id (uuid-of [:agent-borrow])]
+                              (grant-perm open-lab :streaming :lab (person :cal) open-id agent-id
+                                          {:holder (agent :ada) :allows {:see true} :covers [:default-group :lab]
+                                           :given-by (person :cal) :under open-id :lent-from open-id}
+                                          4))
+                 deep-chain (fn [depth]
+                              (loop [t (reduce write {} [[:make :lab 1] [:permission :lab (person :root) 2]])
+                                     parent-id (standing-perm-id :lab (person :root))
+                                     d 2]
+                                (if (> d depth)
+                                  t
+                                  (let [id (uuid-of [:chain d])]
+                                    (recur (grant-perm t :streaming :lab (person :root) parent-id id
+                                                       {:holder (if (= d depth) (agent :ada) (person :bea))
+                                                        :allows {:see true}
+                                                        :covers [:default-group :lab]
+                                                        :given-by (person :root)
+                                                        :under parent-id
+                                                        :lent-from parent-id}
+                                                       d)
+                                           id
+                                           (inc d))))))
+                 flood (reduce (fn [t i]
+                                 (write t [:give :lab (agent :ada) (person :root) (+ 10 i) {:allows {:write :all}}]))
+                               (reduce write {} [[:make :lab 1] [:permission :lab (person :root) 2]])
+                               (range 33))]
+             [(standing-in multi :lab (person :cal) nil)
+              (= (run-rights open-lab :lab :see (person :cal) :sit-1)
+                 (run-rights open-lab :lab :see nil nil))
+              (standing-in signed-in-lab :lab (person :cal) nil)
+              (standing-in signed-in-lab :lab (agent :ada) nil)
+              (standing-in agent-lent :lab (agent :ada) nil)
+              (standing-in (deep-chain 32) :lab (agent :ada) nil)
+              (standing-in (deep-chain 33) :lab (agent :ada) nil)
+              (standing-in flood :lab (agent :ada) nil)
+              [(lanes/valid-rights-query? :team :base :see (person :alice) :s1)
+               (lanes/valid-rights-query? :alice-notes :team :see (person :alice) :s1)
+               (lanes/valid-rights-query? :team :team :unknown (person :alice) nil)]]))
+    (check "an asker who asks in a sitting: she sees the lane under a permission for that sitting when it is hers and stands; not in no sitting or another sitting; not under another holder's sitting permission; not when ended or when its lender ended; and under her any-sitting permission whatever the sitting holds"
            [:yes :may-not-see :may-not-see :may-not-see :may-not-see :may-not-see :yes :not-known-yet]
-           (let [lab [[:make :lab 1] [:permission :lab (person :root) 2] [:give :lab (person :bea) (person :root) 3] [:give-run :lab :run-7 (person :cal) (person :bea) 4]]
-                 of (fn [more asker session read?]
-                      (let [tables (reduce write {} (concat lab more))
-                            query (q (cond-> {:asks [:place :p :text] :asker asker :lanes [:lab]} session (assoc :session session)))
-                            known (if read? (:known (play-once tables query)) {})]
-                        (lanes/standing :lab (table-value tables (sources/own-rows-source :lab :lab))
-                                         (sources/permission-state query :lab :lab known) true)))]
-             [(of [] (person :cal) :run-7 true)
-              (of [] (person :cal) nil true)
-              (of [] (person :cal) :run-8 true)
-              (of [] (person :dov) :run-7 true)
-              (of [[:end-run :lab :run-7 5]] (person :cal) :run-7 true)
-              (of [[:end :lab (person :bea) 5]] (person :cal) :run-7 true)
-              (of [[:end-run :lab :run-7 5] [:give :lab (person :cal) (person :root) 6]] (person :cal) :run-7 true)
-              (of [] (person :cal) :run-7 false)]))
-    (check "the standing: the seven lines of its table"
-           [:not-known-yet :not-made :yes :may-not-see :not-known-yet :yes :may-not-see]
-           [(lanes/standing :team nil (lanes/permission-state :team :not-known-yet {}) true)
-            (lanes/standing :nowhere (own :nowhere) (lanes/permission-state :nowhere nil {}) true)
-            (lanes/standing :base (own :base) (lanes/permission-state :base :not-known-yet {}) true)
-            (lanes/standing :team (own :team) (lanes/permission-state :team :not-known-yet {}) false)
-            (lanes/standing :team (own :team) (lanes/permission-state :team :not-known-yet {}) true)
-            (lanes/standing :team (own :team) (lanes/permission-state :team (permission :team (person :bob)) {}) true)
-            (lanes/standing :alice-notes (own :alice-notes) (lanes/permission-state :alice-notes (permission :alice-notes (person :bob)) {}) true)])
-    (check "what no fact reads as: a lane with no setting is members, the base is everyone, a list is nothing, no key is marked"
-           [:members :everyone [] nil]
-           [(lanes/who-may-see (own :team) :team) (lanes/who-may-see (own :base) :base)
-            (lanes/builds-on (own :team) :team) (lanes/marked-since (own :alice-notes) :alice-notes :parent)])
+           (let [lab [[:make :lab 1] [:permission :lab (person :root) 2] [:give :lab (person :bea) (person :root) 3]
+                      [:give-run :lab :run-7 (person :cal) (person :bea) 4]]
+                 of (fn [more asker session]
+                      (standing-in (reduce write {} (concat lab more)) :lab asker session))]
+             [(of [] (person :cal) :run-7)
+              (of [] (person :cal) nil)
+              (of [] (person :cal) :run-8)
+              (of [] (person :dov) :run-7)
+              (of [[:end-run :lab :run-7 (person :cal) 5]] (person :cal) :run-7)
+              (of [[:end :lab (person :bea) 5]] (person :cal) :run-7)
+              (of [[:end-run :lab :run-7 (person :cal) 5] [:give :lab (person :cal) (person :root) 6]] (person :cal) :run-7)
+              (sources/lane-standing :lab :lab :live {:lab (run-rights (reduce write {} lab) :lab :see (person :cal) :run-7)} {})]))
+    (check "the standing and live read-set validation: the five outcomes of standing, and live standing holds only while open pushes match :read-set stamps entry for entry"
+           [[:not-known-yet :not-made :too-many-permissions :yes :may-not-see]
+            [:yes :not-known-yet :not-known-yet]]
+           (let [snap (run-rights traces :base :see (person :alice) nil)
+                 own-src (sources/own-rows-source :base :base)
+                 anyone-holders (sources/holders-source :base :base ":base :anyone * " ":base :anyone *!")
+                 anyone-perm (sources/permission-row-source :base :base (chain/place :base (first-act/first-anyone-id :base)))
+                 known-ok {own-src (table-value traces own-src)
+                           anyone-holders (table-value traces anyone-holders)
+                           anyone-perm (table-value traces anyone-perm)}
+                 known-stale (assoc-in known-ok [anyone-perm :stamp] 999)
+                 known-missing (dissoc known-ok anyone-holders)]
+             [[(lanes/standing nil)
+               (lanes/standing {:made? false :sees? false :standing :may-not-see})
+               (lanes/standing {:made? true :sees? false :standing :too-many-permissions})
+               (lanes/standing {:made? true :sees? true :standing :yes})
+               (lanes/standing {:made? true :sees? false :standing :may-not-see})]
+              [(sources/lane-standing :base :base :live {:base snap} known-ok)
+               (sources/lane-standing :base :base :live {:base snap} known-stale)
+               (sources/lane-standing :base :base :live {:base snap} known-missing)]]))
+    (check "what no fact reads as: no lane is open by code, who may read acts starts at members, a list is nothing, no key is marked"
+           [nil :members [] nil]
+           [(first-act/starts-with :base :softland.store/who-may-see)
+            (lanes/who-may-read-acts (own :team) :team)
+            (lanes/builds-on (own :team) :team)
+            (lanes/marked-since (own :alice-notes) :alice-notes :parent)])
     (check "a person who is not signed in sees the base and no members lane; the system is a who like any other"
            [:yes :may-not-see :may-not-see]
-           [(lanes/standing :base (own :base) (lanes/permission-state :base :not-known-yet {}) false)
-            (lanes/standing :team (own :team) (lanes/permission-state :team :not-known-yet {}) false)
-            (lanes/standing :team (own :team) (lanes/permission-state :team (permission :team :system) {}) true)])
-    (check "a setting that is written again with the same word: the row differs, and its meaning does not"
+           [(standing-in traces :base nil nil)
+            (standing-in traces :team nil nil)
+            (standing-in traces :team :system nil)])
+    (check "a list that is written again with the same lanes: the row differs, and its meaning does not"
            [false true]
-           (let [again (with-setting :members 900)]
-             [(rows/same-row? (get (own :team) (rows/place-key :team :team :softland.store/who-may-see))
-                              (get again (rows/place-key :team :team :softland.store/who-may-see)))
-              (= (lanes/meaning points :team (with-setting :members 800) (lanes/permission-state :team (permission :team (person :bob)) {}) true)
-                 (lanes/meaning points :team again (lanes/permission-state :team (permission :team (person :bob)) {}) true))]))
+           (let [again (with-list-on :alice-notes [:team :base] 900)]
+             [(rows/same-row? (get (own :alice-notes) (rows/place-key :alice-notes :alice-notes :softland.store/builds-on))
+                              (get again (rows/place-key :alice-notes :alice-notes :softland.store/builds-on)))
+              (= (lanes/meaning from :alice-notes (own :alice-notes) :yes)
+                 (lanes/meaning from :alice-notes again :yes))]))
     (check "a list, and a mark of the asked key, that are written in a lane that she may not see mean the same before and after"
            [true true]
            (let [carol-from (assoc from :asker (person :carol))
                  carol-points (assoc points :asker (person :carol))]
-             [(= (lanes/meaning carol-from :alice-notes (own :alice-notes) (lanes/permission-state :alice-notes nil {}) true)
-                 (lanes/meaning carol-from :alice-notes (with-list [:base]) (lanes/permission-state :alice-notes nil {}) true))
-              (= (lanes/meaning carol-points :team (own :team) (lanes/permission-state :team nil {}) true)
-                 (lanes/meaning carol-points :team (with-mark #{}) (lanes/permission-state :team nil {}) true))]))
+             [(= (lanes/meaning carol-from :alice-notes (own :alice-notes) :may-not-see)
+                 (lanes/meaning carol-from :alice-notes (with-list [:base]) :may-not-see))
+              (= (lanes/meaning carol-points :team (own :team) :may-not-see)
+                 (lanes/meaning carol-points :team (with-mark #{}) :may-not-see))]))
     (check "for an asker who may see the lane, a list that is written again and a mark that is taken off mean another thing"
            [false false]
-           [(= (lanes/meaning from :alice-notes (own :alice-notes) (lanes/permission-state :alice-notes (permission :alice-notes (person :alice)) {}) true)
-               (lanes/meaning from :alice-notes (with-list [:base]) (lanes/permission-state :alice-notes (permission :alice-notes (person :alice)) {}) true))
-            (= (lanes/meaning points :team (own :team) (lanes/permission-state :team (permission :team (person :bob)) {}) true)
-               (lanes/meaning points :team (with-mark #{}) (lanes/permission-state :team (permission :team (person :bob)) {}) true))])
-    (check "a setting that goes to members for an asker who holds a permission means another thing, though her standing stays yes"
-           [false :yes :yes]
-           (let [everyone (with-setting :everyone 800)
-                 members (with-setting :members 900)]
-             [(= (lanes/meaning points :team everyone (lanes/permission-state :team (permission :team (person :bob)) {}) true)
-                 (lanes/meaning points :team members (lanes/permission-state :team (permission :team (person :bob)) {}) true))
-              (lanes/standing :team everyone (lanes/permission-state :team (permission :team (person :bob)) {}) true)
-              (lanes/standing :team members (lanes/permission-state :team (permission :team (person :bob)) {}) true)]))
+           [(= (lanes/meaning from :alice-notes (own :alice-notes) :yes)
+               (lanes/meaning from :alice-notes (with-list [:base]) :yes))
+            (= (lanes/meaning points :team (own :team) :yes)
+               (lanes/meaning points :team (with-mark #{}) :yes))])
+    (check "closing an open lane invalidates the snapshot that rested on everyone, turning live meaning to not-known-yet, while a fresh snapshot for a member keeps her standing yes"
+           [false :not-known-yet :yes]
+           (let [open-team (write traces [:open :team 800])
+                 snap-open (run-rights open-team :team :see (person :bob) nil)
+                 closed-team (write open-team [:close :team 900])
+                 known-closed (into {}
+                                    (map (fn [s] [s (table-value closed-team s)]))
+                                    (conj (sources/read-set-sources :team :team (:read-set snap-open))
+                                          (sources/own-rows-source :team :team)))
+                 st-stale (sources/lane-standing :team :team :live {:team snap-open} known-closed)
+                 st-fresh (standing-in closed-team :team (person :bob) nil)]
+             [(= (lanes/meaning points :team (table-value open-team (sources/own-rows-source :team :team)) :yes)
+                 (lanes/meaning points :team (table-value closed-team (sources/own-rows-source :team :team)) st-stale))
+              st-stale
+              st-fresh]))
     (check "what an answer says of a lane that it left out: the lane and why, and nothing else"
            {:lane :alice-notes :why :may-not-see} (lanes/left-out :alice-notes :may-not-see))
     (shown "the lanes: a list gives each lane once at its first place; from a lane the read looks in the lane and then in the lanes of its own fact, and no further; a start lane that she may not see gives itself alone")
     (shown "the home of a read is the lane that it starts from, read from the query alone: the first lane of :lanes, or :from-lane, whatever is asked, whoever asks and whatever the tables hold of that lane")
-    (shown "the standing: the seven lines of its table hold; a lane with no setting reads as members, the base as everyone; a row that is written again with the same word, and a list or a mark of a lane that she may not see, mean the same before and after")))
+    (shown "lane-rights: reads :anyone first on :see, unions across multiple permissions, walks lent chains up to 32, caps rights by lenders, returns :too-many-permissions past 32, and holds live standing to entry-for-entry :read-set stamp equality")))
 
 (deftest a-step-that-joins-or-leaves-a-source-owes-the-whole-answer
-  (let [;; a fact's step that finds the new setting first and joins her permission
-        world (standing-world :everyone true [[:setting :members] [:near]] [:place :p :text])
+  (let [;; `:near` starts open to `:anyone` while `:ann` also holds her own permission;
+        ;; closing `:near` while `:near`'s fact changes invalidates the `:anyone` snapshot,
+        ;; joins her own permission watches, tells nothing yet, and owes the whole answer.
+        world (standing-world true true [[:close] [:near]] [:place :p :text])
         after-writes (-> world (move [:write] nil) (move [:write] nil))
-        setting (sources/own-rows-source :near :near)
+        anyone-holders (sources/holders-source :near :near ":near :anyone * " ":near :anyone *!")
+        anyone-perm (sources/permission-row-source :near :near (chain/place :near (first-act/first-anyone-id :near)))
         fact (sources/place-source :near :near :p :text)
-        both-taken (-> after-writes (move [:take setting] nil) (move [:take fact] nil))
-        fact-first (move both-taken [:handle fact] nil)
-        permission (sources/permission-source :near :near (person :ann))
-        given-her (-> fact-first (move [:serve permission] nil) (move [:arrive permission] nil))
+        ann-perm (sources/permission-row-source :near :near (chain/place :near (standing-perm-id :near (person :ann))))
+        re-queried (-> after-writes
+                       (move [:take anyone-holders] nil)
+                       (move [:take anyone-perm] nil)
+                       (move [:take fact] nil)
+                       (move [:handle fact] nil)
+                       (move [:handle anyone-holders] nil)
+                       (move [:handle anyone-perm] nil)
+                       (move [:serve-rights :near] nil)
+                       (move [:arrive-rights :near] nil))
+        newly-asked (vec (for [[src push] (:pushes re-queried) :when (= :asked (:phase push))] src))
+        given-her (reduce (fn [w src] (-> w (move [:serve src] nil) (move [:arrive src] nil)))
+                          re-queried
+                          newly-asked)
         ;; a step that leaves an order whose mark was taken off
-        marked (reduce write {} [[:make :l1 1] [:setting :l1 :everyone 2] [:marks :l1 #{:parent} 3]
+        marked (reduce write {} [[:make :l1 1] [:open :l1 2] [:marks :l1 #{:parent} 3]
                                  [:fact :l1 (person :maker) :p :parent :canvas-1 11]])
         open (open-live marked [[:marks :l1 #{} 100]] (q {:asks [:points-at :parent :canvas-1] :asker (person :ann) :lanes [:l1]}))
         own (sources/own-rows-source :l1 :l1)
         unmarked (-> open (move [:write] nil) (move [:take own] nil) (move [:handle own] nil))]
-    (check "a fact's step that sees the new setting first joins her permission, tells nothing of its place, and owes"
+    (check "when the give to everyone ends while a fact changes, the read joins her own permission watches, tells nothing of its place yet, and owes"
            [true true (:screen world)]
-           [(contains? (:held fact-first) permission) (true? (:owed? fact-first)) (:screen fact-first)])
+           [(contains? (:held re-queried) ann-perm) (true? (:owed? re-queried)) (:screen re-queried)])
     (check "when her permission is given, the whole answer comes, with the fact in it, and the mark is taken off"
            [false "n1" :near]
            [(true? (:owed? given-her)) (get-in given-her [:screen :place :value]) (get-in given-her [:screen :place :lane])])
     (check "a step that leaves an order whose mark was taken off gives the whole answer anew, with not-marked and no place"
-           [false {} [{:lane :l1 :not-marked true}] 1]
+           [false {} [{:lane :l1 :not-marked true}] 3]
            [(true? (:owed? unmarked)) (get-in unmarked [:screen :places]) (get-in unmarked [:screen :orders]) (count (:held unmarked))])
-    (shown "a step that joins or leaves a source that is no check owes the whole answer: a fact's step that joins her permission tells nothing and owes, and the arrival of her permission gives the answer with the fact; a step that leaves an order gives the answer anew with :not-marked")))
+    (shown "a step that joins or leaves a source that is no check owes the whole answer: closing a public lane joins her own permission watches and owes until they arrive; taking off a mark leaves the order push and gives the whole answer anew")))
 
 (deftest the-sources
   (let [digest (rows/value-digest-of :canvas-1)
         own-rows (fn [lane] (table-value traces (sources/own-rows-source lane lane)))
-        ;; what a word reads in one lane, for a read whose home is `home`
+        alice-team-id (standing-perm-id :team (person :alice))
+        alice-base-id (standing-perm-id :base (person :alice))
         of (fn [asks home lane]
              ((get sources/of-word (first asks)) (q (merge alice {:asks asks :lanes (vec (distinct [home lane]))}))
               lane (own-rows lane)))
-        ;; every source of a lane that a read asked once came to read
         read-in (fn [query lane] (set (filter #(= lane (:lane %)) (keys (:known (play-once traces query))))))
+        held-in (fn [query lane] (set (filter #(= lane (:lane %)) (:held (open-live traces [] query)))))
         asks-of-each-word [[:place :note-41 :text] [:entity :note-41] [:run [:note-41 :a] [:note-41 :z]]
                            [:run [:block-1] [:note-9]] [:run :first :last] [:points-at :parent :canvas-1]]]
     (check "the lane's own rows: one run of the lane's own entity under the store's namespace. A streaming lane's routing id is the lane, whatever the home; the base's is the home"
@@ -1359,14 +1637,19 @@
              :path [:own-rows ":base :base :softland.store/" ":base :base :softland.store0"]}]
            [(sources/own-rows-source :alice-notes :team) (sources/own-rows-source :team :base)
             (sources/own-rows-source :base :base)])
-    (check "her permission: one row, on its holder; in the base under the home"
-           [{:gate :streaming :table :facts :lane :team :routing-id :team :path [:row ":team :alice :softland.store/permission"]}
+    (check "a holder run in permissions-by-holder and a permission row on its own UUID: in a streaming lane under the lane, and in the base under the home"
+           [{:gate :streaming :table :permissions-by-holder :lane :team :routing-id :team
+             :path [:holders ":team :person.alice * " ":team :person.alice *!"]}
+            {:gate :microbatch :table :permissions-by-holder :lane :base :routing-id :team
+             :path [:holders ":base :anyone * " ":base :anyone *!"]}
+            {:gate :streaming :table :facts :lane :team :routing-id :team
+             :path [:row (chain/place :team alice-team-id)]}
             {:gate :microbatch :table :facts :lane :base :routing-id :team
-             :path [:row ":base :alice :softland.store/permission"]}
-            {:gate :microbatch :table :facts :lane :base :routing-id :base
-             :path [:row ":base :alice :softland.store/permission"]}]
-           [(sources/permission-source :alice-notes :team (person :alice)) (sources/permission-source :team :base (person :alice))
-            (sources/permission-source :base :base (person :alice))])
+             :path [:row (chain/place :base alice-base-id)]}]
+           [(apply sources/holders-source :alice-notes :team (rows/by-holder-run :team (person :alice) nil))
+            (apply sources/holders-source :team :base (rows/by-holder-run :base :anyone nil))
+            (sources/permission-row-source :alice-notes :team (chain/place :team alice-team-id))
+            (sources/permission-row-source :team :base (chain/place :base alice-base-id))])
     (check "a place: the lane routes a streaming lane, the home a microbatch lane, and never the entity"
            [[{:gate :streaming :table :facts :lane :team :routing-id :team :path [:row ":team :note-41 :text"]}]
             [{:gate :microbatch :table :facts :lane :base :routing-id :team :path [:row ":base :note-41 :text"]}]
@@ -1407,14 +1690,14 @@
            [true true {:gate :microbatch :table :facts :lane :base :routing-id :alice-notes :path [:row ":base :block-3 :parent"]}]
            [(= (sources/place-source :team :team :block-1 :parent) (sources/check-source :team :team :block-1 :parent))
             (= (sources/place-source :team :base :block-1 :parent) (sources/check-source :team :base :block-1 :parent))
-            ;; the base as a nearer lane of a read that starts from her notes: the place of the team's own order is checked in it
             (get-in (:reading (play-once traces (q (merge alice {:asks [:points-at :parent :canvas-1] :lanes [:alice-notes :base :team]}))))
                     [:by-lane :base :checks [:block-3 :parent]])])
-    (check "a source of a streaming lane is the same under every home: the lane's own rows, a permission, a place, a check, a run and the order by value"
-           [true true true true true true]
+    (check "a source of a streaming lane is the same under every home: the lane's own rows, a holder run, a permission row, a place, a check, a run and the order by value"
+           [true true true true true true true]
            (mapv (fn [make] (apply = (map make [:team :alice-notes :base :nowhere])))
                  [#(sources/own-rows-source % :team)
-                  #(sources/permission-source % :team (person :alice))
+                  #(apply sources/holders-source % :team (rows/by-holder-run :team (person :alice) nil))
+                  #(sources/permission-row-source % :team (chain/place :team alice-team-id))
                   #(sources/place-source % :team :note-41 :text)
                   #(sources/check-source % :team :block-1 :parent)
                   #(sources/run-source % :team ":team :a " ":team :b!")
@@ -1426,26 +1709,33 @@
                          (mapcat (fn [asks] (map :routing-id (read-in (q (merge alice {:asks asks :lanes lanes})) :base))))
                          asks-of-each-word))
                  [[:alice-notes :team :base] [:alice-notes :base :team] [:team :base] [:base]]))
-    (check "each word reads the base as one fact source, and the base's rights as two: its own rows and her permission"
-           [[1 1 1 1 1 1] [[:own-rows :row] [:own-rows :row] [:own-rows :row] [:own-rows :row] [:own-rows :row] [:own-rows :row]]]
+    (check "each word reads the base as one fact source; asked once it reads the base's own rows and asks lane-rights, and kept live it adds the shared :anyone watches"
+           [[1 1 1 1 1 1]
+            [[:own-rows] [:own-rows] [:own-rows] [:own-rows] [:own-rows] [:own-rows]]
+            [:holders :own-rows :row]]
            (let [read (fn [asks]
                         (let [query (q (merge alice {:asks asks :lanes [:team :base]}))
                               {:keys [reading known]} (play-once traces query)]
                           [(count (get-in reading [:by-lane :base :facts]))
                            (vec (sort (map (comp first :path)
-                                           (filter #(and (= :base (:lane %)) (sources/rights-kind query %)) (keys known)))))]))]
-             [(mapv (comp first read) asks-of-each-word) (mapv (comp second read) asks-of-each-word)]))
-    (check "two reads with one home have equal sources for the base: a list, a longer list and a start lane whose list is the longer one; two askers with one home share the base's own rows and the place, and each has her own permission row"
-           [true true 3
-            #{[:own-rows ":base :base :softland.store/" ":base :base :softland.store0"] [:row ":base :note-41 :text"]}]
+                                           (filter #(and (= :base (:lane %)) (sources/rights-kind query %)) (keys known)))))]))
+                 live-q (q (merge alice {:asks [:place :note-41 :text] :lanes [:team :base]}))]
+             [(mapv (comp first read) asks-of-each-word)
+              (mapv (comp second read) asks-of-each-word)
+              (vec (sort (map (comp first :path)
+                              (filter #(sources/rights-kind live-q %) (held-in live-q :base)))))]))
+    (check "two reads with one home have equal sources for the base, and two askers with one home share every push on the open base while keeping their own holder and permission watches in a closed lane"
+           [true true 4 true 4]
            (let [place {:asks [:place :note-41 :text]}
-                 short (read-in (q (merge alice place {:lanes [:alice-notes :base]})) :base)
-                 long (read-in (q (merge alice place {:lanes [:alice-notes :team :base]})) :base)
-                 from (read-in (q (merge alice place {:from-lane :alice-notes})) :base)
-                 hers (read-in (q (merge alice place {:lanes [:team :base]})) :base)
-                 his (read-in (q (merge place {:asker (person :bob) :lanes [:team :base]})) :base)]
-             [(= short long) (= long from) (count long)
-              (set (map :path (filter his hers)))]))
+                 short (held-in (q (merge alice place {:lanes [:alice-notes :base]})) :base)
+                 long (held-in (q (merge alice place {:lanes [:alice-notes :team :base]})) :base)
+                 from (held-in (q (merge alice place {:from-lane :alice-notes})) :base)
+                 hers-base (held-in (q (merge alice place {:lanes [:team :base]})) :base)
+                 his-base (held-in (q (merge place {:asker (person :bob) :lanes [:team :base]})) :base)
+                 hers-team (held-in (q (merge alice place {:lanes [:team :base]})) :team)
+                 his-team (held-in (q (merge place {:asker (person :bob) :lanes [:team :base]})) :team)]
+             [(= short long) (= long from) (count long) (= hers-base his-base)
+              (count (filter his-team hers-team))]))
     (check "two reads with two homes share no source of the base, though each reads the same rows of it; the sources of the team, a streaming lane, are shared"
            [#{} true true]
            (let [place {:asks [:place :note-41 :text]}
@@ -1460,24 +1750,32 @@
                  two (q {:asks [:place :note-41 :text] :asker (person :alice) :lanes [:team :base] :stores-own-facts true})]
              (= (:wanted (sources/reading one {} :once numbers)) (:wanted (sources/reading two {} :once numbers)))))
     (check "which sources are a lane's rights, and which a check, in a streaming lane and in the base under a home"
-           [:own-rows :permission nil true false :own-rows :permission nil true false]
-           (let [points (q (merge alice {:asks [:points-at :parent :canvas-1] :lanes [:team :base]}))]
+           [:own-rows :holders :permission nil true false false :own-rows :holders :permission nil true false false]
+           (let [points (q (merge alice {:asks [:points-at :parent :canvas-1] :lanes [:team :base]}))
+                 team-holders (apply sources/holders-source :team :team (rows/by-holder-run :team (person :alice) nil))
+                 team-perm (sources/permission-row-source :team :team (chain/place :team alice-team-id))
+                 base-holders (apply sources/holders-source :team :base (rows/by-holder-run :base :anyone nil))
+                 base-perm (sources/permission-row-source :team :base (chain/place :base alice-base-id))]
              [(sources/rights-kind points (sources/own-rows-source :team :team))
-              (sources/rights-kind points (sources/permission-source :team :team (person :alice)))
+              (sources/rights-kind points team-holders)
+              (sources/rights-kind points team-perm)
               (sources/rights-kind points (sources/place-source :team :team :block-1 :parent))
               (sources/check? points (sources/check-source :team :team :block-1 :parent))
-              (sources/check? points (sources/permission-source :team :team (person :alice)))
+              (sources/check? points team-holders)
+              (sources/check? points team-perm)
               (sources/rights-kind points (sources/own-rows-source :team :base))
-              (sources/rights-kind points (sources/permission-source :team :base (person :alice)))
+              (sources/rights-kind points base-holders)
+              (sources/rights-kind points base-perm)
               (sources/rights-kind points (sources/place-source :team :base :block-1 :parent))
               (sources/check? points (sources/check-source :team :base :block-1 :parent))
-              (sources/check? points (sources/permission-source :team :base (person :alice)))]))
+              (sources/check? points base-holders)
+              (sources/check? points base-perm)]))
     (check "a source is a map of five parts and no other, in a streaming lane and in the base"
            [#{:gate :table :lane :routing-id :path}]
            (vec (distinct (map (comp set keys)
                                (mapcat #(keys (:known (play-once traces (q (merge alice {:asks % :lanes [:alice-notes :team :base]})))))
                                        asks-of-each-word)))))
-    (shown "the sources of each word in a streaming lane and in the base hold the table, the routing id and the path that the record's page gives. The routing id is the lane for a streaming lane, under every home; in the base it is the home of the read for every kind of source: the lane's own rows, a permission, a place, a check, an entity, a run of keys, a run across entities, a whole lane and the order by value. Each is one source")
+    (shown "the sources of each word in a streaming lane and in the base hold the table, the routing id and the path; open lanes share :anyone watches across every viewer with the same home")
     (shown "two reads with one home have equal sources for the base, so they share each push on it; two reads with two homes share none of them, and read the same rows; a streaming lane's sources are shared whatever the homes")
     (shown "two askers of one thing who ask for different parts of a row have equal sources, so they share each push; a check of a nearer lane at a place is the source of that place")))
 
@@ -1489,46 +1787,46 @@
         run-base (q (merge alice {:asks [:run [:block-1] [:block-9]] :lanes [:base]}))
         points-3 (q (merge alice {:asks [:points-at :parent :canvas-1] :lanes [:alice-notes :team :base]}))
         points-from (q (merge alice {:asks [:points-at :parent :canvas-1] :from-lane :alice-notes}))
-        once (fn [query] (let [{:keys [rounds calls]} (play-once traces query)] [rounds calls]))
+        once (fn [query] (let [{:keys [rounds calls rights-calls]} (play-once traces query)] [rounds calls rights-calls]))
         fact-source? (fn [query source] (and (nil? (sources/rights-kind query source)) (= :facts (:table source))))]
-    (check "asked once: a place in one lane is one call in one round; through three lanes three calls in one round; from a lane one call and then two"
-           [[1 [1]] [1 [3]] [2 [1 2]]]
+    (check "asked once: a place in one lane is one select call and then one rights query; through three lanes three of each; from a lane one and then two"
+           [[1 [1] [1]] [1 [3] [3]] [2 [1 2] [1 2]]]
            (mapv once [place-1 place-3 place-from]))
-    (check "asked once: an entity of the base is one call, with the rights in it; a run across entities of the base is one call too, and so is a whole lane"
-           [[1 [1]] [1 [1]] [1 [1]]]
+    (check "asked once: an entity of the base is one select call, for its own rows and the run, followed by one rights query; a run across entities and a whole lane are the same"
+           [[1 [1] [1]] [1 [1] [1]] [1 [1] [1]]]
            (mapv once [entity-base run-base (q (merge alice {:asks [:run :first :last] :lanes [:base]}))]))
-    (check "asked once through her own lane: the base is one call more, under her lane's routing id, for a place, an entity, a run across entities and a whole lane"
-           [[1 [2]] [1 [2]] [1 [2]] [1 [2]]]
+    (check "asked once through her own lane: the base is one select call and one rights query more, both under her lane's routing id, for a place, an entity, a run across entities and a whole lane"
+           [[1 [2] [2]] [1 [2] [2]] [1 [2] [2]] [1 [2] [2]]]
            (mapv #(once (q (merge alice {:asks % :lanes [:team :base]})))
                  [[:place :note-41 :text] [:entity :note-41] [:run [:block-1] [:block-9]] [:run :first :last]]))
-    (check "asked once: what points at a thing through three lanes is three rounds, the rights, the orders, the checks; from a lane four"
-           [[3 [3 2 2]] 4]
+    (check "asked once: what points at a thing through three lanes is three select rounds, own rows, orders, checks, with lane-rights asked after each lane's last select; from a lane four select rounds"
+           [[3 [3 2 2] [3 2 2]] 4]
            [(once points-3) (first (once points-from))])
-    (check "kept live: a place through an everyone lane opens in two rounds; through members lanes in three; what points at a thing through a given list in four. From a start lane that is members it is six: the list of a start lane is read only when she may see the lane, and that needs her permission, one round after the lane's own rows. None takes more than six"
-           [2 3 4 6 true]
+    (check "kept live: a place opens in four rounds, own rows, lane-rights, read-set watches, fact; what points at a thing through a given list in five, and from a start lane in eight; none exceeds eight"
+           [4 4 5 8 true]
            [(first (live-rounds (q (merge alice {:asks [:place :note-41 :text] :lanes [:base]}))))
             (first (live-rounds place-3))
             (first (live-rounds points-3))
             (first (live-rounds points-from))
-            (every? #(<= (first (live-rounds %)) 6) [place-1 place-3 place-from entity-base run-base points-3 points-from])])
-    (check "the worked case of the plan: a place kept live through three lanes, of which two are members, holds eight pushes"
-           8 (second (live-rounds place-3)))
-    (check "a read asked once wants the place with the rights, in its first round; a live read does not"
+            (every? #(<= (first (live-rounds %)) 8) [place-1 place-3 place-from entity-base run-base points-3 points-from])])
+    (check "the worked case of the plan: a place kept live through three lanes, two closed and the open base, holds sixteen pushes, four of them shared on the base"
+           16 (second (live-rounds place-3)))
+    (check "a read asked once wants the place in its first select round, before lane-rights; a live read does not"
            [3 0]
            [(count (filter #(fact-source? place-3 %) (:first-missing (play-once traces place-3))))
             (count (filter #(fact-source? place-3 %) (:first-joined (open-live traces [] place-3))))])
-    (check "with the one predicate of that choice giving false, a read asked once reads the rights first, and gives the same answer"
-           [true [2 [3 3]]]
+    (check "with the one predicate of that choice giving false, a read asked once reads own rows and rights before the place, and gives the same answer"
+           [true [2 [3 3] [3 3]]]
            (let [as-built (:answer (play-once traces place-3))]
              (with-redefs [sources/before-standing? (constantly false)]
                [(= as-built (:answer (play-once traces place-3)))
                 (once place-3)])))
-    (check "the calls of one round: a lane's rights and its fact are one call, in the base under the home's routing id"
-           [[:microbatch :facts :base 3]]
+    (check "the calls of one round: a lane's own rows and its fact are one select call, in the base under the home's routing id"
+           [[:microbatch :facts :base 2]]
            (mapv (juxt :gate :table :routing-id (comp count :sources))
                  (sources/calls-for-once (:missing (sources/reading entity-base {} :once numbers)) numbers)))
-    (check "the calls of one round through her own lane: one call for each of the two tables, both under her lane's routing id, each with the rights and the fact"
-           #{[:streaming :facts :team 3] [:microbatch :facts :team 3]}
+    (check "the calls of one round through her own lane: one select call for each of the two gates' facts tables, both under her lane's routing id, each with the lane's own rows and the fact"
+           #{[:streaming :facts :team 2] [:microbatch :facts :team 2]}
            (set (map (juxt :gate :table :routing-id (comp count :sources))
                      (sources/calls-for-once
                       (:missing (sources/reading (q (merge alice {:asks [:entity :note-41] :lanes [:team :base]})) {} :once numbers))
@@ -1546,9 +1844,9 @@
            (mapv (comp count :sources)
                  (sources/calls-for-once (map #(sources/place-source :team :team (keyword (str "e" %)) :k) (range 5))
                                          (assoc numbers :max-paths-in-one-call 2))))
-    (shown "asked once, the base is one call of its table under the home's routing id, with the rights and the fact in it: 1 call from the base itself, also for a run across its entities and for the whole lane; 1 call more than her own lane's when it is read through her lane")
-    (shown "the loop ends: asked once, a place is 1 round (1 call in one lane, 3 through three lanes), from a lane 2 rounds (1 call, then 2), what points at a thing 3 rounds, from a lane 4; kept live, a place opens in 2 or 3 rounds, what points at a thing through a given list in 4, and from a start lane that is members in 6; none takes more than 6")
-    (shown "a read asked once wants the place in the same round as the rights, a live read only when she may see the lane; with before-standing? giving false the read asked once takes the rights first, 2 rounds of 3 calls, and gives the same answer")))
+    (shown "asked once, each lane's own rows and fact go in one select call per gate under the home's routing id, and lane-rights runs after the lane's last fact select returns")
+    (shown "the loop ends: asked once, a place is 1 select round, from a lane 2, what points at a thing 3, from a lane 4; kept live, 4, 5 and 8 rounds")
+    (shown "a read asked once wants the place before lane-rights, a live read only once standing is yes; with before-standing? giving false the read asked once gives the same answer")))
 
 (deftest the-rounds-of-a-read-are-the-chains-of-its-sources
   (let [rounds-once (fn [tables query] (:rounds (play-once tables query)))
@@ -1558,72 +1856,79 @@
         place-from (asking {:asks [:place :b1 :parent] :from-lane :start})
         points-given (asking {:asks [:points-at :parent :canvas-1] :lanes [:start :mid :far]})
         points-from (asking {:asks [:points-at :parent :canvas-1] :from-lane :start})
-        writes [[:list :start [:mid :far :extra] 30] [:end :start (person :bea) 30] [:end-run :mid :run-7 30]
-                [:setting :far :everyone 30] [:end :far (person :ann) 30] [:fact :far (person :maker) :b4 :parent :canvas-1 30]]
-        ;; the run of the next checks: a lane where the asker holds no
-        ;; permission and her run holds one beneath the first; another
-        ;; holder's run; and a lane where her permission and her run's are
-        ;; both given, beneath two givers
+        writes [[:list :start [:mid :far :extra] 30] [:end :start (person :bea) 30] [:end-run :mid :run-7 (person :ann) 30]
+                [:open :far 30] [:end :far (person :ann) 30] [:fact :far (person :maker) :b4 :parent :canvas-1 30]]
         runs (reduce write {}
                      (concat
                       (for [l [:solo :given]
-                            w [[:make l 1] [:setting l :members 2] [:permission l (person :root) 3]
+                            w [[:make l 1] [:permission l (person :root) 3]
                                [:give l (person :bea) (person :root) 4] [:give l (person :cal) (person :root) 5]
                                [:fact l (person :maker) :p :text "p0" 10]]]
                         w)
-                      [[:give-run :solo :run-7 (person :ann) (person :root) 11] [:give-run :solo :run-8 (person :dov) (person :root) 12]
-                       [:give :given (person :ann) (person :bea) 11] [:give-run :given :run-7 (person :ann) (person :cal) 12]]))
-        per-round (fn [query]
-                    (loop [known {} out []]
-                      (let [missing (:missing (sources/reading query known :once numbers))]
-                        (if (empty? missing)
-                          out
-                          (let [calls (sources/calls-for-once missing numbers)]
-                            (recur (into known (map (fn [source] [source (table-value runs source)])) missing)
-                                   (conj out [(count calls)
-                                              (reduce + (map #(count (distinct (map sources/read-of (:sources %)))) calls))])))))))
+                      [[:give-run :solo :run-7 (person :ann) (person :bea) 11]
+                       [:give-run :solo :run-8 (person :dov) (person :bea) 12]
+                       [:give :given (person :ann) (person :bea) 11]
+                       [:give-run :given :run-7 (person :ann) (person :cal) 12]]))
         in (fn [lane & session] (q (cond-> {:asks [:place :p :text] :asker (person :ann) :lanes [lane]}
                                      (seq session) (assoc :session (first session)))))]
-    (check "asked once, where every permission of the asker's was given her: a place through a given list settles in 2 rounds and from a lane in 4; what points at a thing through a given list in 4 and from a lane in 6, the most that the chains of a read's sources give"
-           [2 4 4 6]
+    (check "asked once, where every permission of the asker's is lent: lane-rights climbs the chain in one turn on the task, so a place settles in 1 select round (2 from a lane) and what points at a thing in 3 (4 from a lane)"
+           [1 2 3 4]
            (mapv #(rounds-once chains %) [place-given place-from points-given points-from]))
-    (check "kept live, the same reads open in 4, 7, 5 and 8 rounds: a lane's rights take one round more than asked once, since her permissions are joined only when its own rows say that it is open to its members; 8 is the most that the chains give"
+    (check "kept live, the same reads open in 4, 7, 5 and 8 rounds: lane-rights returns every climbed row in :read-set at once, so all watches of a lane open in one round whatever the chain's depth"
            [4 7 5 8]
            (mapv #(rounds-live chains %) [place-given place-from points-given points-from]))
-    (check "asked once, a write before any round of the longest read lengthens nothing: each source is fetched once, so the read settles within 6 rounds whatever is written"
+    (check "asked once, a write before any round of the longest read lengthens nothing: each source is fetched once, so the read settles within 6 select rounds whatever is written"
            true
            (every? (fn [[w r]] (<= (play-once-while-written chains points-from r w) 6))
-                   (for [w writes r (range 7)] [w r])))
-    (check "kept live, a list that gains a lane at the round at which the longest read would open asks 5 rounds more, the rights, the order and the checks of that lane: 13, within the 16 that a live read is given; none of the other writes, made before any round, asks more"
-           [13 true]
+                   (for [w writes r (range 5)] [w r])))
+    (check "kept live, a list that gains a lane at the round at which the longest read would open asks 5 rounds more, own rows, lane-rights, watches, order and checks of that lane: 13, and ending the start lane's lender there asks 15, within the 24 that a live read is given; none of the writes asks more"
+           [13 15 true]
            [(open-live-while-written chains points-from 8 [:list :start [:mid :far :extra] 30])
-            (every? (fn [[w r]] (<= (open-live-while-written chains points-from r w) 13))
+            (open-live-while-written chains points-from 8 [:end :start (person :bea) 30])
+            (every? (fn [[w r]] (<= (open-live-while-written chains points-from r w) 15))
                     (for [w writes r (range 9)] [w r]))])
-    (check "asked once: in a lane where she holds no permission, a read in a run whose permission is hers is one round more than the same read in no run, since the row above the run's permission is read after it; a read in a run whose permission is another holder's is not, since no row above it is read"
-           [[[1 3]] [[1 4] [1 1]] [[1 4]]]
-           [(per-round (in :solo)) (per-round (in :solo :run-7)) (per-round (in :solo :run-8))])
-    (check "asked once: where her permission was given her too, the rows above her run's ride the round that reads those above hers, one call each: rows more, and no call more"
-           [[[1 3] [1 2]] [[1 4] [1 3]]]
-           [(per-round (in :given)) (per-round (in :given :run-7))])
-    (shown "the rounds of a read are the chains of its sources: asked once, at most 6 (a place 2 through a given list and 4 from a lane; what points at a thing 4 and 6), and no write while it reads makes it longer; kept live, at most 8 on tables that do not change (4, 7, 5 and 8), and a list that gains a lane while it opens asks 5 more, 13 of its 16; a read in a run reads the rows above the run's permission only when it is hers, one round more when no permission of hers in the lane asks for that round anyway")))
+    (check "in a sitting where another holder holds a permission, lane-rights never reads that holder's run or chain; in her own sitting it climbs her sitting permission in the same single turn"
+           [[1 [1] [1] :may-not-see]
+            [1 [1] [1] :yes]
+            [1 [1] [1] :may-not-see]
+            false]
+           (let [r-none (play-once runs (in :solo))
+                 r-7 (play-once runs (in :solo :run-7))
+                 r-8 (play-once runs (in :solo :run-8))
+                 dov-run [:holders ":solo :person.dov :run-8 " ":solo :person.dov :run-8!"]]
+             [[(:rounds r-none) (:calls r-none) (:rights-calls r-none) (get-in r-none [:reading :standing :solo])]
+              [(:rounds r-7) (:calls r-7) (:rights-calls r-7) (get-in r-7 [:reading :standing :solo])]
+              [(:rounds r-8) (:calls r-8) (:rights-calls r-8) (get-in r-8 [:reading :standing :solo])]
+              (contains? (get-in r-8 [:snapshots :solo :read-set]) dov-run)]))
+    (check "when her any-sitting permission already stands and allows seeing, lane-rights stops there without scanning her sitting run; when it does not, her sitting run is scanned in the same turn"
+           [[false :yes] [true :yes]]
+           (let [snap-standing (run-rights runs :given :see (person :ann) :run-7)
+                 ended-any (write runs [:end :given (person :ann) 20])
+                 snap-sitting (run-rights ended-any :given :see (person :ann) :run-7)
+                 sit-run (into [:holders] (rows/by-holder-run :given (person :ann) :run-7))]
+             [[(contains? (:read-set snap-standing) sit-run) (:standing snap-standing)]
+              [(contains? (:read-set snap-sitting) sit-run) (:standing snap-sitting)]]))
+    (shown "the rounds of a read do not grow with permission chain depth: asked once, at most 4 select rounds; kept live, at most 8 on unchanging tables, and at most 15 of 24 under any single write while opening")))
 
 (deftest the-checks-of-nearer-lanes
   (let [query (q (merge alice {:asks [:points-at :parent :canvas-1] :lanes [:alice-notes :team :base]}))
         once (play-once traces query)
         r (:reading once)
-        known (:known once)
+        once-known (:known once)
+        once-snaps (:snapshots once)
+        live-w (open-live traces [] query)
+        live-known (known-of live-w)
+        live-snaps (snapshots-of live-w)
         checks (fn [reading lanes]
                  (into {} (map (fn [lane] [lane (set (keys (get-in reading [:by-lane lane :checks])))])) lanes))
-        ;; a place that two orders hold, with a lane between them
         between (reduce write {} [[:make :l1 1] [:make :l2 1] [:make :l3 1]
-                                  [:setting :l1 :everyone 2] [:setting :l2 :everyone 2] [:setting :l3 :everyone 2]
+                                  [:open :l1 2] [:open :l2 2] [:open :l3 2]
                                   [:marks :l1 #{:parent} 3] [:marks :l3 #{:parent} 3]
                                   [:fact :l1 (person :maker) :p :parent :canvas-1 11] [:fact :l3 (person :maker) :p :parent :canvas-1 12]
                                   [:fact :l3 (person :maker) :q :parent :canvas-1 13]])
         between-r (:reading (play-once between (q {:asks [:points-at :parent :canvas-1] :asker (person :ann) :lanes [:l1 :l2 :l3]})))
-        ;; ruling 64: a check's row that holds another thing, nothing, the thing
         nearer (fn [v] (let [tables (reduce write {} [[:make :l1 1] [:make :l2 1]
-                                                       [:setting :l1 :everyone 2] [:setting :l2 :everyone 2]
+                                                       [:open :l1 2] [:open :l2 2]
                                                        [:marks :l2 #{:parent} 3]
                                                        [:fact :l2 (person :maker) :p :parent :canvas-1 11]
                                                        [:fact :l1 (person :ann) :p :parent v 12]])]
@@ -1649,8 +1954,9 @@
                 (set (keys (:places (:answer joined))))])))
     (check "the checks of one read are bounded, by one number when it is asked once and by another when it is kept live: past its own number the read wants none of them and says that it is too large, with that number; the other number does not bound it"
            [[{:what :checks-of-one-read :most 2} true] [{:what :checks-of-one-read :most 2} true] [nil false] [nil false]]
-           (let [bounded (fn [mode numbers]
-                           (let [r (sources/reading query known mode numbers)]
+           (let [bounded (fn [mode nums]
+                           (let [[kn sn] (if (= :once mode) [once-known once-snaps] [live-known live-snaps])
+                                 r (sources/reading query kn mode nums nil sn)]
                              [(:too-large r) (every? nil? (map :checks (vals (:by-lane r))))]))]
              [(bounded :once (assoc numbers :max-checks-of-one-read 2))
               (bounded :live (assoc numbers :max-checks-of-one-live-read 2))
@@ -1675,13 +1981,17 @@
     (shown "the nearest row wins, and the place is given from it exactly when it holds the thing: a nearer row with another thing, or a retract, hides the place; a nearer row with the asked thing gives it, from the nearer lane")))
 
 (deftest what-a-read-gives
-  (let [tables (reduce write traces
+  (let [yes-used (UUID. 0 88)
+        tables (reduce write traces
                        [[:fact :alice-notes (person :alice) :note-41 :text nil 20]
                         [:fact :team (person :bob) :note-9 :text "only the team" 713]
+                        [:give-act :team yes-used (person :bob) (person :alice) 714]
+                        [:use-act :team yes-used (person :bob) 715]
                         [:fact :base :system :note-9 :size 9 330]])
         tables (put tables :microbatch :facts (rows/place-key :base :note-9 :raw)
                     {:value "(not a value" :by-act (UUID. 0 9) :by-index 0 :stamp 331 :time (time-of 331)
-                     :who ":system" :permission "[:system :base :base]"})
+                     :who ":system" :permission (str (standing-perm-id :base :system))})
+        bob-perm-id (standing-perm-id :team (person :bob))
         ask (fn [who asks lanes & more]
               (:answer (play-once tables (q (merge {:asks asks :lanes lanes} (if who {:asker who} {:not-signed-in true})
                                                    (apply hash-map more))))))
@@ -1720,14 +2030,14 @@
     (check "a place-answer holds no writer and no permission unless the query asked: neither, the writer, both"
            [#{:holds :value :lane :fact :stamp}
             [(person :bob) nil]
-            [(person :bob) (perm/permission-id (perm/first-permission (person :bob) :team))]]
+            [(person :bob) bob-perm-id]]
            [(set (keys (place (person :alice) [:place :note-9 :text] [:team])))
             ((juxt :writer :permission) (place (person :alice) [:place :note-9 :text] [:team] :with #{:writer}))
             ((juxt :writer :permission) (place (person :alice) [:place :note-9 :text] [:team] :with #{:writer :permission}))])
     (check "a place-answer holds the time on the act that wrote its fact only when the query asks for :time: not with the writer and the permission; with :time alone, the time and neither of the two; with all three, all three"
            [false
             [nil nil (time-of 713)]
-            [(person :bob) (perm/permission-id (perm/first-permission (person :bob) :team)) (time-of 713)]]
+            [(person :bob) bob-perm-id (time-of 713)]]
            [(contains? (place (person :alice) [:place :note-9 :text] [:team] :with #{:writer :permission}) :time)
             ((juxt :writer :permission :time) (place (person :alice) [:place :note-9 :text] [:team] :with #{:time}))
             ((juxt :writer :permission :time) (place (person :alice) [:place :note-9 :text] [:team] :with #{:writer :permission :time}))])
@@ -1743,13 +2053,15 @@
               (every? (fn [[p a]] (= (:time a) (:time (row-of p a)))) with-time)
               (not-any? (fn [[_ a]] (contains? a :time)) without)
               (= without (into {} (map (fn [[p a]] [p (dissoc a :time)])) with-time))]))
-    (check "the store's own facts are left out of a run unless the query asks: the entity of a holder, and of the lane itself"
+    (check "the store's own facts are left out of a run unless the query asks: a permission's own entity, the lane itself, and the use of a yes for one act which carries no fact id"
            [{} #{:softland.store/permission}
-            {} #{:softland.store/depot :softland.store/marked-keys}]
-           [(:places (ask (person :alice) [:entity (person :bob)] [:team]))
-            (set (map second (keys (:places (ask (person :alice) [:entity (person :bob)] [:team] :stores-own-facts true)))))
+            {} #{:softland.store/depot :softland.store/marked-keys}
+            {:holds :nothing-here :lane :team :stamp 715}]
+           [(:places (ask (person :alice) [:entity bob-perm-id] [:team]))
+            (set (map second (keys (:places (ask (person :alice) [:entity bob-perm-id] [:team] :stores-own-facts true)))))
             (:places (ask (person :alice) [:entity :team] [:team]))
-            (set (map second (keys (:places (ask (person :alice) [:entity :team] [:team] :stores-own-facts true)))))])
+            (set (map second (keys (:places (ask (person :alice) [:entity :team] [:team] :stores-own-facts true)))))
+            (place (person :alice) [:place yes-used :softland.store/permission] [:team] :stores-own-facts true)])
     (check "a row under a store key does not count for a read that did not ask, and counts for one that did"
            [false true true]
            [(answer/counts? (q {:asks [:entity :e] :asker (person :a) :lanes [:l]}) :softland.store/permission)
@@ -1779,12 +2091,14 @@
 
 (deftest which-changes-reach-an-asker
   (let [tables (reduce write traces [[:fact :alice-notes (person :alice) :note-41 :text "from her notes" 20]])
+        alice-team-id (standing-perm-id :team (person :alice))
+        bob-team-id (standing-perm-id :team (person :bob))
         known-for (fn [query] ((juxt :reading :known) (play-once tables query)))
         alice-3 (q (merge alice {:asks [:place :note-41 :text] :lanes [:alice-notes :team :base]}))
         [r known] (known-for alice-3)
         bob-3 (q {:asks [:place :note-41 :text] :asker (person :bob) :lanes [:alice-notes :team :base]})
         [bob-r bob-known] (known-for bob-3)
-        holder (q (merge alice {:asks [:entity (person :bob)] :lanes [:team]}))
+        holder (q (merge alice {:asks [:entity bob-team-id] :lanes [:team]}))
         [holder-r holder-known] (known-for holder)
         asked (assoc holder :stores-own-facts true)
         [asked-r asked-known] (known-for asked)
@@ -1809,37 +2123,48 @@
             (answer/told-by? bob-3 bob-r bob-known (sources/place-source :alice-notes :team :note-41 :text) place)])
     (check "a change of a store key's row is told only to an asker who asked for the store's own facts"
            [false true]
-           [(answer/told-by? holder holder-r holder-known (first (get-in holder-r [:by-lane :team :facts])) [(person :bob) :softland.store/permission])
-            (answer/told-by? asked asked-r asked-known (first (get-in asked-r [:by-lane :team :facts])) [(person :bob) :softland.store/permission])])
+           [(answer/told-by? holder holder-r holder-known (first (get-in holder-r [:by-lane :team :facts])) [bob-team-id :softland.store/permission])
+            (answer/told-by? asked asked-r asked-known (first (get-in asked-r [:by-lane :team :facts])) [bob-team-id :softland.store/permission])])
     (check "the places that a change names for a query: the asked place from its row and from no other; each key of a run; no place from a lane's own rows"
-           [#{[:note-41 :text]} #{} #{[(person :bob) :softland.store/permission]} #{}]
+           [#{[:note-41 :text]} #{} #{[bob-team-id :softland.store/permission]} #{}]
            [(sources/places-of alice-3 (sources/place-source :alice-notes :team :note-41 :text) [":team :note-41 :text"])
-            (sources/places-of alice-3 (sources/permission-source :alice-notes :team (person :alice)) [":team :alice :softland.store/permission"])
-            (sources/places-of holder (first (get-in holder-r [:by-lane :team :facts])) [":team :bob :softland.store/permission" "no key"])
+            (sources/places-of alice-3 (sources/permission-row-source :alice-notes :team (chain/place :team alice-team-id))
+                               [(chain/place :team alice-team-id)])
+            (sources/places-of holder (first (get-in holder-r [:by-lane :team :facts]))
+                               [(chain/place :team bob-team-id) "no key"])
             (sources/places-of holder (sources/own-rows-source :team :team) [":team :team :softland.store/depot"])])
-    (check "what the base's own rows and her permission mean at a change, for a read through her own lane: each is read beside the other, which the read holds under her lane's routing id"
-           [[:stands :stands] [:none :stands] [:members :members]]
-           (let [tables (reduce write {} [[:make :mine 1] [:make :base 1] [:setting :mine :everyone 2] [:setting :base :members 2]
-                                          [:permission :base (person :ann) 3] [:fact :base (person :maker) :p :text "b0" 11]])
+    (check "what the base's rights watches mean at a change, for a live read through her own lane: matching :read-set keeps her standing, and a stamp mismatch turns the meaning to :not-known-yet"
+           [[{:made? true :sees? true} {:made? true :sees? true}]
+            [:not-known-yet {:made? true :sees? true}]]
+           (let [t (reduce write {} [[:make :mine 1] [:make :base 1] [:open :mine 2]
+                                     [:permission :base (person :ann) 3] [:fact :base (person :maker) :p :text "b0" 11]])
                  query (q {:asks [:place :p :text] :asker (person :ann) :lanes [:mine :base]})
-                 known (:known (play-once tables query))
+                 w (open-live t [] query)
+                 known (known-of w)
+                 snapshots (snapshots-of w)
                  own (sources/own-rows-source :mine :base)
-                 permission (sources/permission-source :mine :base (person :ann))
-                 of-own (answer/meanings query known own (get known own) (get known own))
-                 of-permission (answer/meanings query known permission nil (get known permission))]
-             [(mapv :permission of-own) (mapv :permission of-permission) (mapv :who-may-see of-permission)]))
-    (check "what the row of a permission above hers means at a change, the row read under the source that her own row names: the end of the one above hers means that she holds none that stands; a change of another holder's permission, which is not above hers, means the same before and after"
-           [[:stands :none] true]
-           (let [tables (reduce write {} [[:make :lab 1] [:permission :lab (person :root) 2] [:give :lab (person :bea) (person :root) 3] [:give :lab (person :cal) (person :bea) 4]
-                                          [:give :lab (person :dov) (person :root) 5] [:fact :lab (person :maker) :p :text "l0" 11]])
+                 perm-src (sources/permission-row-source :mine :base (chain/place :base (standing-perm-id :base (person :ann))))]
+             [(answer/meanings query snapshots known own (get known own) (get known own))
+              (answer/meanings query snapshots known perm-src nil (get known perm-src))]))
+    (check "what a climbed lender's row means at a change: ending the lender invalidates :read-set to :not-known-yet, while another holder's permission row outside :read-set leaves meaning unchanged"
+           [[{:made? true :sees? true} :not-known-yet] true]
+           (let [bea-id (uuid-of [:bea-lab])
+                 dov-id (uuid-of [:dov-lab])
+                 t (reduce write {} [[:make :lab 1] [:permission :lab (person :root) 2]
+                                     [:give :lab (person :bea) (person :root) 3 {:id bea-id}]
+                                     [:give :lab (person :cal) (person :bea) 4]
+                                     [:give :lab (person :dov) (person :root) 5 {:id dov-id}]
+                                     [:fact :lab (person :maker) :p :text "l0" 11]])
                  query (q {:asks [:place :p :text] :asker (person :cal) :lanes [:lab]})
-                 known (:known (play-once tables query))
-                 above (first (sources/chain-sources :lab :lab (get known (sources/permission-source :lab :lab (person :cal)))))
-                 beside (sources/permission-source :lab :lab (person :dov))
-                 ended (table-value (write tables [:end :lab (person :bea) 20]) above)
-                 beside-ended (table-value (write tables [:end :lab (person :dov) 20]) beside)]
-             [(mapv :permission (answer/meanings query known above (get known above) ended))
-              (apply = (answer/meanings query known beside (table-value tables beside) beside-ended))]))
+                 w (open-live t [] query)
+                 known (known-of w)
+                 snapshots (snapshots-of w)
+                 above (sources/permission-row-source :lab :lab (chain/place :lab bea-id))
+                 beside (sources/permission-row-source :lab :lab (chain/place :lab dov-id))
+                 ended (table-value (write t [:end :lab (person :bea) 20]) above)
+                 beside-ended (table-value (write t [:end :lab (person :dov) 20]) beside)]
+             [(answer/meanings query snapshots known above (get known above) ended)
+              (apply = (answer/meanings query snapshots known beside (table-value t beside) beside-ended))]))
     (check "the places that a change of the base names, for a read through her own lane: the asked place from its row; each key of a run across entities; the entity of each key of the order by value"
            [#{[:note-41 :text]} #{[:block-1 :parent] [:note-41 :title]} #{[:block-2 :parent]}]
            (let [digest (rows/value-digest-of :canvas-1)
@@ -1853,80 +2178,150 @@
 
 (deftest an-asker-who-may-not-see-a-lane-is-told-nothing-of-it
   (let [now (every-small-unseen)
-        before (with-redefs [sources/askers-run-row (fn [run-row _asker] run-row)
-                             softland.store.read-path.answer/unseen-lanes (constantly #{})]
-                 (every-small-unseen))
-        either-alone [(with-redefs [sources/askers-run-row (fn [run-row _asker] run-row)] (:tells (every-small-unseen)))
-                      (with-redefs [softland.store.read-path.answer/unseen-lanes (constantly #{})] (:tells (every-small-unseen)))]
         alone (fn [writes] (every-order (unseen-world writes) nil))
         joined (fn [world] (set (map :path (filter #(= :near (:lane %)) (:held world)))))
-        given (unseen-world [[:give-run-to-another]])
-        after-give (-> given (move [:write] nil))
-        bea-row [:row (rows/place-key :near (person :bea) :softland.store/permission)]]
-    (check "a live read in a run, of a lane that she may not see, is handed nothing in any order of up to three writes there: another holder's permission for her run, its end, the end of the one above it and its give again, a fact; and each order ends on the screen that a read asked once gives"
+        dov-id (uuid-of [:dov-sit])
+        bea-id (uuid-of [:bea-sit])
+        given (open-live (reduce write {}
+                                 [[:make :near 1] [:make :far 1] [:open :far 2]
+                                  [:permission :near (person :root) 2]
+                                  [:give :near (person :bea) (person :root) 3 {:id bea-id}]
+                                  [:fact :near (person :maker) :p :text "n0" 10]
+                                  [:fact :far (person :maker) :p :text "f0" 11]])
+                         [[:give-run :near :run-7 (person :dov) (person :bea) 100 {:id dov-id}]]
+                         (q {:asks [:place :p :text] :asker (person :ann) :session :run-7 :lanes [:near :far]}))
+        after-give (-> given (move [:write] nil))]
+    (check "a live read in a sitting, of a lane that she may not see, is handed nothing in any order of up to three writes there: another holder's sitting permission, its end, the end of the one above it and its new give, a fact; and each order ends on the screen that a read asked once gives"
            [155 0 []]
            [(:lists now) (:tells now) (:wrong now)])
-    (check "her read holds the lane's own rows, her permission's place and her run's, and never the rows above another holder's permission for her run"
-           [false false]
-           [(contains? (joined after-give) bea-row)
-            (contains? (joined (-> after-give (move [:take (sources/run-permission-source :near :near :run-7)] nil)
-                                   (move [:handle (sources/run-permission-source :near :near :run-7)] nil)))
-                       bea-row)])
-    (check "as the read path was before this build, with the rows above any holder's permission for her run wanted and every move of a source that is no check owing a whole answer, the same writes hand her an answer that says what it said: the review's 2A; and each of the two rules of this build is enough by itself to hand her nothing"
-           [true [0 0]]
-           [(pos? (:tells before)) either-alone])
-    (check "one order of the review's history alone: the give to another holder and its end hand her nothing"
+    (check "her read holds the lane's own rows and the six holder runs of everyone and herself, and never another holder's sitting run or permission rows"
+           [#{[:own-rows ":near :near :softland.store/" ":near :near :softland.store0"]
+              [:holders ":near :anyone * " ":near :anyone *!"]
+              [:holders ":near :anyone :run-7 " ":near :anyone :run-7!"]
+              [:holders ":near :anyone-signed-in * " ":near :anyone-signed-in *!"]
+              [:holders ":near :anyone-signed-in :run-7 " ":near :anyone-signed-in :run-7!"]
+              [:holders ":near :person.ann * " ":near :person.ann *!"]
+              [:holders ":near :person.ann :run-7 " ":near :person.ann :run-7!"]}
+            []
+            false
+            false]
+           [(joined after-give)
+            (vec (moves-of after-give))
+            (contains? (joined after-give) [:row (chain/place :near dov-id)])
+            (contains? (joined after-give) [:row (chain/place :near bea-id)])])
+    (check "another holder's sitting permission in permissions-by-holder produces zero push callbacks on her read, even without unseen-lanes"
+           0
+           (:tells (with-redefs [softland.store.read-path.answer/unseen-lanes (constantly #{})]
+                     (every-small-unseen))))
+    (check "one order of the review's history alone: the sitting give to another holder and its end hand her nothing"
            nil
            (:wrong (alone [[:give-run-to-another] [:end-run]])))
-    (shown "an asker who may not see a lane is told nothing of it while she asks in a run: in" (:lists now) "lists of up to three writes," (:states now) "worlds, no step handed her anything; with the rows above another holder's run permission wanted, as before, a step did")))
+    (shown "an asker who may not see a lane is told nothing of it while she asks in a sitting: in" (:lists now) "lists of up to three writes," (:states now) "worlds, no step handed her anything, and another holder's sitting run is never watched")))
 
 (deftest an-asker-whose-own-permission-does-not-stand-is-told-nothing
   (let [now (every-small-own-unseen)
         without-the-rule (with-redefs [softland.store.read-path.answer/unseen-lanes (constantly #{})]
                            (every-small-own-unseen))
-        without-the-memory (with-redefs [answer/mark-of (constantly false)]
-                             (every-small-chain 2 [:points-at :parent :canvas-1] nil))
+        ;; Without `mark-of` remembering what she was told of each lane, an in-place lowering
+        ;; whose two rights pushes are both taken before either is handled leaves `:near`
+        ;; recorded as `:not-known-yet`, and a second write-only change then leaks an `:anew` tell.
+        leak-without-memory
+        (let [ann-id (standing-perm-id :near (person :ann))
+              tables (reduce write {}
+                             [[:make :near 1] [:make :far 1] [:open :far 2]
+                              [:permission :near (person :ann) 2]
+                              [:change :near ann-id {:write :all} 3]
+                              [:fact :far (person :maker) :p :text "f0" 10]])
+              tells (atom 0)]
+          (with-redefs [answer/mark-of (constantly false)
+                        told (let [told* told]
+                               (fn [world tell] (when tell (swap! tells inc)) (told* world tell)))]
+            (every-order (open-live tables
+                                    [[:change :near ann-id {:write :all :give #{:write}} 100]]
+                                    (q {:asks [:place :p :text] :asker (person :ann) :lanes [:near :far]}))
+                         nil))
+          @tells)
         one (fn [writes] (let [tells (atom 0)
                                played (with-redefs [told (let [told* told]
                                                            (fn [world tell] (when tell (swap! tells inc)) (told* world tell)))]
                                         (every-order (own-unseen-world writes) nil))]
                            [@tells (:wrong played)]))]
-    (check "a live read in a run, of a lane that she may not see, whose own permission and whose run's are given her beneath one that ends in the same act, and ended: in every order of every list of up to three such writes and a fact, no step hands her anything, and each order ends on what a read asked once gives"
+    (check "a live read in a sitting, of a lane that she may not see, where write-only permissions are given to her and her sitting and ended: in every order of every list of up to three such writes and a fact, no step hands her anything, and each order ends on what a read asked once gives"
            [155 0 []] [(:lists now) (:tells now) (:wrong now)])
-    (check "the road that the generated histories found, alone: Bea ends her own and gives her one beneath it; and then its end by the first holder"
-           [[0 nil] [0 nil]] [(one [[:bea-ends-and-gives]]) (one [[:bea-ends-and-gives] [:root-ends-hers]])])
-    (check "the player can fail: without the rule that a change of her rights in a lane that she was told she may not see tells nothing, steps hand her answers that say what they said; and with a read that keeps nothing of what it told, which steps then judge by the meaning before each change, an order in which two changes are taken before either is handled ends on a screen that the tables do not give"
-           [true true] [(pos? (:tells without-the-rule)) (boolean (seq (:wrong without-the-memory)))])
-    (shown "an asker whose own permission in a lane does not stand is told nothing of the lane: in" (:lists now) "lists of up to three writes," (:states now) "worlds, no step handed her anything; without the rule, steps did")))
+    (check "a write-only give to her and its end by the first holder, alone, hand her nothing"
+           [[0 nil] [0 nil]] [(one [[:bea-write-only]]) (one [[:bea-write-only] [:root-ends-hers]])])
+    (check "the player can fail: without unseen-lanes, joining and leaving write-only permission watches in a lane she may not see hands her answers; and without mark-of remembering her standing, two rights pushes taken before either is handled leak an answer on an unseen lane"
+           [true true] [(pos? (:tells without-the-rule)) (pos? leak-without-memory)])
+    (shown "an asker whose permissions in a lane never allow seeing is told nothing of the lane: in" (:lists now) "lists of up to three writes," (:states now) "worlds, no step handed her anything; without unseen-lanes or mark-of, steps did")))
 
 (deftest a-row-above-hers-is-read-after-her-own
-  (let [unseen [[:bea-ends-and-gives] [:bea-ends-and-gives-run] [:bea-again] [:near]]
+  (let [unseen [[:bea-write-only] [:bea-run-write-only] [:bea-again] [:near]]
         now (every-small-stale-chain unseen)
-        as-before (with-redefs [sources/chain-sources (let [chain-sources* sources/chain-sources]
-                                                        (fn [home lane row]
-                                                          (mapv #(dissoc % :read-after) (chain-sources* home lane row))))]
-                    (every-small-stale-chain [[:bea-ends-and-gives] [:bea-ends-and-gives-run]]))
-        with-a-give (every-small-stale-chain [[:bea-gives] [:bea-ends-and-gives] [:near]])
-        tables (reduce write {} [[:make :lab 1] [:permission :lab (person :root) 2] [:give :lab (person :bea) (person :root) 3]
-                                 [:give :lab (person :ann) (person :bea) 4] [:give-run :lab :run-7 (person :ann) (person :bea) 5]])
-        query (q {:asks [:place :p :text] :asker (person :ann) :session :run-7 :lanes [:lab]})
-        reading (:reading (play-once tables query))
-        chain (get-in reading [:by-lane :lab :chain])]
-    (check "the review's road on every order: an asker who holds a read open on a lane that she may not see, beneath a giver who is given a permission again and then gives her one beneath it and ends it in the same act, for the lane and for her run, is handed nothing, with the first holder's give again and a fact of the lane among the writes, in every list of up to three; and each order ends on what a read asked once gives"
+        with-a-give (every-small-stale-chain [[:bea-gives] [:bea-write-only] [:near]])
+        ;; One-act transfer (`BUILD.md` Batch 4 line 4): `old-id` ended and `new-id` granted in one act.
+        old-id (standing-perm-id :near (person :ann))
+        new-id (uuid-of [:ann-swapped])
+        swap-tables (reduce write {}
+                            [[:make :near 1] [:make :far 1] [:open :far 2]
+                             [:permission :near (person :ann) 2]
+                             [:fact :near (person :maker) :p :text "n0" 10]
+                             [:fact :far (person :maker) :p :text "f0" 11]])
+         run-swap (fn []
+                    (let [between (atom #{})]
+                      (with-redefs [told (let [told* told]
+                                           (fn [world tell]
+                                             (let [w (told* world tell)]
+                                               (when tell
+                                                 (swap! between conj
+                                                        [(get-in w [:screen :place :lane])
+                                                         (get-in w [:screen :left-out])]))
+                                               w)))]
+                        (let [res (every-order
+                                   (open-live swap-tables
+                                              [[:swap :near (person :ann) old-id new-id {:see true} 100]]
+                                              (q {:asks [:place :p :text] :asker (person :ann) :lanes [:near :far]}))
+                                   nil)]
+                          [@between (:wrong res)]))))
+        [swap-seen swap-wrong] (run-swap)
+        ;; Without `:read-set` stamp validation (falling back to `:may-not-see` instead of `:not-known-yet`
+        ;; when open pushes disagree with `:read-set`), a 1-act swap exposes `:far` in between!
+        [unvalidated-seen _] (with-redefs [sources/lane-standing
+                                           (fn [home lane mode snapshots known]
+                                             (let [own (sources/own-rows-source home lane)
+                                                   snap (get snapshots lane)]
+                                               (cond
+                                                 (not (contains? known own)) :not-known-yet
+                                                 (not (lanes/made? (get known own) lane)) :not-made
+                                                 (nil? snap) :not-known-yet
+                                                 (= :once mode) (:standing snap)
+                                                 (sources/snapshot-matches? home lane snap known) (:standing snap)
+                                                 :else :may-not-see)))]
+                               (run-swap))
+        root-id (standing-perm-id :lab (person :root))
+        bea-id (uuid-of [:bea-dedup])
+        ann-id (uuid-of [:ann-dedup])
+        ann-sit-id (uuid-of [:ann-sit-dedup])
+        tables (reduce write {} [[:make :lab 1] [:permission :lab (person :root) 2]
+                                 [:give :lab (person :bea) (person :root) 3 {:id bea-id}]
+                                 [:give :lab (person :ann) (person :bea) 4 {:id ann-id :allows {:write :all}}]
+                                 [:give-run :lab :run-7 (person :ann) (person :bea) 5 {:id ann-sit-id :allows {:see true}}]])
+        snap (run-rights tables :lab :see (person :ann) :run-7)]
+    (check "an asker who holds a live read open on a lane after an ancestor's end, while new write-only gives, giver grants and facts arrive, is handed nothing in every list of up to three writes, and each order ends on what a read asked once gives"
            [84 0 #{} []] [(:lists now) (:tells now) (:given now) (:wrong now)])
-    (check "the player can fail: with the rows above hers read from sources that name no stamp, as before this build, an order of the same writes hands her the fact that was written after her permission ended"
-           [true true] [(pos? (:tells as-before)) (contains? (:given as-before) "the secret")])
+    (check "a permission transfer in one act never shows a live viewer a state in between: every callback order keeps the nearer lane throughout, whereas treating a mismatched :read-set as :may-not-see instead of :not-known-yet exposes the farther lane in between"
+           [[#{[:near []]} nil] true]
+           [[swap-seen swap-wrong] (contains? unvalidated-seen [:far [{:lane :near :why :may-not-see}]])])
     (check "a give that stands is told: with Bea's give to her beneath Bea's permission among the writes, every order ends on what a read asked once gives"
            [39 []] [(:lists with-a-give) (:wrong with-a-give)])
-    (check "each row above a permission of hers names the stamp of her row that names it, and a read asked once reads a place above both her permission and her run's once, in one call"
-           [[[4 4] [4 4]] [[5 5]] 1 2]
-           [(mapv (fn [s] [(:read-after s) (:stamp (get (table tables :streaming :facts) (rows/place-key :lab (person :ann) :softland.store/permission)))])
-                  (filter #(= 4 (:read-after %)) chain))
-            (mapv (fn [s] [(:read-after s) (:stamp (get (table tables :streaming :facts) (rows/place-key :lab :run-7 :softland.store/run-permission)))])
-                  (filter #(= 5 (:read-after %)) (take 1 (filter #(= 5 (:read-after %)) chain))))
-            (count (sources/calls-for-once (filter #(= (rows/place-key :lab (person :root) :softland.store/permission) (second (:path %))) chain) numbers))
-            (count (filter #(= (rows/place-key :lab (person :root) :softland.store/permission) (second (:path %))) chain))])
-    (shown "a row above hers is read after her own: in" (:lists now) "lists of up to three writes on the review's road," (:states now) "worlds, no step handed her anything; with sources that name no stamp, steps handed her" (:given as-before))))
+    (check "lane-rights records the exact stamp of every climbed permission row and holder run in :read-set, climbing shared ancestors in one turn"
+           [:yes 1 2 3 4 5]
+           [(:standing snap)
+            (get (:read-set snap) [:fact (rows/place-key :lab :lab :softland.store/depot)])
+            (get (:read-set snap) [:fact (chain/place :lab root-id)])
+            (get (:read-set snap) [:fact (chain/place :lab bea-id)])
+            (get (:read-set snap) [:fact (chain/place :lab ann-id)])
+            (get (:read-set snap) [:fact (chain/place :lab ann-sit-id)])])
+    (shown "read-set stamp validation: in" (:lists now) "unseen lists no step handed her anything, and across a 1-act permission swap zero callback orders showed an intermediate state")))
 
 (deftest a-yes-for-one-act-lets-nobody-see
   (let [yes (UUID. 0 77)
@@ -1935,31 +2330,34 @@
         asks [{:asks [:place :p :text] :asker (person :ann) :lanes [:near]}
               {:asks [:place :p :text] :asker (person :ann) :session yes :lanes [:near]}]
         left-out {:lanes [:near] :left-out [{:lane :near :why :may-not-see}] :place {:holds :no-fact}}
-        yes-row (get (table tables :streaming :facts) (rows/place-key :near yes :softland.store/act-permission))]
-    (check "the yes is where the gate keeps it: on its own id, under the key of a permission for one act, and it holds a permission whose holder is the asker"
-           [(person :ann) [:act yes]]
-           (let [held (rows/held-permission yes-row)] [(first held) (vec (take 2 (act/covers held)))]))
+        yes-row (get (table tables :streaming :facts) (chain/place :near yes))]
+    (check "the yes is where the gate keeps it: on its own id under the permission key, out of permissions-by-holder, covering one exact act for the asker"
+           [(person :ann) :exact-act {:write :all} {} false]
+           (let [held (rows/held-permission yes-row)
+                 by-holder (table tables :streaming :permissions-by-holder)]
+             [(:holder held) (first (:covers held)) (:allows held)
+              (into {} (subseq by-holder >= ":near :person.ann " < ":near :person.ann!"))
+              (boolean (some #(= yes (rows/permission-of-by-holder-key %)) (keys by-holder)))]))
     (check "a holder whose one permission in a lane that is open to its members is a yes for one act may not see it: asked once and kept live, in no run and in a run whose id is the yes's own"
            [left-out left-out left-out left-out]
            (into (mapv #(:answer (play-once tables (q %))) asks)
                  (mapv #(:screen (open-live tables [] (q %))) asks)))
-    (check "the read wants no row under the key of a permission for one act: her place, her run's place and the lane's own rows, and the place asked"
-           #{}
-           (into #{} (filter #(= :softland.store/act-permission (nth (rows/place-of-key (second (:path %))) 2 nil)))
-                 (:wanted (:reading (play-once tables (q (second asks)))))))
+    (check "neither a read asked once nor a live read watches the row of a permission for one exact act"
+           [false false]
+           (let [yes-src (sources/permission-row-source :near :near (chain/place :near yes))]
+             [(contains? (:wanted (:reading (play-once tables (q (second asks))))) yes-src)
+              (contains? (:held (open-live tables [] (q (second asks)))) yes-src)]))
     (shown "a yes for one act lets nobody see (R8): its holder, asking once or live, in no run or in a run whose id is the yes's, is left out with :may-not-see")))
 
 (deftest the-reviews-probe-of-the-read-path-written-again
   (let [rounds-live (fn [tables query] (:rounds (open-live tables [] query)))
-        once (fn [tables query] (let [{:keys [rounds calls]} (play-once tables query)] [rounds calls]))
-        ;; probe 3: a live read from a start lane in a run, the farthest lane open to everyone and marked
+        once (fn [tables query] (let [{:keys [rounds calls rights-calls]} (play-once tables query)] [rounds calls rights-calls]))
         probe-3 (reduce write {}
                         [[:make :start 1] [:permission :start (person :root) 2] [:list :start [:mid :far] 3]
                          [:give-run :start :run-7 (person :cal) (person :root) 4]
                          [:make :mid 1] [:permission :mid (person :root) 2] [:give-run :mid :run-7 (person :cal) (person :root) 3]
-                         [:make :far 1] [:setting :far :everyone 2] [:marks :far #{:parent} 3]
+                         [:make :far 1] [:open :far 2] [:marks :far #{:parent} 3]
                          [:fact :far (person :root) :item-1 :parent :target 4]])
-        ;; probe 6B: the same with the farthest lane open to its members
         probe-6b (reduce write {}
                          [[:make :start 1] [:permission :start (person :root) 2] [:list :start [:mid :far] 3]
                           [:give-run :start :run-7 (person :cal) (person :root) 4]
@@ -1968,22 +2366,23 @@
                           [:give-run :far :run-7 (person :cal) (person :root) 4]
                           [:fact :far (person :root) :item-1 :parent :canvas-1 10]])
         in-run-7 (fn [thing] (q {:asks [:points-at :parent thing] :asker (person :cal) :session :run-7 :from-lane :start}))
-        ;; probe 4: another holder's permission for her run, given and ended, in a lane that she may not see
         probe-4 (reduce write {}
                         [[:make :near 1] [:permission :near (person :root) 2] [:give :near (person :bea) (person :root) 3]
                          [:fact :near (person :root) :p :text "secret" 4]
-                         [:make :far 1] [:setting :far :everyone 2] [:fact :far (person :root) :p :text "public" 3]])
+                         [:make :far 1] [:open :far 2] [:fact :far (person :root) :p :text "public" 3]])
         tells (atom 0)
         probe-4-played (with-redefs [told (let [told* told]
                                             (fn [world tell] (when tell (swap! tells inc)) (told* world tell)))]
-                         (every-order (open-live probe-4 [[:give-run :near :run-7 (person :dov) (person :bea) 100] [:end-run :near :run-7 101]]
+                         (every-order (open-live probe-4 [[:give-run :near :run-7 (person :dov) (person :bea) 100]
+                                                          [:end-run :near :run-7 (person :dov) 101]]
                                                  (q {:asks [:place :p :text] :asker (person :ann) :session :run-7 :lanes [:near :far]}))
                                       nil))
-        ;; probe 5: its five worlds, every order of the callbacks
+        cal-id (uuid-of [:cal-probe-5])
         base-tables (reduce write {}
-                            [[:make :near 1] [:make :far 1] [:setting :far :everyone 2]
+                            [[:make :near 1] [:make :far 1] [:open :far 2]
                              [:marks :near #{:parent} 3] [:marks :far #{:parent} 3]
-                             [:permission :near (person :root) 4] [:give :near (person :bea) (person :root) 5] [:give :near (person :cal) (person :bea) 6]
+                             [:permission :near (person :root) 4] [:give :near (person :bea) (person :root) 5]
+                             [:give :near (person :cal) (person :bea) 6 {:id cal-id}]
                              [:give :near (person :ann) (person :root) 7]
                              [:fact :near (person :root) :p1 :parent :canvas-x 10] [:fact :far (person :root) :p1 :parent :canvas-1 11]
                              [:fact :near (person :root) :p2 :parent :canvas-1 12]])
@@ -1999,33 +2398,33 @@
                     {:asks [:points-at :parent :canvas-1] :asker (person :ann) :session :run-7 :from-lane :near}]
                    [base-tables
                     [[:give-run :near :run-7 (person :ann) (person :cal) 100] [:end :near (person :ann) 101] [:end :near (person :cal) 102]]
-                    {:asks [:place (person :cal) :softland.store/permission] :asker (person :ann) :session :run-7
+                    {:asks [:place cal-id :softland.store/permission] :asker (person :ann) :session :run-7
                      :lanes [:near :far] :stores-own-facts true}]
-                   [(reduce write {} [[:make :near 1] [:make :far 1] [:setting :far :everyone 2]
+                   [(reduce write {} [[:make :near 1] [:make :far 1] [:open :far 2]
                                       [:permission :near (person :root) 3] [:give :near (person :bea) (person :root) 4]
                                       [:fact :far (person :root) :near :note "far-note" 10]])
-                    [[:give-run :near :near (person :ann) (person :bea) 100] [:end-run :near :near 101] [:give-run :near :near (person :ann) (person :bea) 102]]
+                    [[:give-run :near :near (person :ann) (person :bea) 100] [:end-run :near :near (person :ann) 101] [:give-run :near :near (person :ann) (person :bea) 102]]
                     {:asks [:entity :near] :asker (person :ann) :session :near :lanes [:near :far] :stores-own-facts true}]]
         probe-5 (mapv (fn [[tables writes query]] (every-order (open-live tables writes (q query)) nil)) scenarios)
-        ;; probe 6A: the calls of a read asked once in a run
         m-run (reduce write {} [[:make :m-run 1] [:permission :m-run (person :ada) 2] [:give-run :m-run :run-9 (person :cal) (person :ada) 3]
                                 [:fact :m-run (person :ada) :note :text "from m-run" 4]])
         m-run-bea (reduce write {} [[:make :m-run 1] [:permission :m-run (person :ada) 2] [:give :m-run (person :bea) (person :ada) 3]
                                     [:give-run :m-run :run-9 (person :dov) (person :bea) 4] [:fact :m-run (person :ada) :note :text "from m-run" 5]])
         note (fn [who & session] (q (cond-> {:asks [:place :note :text] :asker who :lanes [:m-run]}
                                        (seq session) (assoc :session (first session)))))]
-    (check "the review's probe 3, a live read from a start lane in a run with the farthest lane open to everyone: 7 rounds, within the 8 that the chains of its sources give"
-           7 (rounds-live probe-3 (in-run-7 :target)))
-    (check "the review's probe 6B, the same with the farthest lane open to its members: 8 rounds, the most that the chains give, and half of the 16 that a live read is given"
+    (check "the review's probe 3, a live read from a start lane in a sitting with the farthest lane open to everyone: 8 rounds, within the 24 that a live read is given"
+           8 (rounds-live probe-3 (in-run-7 :target)))
+    (check "the review's probe 6B, the same with the farthest lane closed to its members: 8 rounds, since open and closed lanes take the same rounds through lane-rights"
            8 (rounds-live probe-6b (in-run-7 :canvas-1)))
-    (check "the review's probe 4: an asker who may not see the nearer lane, asking in her run, while another holder's permission for that run is given and ended there: no step hands her anything, in any order, and each order ends on what a read asked once gives"
+    (check "the review's probe 4: an asker who may not see the nearer lane, asking in her sitting, while another holder's permission for that sitting is given and ended there: no step hands her anything, in any order, and each order ends on what a read asked once gives"
            [0 nil] [@tells (:wrong probe-4-played)])
     (check "the review's probe 5: its five worlds, every order of the callbacks, and none ends wrong"
            [nil nil nil nil nil] (mapv :wrong probe-5))
-    (check "the review's probe 6A, asked once: Cal, who holds no permission in the lane, in no run is one round; in her run, whose permission is beneath the first, one round more, for the row above it; Ada, the first holder, in a run whose permission is Dov's, is one round, as in no run: nothing above another holder's is read"
-           [[1 [1]] [2 [1 1]] [1 [1]] [1 [1]]]
-           [(once m-run (note (person :cal))) (once m-run (note (person :cal) :run-9)) (once m-run-bea (note (person :ada))) (once m-run-bea (note (person :ada) :run-9))])
-    (shown "the review's probe of the read path, written again for this build's code: probe 3 opens in" (rounds-live probe-3 (in-run-7 :target))
+    (check "the review's probe 6A, asked once: Cal in no sitting and in her sitting, and Ada in a sitting where Dov holds a permission, each settle in one select call and one lane-rights query, and Dov's chain is never read"
+           [[1 [1] [1]] [1 [1] [1]] [1 [1] [1]] [1 [1] [1]]]
+           [(once m-run (note (person :cal))) (once m-run (note (person :cal) :run-9))
+            (once m-run-bea (note (person :ada))) (once m-run-bea (note (person :ada) :run-9))])
+    (shown "the review's probe of the read path: probe 3 opens in" (rounds-live probe-3 (in-run-7 :target))
            "rounds and 6B in" (rounds-live probe-6b (in-run-7 :canvas-1))
            "| probe 4 hands her nothing over" (:states probe-4-played) "worlds | probe 5's five worlds:" (pr-str (mapv :states probe-5)) "worlds, none wrong")))
 
@@ -2036,7 +2435,6 @@
         small (every-small-points-at nil)
         place (every-small-standing standing-world [:near :far] 3 [:place :p :text] nil)
         entity (every-small-standing standing-world [:near :far] 2 [:entity :p] nil)
-        ;; the base, read under the routing id of the asker's own lane
         base-played (vec (for [[where at] [["the nearest" (constantly 1)] ["the second" (constantly 2)] ["the farthest" identity]]
                                [what k marks facts seen writes] points-at-scenarios]
                            (assoc (every-order (points-at-world (base-at (at k)) k marks facts seen writes) nil)
@@ -2044,10 +2442,9 @@
         base-place (every-small-standing base-world [:mine :base] 3 [:place :p :text] nil)
         base-entity (every-small-standing base-world [:mine :base] 2 [:entity :p] nil)
         base-run (every-small-standing base-world [:mine :base] 2 [:run :first :last] nil)
-        ;; a lane that leaves and joins by the start lane's list, while its fact and a nearer one change
         list-world (fn [asks]
                      (let [tables (reduce write {} [[:make :home 1] [:make :near 1] [:make :far 1]
-                                                    [:setting :home :everyone 2] [:setting :near :everyone 2] [:setting :far :everyone 2]
+                                                    [:open :home 2] [:open :near 2] [:open :far 2]
                                                     [:list :home [:near :far] 3]
                                                     [:fact :far (person :maker) :p :text "f0" 11]])]
                        (open-live tables
@@ -2055,19 +2452,15 @@
                                    [:list :home [:near :far] 102] [:fact :far (person :maker) :p :text "f1" 103]]
                                   (q {:asks asks :asker (person :ann) :from-lane :home}))))
         lists (mapv #(every-order (list-world %) nil) [[:place :p :text] [:entity :p] [:run :first :last]])
-        ;; a permission two beneath the lane's first, while it and the one above it end and are given again
         chain-place (every-small-chain 3 [:place :p :text] nil)
         chain-entity (every-small-chain 2 [:entity :p] nil)
-        ;; what points at a thing under a key that neither lane marks: the read holds no fact of the nearer lane,
-        ;; so only what the rows above her permission mean tells the asker that the lane is left out
         chain-points (every-small-chain 2 [:points-at :parent :canvas-1] nil)
         chain-points-unseen (with-redefs [sources/rights-kind
                                           (let [rights-kind sources/rights-kind]
                                             (fn [query source]
                                               (let [kind (rights-kind query source)]
-                                                (when-not (= :above kind) kind))))]
+                                                (when-not (= :permission kind) kind))))]
                               (every-small-chain 2 [:points-at :parent :canvas-1] nil))
-        ;; an asker who asks in a run, while the run's permission, the one above it and her own for the lane change
         run-place (every-small-run 2 [:place :p :text] nil)
         run-points (every-small-run 2 [:points-at :parent :canvas-1] nil)
         run-open (run-world [[:end-run]] [:place :p :text])
@@ -2078,7 +2471,6 @@
         chain-ended (loop [world chain-open n 0]
                       (let [moves (moves-of world)]
                         (if (or (empty? moves) (< 200 n)) world (recur (move world (first moves) nil) (inc n)))))
-        ;; the faults that the player can be told to make
         no-mark (mapv (fn [[what k marks facts seen writes]]
                         (when (:wrong (every-order (points-at-world k marks facts seen writes) :no-mark)) (first (str/split what #"\."))))
                       points-at-scenarios)
@@ -2101,44 +2493,45 @@
              nil wrong))
     (check "every list of up to three writes on one place in two lanes, the nearer marking the key or not, from four starts: 672 lists, none with an order that ends wrong"
            [672 []] [(:lists small) (:wrong small)])
-    (check "a place through two lanes, the nearer with a setting and a permission or none: every list of up to three writes of the setting, the permission and the two facts, 620 lists, none with an order that ends wrong"
+    (check "a place through two lanes, the nearer open to everyone or closed and with a permission or none: every list of up to three writes of closing, opening, her permission and the two facts, 620 lists, none with an order that ends wrong"
            [620 []] [(:lists place) (:wrong place)])
     (check "the same for an entity, every list of up to two writes: 120 lists, none with an order that ends wrong"
            [120 []] [(:lists entity) (:wrong entity)])
     (check "a lane that leaves and joins by the start lane's list while its fact and a farther one change: a place, an entity and a whole lane, none with an order that ends wrong"
            [nil nil nil] (mapv :wrong lists))
-    (check "a place through a lane in which the asker's permission is two beneath the first: every list of up to three writes of the end of the one above hers, its second give, the end of her own, her own second give by either holder, and a fact, 258 lists, none with an order that ends wrong; the same for an entity and for what points at a thing under a key that no lane marks, every list of up to two, 42 lists each"
+    (check "a place through a lane in which the asker's lent permission is two beneath the first: every list of up to three writes of the end of the one above hers, a new give to her lender, the end of her own, a new give to her by either holder, and a fact, 258 lists, none with an order that ends wrong; the same for an entity and for what points at a thing under a key that no lane marks, every list of up to two, 42 lists each"
            [[258 []] [42 []] [42 []]]
            [[(:lists chain-place) (:wrong chain-place)] [(:lists chain-entity) (:wrong chain-entity)]
             [(:lists chain-points) (:wrong chain-points)]])
-    (check "the player can fail. With the row of a permission above hers taken as a row that means nothing for her rights, lists that end the one above hers end wrong for what points at a thing: no fact of the lane is held there, so nothing else tells her that the lane is left out"
+    (check "the player can fail. With permission rows taken as rows that mean nothing for her rights, lists that end the lender above hers end wrong for what points at a thing: no fact of the lane is held there, so nothing else re-queries her rights or tells her that the lane is left out"
            [true true]
            [(pos? (count (:wrong chain-points-unseen))) (contains? (set (:wrong chain-points-unseen)) [[:end-above]])])
-    (check "such a read holds the row of each permission above hers beside her own; when the one above hers ends, the read leaves the lane's fact, keeps the rows that could let it in again, and the asker's screen gives the farther lane's fact and says that the nearer lane is left out"
-           [#{":near :ann :softland.store/permission" ":near :bea :softland.store/permission" ":near :root :softland.store/permission"}
-            ["n0" :near] ["f0" :far] true false true]
-           (let [rows-held (fn [world] (into #{} (comp (filter #(= :row (first (:path %))))
-                                                       (map #(second (:path %)))
-                                                       (filter #(str/ends-with? % ":softland.store/permission")))
-                                             (:held world)))
+    (check "such a read watches each climbed permission row and holder run in :read-set; when the lender above hers ends, the read leaves the lane's fact and the root row above the end, keeps the holder runs that let it in again, and gives the farther lane's fact with the nearer lane left out"
+           [[3 2] ["n0" :near] ["f0" :far] true false 3]
+           (let [perm-rows (fn [world] (count (filter #(and (= :near (:lane %))
+                                                            (= :permission (sources/rights-kind (:query world) %)))
+                                                      (:held world))))
+                 holder-runs (fn [world] (count (filter #(and (= :near (:lane %))
+                                                              (= :holders (sources/rights-kind (:query world) %)))
+                                                        (:held world))))
                  fact (sources/place-source :near :near :p :text)]
-             [(rows-held chain-open)
+             [[(perm-rows chain-open) (perm-rows chain-ended)]
               ((juxt :value :lane) (get-in chain-open [:screen :place]))
               ((juxt :value :lane) (get-in chain-ended [:screen :place]))
               (boolean (some #(= :near (:lane %)) (get-in chain-ended [:screen :left-out])))
               (contains? (:held chain-ended) fact)
-              (= (rows-held chain-open) (rows-held chain-ended))]))
-    (check "a place through a lane that the asker sees under the permission of the run that she asks in: every list of up to two writes of the end of the run's permission, its second give, the end of the one above it and its second give, a permission for the lane given to her and ended, the run given to another holder, and a fact, 72 lists, none with an order that ends wrong; the same for what points at a thing under a key that no lane marks"
+              (holder-runs chain-ended)]))
+    (check "a place through a lane that the asker sees under the permission of the sitting she asks in: every list of up to two writes of the end of the sitting permission, a new sitting give, the end of its lender and a new give to the lender, a lane permission given to her and ended, a sitting give to another holder, and a fact, 72 lists, none with an order that ends wrong; the same for what points at a thing under a key that no lane marks"
            [[72 []] [72 []]] [[(:lists run-place) (:wrong run-place)] [(:lists run-points) (:wrong run-points)]])
-    (check "such a read holds the row of the run's permission and the rows above it, beside the place where her own permission would sit; when the run's permission ends, the read leaves the lane's fact and her screen gives the farther lane's"
-           [#{":near :ann :softland.store/permission" ":near :run-7 :softland.store/run-permission"
-              ":near :bea :softland.store/permission" ":near :root :softland.store/permission"}
-            ["n0" :near] ["f0" :far] true]
-           (let [rows-held (fn [world] (into #{} (comp (filter #(= :row (first (:path %))))
-                                                       (map #(second (:path %)))
-                                                       (filter #(str/ends-with? % "permission")))
-                                             (:held world)))]
-             [(rows-held run-open)
+    (check "such a read watches the six holder runs and the three climbed permission rows of her sitting permission; when the sitting permission ends, the read leaves the lane's fact and the permission rows while keeping the six holder runs, and her screen gives the farther lane's fact"
+           [[3 0 6 6] ["n0" :near] ["f0" :far] true]
+           (let [perm-rows (fn [world] (count (filter #(and (= :near (:lane %))
+                                                            (= :permission (sources/rights-kind (:query world) %)))
+                                                      (:held world))))
+                 holder-runs (fn [world] (count (filter #(and (= :near (:lane %))
+                                                              (= :holders (sources/rights-kind (:query world) %)))
+                                                        (:held world))))]
+             [[(perm-rows run-open) (perm-rows run-ended) (holder-runs run-open) (holder-runs run-ended)]
               ((juxt :value :lane) (get-in run-open [:screen :place]))
               ((juxt :value :lane) (get-in run-ended [:screen :place]))
               (boolean (some #(= :near (:lane %)) (get-in run-ended [:screen :left-out])))]))
@@ -2155,7 +2548,6 @@
                                         (holds? (opened 2 scenario) :facts-by-value :l1)))
                                   points-at-scenarios)))
               (let [twelve (nth points-at-scenarios 11)
-                    ;; one order of its moves, played to the end: always the first move that can be made
                     world (loop [world (opened 2 twelve) n 0]
                             (let [moves (moves-of world)]
                               (if (or (empty? moves) (< 200 n)) world (recur (move world (first moves) nil) (inc n)))))]
@@ -2167,13 +2559,14 @@
                                     (or (not (get marks 1)) (not (contains? seen 1))
                                         (holds? (opened 1 scenario) :facts-by-value :base)))
                                   points-at-scenarios)))]))
-    (check "a place through her own lane and the base, the base with a setting and a permission or none, each source of the base under her lane's routing id: every list of up to three writes of the setting, the permission and the two facts, 620 lists, none with an order that ends wrong"
+    (check "a place through her own lane and the base, the base open to everyone or closed and with a permission or none, each source of the base under her lane's routing id: every list of up to three writes of closing, opening, her permission and the two facts, 620 lists, none with an order that ends wrong"
            [620 []] [(:lists base-place) (:wrong base-place)])
     (check "the same for an entity of the base and for the whole of the two lanes, every list of up to two writes: 120 lists each, none with an order that ends wrong"
            [[120 []] [120 []]] [[(:lists base-entity) (:wrong base-entity)] [(:lists base-run) (:wrong base-run)]])
-    (check "in those worlds the read holds the base's own rows, her permission and the fact as sources of the microbatch gate under her own lane's routing id, and none under the base's"
-           [#{[:microbatch :facts :mine]} #{[:own-rows] [:row]}]
-           (let [world (base-world :members true [] [:place :p :text])
+    (check "in those worlds the read holds the base's own rows, its holder runs, her permission row and the fact as sources of the microbatch gate under her own lane's routing id, and none under the base's"
+           [#{[:microbatch :facts :mine] [:microbatch :permissions-by-holder :mine]}
+            #{[:own-rows] [:holders] [:row]}]
+           (let [world (base-world false true [] [:place :p :text])
                  of-base (filter #(= :base (:lane %)) (:held world))]
              [(set (map (juxt :gate :table :routing-id) of-base))
               (set (map (comp vector first :path) of-base))]))
@@ -2182,29 +2575,24 @@
     (check "the player can fail. With told-by? counting a check that the same step has just left, the plan's own crossing ends wrong, and so do lists of the small ones"
            [true true]
            [(contains? (set (:scenarios counting-left)) "1") (pos? (:small counting-left))])
-    (shown "every order of the callbacks, played on the functions that the read path calls: the thirteen scenarios of what points at a thing, through two, three and four lanes,"
+    (shown "every order of the callbacks, played on the functions that the read path calls: the thirteen scenarios of what points at a thing,"
            (reduce + (map :states played)) "states and" (reduce + (map :ends played)) "ends; every list of up to three writes on one place in two lanes,"
            (:lists small) "lists and" (:states small) "states; in each end the asker's screen is what a read asked once gives from the tables")
-    (shown "the same for a place through a lane whose setting and permission change,"
+    (shown "the same for a place through a lane opened and closed to everyone,"
            (:lists place) "lists and" (:states place) "states; for an entity," (:lists entity) "lists and" (:states entity)
-           "states; and for a place, an entity and a whole lane while the start lane's list drops a lane and takes it back,"
+           "states; and while the start lane's list drops a lane and takes it back,"
            (reduce + (map :states lists)) "states")
-    (shown "the base read under the routing id of the asker's own lane, in every order of the callbacks: the thirteen scenarios of what points at a thing, each with the base as the nearest, the second and the farthest lane,"
-           (reduce + (map :states base-played)) "states and" (reduce + (map :ends base-played)) "ends; a place through her own lane and the base while the base's setting and her permission in it change,"
-           (:lists base-place) "lists and" (:states base-place) "states; an entity," (:lists base-entity) "lists and" (:states base-entity)
-           "states; the whole of the two lanes," (:lists base-run) "lists and" (:states base-run)
-           "states; in each end the asker's screen is what a read asked once gives from the tables")
+    (shown "the base read under the routing id of the asker's own lane, in every order of the callbacks:"
+           (reduce + (map :states base-played)) "states across the thirteen scenarios,"
+           (:lists base-place) "place lists and" (:states base-place) "states, none wrong")
     (shown "the player can fail: with the mark dropped the scenarios" (pr-str (filterv some? no-mark))
            "end wrong; with told-by? counting a check that the step has just left, the scenarios"
            (pr-str (filterv some? (:scenarios counting-left))) "and" (:small counting-left) "of the 672 small lists end wrong")
-    (shown "a permission two beneath the lane's first, while it and the one above it end and are given again, in every order of the callbacks: a place,"
-           (:lists chain-place) "lists and" (:states chain-place) "states; an entity," (:lists chain-entity) "lists and" (:states chain-entity)
-           "states; what points at a thing," (:lists chain-points) "lists and" (:states chain-points)
-           "states; in each end the asker's screen is what a read asked once gives from the tables. With the rows above her permission not read as rights,"
-           (count (:wrong chain-points-unseen)) "of the lists of what points at a thing end wrong")
-    (shown "an asker who asks in a run, while the run's permission, the one above it and her own for the lane change, in every order of the callbacks: a place,"
-           (:lists run-place) "lists and" (:states run-place) "states; what points at a thing," (:lists run-points) "lists and" (:states run-points)
-           "states; in each end the asker's screen is what a read asked once gives from the tables")
+    (shown "a lent permission two beneath the lane's first, in every order of the callbacks: a place,"
+           (:lists chain-place) "lists and" (:states chain-place) "states; an entity," (:lists chain-entity) "lists; what points at a thing,"
+           (:lists chain-points) "lists, none wrong")
+    (shown "an asker who asks in a sitting, while her sitting permission, its lender and her lane permission change, in every order of the callbacks: a place,"
+           (:lists run-place) "lists and" (:states run-place) "states; what points at a thing," (:lists run-points) "lists and" (:states run-points) "states, none wrong")
     (shown "that Rama's client delivers in these ways and no other is not shown here: the probes of this build ran it, in-process")))
 
 (deftest the-size-of-a-run-and-the-order-of-its-keys
@@ -2297,26 +2685,30 @@
 (deftest the-words
   (let [each (keys words/words)
         made (words/word :serve-a-read-that-large {:what :places-of-one-run :most 20000 :places {:a 1} :lanes [:l]})]
-    (check "the read path's own ten words"
+    (check "the read path's own eleven words"
            #{:find-the-module :read-the-query :reach-the-store :get-an-answer-within-its-wait
              :read-inside-an-askers-function :serve-a-read-that-large :keep-more-reads-live :keep-the-read-live
-             :find-the-line-whole :keep-a-read-of-acts-live}
+             :find-the-line-whole :keep-a-read-of-acts-live :too-many-permissions}
            (set each))
     (check "the word of the read path's own bound on its pushes is given by a read that is kept live, and by no read asked once"
            #{:read-live} (:from (get words/words :keep-more-reads-live)))
     (check "the two words of a read of a lane's acts: a line that is not whole, given by a read asked once; and the read of acts kept live, which is turned away"
            [#{:read-once} #{:read-live}]
            [(:from (get words/words :find-the-line-whole)) (:from (get words/words :keep-a-read-of-acts-live))])
+    (check "the word of a lane that passed the bound on permissions is given by both calls, carries the lane and the bound, and drops parts of an answer"
+           [#{:read-once :read-live} {:could-not :too-many-permissions :lane :lab :most 32}]
+           [(:from (get words/words :too-many-permissions))
+            (words/word :too-many-permissions {:lane :lab :most 32 :acts [] :last-stamp 5})])
     (check "each word says what it is and which call gives it; a word that is not declared is not made"
            [true nil]
            [(every? (fn [w] (let [entry (get words/words w)] (and (string? (:says entry)) (seq (:from entry))))) each)
             (words/word :no-such-word {})])
     (check "a word holds :could-not and what it carries, and no part of an answer"
            {:could-not :serve-a-read-that-large :what :places-of-one-run :most 20000} made)
-    (check "what a word can carry is declared, and so are the six reasons for which a live read ends and the two words for a lane that is left out"
-           [#{:module :why :at :threw :said :waited-ms :what :most :because :stamp}
+    (check "what a word can carry is declared, and so are the seven reasons for which a live read ends and the two words for a lane that is left out"
+           [#{:module :why :at :threw :said :waited-ms :what :most :lane :because :stamp}
             #{:the-store-ended-a-push :a-step-did-not-settle :a-run-grew-too-large :a-read-it-came-to-need-failed
-              :no-room-for-a-push-it-came-to-need :its-function-threw}
+              :no-room-for-a-push-it-came-to-need :too-many-permissions :its-function-threw}
             #{:may-not-see :not-made}]
            [(set (keys words/carried)) (set (keys words/because)) (set (keys words/left-out-words))])
     (check "no word of the read path is a gate's reason, a word of a stray, or a word with which the check of a query turns a thing away"
@@ -2329,7 +2721,7 @@
            [#{} #{} #{}]
            [(set (filter act/reasons query/reasons)) (set (filter declaration/reasons query/reasons))
             (set (filter (set (keys door-words/words)) query/reasons))])
-    (shown "the read path's ten words are declared, each with what it says:" (pr-str (sort each))
+    (shown "the read path's eleven words are declared, each with what it says:" (pr-str (sort each))
            "| none is a gate's reason or a word of a stray; one, :find-the-module, is spelled as the door's word for its own opening")))
 
 ;; ------------------------------------------------- a lane's acts by stamp
@@ -2354,11 +2746,7 @@
   "Stands for a gate's decision in a lane's line: puts its line row, its
   thing when it is kept, the lane's last stamp, and its row by who when
   the thing names a who, in the tables, as `softland.store.gate.decision`
-  has a gate write them. Takes the tables, the lane, the stamp, and a map:
-  `:who` the who that the thing names, or none; `:refused` the reason
-  word, or none for an accept; `:thing` the thing; `:not-kept` the word of
-  a thing that the gate keeps not, or none; `:weight` its weight, the
-  length of its printed text when none is given."
+  has a gate write them."
   [tables lane stamp {:keys [who refused thing not-kept weight]}]
   (let [gate (first-act/depot-at-making lane)
         k (rows/line-key lane stamp)
@@ -2371,19 +2759,12 @@
       who (put gate :by-who (rows/by-who-key lane who stamp) stamp))))
 
 (defn- window-of
-  "Takes a table, the two ends of a run and a count. Gives what the read
-  path's window gives: that many rows from the first end on, cut at the
-  last end."
   [t from to n]
   (into (sorted-map-by by-code-point)
         (filter (fn [[k]] (rows/before? k to)))
         (take n (subseq t >= from))))
 
 (defn- acts-value
-  "Takes the tables and a source of a read of acts. Gives what Rama would
-  give for it now: a lane's last stamp, a window of the line, of the
-  things or of the rows by who, or a row or the rows of the facts
-  (`table-value`)."
   [tables source]
   (let [[kind a b n] (:path source)
         gate (:gate source)]
@@ -2395,30 +2776,39 @@
       (table-value tables source))))
 
 (defn- play-acts
-  "Plays a read of acts asked once, as `softland.store.read-path` plays it:
-  what is wanted, fetch what is missing, again. Takes a function from the
-  number of a round to the tables as they are when that round is served,
-  the query in its one form, and the numbers. Gives {:answer or :fault,
-  :rounds how many rounds fetched something, :read the set of the sources
-  that each round fetched}; `:stuck` when a reading wanted nothing and gave
-  nothing, or seven rounds were not enough."
+  "Plays a read of acts asked once, as `softland.store.read-path/read-acts-once`
+  plays it: last stamp first, then own rows and `lane-rights` for `:acts`
+  together, then line/by-who, then things."
   ([tables query] (play-acts (constantly tables) query numbers))
   ([tables-at query nums]
-   (loop [round 0 known {} read []]
-     (let [{:keys [answer fault missing]} (acts/reading query known nums)]
-       (cond
-         answer {:answer answer :rounds round :read read}
-         fault {:fault fault :rounds round :read read}
-         (or (empty? missing) (< 6 round)) {:stuck true :rounds round :read read}
-         :else (let [t (tables-at round)]
-                 (recur (inc round)
-                        (into known (map (fn [s] [s (acts-value t s)])) missing)
-                        (conj read (set missing)))))))))
+   (let [lane (lanes/home query)]
+     (loop [round 0 known {} snapshot nil read []]
+       (let [{:keys [answer fault missing needs-rights too-many-permissions]}
+             (acts/reading query known nums snapshot)]
+         (cond
+           answer {:answer answer :rounds round :read read}
+           too-many-permissions {:too-many-permissions too-many-permissions :rounds round :read read}
+           fault {:fault fault :rounds round :read read}
+           (or (and (empty? missing) (not needs-rights)) (< 6 round))
+           {:stuck true :rounds round :read read}
+           :else
+           (let [t (tables-at round)
+                 fetched (into {} (map (fn [s] [s (acts-value t s)])) missing)
+                 snap (when needs-rights
+                        (run-rights t lane :acts (:asker query) (:session query)))
+                 round-sources (cond-> (set missing)
+                                 needs-rights
+                                 (conj {:gate (first-act/depot-at-making lane)
+                                        :table :lane-rights
+                                        :lane lane
+                                        :routing-id lane
+                                        :path [:rights :acts]}))]
+             (recur (inc round)
+                    (merge known fetched)
+                    (if needs-rights snap snapshot)
+                    (conj read round-sources)))))))))
 
 (defn- acts-of
-  "The query of a read of a lane's acts from a stamp, at most a count, by
-  an asker: an id, or nil for one who is not signed in; with a session when
-  one is given. In its one form."
   ([lane start most asker] (acts-of lane start most asker nil))
   ([lane start most asker session]
    (q (cond-> {:asks [:acts start most] :from-lane lane}
@@ -2427,8 +2817,6 @@
         session (assoc :session session)))))
 
 (defn- given
-  "Takes an answer of a read of acts. Gives each decision given as [stamp
-  what]: `:withheld`, `:whole`, or the word of `:no-thing`."
   [answer]
   (mapv (fn [d] [(:stamp d) (cond (contains? d :thing) :whole
                                   (contains? d :no-thing) (:no-thing d)
@@ -2436,8 +2824,6 @@
         (:acts answer)))
 
 (def ^:private lab-things
-  "The things of the line of the proof's lane `:lab`, by stamp: what each
-  thing names as its who, and what the gate decided."
   [{:who (person :ann) :thing {:who (person :ann) :facts [:make]}}
    {:who (person :ann) :thing {:who (person :ann) :facts [:give :bo]}}
    {:who (person :cy) :refused :permission-not-found :thing {:who (person :cy) :facts [:try 1]}}
@@ -2448,10 +2834,8 @@
 
 (defn- lab-world
   "The tables of the proof's lane `:lab`, a streaming lane: made by Ann at
-  stamp 0 with her first permission, Bo given one beneath hers at stamp 1,
-  and the seven decisions of `lab-things` in its line. Takes the writes of
-  facts to add after those, each as `write` takes it, with the acts
-  setting as [:acts-setting lane word stamp]."
+  stamp 0 with her first permission, Bo given one lent beneath hers at stamp 1,
+  and the seven decisions of `lab-things` in its line."
   [& more]
   (let [facts (reduce (fn [t w]
                         (if (= :acts-setting (first w))
@@ -2465,8 +2849,8 @@
   (let [holder (play-acts (lab-world) (acts-of :lab 0 10 (person :ann)))
         given-one (play-acts (lab-world) (acts-of :lab 0 10 (person :bo)))
         outside (play-acts (lab-world) (acts-of :lab 0 10 (person :cy)))
-        open (lab-world [:setting :lab :everyone 7])
-        open-and-read (lab-world [:setting :lab :everyone 7] [:acts-setting :lab :everyone 8])
+        open (lab-world [:open :lab 7])
+        open-and-read (lab-world [:open :lab 7] [:acts-setting :lab :everyone 8])
         bo-ended (lab-world [:end :lab (person :bo) 7])
         all-whole [[0 :whole] [1 :whole] [2 :whole] [3 :whole] [4 :whole] [5 :too-heavy] [6 :whole]]]
     (check "a holder of a lane, its first or one given beneath her, reads each decision of its line whole, from the start: its answer and its thing, a thing that the gate kept not with its word, and the last stamp"
@@ -2502,14 +2886,24 @@
     (check "a holder whose permission ended reads the lane's acts as an asker who may not see it: her own alone"
            [[[3 :whole]] [{:lane :lab :why :may-not-see}]]
            (let [a (:answer (play-acts bo-ended (acts-of :lab 0 10 (person :bo))))] [(given a) (:left-out a)]))
-    (check "a holder beneath a permission that ended reads as one who may not see the lane: the rows above hers are read, and her permission stands only while each of them does"
-           [[[9 :whole]] [{:lane :lab :why :may-not-see}]]
-           (let [w (lab-world [:give :lab (person :dee) (person :bo) 7] [:end :lab (person :bo) 8])
-                 w (decide w :lab 7 {:who (person :bo) :thing {:who (person :bo) :facts [:give :dee]}})
-                 w (decide w :lab 8 {:who (person :ann) :thing {:who (person :ann) :facts [:end :bo]}})
-                 w (decide w :lab 9 {:who (person :dee) :thing {:who (person :dee) :facts [:mine]}})
-                 a (:answer (play-acts w (acts-of :lab 0 10 (person :dee))))]
-             [(given a) (:left-out a)]))
+    (check "a lent holder beneath an ended lender reads as outside, whereas a standing give to a person stays a holder when her inviter's ends; on an open lane a member stays a holder, an un-lent agent is outside, and past 32 permissions the read returns :too-many-permissions"
+           [[[9 :whole]] [{:lane :lab :why :may-not-see}]
+            all-whole all-whole [] {:lane :lab :most 32}]
+           (let [lent-ended (-> (lab-world [:give :lab (person :dee) (person :bo) 7] [:end :lab (person :bo) 8])
+                                (decide :lab 7 {:who (person :bo) :thing {:who (person :bo) :facts [:give :dee]}})
+                                (decide :lab 8 {:who (person :ann) :thing {:who (person :ann) :facts [:end :bo]}})
+                                (decide :lab 9 {:who (person :dee) :thing {:who (person :dee) :facts [:mine]}}))
+                 a-lent (:answer (play-acts lent-ended (acts-of :lab 0 10 (person :dee))))
+                 standing-kept (lab-world [:give :lab (person :dee) (person :bo) 7 {:lent? false}] [:end :lab (person :bo) 8])
+                 flood (reduce (fn [t i]
+                                 (write t [:give :lab (agent :ada) (person :ann) (+ 20 i) {:allows {:write :all}}]))
+                               open
+                               (range 33))]
+             [(given a-lent) (:left-out a-lent)
+              (given (:answer (play-acts standing-kept (acts-of :lab 0 10 (person :dee)))))
+              (given (:answer (play-acts open (acts-of :lab 0 10 (person :bo)))))
+              (given (:answer (play-acts open (acts-of :lab 0 10 (agent :ada)))))
+              (:too-many-permissions (play-acts flood (acts-of :lab 0 10 (agent :ada))))]))
     (check "the permission of the run that she asks in lets a holder of no permission of her own read the acts whole; a yes for one act lets nobody read them"
            [all-whole [[2 :whole] [5 :too-heavy]]]
            (let [run (lab-world [:give-run :lab :run-1 (person :cy) (person :ann) 7])
@@ -2576,11 +2970,11 @@
         kinds (fn [played] (mapv (fn [round] (into (sorted-set) (map (fn [s] [(:table s) (first (:path s))])) round)) (:read played)))
         line-reads (fn [played] (for [round (:read played) s round :when (#{:line :things} (:table s))] s))]
     (check "the last stamp is read in a round of its own, before the rights; the rights before the line; the line before its things"
-           [[#{[:task :last-stamp]} #{[:facts :own-rows] [:facts :row]} #{[:line :window]} #{[:things :window]}]
-            [#{[:task :last-stamp]} #{[:facts :own-rows] [:facts :row]} #{[:facts :row]} #{[:line :window]} #{[:things :window]}]]
+           [[#{[:task :last-stamp]} #{[:facts :own-rows] [:lane-rights :rights]} #{[:line :window]} #{[:things :window]}]
+            [#{[:task :last-stamp]} #{[:facts :own-rows] [:lane-rights :rights]} #{[:line :window]} #{[:things :window]}]]
            [(kinds holder) (kinds given-one)])
     (check "an asker who may not see the lane reads her rows by who and no window of the line: each row of the line and each thing that her read fetches is one of hers"
-           [[#{[:task :last-stamp]} #{[:facts :own-rows] [:facts :row]} #{[:task :by-who]} #{[:line :window]} #{[:things :window]}]
+           [[#{[:task :last-stamp]} #{[:facts :own-rows] [:lane-rights :rights]} #{[:task :by-who]} #{[:line :window]} #{[:things :window]}]
             #{2 5}]
            [(kinds outside)
             (into #{} (mapcat (fn [s] (let [[_ from to] (:path s)]
@@ -2589,16 +2983,18 @@
     (check "a holder's page of kept things is one window of the things table, across a decision whose thing the gate kept not; a visitor's own things are read alone, never a withheld one's"
            [[[(rows/line-key :lab 0) (str (rows/line-key :lab 6) " ") 6]]
             [[(rows/line-key :lab 2) (str (rows/line-key :lab 2) " ") 1]]]
-           (let [visitor (play-acts (lab-world [:setting :lab :everyone 7]) (acts-of :lab 0 10 (person :cy)))]
+           (let [visitor (play-acts (lab-world [:open :lab 7]) (acts-of :lab 0 10 (person :cy)))]
              [(for [s (last (:read holder))] (rest (:path s)))
               (for [s (last (:read visitor))] (rest (:path s)))]))
-    (check "a read of acts takes six rounds at most: four for the lane's first holder, five for a holder given hers beneath another's and for an asker outside, six for an asker outside whose permission's rows above must be read"
-           [4 5 5 6]
+    (check "a read of acts takes five rounds at most: four for a holder, first or lent, five for an asker outside, also beneath an ended lender, and two for one who is not signed in and outside"
+           [4 4 5 5 2]
            (let [dee (-> (lab-world [:give :lab (person :dee) (person :bo) 7] [:end :lab (person :bo) 8])
                          (decide :lab 7 {:who (person :bo) :thing {:n 7}})
                          (decide :lab 8 {:who (person :ann) :thing {:n 8}})
                          (decide :lab 9 {:who (person :dee) :thing {:n 9}}))]
-             [(:rounds holder) (:rounds given-one) (:rounds outside) (:rounds (play-acts dee (acts-of :lab 0 10 (person :dee))))]))
+             [(:rounds holder) (:rounds given-one) (:rounds outside)
+              (:rounds (play-acts dee (acts-of :lab 0 10 (person :dee))))
+              (:rounds (play-acts w (acts-of :lab 0 10 nil)))]))
     (check "a decision that lands after the last stamp was read is not given, though the window holds it: it is decided after the rights were read, and the next read gives it"
            [[0 1 2 3 4 5 6] 6 7]
            (let [later (decide w :lab 7 {:who (person :ann) :thing {:n 7}})

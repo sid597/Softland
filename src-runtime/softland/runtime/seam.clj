@@ -121,7 +121,7 @@
 
 ;; ------------------------------------------------------------------ the caller
 
-(deftype Caller [who root sign-in session kind hash until own-lane driven-by from]
+(deftype Caller [who actor root sign-in session kind hash until own-lane driven-by from]
   Object
   (toString [_] (if (some? who) "#<caller>" "#<visitor>")))
 
@@ -133,22 +133,24 @@
 
 (alter-meta! #'->Caller assoc
              :private true
-             :doc "`who` is nil for a visitor, and `session` nil when the face named and
-  asked for none. `hash` is an atom: the latest hash of the secret for this
-  connection, reset on `:replace-secret`. `until` is the time until which
-  that secret stands. `from` is what the face said of the request.")
+             :doc "`who` is the store party keyword (`:person.<uuid>` or `:agent.<uuid>`, nil
+  for a visitor), `actor` is Auth's internal actor UUID (nil for a visitor),
+  and `session` is nil when the face named and asked for none. `hash` is an
+  atom: the latest hash of the secret for this connection, reset on
+  `:replace-secret`. `until` is the time until which that secret stands.
+  `from` is what the face said of the request.")
 
 (defn caller?
   [x]
   (instance? Caller x))
 
 (defn who-of
-  "Nil for a visitor."
+  "The store party id (`:person.<uuid>` or `:agent.<uuid>`), or nil for a visitor."
   [^Caller caller]
   (.-who caller))
 
 (defn root-of
-  "The person at the root. Nil for a visitor."
+  "The person UUID at the root. Nil for a visitor."
   [^Caller caller]
   (.-root caller))
 
@@ -163,7 +165,7 @@
 
 (defn person?
   [^Caller caller]
-  (and (some? (.-who caller)) (= (.-who caller) (.-root caller))))
+  (and (some? (.-actor caller)) (= (.-actor caller) (.-root caller))))
 
 (defn about
   "What a face may tell the system that holds the credential. It is data,
@@ -245,12 +247,17 @@
 
 (def ^:private the-visitor
   "The caller of everybody who is not signed in."
-  (->Caller nil nil nil nil nil nil nil nil nil nil))
+  (->Caller nil nil nil nil nil nil nil nil nil nil nil))
 
 (defn visitor
   "`from` is what the face says of the request."
   ([] the-visitor)
-  ([from] (->Caller nil nil nil nil nil nil nil nil nil from)))
+  ([from] (->Caller nil nil nil nil nil nil nil nil nil nil from)))
+
+(defn- actor-party
+  [actor root]
+  (when (some? actor)
+    (keyword (str (if (= actor root) "person." "agent.") actor))))
 
 (defn- no-sign-in
   [why]
@@ -339,8 +346,9 @@
         (let [hash (credential/hash-of secret)
               [verdict until-or-why] (judged got hash carrier (now-ms))
               {:keys [actor kind]} (:sign-in got)
+              party (actor-party actor root)
               made (fn [session session-driven-by]
-                     (->Caller actor root sign-in session kind (atom hash) until-or-why
+                     (->Caller party actor root sign-in session kind (atom hash) until-or-why
                                (:own-lane got) session-driven-by from))]
           (cond
             (= :not verdict) (no-sign-in until-or-why)
@@ -643,7 +651,7 @@
         agent (derived :agent root uuid)
         sign-in (derived :sign-in root uuid)
         now (now-ms)
-        made (from-auth (auth/make-actor client {:root root :actor agent :made-by (.-who caller)
+        made (from-auth (auth/make-actor client {:root root :actor agent :made-by (.-actor caller)
                                                  :label label :at now}))]
     (if (:could-not made)
       made
@@ -665,7 +673,7 @@
       (:could-not got) (words/could-not :reach-auth {:got got})
       (not-any? (fn [actor] (= agent (:actor actor))) (:actors got))
       (words/could-not :find-the-agent {:why :not-known})
-      (not (beneath? (:actors got) agent (.-who caller)))
+      (not (beneath? (:actors got) agent (.-actor caller)))
       (words/could-not :find-the-agent {:why :not-beneath})
       :else (from-auth (auth/end-actor client {:root root :actor agent :at (now-ms)})))))
 
@@ -731,7 +739,7 @@
                                           :claim (let [claim (:claim word)]
                                                    (cond-> claim
                                                      (= :email (:by claim)) (update :email #(.toLowerCase ^String % Locale/ROOT))))
-                                          :invited-by (.-who caller) :at (now-ms)})))
+                                          :invited-by (.-actor caller) :at (now-ms)})))
 
       :make-agent (or (needs-a-who caller) (make-agent-now seam caller word))
 

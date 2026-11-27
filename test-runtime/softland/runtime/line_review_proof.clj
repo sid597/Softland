@@ -25,6 +25,7 @@
             [softland.runtime.attacks.harness :as h]
             [softland.runtime.drive :as drive]
             [softland.runtime.line :as line]
+            [softland.runtime.permissions :as perm]
             [softland.runtime.seam :as seam]
             [softland.wire.credential :as credential]
             [softland.wire.frame :as frame]
@@ -89,7 +90,8 @@
 (defn- write-word
   [{:keys [who session own-lane]} e v]
   {:word :send
-   :act {:version 1 :who who :session session :lane own-lane :permission [who own-lane own-lane]
+   :act {:version 1 :who who :session session :lane own-lane
+         :permission (perm/permission-id (perm/first-permission who own-lane))
          :facts [{:e e :k :k :v v}]}
    :act-id (UUID/randomUUID)})
 

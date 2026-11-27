@@ -69,6 +69,9 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [softland.command.client :as client]
+            [softland.store.act :as act]
+            [softland.store.door.declaration :as declaration]
+            [softland.store.gate.first-act :as first-act]
             [softland.wire.credential :as credential]
             [softland.wire.frame :as frame])
   (:import [java.io File PushbackReader]
@@ -346,26 +349,6 @@
   ([flags f auto-replace?]
    (with-line* flags (fn [connection hello _ _] (f connection hello)) auto-replace?)))
 
-(defn- first-permission
-  "A lane's first owner permission value for `holder`."
-  [holder lane]
-  [holder lane lane])
-
-(defn- given-permission
-  "A given permission value beneath `parent` for `holder` in `lane`."
-  [holder lane parent allows]
-  [holder lane lane parent allows])
-
-(defn- permission-id
-  "The `:permission` slot of an act for `permission`."
-  [permission]
-  permission)
-
-(defn- permission-fact
-  "The store fact that writes `permission`."
-  [permission]
-  {:e (nth permission 0) :k :softland.store/permission :v permission})
-
 (defn- act-of
   "With no `--permission`, the act names the first permission of the lane
   for its person."
@@ -375,7 +358,7 @@
      :who (:who hello)
      :session (:session hello)
      :lane lane
-     :permission (if permission (value-of permission) (permission-id (first-permission (:who hello) lane)))
+     :permission (if permission (value-of permission) (first-act/first-permission-id lane))
      :facts facts}))
 
 (defn- query-of
@@ -501,15 +484,31 @@
                 lane (value-of b)
                 flags (assoc flags :lane b)
                 act (act-of hello flags [])
-                allows (case c "see" :see "act" :see-and-act nil)]
+                allows (case c
+                         "see" {:see true}
+                         "act" (if (act/borrower? who)
+                                 {:see true :write :all}
+                                 {:see true :write :all :give #{:see :write :give}})
+                         nil)]
             (if-not allows
               {:could-not :read-the-command :said "give who lane see|act"}
-              (client/say connection
-                          {:word :send
-                           :act (assoc act
-                                       :subjects #{who}
-                                       :facts [(permission-fact (given-permission who lane (:permission act) allows))])
-                           :act-id (UUID/randomUUID)})))))
+              (let [perm-id (UUID/randomUUID)
+                    lent? (or (act/borrower? (:who hello)) (act/borrower? who))
+                    fact {:e perm-id
+                          :k declaration/permission-key
+                          :v (cond-> {:holder who
+                                      :allows allows
+                                      :covers [:default-group lane]
+                                      :given-by (:who hello)
+                                      :under (:permission act)}
+                               lent? (assoc :lent-from (:permission act)))}
+                    sent (client/say connection
+                                     {:word :send
+                                      :act (assoc act :subjects #{who} :facts [fact])
+                                      :act-id (UUID/randomUUID)})]
+                (if (:could-not sent)
+                  sent
+                  (assoc sent :permission perm-id)))))))
 
       "invite"
       (with-line flags

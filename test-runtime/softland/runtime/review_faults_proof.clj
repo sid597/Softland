@@ -297,7 +297,7 @@
             retry-replace (run-cmd "replace-secret" [])
             final-who (run-cmd "who" [])]
         (check "When a secret replacement is taken by Auth and its answer is lost, the command line is not locked out after the previous secret expires and can still run commands and retry replacement."
-               (and (uuid? (:who before))
+               (and (= (perm/person (:root before)) (:who before))
                     @took-replace
                     (= :hear-the-runtime (:could-not lost-after))
                     (= (:who before) (:who after-who))

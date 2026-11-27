@@ -186,10 +186,10 @@
                        (and (not= 0 (:exit lost-a))
                             (= 0 (:exit retry-a))
                             (= 0 (:exit who-a))
-                            (uuid? (:who (:out who-a)))
+                            (keyword? (:who (:out who-a)))
                             (not= 0 (:exit lost-b))
                             (= 0 (:exit who-b))
-                            (uuid? (:who (:out who-b))))
+                            (keyword? (:who (:out who-b))))
                        {:case-a {:lost lost-a :retry retry-a :who-after-grace who-a}
                         :case-b {:lost lost-b :who-after-grace who-b}}))))
           (finally

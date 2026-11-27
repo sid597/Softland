@@ -766,7 +766,7 @@
         made? (make-lane! d :erin)
         facts [(value :note-1 {:n 1 :tags #{:a}})
                {:e :note-2 :k :text}
-               {:e :erin :k :softland.store/who-may-see :v :members}]
+               {:e :erin :k :softland.store/who-may-read-acts :v :members}]
         ;; through the door
         clock-before (clock)
         by-door (decide! d (act-of :erin facts))
@@ -789,7 +789,7 @@
            {:version 1 :who (person :erin) :lane :erin :permission (perm/permission-id (own :erin)) :session :door-proof
             :facts [{:e :note-1 :k :text :v {:n 1 :tags #{:a}}}
                     {:e :note-2 :k :text}
-                    {:e :erin :k :softland.store/who-may-see :v :members}]
+                    {:e :erin :k :softland.store/who-may-read-acts :v :members}]
             :act-id [:erin :streaming :the-acts-uuid]
             :depot :streaming
             declaration/time-part :the-time-of-a-clock}
@@ -900,8 +900,8 @@
          ["a value that is a list" (alice [(value :n-list (list 1 2))]) :malformed]
          ["a value that is a double and no number" (alice [(value :n-nan Double/NaN)]) :malformed]
          ["a value fact whose :e is no id" (alice [no-id-fact]) :malformed]
-         ["a :who that is a sorted map" (alice [(value :by-a-sorted-map "a value")] {:who (sorted-map :a 1)}) :malformed]
-         ["a :who that is a map with string keys" (alice [(value :by-a-map "a value")] {:who {"a" 1}}) :malformed]
+         ["a :who that is a sorted map" (alice [(value :by-a-sorted-map "a value")] {:who (sorted-map :a 1)}) :who-not-a-party]
+         ["a :who that is a map with string keys" (alice [(value :by-a-map "a value")] {:who {"a" 1}}) :who-not-a-party]
          ["a fact that carries :sealed and :lock-id, and no :v"
           (alice [{:e :forged :k :text :sealed (byte-array 40) :lock-id [[:alice :streaming (UUID/randomUUID)] 0]}]) :unknown-part]
          ["a fact with a value that also holds :sealed" (alice [(assoc (value :n-sealed 1) :sealed (byte-array 3))]) :unknown-part]
@@ -1094,7 +1094,7 @@
     (check "the log holds her act under its own act-id, as she gave it, with its value plain: one record, which without its time is her act with :act-id and :depot, and whose time is a time of the door's clock between the proof's two readings round the send"
            [[(assoc mallorys-act :act-id id :depot :streaming) true]] (seen-in-log id clock-before clock-after))
     (check "a gate refuses it, and the refusal is recorded under the act's own act-id with the gate's word: answer-of gives it for the digest that the send gave, with the time that the door wrote on the thing, and the record's answer round the door is of that digest"
-           [(as-answered (:result sent) {:answer :refused :reason :permission-does-not-stand}) [:refused :permission-does-not-stand (:digest (:result sent))]]
+           [(as-answered (:result sent) {:answer :refused :reason :permission-never-given}) [:refused :permission-never-given (:digest (:result sent))]]
            [(dissoc answer :stamp) [(:verdict round-the-door) (:reason round-the-door) (:digest round-the-door)]])
     (check "no fact of it is in the tables: no gate holds a row at its place, on any task" [] (rows-at :alice :m-1 :text))
     (check "a value act into a lane that is not made: the thing goes to the depot that the lane would start with, one record more in its log, and a gate refuses it under its own act-id with its word and with the time that the door wrote on it"
@@ -1130,11 +1130,11 @@
            [nil :gate-ran [1 0] [[(assoc veras-act :act-id id :depot :streaming) true]]]
            [(:could-not sent) (:ack sent) (mapv - logs-after logs-before) (seen-in-log id clock-before clock-after)])
     (check "a gate refuses it under its own act-id with its word, an act needs act: answer-of gives the refusal for the digest that the send gave, with the time that the door wrote on the thing, and the record's answer round the door is of that digest"
-           [(as-answered sent {:answer :refused :reason :permission-does-not-allow-acting}) [:refused :permission-does-not-allow-acting (:digest sent)]]
+           [(as-answered sent {:answer :refused :reason :permission-does-not-allow-writing}) [:refused :permission-does-not-allow-writing (:digest sent)]]
            [(dissoc answer :stamp) [(:verdict round-the-door) (:reason round-the-door) (:digest round-the-door)]])
     (check "no fact of it is in the tables: no gate holds a row at its place, on any task" [] (rows-at :alice :v-1 :text))
     (check "an act of hers with no value is refused the same way, under its own act-id with the same word and with the time that the door wrote on it"
-           [nil (as-answered (:sent no-value) {:answer :refused :reason :permission-does-not-allow-acting})]
+           [nil (as-answered (:sent no-value) {:answer :refused :reason :permission-does-not-allow-writing})]
            [(:could-not (:sent no-value)) (dissoc (:answer no-value) :stamp)])
     (shown "a holder of a permission that says see sends a value through the door: the thing goes in and is refused under its own act-id:"
            (pr-str (dissoc answer :stamp)) "| its value is plain in the log, and no row is at its place")
@@ -1168,7 +1168,7 @@
                                               :facts (list (value :w-3 "the act said yes to"))))
         [yes-1-row yes-2-row] (map #(let [{:keys [e k]} (perm/permission-fact %)] (row-of :alice e k)) [yes-1 yes-2])]
     (check "through the door, Alice gives Will a permission for his run; his act in that run is taken, and in another run refused"
-           [true :accepted [:refused :permission-for-another-run]]
+           [true :accepted [:refused :permission-for-another-sitting]]
            [(accepted? give-run) (:answer (:answer in-run))
             [(:answer (:answer in-another-run)) (:reason (:answer in-another-run))]])
     (check "a maker makes the digest that a yes names of her act as she made it, before it has an act-id or a permission: the door's one call for it, which the gate makes of the thing that arrives; Alice gives the yes on an id of its own, and it is accepted"
@@ -1184,7 +1184,7 @@
             (:answer (:answer written-another-way))])
     (check "each yes's place holds its use: an end, written by the act that used it"
            [[true (nth (:act-id (:sent taken)) 2)] [true (nth (:act-id (:sent written-another-way)) 2)]]
-           [[(record/ended? yes-1-row) (:by-act yes-1-row)] [(record/ended? yes-2-row) (:by-act yes-2-row)]])
+           [[(record/used? yes-1-row) (:by-act yes-1-row)] [(record/used? yes-2-row) (:by-act yes-2-row)]])
     (shown "a permission for a run and a yes for one act, through the door: in his run" (told in-run)
            "| the act under its yes:" (told taken) "| again under another act-id:" (told again)
            "| under the taken act's act-id, the same thing and another:" (pr-str [(:answer same-again-told) (:answer another-told)])
@@ -1485,7 +1485,7 @@
     (check "a wait of 600 ms for the first of the two, while the gate is still paused, comes back after its bound with nothing yet"
            [{:answer :nothing-yet} true] [waited-paused (<= 600 waited-ms)])
     (check "the gate goes on: a wait gives accepted for the first, and for the second the gate's recorded refusal with its word; each with the time that the door wrote on its thing"
-           (mapv as-answered two-sent [{:answer :accepted} {:answer :refused :reason :permission-does-not-stand}])
+           (mapv as-answered two-sent [{:answer :accepted} {:answer :refused :reason :permission-never-given}])
            (mapv (fn [answer] (dissoc answer :stamp)) two-answers))
     (check "a read that gave an answer gives the same answer on each later read: 5 reads more of each of the two, with no wait, give the answer that the wait gave, its stamp too"
            [(vec (repeat 5 (nth two-answers 0))) (vec (repeat 5 (nth two-answers 1)))] read-again)

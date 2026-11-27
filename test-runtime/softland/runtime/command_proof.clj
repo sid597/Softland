@@ -119,7 +119,7 @@
                  (and (seq path) (not (str/includes? (str/join path) "rama")))))
         (check "`sign-in` shows a link and a code and waits; after her yes at the page it prints who it is, with its session and her own lane, and ends with 0."
                (and (:code signed) (str/includes? (:shown signed) (str url "/yes?code="))
-                    (= 0 (:exit signed)) (uuid? who) (uuid? lane) (uuid? (:session (:out signed))))
+                    (= 0 (:exit signed)) (= (perm/person (:root (:out signed))) who) (uuid? lane) (uuid? (:session (:out signed))))
                (dissoc signed :shown))
         (check "It keeps one file, which its owner alone can read, and the file holds the runtime's address, the credential and the session, and nothing of who she is."
                (and (= "rw-------" (PosixFilePermissions/toString (Files/getPosixFilePermissions (.toPath file) (make-array java.nio.file.LinkOption 0))))
@@ -166,16 +166,17 @@
           (.destroyForcibly watching))
         (let [made (soft home "agent" "new" "importer" "--out" (.getPath (io/file agent-home "sign-in.edn")))
               agent (:made (:out made))
+              agent-who (perm/agent agent)
               as-agent (:out (soft agent-home "who"))
               before (soft agent-home "write" ":crate-1" ":packed" "true" "--lane" (str lane)
-                           "--permission" (pr-str (perm/permission-id (perm/first-permission (perm/agent agent) lane))))
-              given (pr-str (perm/permission-id (perm/given-permission (perm/agent agent) lane own :see-and-act)))
-              gave (soft home "give" (str agent) (str lane) "act")
+                           "--permission" (pr-str (perm/permission-id (perm/first-permission agent-who lane))))
+              gave (soft home "give" (str agent-who) (str lane) "act")
+              given (pr-str (:permission (:out gave)))
               after (soft agent-home "write" ":crate-1" ":packed" "true" "--lane" (str lane)
                           "--permission" given)]
           (check "`agent new` makes an agent with a who of its own and writes the file that it signs in with; with that file the command line is the agent, beneath her."
-                 (and (= 0 (:exit made)) (uuid? agent) (not= who agent)
-                      (= agent (:who as-agent)) (= who (:root as-agent)))
+                 (and (= 0 (:exit made)) (uuid? agent) (not= who agent-who)
+                      (= agent-who (:who as-agent)) (= (:root (:out signed)) (:root as-agent)))
                  [(:out made) as-agent])
           (check "An agent's write is refused by a gate before she gives it a permission, and accepted after `give`."
                  (and (= 3 (:exit before)) (= 0 (:exit gave)) (= 0 (:exit after))

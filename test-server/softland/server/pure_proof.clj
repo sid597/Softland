@@ -138,7 +138,7 @@
 ;; ------------------------------------------------------------------- the words
 
 (def ^:private an-act-id [:notes :streaming (UUID/randomUUID)])
-(def ^:private an-act {:version 1 :lane :notes :permission [:asha :notes :notes] :facts [{:e :chair-7 :k :colour :v :green}]})
+(def ^:private an-act {:version 1 :lane :notes :permission (UUID/randomUUID) :facts [{:e :chair-7 :k :colour :v :green}]})
 (def ^:private a-query {:asks [:place :chair-7 :colour] :lanes [:notes]})
 
 (defn- words-checks []

@@ -79,7 +79,9 @@
             [com.rpl.rama :as rama]
             [com.rpl.rama.test :as rtest]
             [softland.store.door :as door]
+            [softland.store.gate.first-act :as first-act]
             [softland.store.module :as module]
+            [softland.store.permissions :as perm]
             [softland.store.read-path :as read-path])
   (:import [java.util.concurrent ExecutorService Executors TimeUnit]))
 
@@ -121,12 +123,17 @@
 
 ;; ------------------------------------------------------------- through the door
 
+(def ^:private maker (perm/person :maker))
+(def ^:private asker (perm/person :asker))
+
 (defn- send!
   "Sends one act of a who into a lane through the door, under a
-  permission. Gives what `send-act` gave."
+  permission (or none when `permission` is nil). Gives what `send-act` gave."
   [who lane permission facts]
-  (door/send-act (:door @round) {:version 1 :who who :lane lane :permission permission
-                                 :session :read-measures :facts facts}))
+  (door/send-act (:door @round)
+                 (cond-> {:version 1 :who who :lane lane
+                          :session :read-measures :facts facts}
+                   (some? permission) (assoc :permission (perm/permission-id permission)))))
 
 (defn- accepted!
   "Sends one act and waits until the door's wait gives its answer. Gives
@@ -141,15 +148,14 @@
     answer))
 
 (defn- make!
-  "Makes a streaming lane whose holder is `:maker`. Gives the maker's
-  permission in it."
+  "Makes a streaming lane whose holder is `maker`. Gives the id of the
+  maker's permission in it."
   [lane]
-  (let [own [:maker lane lane]]
-    (accepted! :maker lane own [{:e lane :k :softland.store/depot :v :streaming}
-                                 {:e :maker :k :softland.store/permission :v own}])
-    own))
+  (let [own (perm/first-permission maker lane)]
+    (accepted! maker lane nil (perm/making-facts lane maker))
+    (perm/permission-id own)))
 
-(def ^:private system-own "The system's permission in the base." [:system :base :base])
+(def ^:private system-own "The id of the system's permission in the base." (first-act/first-permission-id :base))
 
 (defn- text-of-100-bytes
   "A string of 100 bytes that says which act it is of."
@@ -180,12 +186,12 @@
   return of `send-act`, in nanoseconds."
   [lane permission n warm fact-of]
   (dotimes [i warm]
-    (send! :maker lane permission [(fact-of (- i warm))]))
+    (send! maker lane permission [(fact-of (- i warm))]))
   (let [from-due (atom []) from-call (atom [])]
     (paced n 10
            (fn [i due]
              (let [called (System/nanoTime)
-                   sent (send! :maker lane permission [(fact-of i)])
+                   sent (send! maker lane permission [(fact-of i)])
                    returned (System/nanoTime)]
                (when-not (:could-not sent)
                  (swap! from-due conj (- returned due))
@@ -204,7 +210,7 @@
   (let [lane :m1
         own (make! lane)
         plain (streaming-gate-times lane own acts warm another-place)
-        _ (accepted! :maker lane own [{:e lane :k :softland.store/marked-keys :v #{:text}}])
+        _ (accepted! maker lane own [{:e lane :k :softland.store/marked-keys :v #{:text}}])
         marked (streaming-gate-times lane own acts warm (fn [i] (another-place (+ 50000 i))))]
     (doseq [[what got] [["the key not marked" plain] ["the key marked, so each act also writes a row of the facts by value" marked]]]
       (measured "M1 the streaming gate, 100 acts a second, one fact of 100 bytes each to another place," what
@@ -268,8 +274,8 @@
     (let [lane (keyword (str "m2-" (name shape) "-" n))
           own (make! lane)
           opening-began (System/nanoTime)
-          asker-permission [:asker lane lane own]
-          _ (accepted! :maker lane own [{:e :asker :k :softland.store/permission :v asker-permission}])
+          asker-permission (perm/given-permission asker lane (perm/first-permission maker lane))
+          _ (accepted! maker lane own [(perm/permission-fact asker-permission)])
           told (atom 0)
           rp (:read-path @round)
           opened (vec (for [j (range n)]
@@ -278,7 +284,7 @@
                          {:asks (if (= :places shape)
                                   [:place (keyword (str "unwritten-" j)) :text]
                                   [:run [:p] [(keyword (str "q" (+ 100000 j)))]])
-                          :asker :asker :lanes [lane]}
+                          :asker asker :lanes [lane]}
                          (fn [change] (when (:changed change) (swap! told inc))))))
           opening-took (- (System/nanoTime) opening-began)
           words (frequencies (keep :could-not opened))
@@ -342,8 +348,8 @@
     (accepted! far-who far far-permission (mapv (fn [i] {:e (block i) :k :parent :v :canvas-1}) part)))
   (doseq [[lane offset] [[near 0] [mid 100]]]
     (let [own (make! lane)]
-      (accepted! :maker lane own [{:e lane :k :softland.store/marked-keys :v #{:parent}}])
-      (accepted! :maker lane own
+      (accepted! maker lane own [{:e lane :k :softland.store/marked-keys :v #{:parent}}])
+      (accepted! maker lane own
                  (vec (for [i (range 50)]
                         {:e (block (+ offset (* 7 i))) :k :parent :v (if (even? i) :canvas-2 :canvas-1)})))))
   [near mid far])
@@ -398,8 +404,8 @@
   [{:keys [runs dropped]}]
   (let [rp (:patient @round)
         far-own (make! :s-far)
-        three (canvas! :s-far :maker far-own [:s-near :s-mid] 100)
-        query {:asks [:points-at :parent :canvas-1] :asker :maker :lanes three}
+        three (canvas! :s-far maker far-own [:s-near :s-mid] 100)
+        query {:asks [:points-at :parent :canvas-1] :asker maker :lanes three}
         turns (vec (for [_ (range runs)]
                      (let [began (System/nanoTime)
                            counted (counting #(read-path/read-live rp query (fn [_] nil)))
@@ -424,10 +430,10 @@
   `m3-small-canvas-live`."
   [load]
   (let [far-own (make! :c-far)
-        streaming (canvas! :c-far :maker far-own [:c-near :c-mid] (:canvas load))
+        streaming (canvas! :c-far maker far-own [:c-near :c-mid] (:canvas load))
         base (canvas! :base :system system-own [:b-near :b-mid] (:canvas load))]
-    (m3-shapes "a canvas in a streaming lane" streaming :maker load)
-    (m3-shapes "a canvas in the base" base :maker load)
+    (m3-shapes "a canvas in a streaming lane" streaming maker load)
+    (m3-shapes "a canvas in the base" base maker load)
     (m3-small-canvas-live load)))
 
 ;; ------------------------------------------------------------------------ M4
@@ -507,13 +513,13 @@
   asker's own that holds nothing at the place, on that lane's task."
   [load]
   (let [own (make! :m4)]
-    (accepted! :maker :m4 own [{:e :m4 :k :softland.store/marked-keys :v #{:late-on}}])
+    (accepted! maker :m4 own [{:e :m4 :k :softland.store/marked-keys :v #{:late-on}}])
     (make! :m4-own)
-    (m4-one "of a place of the facts table, in a streaming lane" :facts :maker :m4 own :maker [:m4] load)
+    (m4-one "of a place of the facts table, in a streaming lane" :facts maker :m4 own maker [:m4] load)
     (m4-one "of a place of the facts table, in the base, read from the base itself" :facts :system :base system-own :system [:base] load)
     (m4-one "of a place of the facts table, in the base, read through a lane of the asker's own, on that lane's task"
-            :facts :system :base system-own :maker [:m4-own :base] load)
-    (m4-one "of a place of the facts by value, in a streaming lane" :facts-by-value :maker :m4 own :maker [:m4] load)))
+            :facts :system :base system-own maker [:m4-own :base] load)
+    (m4-one "of a place of the facts by value, in a streaming lane" :facts-by-value maker :m4 own maker [:m4] load)))
 
 ;; ----------------------------------------------------------------------- the run
 
@@ -533,9 +539,9 @@
       (measured "the measures of the read build, with the load" (pr-str load-name) (pr-str load)
                 "| Rama's in-process cluster, 4 tasks, 2 threads, 2 workers, one machine, every row in memory, no network | JVM heap limit"
                 (quot (.maxMemory (Runtime/getRuntime)) (* 1024 1024)) "MB")
-      (accepted! :system :base system-own [{:e :base :k :softland.store/depot :v :microbatch}
-                                           {:e :system :k :softland.store/permission :v system-own}])
-      (accepted! :system :base system-own [{:e :maker :k :softland.store/permission :v [:maker :base :base system-own]}])
+      (accepted! :system :base nil (perm/making-facts :base :system :system {:open? true}))
+      (accepted! :system :base system-own
+                 [(perm/permission-fact (perm/given-permission maker :base (perm/first-permission :system :base)))])
       (m1-streaming load)
       (m1-base load)
       (m2 load)

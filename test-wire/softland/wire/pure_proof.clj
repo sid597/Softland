@@ -70,10 +70,10 @@
 ;; ------------------------------------------------------------------- the words
 
 (def ^:private an-act
-  {:version 1 :who :asha :session (UUID/randomUUID) :lane :notes :permission [:asha :notes :notes]
+  {:version 1 :who :person.asha :session (UUID/randomUUID) :lane :notes :permission (UUID/randomUUID)
    :facts [{:e :chair-7 :k :colour :v :green}]})
 
-(def ^:private a-query {:asks [:place :chair-7 :colour] :asker :asha :lanes [:notes]})
+(def ^:private a-query {:asks [:place :chair-7 :colour] :asker :person.asha :lanes [:notes]})
 
 (def ^:private a-hash (apply str (repeat 64 "a")))
 

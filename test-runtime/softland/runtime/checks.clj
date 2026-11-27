@@ -177,7 +177,7 @@
               lane (:own-lane hello)
               own (perm/first-permission who lane)]
           (check "The line says hello with who the program is, her root, a new session and her own lane; and a connection with no credential is a visitor."
-                 (and (= (:person first-in) who (:root hello)) (uuid? (:session hello)) (uuid? lane)
+                 (and (= (perm/person (:person first-in)) who) (= (:person first-in) (:root hello)) (uuid? (:session hello)) (uuid? lane)
                       (= {:visitor true} (:hello (line a nil nil))))
                  hello)
           (check "Her name is a fact on her own id in her own lane, and she is its writer: the box's act was hers, and the runtime wrote no who into it."
@@ -290,7 +290,7 @@
                 agent-credential (credential/text (:root made) (:sign-in made) secret)
                 agent (line b agent-credential nil)
                 agent-hello (:hello agent)
-                agent-own (perm/first-permission (:who agent-hello) lane)
+                agent-own (perm/first-permission (:who agent-hello) lane {:id (UUID/randomUUID)})
                 before (say agent {:word :send :act (act-of agent-hello lane agent-own :crate-1 :packed true)
                                    :act-id (UUID/randomUUID)})
                 given (perm/given-permission (:who agent-hello) lane own :see-and-act)
@@ -302,11 +302,11 @@
                 after (say agent {:word :send :act (act-of agent-hello lane given :crate-1 :packed true)
                                   :act-id (UUID/randomUUID)})]
             (check "An agent that she makes has a who of its own, which is neither her id nor the UUID that her program sent, and the same UUID again makes the same agent."
-                   (and (uuid? (:made made)) (not= who (:made made)) (not= uuid (:made made))
-                        (= (:made made) (:made made-again)) (= who (:root made)))
+                   (and (uuid? (:made made)) (not= (:root hello) (:made made)) (not= uuid (:made made))
+                        (= (:made made) (:made made-again)) (= (:root hello) (:root made)))
                    made)
             (check "The agent signs in as a program with its own credential: the line says that it is the agent, beneath her as its root, and gives it her own lane's id."
-                   (and (= (:made made) (:who agent-hello)) (= who (:root agent-hello)) (= lane (:own-lane agent-hello)))
+                   (and (= (perm/agent (:made made)) (:who agent-hello)) (= (:root hello) (:root agent-hello)) (= lane (:own-lane agent-hello)))
                    agent-hello)
             (check "An agent acts only under what it was given: before she gives it a permission a gate refuses its act, and after, a gate accepts it and the fact names the agent as its writer."
                    (and (= :refused (get-in before [:answer :answer]))
@@ -320,7 +320,7 @@
                        (:could-not (say agent {:word :under}))]))
             (let [listed (say me {:word :under})]
               (check "She sees what is under her: the agent, with who made it and its name, and her live sign-ins, the agent's among them."
-                     (and (some (fn [actor] (and (= (:made made) (:actor actor)) (= who (:made-by actor)) (= "importer" (:label actor))))
+                     (and (some (fn [actor] (and (= (:made made) (:actor actor)) (= (:root hello) (:made-by actor)) (= "importer" (:label actor))))
                                 (:actors listed))
                           (some (fn [sign-in] (= (:sign-in made) (:sign-in sign-in))) (:sign-ins listed)))
                      listed))

@@ -294,29 +294,33 @@
 
 (def ^:private gates
   "What the proof knows of each gate of the store: its depot of acts and
-  the ack level of an append by the hand; the names of its six tables;
+  the ack level of an append by the hand; the names of its seven tables;
   and, for the gate that decides in batches, the name of its topology."
   {:streaming {:depot "*streaming-depot" :ack :ack
                :tables {:answers "$$streaming-answers" :facts "$$streaming-facts"
-                        :facts-by-value "$$streaming-facts-by-value" :line "$$streaming-line"
+                        :facts-by-value "$$streaming-facts-by-value"
+                        :permissions-by-holder "$$streaming-permissions-by-holder"
+                        :line "$$streaming-line"
                         :things "$$streaming-things" :task "$$streaming-task"}}
    :microbatch {:depot "*microbatch-depot" :ack :append-ack
                 :tables {:answers "$$microbatch-answers" :facts "$$microbatch-facts"
-                         :facts-by-value "$$microbatch-facts-by-value" :line "$$microbatch-line"
+                         :facts-by-value "$$microbatch-facts-by-value"
+                         :permissions-by-holder "$$microbatch-permissions-by-holder"
+                         :line "$$microbatch-line"
                          :things "$$microbatch-things" :task "$$microbatch-task"}
                 :topology "microbatch-gate"}})
 
 (def ^:private gate-order "The two gates, in the order of the proof's lines and files." [:streaming :microbatch])
 
 (def ^:private table-order
-  "The six tables of a gate, in the order of the proof's lines and files."
-  [:answers :facts :facts-by-value :line :things :task])
+  "The seven tables of a gate, in the order of the proof's lines and files."
+  [:answers :facts :facts-by-value :permissions-by-holder :line :things :task])
 
 (def ^:private copied-tables
   "The tables of which the store keeps one whole copy on every task: the
-  microbatch gate's facts and its facts by value. Every other table holds a
-  row on one task, the task of the row's lane."
-  #{[:microbatch :facts] [:microbatch :facts-by-value]})
+  microbatch gate's facts, its facts by value, and its permissions by holder.
+  Every other table holds a row on one task, the task of the row's lane."
+  #{[:microbatch :facts] [:microbatch :facts-by-value] [:microbatch :permissions-by-holder]})
 
 (def ^:private tasks-of-check-1 "The number of tasks of each of the two modules of check 1." 4)
 
@@ -1007,22 +1011,24 @@
 
 (defn- a-permission-ends!
   "Sends by the hand, to the depot of the gate given, a line of acts in
-  which a permission ends and is given again. Takes the gate, a lane that
-  it has made, a holder who may act in the lane, her permission there, and
-  the key of the facts. Gwen's permission is beneath that holder's, and
-  Hugo's beneath Gwen's. In this order: the two gives, and an act of Hugo;
-  the holder ends Gwen's, then an act of Gwen and one of Hugo, which are
-  refused; the holder gives Gwen the same permission again, then an act of
-  Gwen, which is taken, and one of Hugo, which is not: what was given
-  beneath an end does not come back with a second give; Gwen gives Hugo his
-  again, and he acts; Hugo ends his own, and acts once more. Each answer
-  depends on the acts before it in the lane's order, and on nothing else:
-  an end has a stamp in that order. Waits for the microbatch gate when the
-  things are its. Gives the things as they were built;
+  which a permission ends and is given again on a new id. Takes the gate, a
+  lane that it has made, a holder who may act in the lane, her permission
+  there, and the key of the facts. Gwen's permission is lent from that
+  holder's, and Hugo's from Gwen's. In this order: the two gives, and an act
+  of Hugo; the holder ends Gwen's, then an act of Gwen and one of Hugo, which
+  are refused; the holder gives Gwen a new permission, then an act of Gwen,
+  which is taken, and one of Hugo under his first, which is not: what was
+  lent from an ended permission does not come back with a new give; Gwen
+  gives Hugo a new one, and he acts; Hugo ends his own, and acts once more.
+  Each answer depends on the acts before it in the lane's order, and on
+  nothing else: an end has a stamp in that order. Waits for the microbatch
+  gate when the things are its. Gives the things as they were built;
   `words-of-a-permission-that-ends` holds the word of each."
   [gate lane who permission k]
   (let [gwens (perm/given-permission (person :gwen) lane permission)
         hugos (perm/given-permission (person :hugo) lane gwens)
+        gwens-2 (perm/given-permission (person :gwen) lane permission {:salt 2})
+        hugos-2 (perm/given-permission (person :hugo) lane gwens-2 {:salt 2})
         acts (fn [maker held entity says] (arrived gate lane maker held [{:e entity :k k :v says}]))
         gives (fn [giver held given] (arrived gate lane giver held [(perm/permission-fact given)]))
         ends (fn [ender held given] (arrived gate lane ender held [(perm/end-fact given)]))
@@ -1032,13 +1038,13 @@
                 (ends who permission gwens)
                 (acts (person :gwen) gwens :ends-2 "after her permission ended")
                 (acts (person :hugo) hugos :ends-3 "after the one above his ended")
-                (gives who permission gwens)
-                (acts (person :gwen) gwens :ends-4 "after her second give")
+                (gives who permission gwens-2)
+                (acts (person :gwen) gwens-2 :ends-4 "after her second give")
                 (acts (person :hugo) hugos :ends-5 "after the second give of the one above his")
-                (gives (person :gwen) gwens hugos)
-                (acts (person :hugo) hugos :ends-6 "after his own second give")
-                (ends (person :hugo) hugos hugos)
-                (acts (person :hugo) hugos :ends-7 "after he ended his own")]]
+                (gives (person :gwen) gwens-2 hugos-2)
+                (acts (person :hugo) hugos-2 :ends-6 "after his own second give")
+                (ends (person :hugo) hugos-2 hugos-2)
+                (acts (person :hugo) hugos-2 :ends-7 "after he ended his own")]]
     (run! (fn [thing] (by-hand! gate thing)) things)
     (when (= :microbatch gate) (settle!))
     things))
@@ -1046,7 +1052,7 @@
 (def ^:private words-of-what-a-permission-covers
   "The words that a gate gives the things of `a-permission-covers!`, in the
   order in which they are sent."
-  [:accepted :accepted :permission-for-another-run :only-a-permission-for-the-lane-gives
+  [:accepted :accepted :permission-for-another-sitting :permission-covers-more-than-the-acts-own
    :accepted :accepted :permission-used-up
    :accepted :act-not-the-one-permitted :accepted
    :accepted :permission-ended])
@@ -1100,7 +1106,7 @@
 (def ^:private words-of-who-may-read-acts
   "The words that a gate gives the things of `who-may-read-acts!`, in the
   order in which they are sent."
-  [:accepted :accepted :only-the-first-holder-writes-a-setting :setting-not-on-the-lane
+  [:accepted :accepted :only-an-owner-writes-a-setting :setting-not-on-the-lane
    :store-key-retract-not-built :who-may-read-acts-fact-not-members-or-everyone :accepted])
 
 (defn- who-may-read-acts!
@@ -1372,11 +1378,12 @@
   [reader]
   (try
     (into {}
-          (map (fn [[gate {:keys [answers facts facts-by-value task]}]]
+          (map (fn [[gate {:keys [answers facts facts-by-value permissions-by-holder task]}]]
                  [gate (mapv (fn [k]
                                {:answers (count (rama/foreign-select [path/MAP-KEYS] answers {:pkey k}))
                                 :facts (count (rama/foreign-select [path/MAP-KEYS] facts {:pkey k}))
                                 :facts-by-value (count (rama/foreign-select [path/MAP-KEYS] facts-by-value {:pkey k}))
+                                :permissions-by-holder (count (rama/foreign-select [path/MAP-KEYS] permissions-by-holder {:pkey k}))
                                 :strays (reduce + (for [word (rama/foreign-select [(path/keypath :strays) path/MAP-KEYS] task {:pkey k})]
                                                     (or (rama/foreign-select-one [(path/keypath :strays word) (path/view count)] task {:pkey k}) 0)))
                                 :last-stamps (into {} (rama/foreign-select [(path/keypath :last-stamp) path/ALL] task {:pkey k}))})
@@ -1462,8 +1469,14 @@
         by-who (into {}
                      (map (fn [[k n]] [[:by-who k] n]))
                      (rama/foreign-select [(path/keypath :by-who) path/ALL] handle {:pkey pkey}))
+        owner-lanes (rama/foreign-select [(path/keypath :owners) path/MAP-KEYS] handle {:pkey pkey})
+        owners (into {}
+                     (keep (fn [lane-text]
+                             (let [ids (set (rama/foreign-select [(path/keypath :owners lane-text) path/ALL] handle {:pkey pkey}))]
+                               (when (seq ids) [[:owners lane-text] ids]))))
+                     owner-lanes)
         words (rama/foreign-select [(path/keypath :strays) path/MAP-KEYS] handle {:pkey pkey})]
-    (into (merge stamps by-who)
+    (into (merge stamps by-who owners)
           (keep (fn [word]
                   (let [digests (set (rama/foreign-select [(path/keypath :strays word) path/ALL] handle {:pkey pkey}))]
                     (when (seq digests) [[:strays word] digests]))))
@@ -1841,6 +1854,7 @@
   [k]
   (cond (string? k) (first (str/split k #" " 2))
         (and (vector? k) (= :last-stamp (first k))) (second k)
+        (and (vector? k) (= :owners (first k))) (second k)
         (and (vector? k) (= :by-who (first k))) (first (str/split (second k) #" " 2))
         :else nil))
 
@@ -2192,11 +2206,12 @@
                             [gate (into {} (map (fn [table] [table (rows-in-file-order (get-in tables [gate table]))])) table-order)]))
                      gate-order)]
     {:head {:what (str "The tables that the records of acts.edn gave, in a form that names no task: for each gate and "
-                       "each of its six tables, the rows as a sorted vector of [key row]. The microbatch gate's facts "
-                       "and facts by value: the one map that every task holds. Every other table, the line and the "
-                       "things among them: the union of the tasks' rows. What a gate keeps for a task: each lane's "
-                       "last stamp under [:last-stamp text], each row by who under [:by-who key], and the strays under "
-                       "[:strays word] as the sorted digests of all tasks.")
+                       "each of its seven tables, the rows as a sorted vector of [key row]. The microbatch gate's facts, "
+                       "facts by value and permissions by holder: the one map that every task holds. Every other table, "
+                       "the line and the things among them: the union of the tasks' rows. What a gate keeps for a task: "
+                       "each lane's last stamp under [:last-stamp text], each lane's standing non-lent owners under "
+                       "[:owners text], each row by who under [:by-who key], and the strays under [:strays word] as the "
+                       "sorted digests of all tasks.")
             :made (str (LocalDate/now))
             :tasks tasks
             :rows (into {} (map (fn [[gate of-gate]] [gate (into {} (map (fn [[table rows]] [table (long (count rows))])) of-gate)])) sorted)
@@ -2482,7 +2497,7 @@
   lane whose text is no id is looked for nowhere, so each of its rows
   differs."
   [reader expected]
-  (let [tables-of-gate {:streaming [:answers :task :facts :facts-by-value :line :things]
+  (let [tables-of-gate {:streaming [:answers :task :facts :facts-by-value :permissions-by-holder :line :things]
                         :microbatch [:answers :task :line :things]}
         lanes (into {}
                      (map (fn [[gate tables]]
@@ -3197,7 +3212,7 @@
       (each-gate? (fn [gate] (= words-of-a-permission-that-ends (get-in gave [:ends gate]))))]
      ["in the line under a permission for one run and yeses for one act: an act in the run is accepted and one in another run refused; a give under the run's permission is refused; the act under its yes is accepted and uses it up, so the same act again is refused; under a second yes another act is refused and the act accepted; after the end of the run's permission an act in the run is refused, in each gate"
       (each-gate? (fn [gate] (= words-of-what-a-permission-covers (get-in gave [:covers gate]))))]
-     ["in the line that writes who may read the lane's acts: the first holder writes everyone; a holder of a given permission is refused; on another entity, with no value, and with a word that is neither, each is refused; members again is accepted, in each gate"
+     ["in the line that writes who may read the lane's acts: an owner writes everyone; a holder who is no owner is refused; on another entity, with no value, and with a word that is neither, each is refused; members again is accepted, in each gate"
       (each-gate? (fn [gate] (= words-of-who-may-read-acts (get-in gave [:reads-acts gate]))))]
      ["each answer of each gate has a line row at its stamp, with the uuid of its act-id, its word, its time and its digest, and the line holds no other row, in each gate"
       (each-gate? (fn [gate] (let [{:keys [answers line-rows apart]} (get-in gave [:line gate])]

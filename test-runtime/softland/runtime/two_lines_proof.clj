@@ -101,19 +101,20 @@
         bea-secret (credential/make-secret)
         bea-made (say ada-a {:word :make-agent :uuid (UUID/randomUUID) :label "bea"
                              :hash (credential/hash-of bea-secret)})
-        bea-who (:made bea-made)
+        bea-who (perm/agent (:made bea-made))
         bea-cred (credential/text (:root bea-made) (:sign-in bea-made) bea-secret)
         cal-secret (credential/make-secret)
         cal-made (say ada-a {:word :make-agent :uuid (UUID/randomUUID) :label "cal"
                              :hash (credential/hash-of cal-secret)})
-        cal-who (:made cal-made)
+        cal-who (perm/agent (:made cal-made))
         cal-cred (credential/text (:root cal-made) (:sign-in cal-made) cal-secret)
         bea-a (line url-a bea-cred nil)
         bea-b (line url-b bea-cred nil)
         cal-a (line url-a cal-cred nil)
         cal-b (line url-b cal-cred nil)
         bea-perm (perm/given-permission bea-who lane ada-own :see-and-act)
-        cal-perm (perm/given-permission cal-who lane bea-perm :see)]
+        bea-perm-2 (perm/given-permission bea-who lane ada-own {:allows :see-and-act :id (UUID/randomUUID)})
+        cal-perm (perm/given-permission cal-who lane bea-perm-2 :see)]
     (try
       ;; Seed fact and grant Bea :see-and-act on Ada's lane
       (send-facts! ada-a lane ada-own [{:e :secret :k :note :v "v0"}])
@@ -159,14 +160,14 @@
         (client/leave (:line bea-b) (:id w-b))
 
         ;; 2. Chain revocation: Ada grants Bea again, Bea grants Cal, Ada ends Bea -> Cal's watches on both copies close off the lane
-        (send-facts! ada-a lane ada-own [(perm/permission-fact bea-perm)] #{bea-who})
-        (send-facts! bea-a lane bea-perm [(perm/permission-fact cal-perm)] #{cal-who})
+        (send-facts! ada-a lane ada-own [(perm/permission-fact bea-perm-2)] #{bea-who})
+        (send-facts! bea-a lane bea-perm-2 [(perm/permission-fact cal-perm)] #{cal-who})
         (let [cal-q {:asks [:place :secret :note] :asker cal-who :lanes [lane]}
               cw-a (watching cal-a cal-q)
               cw-b (watching cal-b cal-q)
               got-c-a (wait-for #(= "v2" (value-of @(:seen cw-a))) 10000)
               got-c-b (wait-for #(= "v2" (value-of @(:seen cw-b))) 10000)
-              end-above (send-facts! ada-b lane ada-own [(perm/end-fact bea-perm)] #{bea-who})
+              end-above (send-facts! ada-b lane ada-own [(perm/end-fact bea-perm-2)] #{bea-who})
               c-rev-a (wait-for #(may-not-see? @(:seen cw-a) lane) 10000)
               c-rev-b (wait-for #(may-not-see? @(:seen cw-b) lane) 10000)
               cc-a (count @(:seen cw-a))

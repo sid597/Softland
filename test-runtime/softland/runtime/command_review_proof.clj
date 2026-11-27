@@ -20,6 +20,7 @@
             [softland.runtime.attacks.harness :as h]
             [softland.runtime.command-proof]
             [softland.runtime.drive :as drive]
+            [softland.runtime.permissions :as perm]
             [softland.wire.proof :refer [check finish]])
   (:import [java.io File]
            [java.nio.file Files]
@@ -60,7 +61,8 @@
 (defn- a-file-edited-and-sent-again
   [{:keys [home who lane]}]
   (let [file (io/file home "review-acts.edn")
-        act (fn [n v] (pr-str {:version 1 :lane lane :permission [who lane lane]
+        perm-id (perm/permission-id (perm/first-permission who lane))
+        act (fn [n v] (pr-str {:version 1 :lane lane :permission perm-id
                                :facts [{:e :review-shelf :k (keyword (str "slot-" n)) :v v}]}))
         _ (spit file (str/join "\n" [(act 0 0) (act 1 1) (act 2 2)]))
         first-run (soft home "send" (.getPath file))
@@ -83,8 +85,9 @@
 (defn- a-file-sent-again-in-another-session
   [{:keys [home who lane]}]
   (let [file (io/file home "review-acts-two.edn")
+        perm-id (perm/permission-id (perm/first-permission who lane))
         _ (spit file (str/join "\n" (for [n (range 2)]
-                                      (pr-str {:version 1 :lane lane :permission [who lane lane]
+                                      (pr-str {:version 1 :lane lane :permission perm-id
                                                :facts [{:e :review-crate :k (keyword (str "slot-" n)) :v n}]}))))
         first-run (soft home "send" (.getPath file))
         fresh (soft home "new-session")

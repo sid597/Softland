@@ -87,7 +87,9 @@
             [com.rpl.rama :as rama]
             [com.rpl.rama.test :as rtest]
             [softland.store.door :as door]
-            [softland.store.module :as module])
+            [softland.store.gate.first-act :as first-act]
+            [softland.store.module :as module]
+            [softland.store.permissions :as perm])
   (:import [com.rpl.rama RamaModule]
            [java.util.concurrent ExecutorService Executors LinkedBlockingQueue ThreadFactory
             ThreadPoolExecutor TimeUnit]
@@ -175,14 +177,18 @@
 
 ;; ------------------------------------------------------------- through the door
 
+(def ^:private maker (perm/person :maker))
+
 (defn- send!
-  "Sends one act of a who into a lane through a door, under a permission;
-  under an act-id when one is given. Gives what `send-act` gave."
+  "Sends one act of a who into a lane through a door, under a permission (or
+  none when `permission` is nil); under an act-id when one is given. Gives
+  what `send-act` gave."
   ([door who lane permission facts] (send! door who lane permission facts nil))
   ([door who lane permission facts act-id]
    (door/send-act door
-                  {:version 1 :who who :lane lane :permission permission
-                   :session :gate-measures :facts facts}
+                  (cond-> {:version 1 :who who :lane lane
+                           :session :gate-measures :facts facts}
+                    (some? permission) (assoc :permission (perm/permission-id permission)))
                   act-id)))
 
 (defn- accepted!
@@ -197,24 +203,23 @@
       (throw (ex-info "the measures: an act of the set-up was not accepted" {:sent sent :answer answer})))
     answer))
 
-(def ^:private system-own "The system's permission in the base." [:system :base :base])
+(def ^:private system-own "The id of the system's permission in the base." (first-act/first-permission-id :base))
 
 (defn- set-up!
   "Makes the base through a door and gives the maker a permission in it: the
   set-up of the read build's measures."
   [door]
-  (accepted! door :system :base system-own [{:e :base :k :softland.store/depot :v :microbatch}
-                                            {:e :system :k :softland.store/permission :v system-own}])
-  (accepted! door :system :base system-own [{:e :maker :k :softland.store/permission :v [:maker :base :base system-own]}]))
+  (accepted! door :system :base nil (perm/making-facts :base :system :system {:open? true}))
+  (accepted! door :system :base system-own
+             [(perm/permission-fact (perm/given-permission maker :base (perm/first-permission :system :base)))]))
 
 (defn- make!
-  "Makes a streaming lane whose holder is `:maker`. Gives the maker's
-  permission in it."
+  "Makes a streaming lane whose holder is `maker`. Gives the id of the
+  maker's permission in it."
   [door lane]
-  (let [own [:maker lane lane]]
-    (accepted! door :maker lane own [{:e lane :k :softland.store/depot :v :streaming}
-                                      {:e :maker :k :softland.store/permission :v own}])
-    own))
+  (let [own (perm/first-permission maker lane)]
+    (accepted! door maker lane nil (perm/making-facts lane maker))
+    (perm/permission-id own)))
 
 (defn- answer-word
   "Reads the answer of what a send gave, once, through a door. Gives the
@@ -265,12 +270,12 @@
   last act's answer, read once after the last return."
   [door lane permission n warm fact-of]
   (dotimes [i warm]
-    (send! door :maker lane permission [(fact-of (- i warm))]))
+    (send! door maker lane permission [(fact-of (- i warm))]))
   (let [from-due (atom []) from-call (atom []) last-sent (atom nil)]
     (paced n every-10-ms
            (fn [i due]
              (let [called (System/nanoTime)
-                   sent (send! door :maker lane permission [(fact-of i)])
+                   sent (send! door maker lane permission [(fact-of i)])
                    returned (System/nanoTime)]
                (reset! last-sent sent)
                (when-not (:could-not sent)
@@ -295,7 +300,7 @@
   (let [lane :d1
         own (make! door lane)
         plain (streaming-gate-times door lane own acts warm another-place)
-        _ (accepted! door :maker lane own [{:e lane :k :softland.store/marked-keys :v #{:text}}])
+        _ (accepted! door maker lane own [{:e lane :k :softland.store/marked-keys :v #{:text}}])
         marked (streaming-gate-times door lane own acts warm (fn [i] (another-place (+ 50000 i))))]
     (print-streaming-shape "D1" "the key not marked" plain)
     (print-streaming-shape "D1" "the key marked, so each act also writes a row of the facts by value" marked)))
@@ -360,13 +365,13 @@
     (when (:could-not ids)
       (throw (ex-info "the measures: the door gave no act-ids for D2" {:word ids})))
     (dotimes [i warm]
-      (send! door :maker lane own [(another-place (- i warm))]))
+      (send! door maker lane own [(another-place (- i warm))]))
     (let [round (fn []
                   (let [took (atom []) words (atom 0) last-sent (atom nil)]
                     (paced again every-10-ms
                            (fn [i _]
                              (let [called (System/nanoTime)
-                                   sent (send! door :maker lane own [(fact-of i)] (nth ids i))
+                                   sent (send! door maker lane own [(fact-of i)] (nth ids i))
                                    returned (System/nanoTime)]
                                (reset! last-sent sent)
                                (if (:could-not sent)
@@ -423,7 +428,7 @@
              (.execute pool
                        (fn []
                          (let [called (System/nanoTime)
-                               sent (send! door :maker lane permission [(another-place (+ first-number i))])
+                               sent (send! door maker lane permission [(another-place (+ first-number i))])
                                returned (System/nanoTime)]
                            (.decrementAndGet on-way)
                            (if (:could-not sent)
@@ -456,7 +461,7 @@
         {:to-return to-return :to-answer to-answer :other other
          :seconds (/ (double (- (System/nanoTime) began)) 1.0e9)}
         (let [called (System/nanoTime)
-              sent (send! door :maker lane permission [(another-place (+ first-number i))])
+              sent (send! door maker lane permission [(another-place (+ first-number i))])
               returned (System/nanoTime)
               answer (when-not (:could-not sent)
                        (door/answer-of door (:act-id sent) (:digest sent) 60000))
@@ -509,7 +514,7 @@
   (let [lane :d3
         own (make! door lane)]
     (dotimes [i warm]
-      (send! door :maker lane own [(another-place (- i warm))]))
+      (send! door maker lane own [(another-place (- i warm))]))
     (d3-most door lane own "at Rama's default" load)))
 
 (defn- d3-at-one

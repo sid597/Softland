@@ -230,7 +230,7 @@
                (= 200 (:status (yes {"Cookie" cookie "Origin" origin} {"hash" hash "say" "yes"}))))
         (let [[status me] (deref waiting 10000 [:late nil])]
           (check "The program that waited is answered at her yes: who she is, its session, and her own lane."
-                 (and (= 200 status) (uuid? (:who me)) (uuid? (:session me)) (uuid? (:own-lane me)))
+                 (and (= 200 status) (keyword? (:who me)) (str/starts-with? (name (:who me)) "person.") (uuid? (:session me)) (uuid? (:own-lane me)))
                  [status me])
           (check "The same link a second time is refused: a hash is bound once."
                  (= 409 (:status (yes {"Cookie" cookie "Origin" origin} {"hash" hash "say" "yes"}))))
@@ -239,7 +239,7 @@
           (let [lane (:own-lane me)
                 who (:who me)
                 [_ [act-id]] (say origin token {:word :act-ids :lane lane})
-                act {:version 1 :lane lane :permission [who lane lane] :facts [{:e :chair-7 :k :colour :v :green}]}
+                act {:version 1 :lane lane :permission (sign-in/permission-id (sign-in/first-permission who lane)) :facts [{:e :chair-7 :k :colour :v :green}]}
                 watched (stream-lines origin token {:asks [:entity :chair-7] :from-lane lane})
                 _ (until #(seq @watched))
                 [send-status receipt] (say origin token {:word :send :act act :act-id act-id})

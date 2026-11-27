@@ -15,7 +15,7 @@ same in short.
 | File | What it holds | Who writes it |
 |---|---|---|
 | [acts.edn](acts.edn) | The records of the two depots of acts as they stood on a store of four tasks: for each depot, for each partition in order, its records in the partition's order, each as it was appended, with its act-id, its depot word and the time on it. | `make-fixture`, below. Nothing else. |
-| [tables.edn](tables.edn) | The tables that those records gave, in a form that names no task: for each gate and each of its six tables, the rows as a sorted vector of `[key row]`. | The same run of `make-fixture`: the two files are one making, and neither is changed alone. |
+| [tables.edn](tables.edn) | The tables that those records gave, in a form that names no task: for each gate and each of its seven tables, the rows as a sorted vector of `[key row]`. | The same run of `make-fixture`: the two files are one making, and neither is changed alone. |
 
 ## What the proof does with it, and what a pass shows
 
@@ -33,7 +33,12 @@ make-fixture".
 
 ## How it was made, and how it is made
 
-This fixture was made on 25 November 2026. It is the ninth making. It replaced
+This fixture was made on 28 November 2026 (27 November 2026 UTC). It is the
+tenth making. It replaced the ninth for the permission rules changed on purpose,
+on Sid's decisions of 26 and 27 November 2026
+(`src/proposal/permissions-2026-11-27/PERMISSIONS.md`, section 6;
+`src/proposal/permissions-2026-11-27/BUILD.md`). The ninth was made on 25
+November 2026, and replaced
 the eighth for the name of the store's unit, which became `lane` on purpose, at
 Sid's word of 25 November 2026: an act's digest and its weight hold the key's
 name, so every answer changed. Fed the eighth making's records, the renamed store
@@ -238,6 +243,36 @@ partitions 164, 0, 17 and 5; the microbatch depot's 7, 0, 208 and 0), and
 in the streaming gate 174 answers, 73 facts, 30 facts by value, 174 line rows,
 174 things and 188 rows of the task's table; in the microbatch gate 201, 76,
 6, 201, 201 and 208. The run of the proof on it passed, 48 checks.
+
+The tenth making ran on 28 November 2026 at 02:40 IST (27 November 2026 UTC),
+and replaced the ninth for the rules of permissions and party ids changed on
+purpose, on Sid's decisions of 26 and 27 November 2026
+(`src/proposal/permissions-2026-11-27/PERMISSIONS.md`, section 6;
+`src/proposal/permissions-2026-11-27/BUILD.md` and `CONTRACT.md`):
+
+- a party's id in the store says what kind of party it is (`:person.<id>`,
+  `:agent.<id>`, `:run.<id>`, or `:system`), while `:anyone` and
+  `:anyone-signed-in` hold permissions and never act;
+- a permission sits at a uuid of its own under the single store key
+  `:softland.store/permission` (replacing `:softland.store/run-permission`,
+  `:softland.store/act-permission` and `:softland.store/who-may-see`), its
+  value is a map holding `:holder`, `:allows`, `:covers`, `:given-by` and
+  optional `:session`, `:under` and `:lent-from`, and an act names the uuid of
+  the permission it acts under (or omits `:permission` on a making act or an
+  act that only ends its author's own permissions);
+- a permission's id takes one permission for good, so re-giving after an end
+  uses a new uuid, an owner is a permission with `:owner true` tracked in the
+  task table's `:owners` set, and each gate keeps a seventh table,
+  `permissions-by-holder` (copied across tasks in the microbatch gate).
+
+Checks 1 (`StoreAgain`) and 4 (after planned failures) passed with 0 differing
+rows across all seven tables of both gates before `make-fixture` ran. It wrote
+`acts.edn`, 138,237 bytes, 401 records (the streaming depot's four partitions
+164, 0, 17 and 5; the microbatch depot's 7, 0, 208 and 0), and `tables.edn`,
+365,263 bytes, 1,739 rows: in the streaming gate 174 answers, 75 facts, 30
+facts by value, 13 permissions by holder, 174 line rows, 174 things and 196
+rows of the task's table; in the microbatch gate 201, 78, 6, 7, 201, 201 and
+209. The run of the proof on it passed, 48 checks.
 
 From the repository root, behind the lock of this machine's cluster runs:
 

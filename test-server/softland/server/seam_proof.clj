@@ -66,7 +66,7 @@
   "Gives the act that writes one fact into a lane under a person's first
   permission there, without `:who` and `:session`."
   [who lane entity k v]
-  {:version 1 :lane lane :permission [who lane lane] :facts [{:e entity :k k :v v}]})
+  {:version 1 :lane lane :permission (sign-in/permission-id (sign-in/first-permission who lane)) :facts [{:e entity :k k :v v}]})
 
 (defn- run-checks [cluster]
   (let [store-name (rama/get-module-name store/Store)
@@ -87,8 +87,8 @@
           again (m/? (sign-in/person-for b (assoc claims "name" "Asha K")))
           system (seam/system a)
           says (m/? (seam/read a system {:asks [:place (:who asha) sign-in/says-key] :lanes [sign-in/people]}))]
-      (check "A first sign-in of an account gives a person: an id and her own lane's id, both random UUIDs."
-             (and (uuid? (:who asha)) (uuid? (:own-lane asha)) (not= (:who asha) (:own-lane asha))) asha)
+      (check "A first sign-in of an account gives a person: her party id and her own lane's id."
+             (and (= :person (act/party-kind (:who asha))) (uuid? (:own-lane asha)) (not= (:who asha) (:own-lane asha))) asha)
       (check "A later sign-in of the same account, through another copy of the server, finds the same person and the same lane."
              (= asha again) again)
       (check "What Google said at her latest sign-in is on her entity, under Google's own names, for the system to read."
@@ -106,7 +106,7 @@
                               (sign-in/person-for a {"sub" "2000000001"})
                               (sign-in/person-for b {"sub" "2000000001"})))]
         (check "Two first sign-ins of one account at the same moment, through two copies of the server, give one person."
-               (and (uuid? (:who (first both))) (= (first both) (second both))) both))
+               (and (= :person (act/party-kind (:who (first both)))) (= (first both) (second both))) both))
 
       ;; ------------------------------------------------------------- who
       (let [token (credential/make)
@@ -165,7 +165,7 @@
             (check "A query that already holds its asker is turned away by the seam."
                    (= :read-the-word (:could-not (m/? (seam/read a actor {:asks [:place :chair-7 :colour] :from-lane lane :asker :system})))))
             (check "An act of a wrong form is sent all the same, and a gate refuses it under its act-id: the log keeps it."
-                   (let [wrong (m/? (seam/send a actor {:version 9 :lane lane :permission [who lane lane] :facts []} nil))]
+                   (let [wrong (m/? (seam/send a actor {:version 9 :lane lane :permission (sign-in/permission-id (sign-in/first-permission who lane)) :facts []} nil))]
                      (= :refused (:answer (m/? (seam/answer a actor (:act-id wrong) (:digest wrong) 2000))))))
             (check "A visitor sends nothing, and reads her lane as somebody who may not see it."
                    (and (= {:could-not :find-her-session :why :no-credential} (m/? (seam/send a (seam/visitor) act nil)))

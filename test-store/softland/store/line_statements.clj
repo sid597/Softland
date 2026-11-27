@@ -78,6 +78,7 @@
             [softland.store.door :as door]
             [softland.store.door.digest :as digest]
             [softland.store.module :as module]
+            [softland.store.permissions :as perm]
             [softland.store.read-path :as read-path])
   (:import [java.util.concurrent Callable Executors TimeUnit]))
 
@@ -177,9 +178,8 @@
 
      :make-act-permission-fact
      (fn [{:keys [lane holder parent target-uuid planned-act]}]
-       {:e target-uuid
-        :k :softland.store/act-permission
-        :v [holder lane lane parent :see-and-act [:act target-uuid (digest/hex-for-a-yes planned-act)]]})}))
+       (perm/permission-fact
+        (perm/act-permission holder lane parent target-uuid (digest/hex-for-a-yes planned-act))))}))
 
 (defn- on-a-module
   "Launches a module of its own in the cluster, gives `f` the target over
