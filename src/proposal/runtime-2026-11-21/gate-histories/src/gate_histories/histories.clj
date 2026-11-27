@@ -23,9 +23,11 @@
   gate took.
 
   Two profiles. `:full` walks the whole range of the rules: gives that
-  stand on their own and gives that are lent, the right to give, owners
-  and the hand-over of a lane, changes, several changes in one act, both
-  everyones. `:today` keeps to today's default values, so that each thing
+  stand on their own and gives that are lent, the right to give and the
+  right to give to everyone, owners and the hand-over of a lane, changes,
+  several changes in one act, both everyones, a giver who was lowered, an
+  end past an ended give, and a raise that no give could make. `:today`
+  keeps to today's default values, so that each thing
   can also be said in the form of the store before the fix
   (`gate-histories.today`): every give is lent from the give above it, and
   a give allows what today's two words allow."
@@ -46,15 +48,21 @@
 
 (def allows-of
   "What a give allows, by the word that a step uses. `:see`, `:see-write`,
-  `:write`, `:member` and `:owner` are the presets of CONTRACT.md, section
-  2.3; the last two are finer rights to give, which its shape lets be said."
+  `:write`, `:member`, `:publisher` and `:owner` are the presets of
+  CONTRACT.md, section 2.3: a member invites named parties, a publisher
+  gives to everyone too, and an owner's give names everyone in its right to
+  give. The last three are finer rights to give, which its shape lets be
+  said; `:see-publishes` may give see to everyone and may not pass that
+  right on."
   {:see {:see true}
    :see-write {:see true :write :all}
    :write {:write :all}
    :member {:see true :write :all :give #{:see :write :give}}
-   :owner {:see true :write :all :give #{:see :write :give :owner} :owner true}
+   :publisher {:see true :write :all :give #{:see :write :give :everyone}}
+   :owner {:see true :write :all :give #{:see :write :give :owner :everyone} :owner true}
    :see-gives-see {:see true :give #{:see}}
-   :member-gives-see {:see true :write :all :give #{:see}}})
+   :member-gives-see {:see true :write :all :give #{:see}}
+   :see-publishes {:see true :give #{:see :everyone}}})
 
 (def ^:private give-high
   "The high half of the uuid of each give's id, so that a trace tells a
@@ -322,8 +330,9 @@
 
 (def ^:private gen-allows
   (gen/frequency [[5 (gen/return :see)] [3 (gen/return :see-write)] [1 (gen/return :write)]
-                  [6 (gen/return :member)] [2 (gen/return :owner)]
-                  [1 (gen/return :see-gives-see)] [1 (gen/return :member-gives-see)]]))
+                  [6 (gen/return :member)] [2 (gen/return :publisher)] [2 (gen/return :owner)]
+                  [1 (gen/return :see-gives-see)] [1 (gen/return :member-gives-see)]
+                  [1 (gen/return :see-publishes)]]))
 
 (def ^:private gen-target
   "Which give an end or a change names."
@@ -471,6 +480,36 @@
                                                      :lend-to-a-person :end-a-borrow :end-a-borrow :as-an-agent])
                                       (gen/elements borrowers)
                                       gen-sitting))]
+              ;; the right to give to everyone: who opens a lane, who
+              ;; raises everyone's give, and who passes the right on
+              [5 (gen/fmap (fn [[by as what sitting]]
+                             {:op :publish :by by :as as :what what :sitting sitting})
+                           (gen/tuple gen-person
+                                      (gen/elements [:member :member :publisher :publisher :see-publishes :owner])
+                                      (gen/elements [:open :open :open-signed-in :raise-everyones :raise-everyones
+                                                     :pass-it-on :pass-it-on :take-it-back])
+                                      gen-sitting))]
+              ;; a giver is lowered in place, and then ends or lowers what
+              ;; she gave; she is raised again, and does it again
+              [4 (gen/fmap (fn [[by to what how sitting]]
+                             {:op :demoted-giver :by by :to to :what what :how how :sitting sitting})
+                           (gen/tuple gen-person gen-person
+                                      (gen/elements [:see-write :see-write :member :owner])
+                                      (gen/elements [:end :end :lower])
+                                      gen-sitting))]
+              ;; one further up a chain of lent gives ends the lowest,
+              ;; before and after the give between them was ended
+              [3 (gen/fmap (fn [[by how sitting]] {:op :past-an-end :by by :how how :sitting sitting})
+                           (gen/tuple gen-person (gen/elements [:after :after :before]) gen-sitting))]
+              ;; a raise that no give could make: out of a sitting, of a
+              ;; give that stands on its own under a lent one, of a lent
+              ;; give under another give than its lender's; and one that a
+              ;; give could make
+              [4 (gen/fmap (fn [[by to how sitting]] {:op :raise-across :by by :to to :how how :sitting sitting})
+                           (gen/tuple gen-person gen-person
+                                      (gen/elements [:out-of-a-sitting :a-standing-give-under-a-lent-one
+                                                     :a-lent-give-under-another :by-its-lender])
+                                      gen-sitting))]
               ;; a lane handed over, or not quite
               [5 (gen/fmap (fn [[to how sitting]] {:op :hand-over :to to :how how :sitting sitting})
                            (gen/tuple gen-person
@@ -485,9 +524,10 @@
                                       gen-sitting))]])))))
 
 (defn gen-history
-  "A history of a profile: up to eighty steps after the making act."
-  [profile]
-  (gen/vector (gen-op profile) 0 80))
+  "A history of a profile: up to eighty steps after the making act, or up
+  to `most`."
+  ([profile] (gen-history profile 80))
+  ([profile most] (gen/vector (gen-op profile) 0 most)))
 
 ;; ------------------------------------------------ from a step to the things sent
 
@@ -673,6 +713,151 @@
                            [{:e (target-of pools n by everyones [:lent n]) :k reference/permission-key :v nil}])
       :as-an-agent (thing n 0 to sitting everyones [{:e :thing-2 :k :colour :v (str "said at " n)}]))))
 
+(defn- give-fact
+  "A give as a fact, at an id, with each part of its value said outright."
+  [id holder allows by under-id lent-from session]
+  {:e id :k reference/permission-key
+   :v (value {:holder holder :allows (allows-of allows) :covers [:default-group lane] :session session
+              :given-by by :under under-id :lent-from lent-from})})
+
+(defn- change-fact
+  "A change as a fact: the give as a give fact says it, and what it allows
+  now."
+  [give allows]
+  (assoc-in give [:v :allows] (allows-of allows)))
+
+(defn- end-fact [id] {:e id :k reference/permission-key :v nil})
+
+(defn- another-person [who] (first (remove #{who} people)))
+
+(defn- publish
+  "The things of a step on the right to give to everyone. An owner gives
+  `by` a give that stands on its own and allows what `as` says: a member's,
+  which names no everyone; a publisher's or an owner's, which do; or one
+  that may give see to everyone and may not pass that right on. Then, under
+  that give, `by`
+
+    :open             gives see to anyone at all
+    :open-signed-in   gives see and write to anyone signed in
+    :raise-everyones  raises to see and write a give of see to anyone
+                      signed in that the owner made in this step
+    :pass-it-on       gives another person a publisher's give
+    :take-it-back     opens the lane; the owner lowers her to a member; she
+                      ends everyone's give as the one who gave it"
+  [pools n {:keys [by as what sitting]}]
+  (let [owner (an-owner pools)
+        owners (or (:id (own pools owner)) (never-id n))
+        by (if (= by owner) (another-person owner) by)
+        hers (give-id-of n 0)
+        made (give-fact hers by as owner owners nil nil)
+        open (give-id-of n 1)
+        from-owner (fn [j facts] (thing n j owner sitting owners facts))
+        from-her (fn [j facts] (thing n j by sitting hers facts))]
+    (case what
+      :open [(from-owner 0 [made])
+             (from-her 1 [(give-fact open :anyone :see by hers nil nil)])]
+      :open-signed-in [(from-owner 0 [made])
+                       (from-her 1 [(give-fact open :anyone-signed-in :see-write by hers nil nil)])]
+      :raise-everyones (let [everyones (give-fact open :anyone-signed-in :see owner owners nil nil)]
+                         [(from-owner 0 [made everyones])
+                          (from-her 1 [(change-fact everyones :see-write)])])
+      :pass-it-on [(from-owner 0 [made])
+                   (from-her 1 [(give-fact open (another-person by) :publisher by hers nil nil)])]
+      :take-it-back [(from-owner 0 [made])
+                     (from-her 1 [(give-fact open :anyone :see by hers nil nil)])
+                     (from-owner 2 [(change-fact made :member)])
+                     (from-her 3 [(end-fact open)])])))
+
+(defn- demoted-giver
+  "The things of a step on a giver who is lowered in place. An owner gives
+  `by` an owner's give that stands on its own; under it `by` gives `to` a
+  give that stands on its own; the owner lowers `by` to see; `by` ends, or
+  lowers, what she gave, as the one who gave it; the owner raises her to
+  what she was; she does it again."
+  [pools n {:keys [by to what how sitting]}]
+  (let [owner (an-owner pools)
+        owners (or (:id (own pools owner)) (never-id n))
+        by (if (= by owner) (another-person owner) by)
+        to (first (remove #{owner by} (cons to people)))
+        hers (give-id-of n 0)
+        made (give-fact hers by :owner owner owners nil nil)
+        given (give-fact (give-id-of n 1) to what by hers nil nil)
+        takes-back (case how :end (end-fact (give-id-of n 1)) :lower (change-fact given :see))]
+    [(thing n 0 owner sitting owners [made])
+     (thing n 1 by sitting hers [given])
+     (thing n 2 owner sitting owners [(change-fact made :see)])
+     (thing n 3 by sitting hers [takes-back])
+     (thing n 4 owner sitting owners [(change-fact made :owner)])
+     (thing n 5 by sitting hers [takes-back])]))
+
+(defn- past-an-end
+  "The things of a step on a chain of lent gives. `by` lends see to an
+  agent under her current give; the agent lends it on to another. Then the
+  agent ends its own, and `by` ends the lowest under her give: one further
+  up, past an ended give. Or `by` ends the lowest first, while the give
+  between stands."
+  [pools n {:keys [by how sitting]}]
+  (let [by (or (:holder (peek (live pools (filterv #(reference/person? (:holder %)) (:gives pools))))) by)
+        hers (or (:id (own pools by)) (never-id n))
+        sitting (sitting-for pools hers sitting false)
+        session (:session (by-id pools hers))
+        [first-agent second-agent] borrowers
+        between (give-id-of n 0)
+        lowest (give-id-of n 1)
+        lend [(thing n 0 by sitting hers [(give-fact between first-agent :see by hers hers session)])
+              (thing n 1 first-agent sitting between [(give-fact lowest second-agent :see first-agent between between session)])]]
+    (into lend
+          (case how
+            :after [(thing n 2 first-agent sitting nil [(end-fact between)])
+                    (thing n 3 by sitting hers [(end-fact lowest)])]
+            :before [(thing n 2 by sitting hers [(end-fact lowest)])]))))
+
+(defn- raise-across
+  "The things of a step on a raise that no give could make, each by one who
+  may pass on what is added.
+
+    :out-of-a-sitting
+        an owner gives `by` an owner's give good for one sitting and a give
+        of see good in every sitting; in that sitting `by` raises the
+        second to an owner's, under the first
+    :a-standing-give-under-a-lent-one
+        an owner gives `by` a member's give and `to` a give of see, each
+        standing on its own; `by` lends an agent a member's give; the agent
+        raises the give of `to` to see and write, under what it borrowed
+    :a-lent-give-under-another
+        an owner gives `by` a member's give; `by` lends an agent see; the
+        owner raises the agent's borrow to see and write, under her own
+    :by-its-lender
+        the same, and `by` raises the borrow under the give that it is
+        lent from: a raise that a give could make"
+  [pools n {:keys [by to how sitting]}]
+  (let [owner (an-owner pools)
+        owners (or (:id (own pools owner)) (never-id n))
+        by (if (= by owner) (another-person owner) by)
+        to (first (remove #{owner by} (cons to people)))
+        agent (first borrowers)
+        from-owner (fn [j facts] (thing n j owner sitting owners facts))
+        id (fn [j] (give-id-of n j))]
+    (case how
+      :out-of-a-sitting
+      (let [wide (give-fact (id 1) by :see owner owners nil nil)]
+        [(from-owner 0 [(give-fact (id 0) by :owner owner owners nil sitting) wide])
+         (thing n 1 by sitting (id 0) [(change-fact wide :owner)])])
+
+      :a-standing-give-under-a-lent-one
+      (let [theirs (give-fact (id 1) to :see owner owners nil nil)]
+        [(from-owner 0 [(give-fact (id 0) by :member owner owners nil nil) theirs])
+         (thing n 1 by sitting (id 0) [(give-fact (id 2) agent :member by (id 0) (id 0) nil)])
+         (thing n 2 agent sitting (id 2) [(change-fact theirs :see-write)])])
+
+      (:a-lent-give-under-another :by-its-lender)
+      (let [borrow (give-fact (id 1) agent :see by (id 0) (id 0) nil)]
+        [(from-owner 0 [(give-fact (id 0) by :member owner owners nil nil)])
+         (thing n 1 by sitting (id 0) [borrow])
+         (if (= :by-its-lender how)
+           (thing n 2 by sitting (id 0) [(change-fact borrow :see-write)])
+           (from-owner 2 [(change-fact borrow :see-write)]))]))))
+
 (defn things-of
   "What one step sends: {:sends the things in order}, and for a step that
   makes a give for one exact act, `:entries` for the pools and `:named`,
@@ -707,6 +892,10 @@
                         {:sends (lower-a-lender pools n step lent (by-id pools (:lent-from lent)))}
                         {:sends []}))
     :through-everyone {:sends [(through-everyone pools n step)]}
+    :publish {:sends (publish pools n step)}
+    :demoted-giver {:sends (demoted-giver pools n step)}
+    :past-an-end {:sends (past-an-end pools n step)}
+    :raise-across {:sends (raise-across pools n step)}
     :deepen {:sends (deepen pools n step)}
     :used-act-id (if-let [earlier (from-the-end things (:n step))]
                    (let [who (if (= :same (:as step)) (:who earlier) by)

@@ -77,7 +77,8 @@
   the difference is."
   {"reading 4" "one further up a lent chain ends, or lowers, a give that fell: the rules take it; the store refuses it, because the row of the ended give above no longer says what that give was lent from, so the store cannot tell that the author's give is above it"
    "reading 5" "a raise that no give could make: the rules hold a raise to what its author may pass on and to nothing else; the store also holds it to what a give is held to, so that a right is added to a lent give only under the give it is lent from, to a standing give only under a standing give, and to no give that covers more than the act's own"
-   "reading 6" "an owner raises anyone's give past seeing by a change: the rules take it, since they hold anyone at all to seeing at the give alone; the store refuses it at the change too"})
+   "reading 6" "an owner raises anyone's give past seeing by a change: the rules take it, since they hold anyone at all to seeing at the give alone; the store refuses it at the change too"
+   "the bound" "a read asked once answers `:too-many-permissions` where the asker's runs hold more permissions than one turn examines (CONTRACT.md, section 2.4): the rules know no bound, and say whether she sees"})
 
 ;; ------------------------------------------------- a thing, said to the store
 
@@ -201,6 +202,25 @@
              (some #(raises-anyone-past-seeing? ref %) (:facts sent)))
         "reading 6"))))
 
+(defn see-question
+  "What a difference on what an asker may see falls under, or nil: the
+  store's read answers `:too-many-permissions`, the word of its bound, and
+  the gives that the asker's runs hold over the lane, her own and
+  everyone's as far as she holds through everyone, ended ones apart, are
+  more than the store examines in one turn. Held by that count in the
+  rules' state, not by the two words alone: the word with fewer gives than
+  the bound is a break. Added by the judge's session on 28 November 2026,
+  when the store of Loop 3 brought the word."
+  [_gs ref asker _session gate-word _rules-word]
+  (when (and (= :too-many-permissions gate-word)
+             (< lanes/max-holder-permissions
+                (count (filter (fn [[id g]]
+                                 (and (= [:default-group lane] (:covers g))
+                                      (not (reference/ended? ref id))
+                                      (reference/covers-party? (:holder g) asker)))
+                               (:gives ref)))))
+    "the bound"))
+
 ;; -------------------------------------------------------------------- the gate
 
 (def gate
@@ -235,7 +255,8 @@
                   :gs (assoc gs :rec record)}))))
    :sees (fn [gs pairs]
            (mapv (fn [[asker session]] (memory/may-see (:rec gs) lane asker session)) pairs))
-   :excuse question})
+   :excuse question
+   :see-excuse see-question})
 
 ;; ---------------------------------------------- the store, one rule broken
 
@@ -264,7 +285,17 @@
   takes nothing more than the store with it: each fact of an act that
   names no permission is then refused by its own check, with another word
   (run: 2,000 histories under seed 1 showed no difference). The store's own
-  proof holds that word."
+  proof holds that word.
+
+  One broken copy is left out while the store has no
+  `softland.store.read-path.lanes/holders-for`: \"a read looks for
+  everyone's permissions for an agent too, and for nobody's own\". The
+  store of Loop 3 finds a read's holders another way (`holder-plan`), and
+  the copy over it is the builder's to write again. The judge's session
+  made the entry one that is there only when the function is (28 November
+  2026), so that this namespace loads against that store. That session's
+  only other change to this file is `see-question`, with its line in
+  `questions`."
   (into
    (vec (for [word [:permission-does-not-allow-writing :only-an-owner-writes-a-setting :store-key-takes-one-write
                     :a-permission-id-takes-one-permission :permission-not-given-by-the-acts-who
@@ -275,7 +306,9 @@
                     :no-permission-to-end :permission-already-ended :permission-already-used
                     :may-not-end-the-permission :permission-lent-from-one-the-act-ends :lane-would-have-no-owner]]
           [(str "the store takes what it refuses with " word) #'decision/places (without-word word)]))
-   [["a lent permission still stands at the gate after the one above it ended"
+   (filterv
+    some?
+    [["a lent permission still stands at the gate after the one above it ended"
      #'chain/stands?
      (fn [_] (fn [lane id rows] (some? (record/held-permission (get rows (chain/place lane id))))))]
     ["a chain reads as whole, at the gate and at a read, when a permission above has ended"
@@ -324,6 +357,7 @@
                          (= [:default-group lane] (:covers says))
                          (or (nil? (:session says)) (= session (:session says)))
                          (seq (chain/allows-now values)))))))]
-    ["a read looks for everyone's permissions for an agent too, and for nobody's own"
-     #'lanes/holders-for
-     (fn [_] (fn [_asker] [:anyone :anyone-signed-in]))]]))
+    (when-let [holders-for (resolve 'softland.store.read-path.lanes/holders-for)]
+      ["a read looks for everyone's permissions for an agent too, and for nobody's own"
+       holders-for
+       (fn [_] (fn [_asker] [:anyone :anyone-signed-in]))])])))

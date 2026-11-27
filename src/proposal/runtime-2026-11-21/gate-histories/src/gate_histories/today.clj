@@ -62,12 +62,14 @@
 (def reasons
   "The reasons of ALLOWLIST.md that a difference between the rules and
   today's store can fall under on today's default values, each with what
-  it says here. The other reasons of that list are of the form (B1 form,
-  B1 place, B1 rows, B1 digest, making, S1 party, table), which the saying
-  again in today's form bridges; of the live read's sources (S5 rights);
+  it says here. The other reasons of that list are of the form (B1 place,
+  B1 rows, B1 digest, making, S1 party, table, and B1 form but for the one
+  thing below), which the saying again in today's form bridges; of the
+  live read's sources (S5 rights);
   or of values that today's form cannot say (B2 lent, B2 end, B3 owner),
   which are not sent."
-  {"B1 many" "a holder can have any number of gives on one lane: today a give to a holder whose permission stands, or for a sitting that has one, is refused"
+  {"B1 form" "the gives above a give are found by id, one row at a time, and the row of an ended give says nothing: today a permission carries the gives above it written out, so one further up still ends a give past an ended one"
+   "B1 many" "a holder can have any number of gives on one lane: today a give to a holder whose permission stands, or for a sitting that has one, is refused"
    "B1 again" "given again is a new give with a new id, and an id takes one give for good: today the same permission is given again at its place after an end"
    "B1 own end" "a holder ends her own give, a holder of see too: today she ends it only under a permission that lets her act, her own for the lane or the permission itself"
    "B2 give" "whoever holds see or write lends it to an agent or a run with no right to give: today a holder of see gives nothing, and a permission for one run or one act gives nothing"
@@ -342,6 +344,22 @@
 
 ;; ---------------------------------------------------------------- the excuses
 
+(defn- past-an-end?
+  "True for a fact that ends a give which its author is above only as the
+  holder of a give further up the chain, with an ended give between the
+  two. Today's form writes the gives above a give out in the permission
+  itself, so today's store still knows that she is above it; the store of
+  the fix reads them one row at a time, and the row of an ended give says
+  nothing (CONTRACT.md, section 2.3)."
+  [ref who under fact]
+  (let [target (reference/give ref (:e fact))
+        above (when target (reference/lent-chain ref (:e fact)))]
+    (boolean (and under target
+                  (nil? (:v fact))
+                  (= who (:holder under))
+                  (some #{(:id under)} above)
+                  (some #(reference/ended? ref %) (take-while #(not= (:id under) %) above))))))
+
 (defn excuse
   "The reason of the allowlist that a difference on a thing falls under, or
   nil. Takes the gate's state and the rules' state before the thing, the
@@ -366,16 +384,20 @@
         ;; beneath the ended one: today's form gives both the same id, so
         ;; she is above it again; by the rules the new give is another give
         :not-one-who-may-end-it
-        (when (some (fn [fact]
-                      (and (= :end (kind fact))
-                           (some (fn [above]
-                                   (and (not= above (:permission sent))
-                                        (reference/ended? ref above)
-                                        (some? (get-in gs [:old-id above]))
-                                        (= (get-in gs [:old-id above]) (get-in gs [:old-id (:permission sent)]))))
-                                 (reference/lent-chain ref (:e fact)))))
-                    facts)
-          "B1 again")
+        (cond
+          (some (fn [fact]
+                  (and (= :end (kind fact))
+                       (some (fn [above]
+                               (and (not= above (:permission sent))
+                                    (reference/ended? ref above)
+                                    (some? (get-in gs [:old-id above]))
+                                    (= (get-in gs [:old-id above]) (get-in gs [:old-id (:permission sent)]))))
+                             (reference/lent-chain ref (:e fact)))))
+                facts)
+          "B1 again"
+
+          (some #(and (= :end (kind %)) (past-an-end? ref who under %)) facts)
+          "B1 form")
         nil)
 
       (and (:accept? ruled) (not took?))

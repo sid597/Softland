@@ -22,9 +22,9 @@
     one rule broken        replaced for the run only. Each must show a
                            difference outside the allowlist's reasons
 
-  The store of the permission fix is the next, when it is built: a gate is
-  a map of four functions (`rules-gate` shows the shape), and nothing else
-  here knows which gate it plays. `gate-histories.today` is loaded only
+  The store of the permission fix is one more (`gate-histories.fix`, the
+  builder's): a gate is a map of four functions (`rules-gate` shows the
+  shape), and nothing else here knows which gate it plays. `gate-histories.today` is loaded only
   when it is asked for, since it calls the store before the fix: the rules
   and their broken copies run against no store at all.
 
@@ -68,6 +68,16 @@
                                      ; smallest history
     clojure -M:run sentences         ; the rules in plain words
 
+  And a read that stays open is played against every order in which its
+  pushes and its answers can come (`gate-histories.live-read`): the
+  reference read, which must keep what every step of a read is held to,
+  and its broken copies, each of which must break it.
+
+    clojure -M:run live 2000 7       ; the read that stays open: every order
+                                     ; of the small histories, and sampled
+                                     ; orders of so many histories
+    clojure -M:run live-mutants 2000 7  ; its broken copies
+
   It exits 1 when a statement broke, a difference fell outside the
   allowlist's reasons, or a broken copy was not caught."
   (:require [clojure.string :as str]
@@ -77,6 +87,7 @@
             [clojure.test.check.random :as random]
             [clojure.test.check.rose-tree :as rose]
             [gate-histories.histories :as h]
+            [gate-histories.live-read :as live]
             [gate-histories.reference :as reference]
             [gate-histories.statement :as statement]))
 
@@ -532,6 +543,12 @@
   [word]
   (fn [rules] (vec (remove #(= word (:word %)) rules))))
 
+(defn- not-of-a-raise
+  "The rules with one that is asked of a give and of a raise asked of a give
+  alone."
+  [word]
+  (fn [rules] (mapv #(if (= word (:word %)) (assoc % :of :give) %) rules)))
+
 (def ^:private dropped
   "A broken copy for each rule that stands alone: the rules without it."
   (vec (for [rule reference/rules
@@ -576,9 +593,57 @@
     {#'reference/may-pass?
      (fn [real]
        (fn [held allows to]
-         (real (cond-> held (seq (:give held)) (assoc :give #{:see :write :give :owner})) allows to)))}]
+         (real (cond-> held (seq (:give held)) (assoc :give #{:see :write :give :owner :everyone})) allows to)))}]
    ["BUILD 2.4 (item 2): a give or a raise passes on what its author does not hold"
     {#'reference/may-pass? (fn [_] (fn [_held allows _to] (boolean (seq allows))))}]
+   ["item 26 (Option B): the right to give to everyone is passed on by one whose own right to give does not name it"
+    {#'reference/may-pass?
+     (fn [real]
+       (fn [held allows to]
+         (let [named (disj (:give allows #{}) :everyone)]
+           (real held (cond (not (contains? (:give allows #{}) :everyone)) allows
+                            (seq named) (assoc allows :give named)
+                            :else (dissoc allows :give))
+                 to))))}]
+   ["item 26 (Option B): whoever may give see or write to a named person gives it to everyone too (Option A)"
+    {#'reference/may-give-to? (fn [_] (fn [_held _to] true))}]
+   ["item 26 (Option B): inviting a named person needs the right to give to everyone"
+    {#'reference/may-give-to?
+     (fn [_] (fn [held to] (or (reference/borrower? to) (contains? (:give held #{}) :everyone))))}]
+   ["item 26: a giver who was lowered in place still ends, and lowers, what she gave (the store before the fix of decision.clj:348)"
+    {#'reference/ends-as-giver?
+     (fn [_]
+       (fn [_state who under target]
+         (boolean (and under (= who (:given-by target)) (= (:id under) (:under target))))))}]
+   ["item 26: whoever gave a give ends it though she could not give it to everyone any more: her give is held to the rights and not to the holder"
+    {#'reference/gives-it-still?
+     (fn [_]
+       (fn [state under target what]
+         (or (empty? what)
+             (reference/may-pass? (:allows (reference/holds-now state (:id under))) what (:holder target)))))}]
+   ["reading 4, as it was: one further up a chain of lent gives ends a give past an ended give, which no row says she is above"
+    {#'reference/ends-as-lender?
+     (fn [_]
+       (fn [state who under target]
+         (boolean (and under
+                       (= who (:holder under))
+                       (some #{(:id under)} (reference/lent-chain state (:id target)))))))}]
+   ["reading 5, as it was: a raise is held to what its author may pass on and to nothing else that a give is held to"
+    {#'reference/rules
+     (fn [rules]
+       (mapv #(if (set? (:of %)) (update % :of disj :raise) %) rules))}]
+   ["reading 5: a lent give is raised under another give than the one it is lent from"
+    {#'reference/rules (not-of-a-raise :lent-from-the-give-it-is-made-under)}]
+   ["reading 5: a give that stands on its own is raised under a lent give, and what is added outlives the lender"
+    {#'reference/rules (not-of-a-raise :made-under-a-lent-give-is-lent)}]
+   ["reading 5: a give good in every sitting is raised under a give good for one"
+    {#'reference/rules (not-of-a-raise :covers-more-than-the-give-above)}]
+   ["item 26 (Option B): everyone's give is raised by one whose right to give does not name everyone"
+    {#'reference/rules (not-of-a-raise :opens-to-everyone-without-the-right)}]
+   ["reading 6, as it was: anyone at all is held to seeing where the give is made and not at a change"
+    {#'reference/rules
+     (fn [rules]
+       (mapv #(if (= :anyone-only-sees (:word %)) (assoc % :of :give) %) rules))}]
    ["BUILD 1.4 (bug 4): a holder who may only see cannot end her own give"
     {#'reference/ends-as-holder?
      (fn [real]
@@ -927,6 +992,8 @@
     (println "QUESTIONS: things on which the store differs under a reading of the judge's, taken out of their histories, by reading:")
     (doseq [[reading says] (sort-by key questions)]
       (println (format "  %8d  %-10s  %s" (get asked reading 0) reading says)))
+    (doseq [[reading n] (counted-under counted :excused-in-a-read)]
+      (println (format "  decisions after which a read differed under %s: %d" reading n)))
     (if (empty? found)
       (do (println "HOLDS everywhere else: agree, told, once, apart, proved and see")
           true)
@@ -971,6 +1038,337 @@
       (println (format "%d of %d caught" (- (count broken-stores) (count missed)) (count broken-stores)))
       (empty? missed))))
 
+;; --------------------------------------------------------------- the live read
+
+(def ^:private questions-of-a-read
+  "The kinds of break of a read that are a question and not a break of the
+  read under test: each follows from what the pages give, and no read can
+  mend it. A run counts them and prints the first order that shows each."
+  {:came-back "a run of gives says again what it said before (CONTRACT 2.4: the key is gone at an end), so an old answer agrees again with pushes that say different versions, and the read tells a level of that old version"
+   :fact-after "the push of the lane's facts runs ahead of the rights pushes, and the read tells a fact that was written after the last version at which she could see"})
+
+(defn- red-of
+  "Of what broke, what is a break of the read under test."
+  [broke]
+  (remove #(contains? questions-of-a-read (first (:class %))) broke))
+
+(def ^:private gen-reader
+  "One read to open: an asker, or one who is not signed in; in no sitting
+  or in one; of what she may see, or of the lane's acts."
+  (gen/fmap (fn [[asker session question]]
+              {:lane lane :routing-id lane :question question :asker asker :session session})
+            (gen/tuple (gen/frequency [[1 (gen/return nil)] [8 (gen/elements h/authors)]])
+                       (gen/frequency [[2 (gen/return nil)] [1 (gen/elements h/sittings)]])
+                       (gen/frequency [[3 (gen/return :see)] [1 (gen/return :acts)]]))))
+
+(def ^:private gen-order
+  "A history of up to forty steps, one to four reads, and the choices of
+  an order of events."
+  (gen/tuple (h/gen-history :full 40)
+             (gen/vector gen-reader 1 4)
+             (gen/vector (gen/tuple gen/nat gen/nat) 0 300)))
+
+(defn- play-order
+  "Plays one sampled order. Gives the world after."
+  [[ops readers choices]]
+  (live/forget!)
+  (live/run-schedule (live/versions-of (live/decisions ops)) readers choices))
+
+(defn- every-order
+  "Every order of each small history, for each of its reads. Gives a line
+  for each: {:what :reader :worlds :broke}; `:broke` holds each kind of
+  break with the first order that showed it, the query against the rules
+  among them. With `enough?`, a history is left as soon as that says so of
+  the kinds that it showed."
+  ([fails] (every-order fails (constantly false)))
+  ([fails enough?]
+   (for [[what things readers only] live/scenarios
+         reader readers]
+     (do (live/forget!)
+         (let [vs (live/scenario-versions things)
+               query (first (keep #(live/agrees-with-the-rules vs % reader) (range 1 (count (:tables vs)))))
+               explored (if (or query (= :the-query-alone only))
+                          {:worlds 0 :broke {}}
+                          (live/explore vs reader fails enough?))]
+           {:what what :reader reader :vs vs :worlds (:worlds explored)
+            :broke (cond-> (:broke explored) query (assoc (:class query) query))})))))
+
+(defn- reader-word [{:keys [question asker session]}]
+  (str (if asker (name asker) "one who is not signed in")
+       (when session (str " in " (name session)))
+       (if (= :acts question) ", asking of the acts" "")))
+
+(defn- class-of-a-read
+  "A kind of break of a read, in words."
+  [[held what & more]]
+  (str (name held) ": " (str/replace (name what) "-" " ")
+       (when (seq more) (str " (" (str/join ", " (map name more)) ")"))))
+
+(defn- print-sampled-break
+  "Prints the smallest sampled order that breaks in one way."
+  [[ops readers choices] class]
+  (let [vs (live/versions-of (live/decisions ops))
+        world (live/run-schedule vs readers choices)
+        at (:at (first (filter #(= class (:class %)) (:broke world))))]
+    (println (format "    the reads: %s" (str/join "; " (map reader-word readers))))
+    (live/print-order vs readers (take (or at 0) (:log world)))))
+
+(defn- sample-orders
+  "Plays the sampled orders of a run. Gives {:counts what was walked, summed;
+  :kinds for each kind of break, in how many histories and the first}."
+  [histories seed]
+  (let [{:keys [counts kinds]}
+        (reduce
+         (fn [found [i tree]]
+           (let [world (play-order (rose/root tree))]
+             (reduce (fn [found class]
+                       (-> found
+                           (update-in [:kinds class :count] (fnil inc 0))
+                           (update-in [:kinds class] #(if (:at %) % (assoc % :at (inc i) :tree tree)))))
+                     (update found :counts #(merge-with + % (:counts world)))
+                     (distinct (map :class (:broke world))))))
+         {:counts {} :kinds {}}
+         (map-indexed vector
+                      (letfn [(more [i sizes rnd]
+                                (lazy-seq
+                                 (when (< i histories)
+                                   (let [[r1 r2] (random/split rnd)]
+                                     (cons (gen/call-gen gen-order r1 (first sizes))
+                                           (more (inc i) (rest sizes) r2))))))]
+                        (more 0 (gen/make-size-range-seq 80) (random/make-random seed)))))]
+    {:counts counts :kinds kinds}))
+
+(defn- print-live-counts [counts]
+  (doseq [k [:versions-written :reads-opened :steps-of-a-read :steps-at-which-a-read-knew
+             :steps-at-which-a-read-did-not-know :asks :answers
+             :answers-of-an-older-version-than-the-store-was-at :asks-that-failed
+             :answers-that-came-after-their-ask-had-failed :answers-that-came-after-a-later-ask-was-sent
+             :reads-that-ended-for-a-cause :pushes-given :callbacks
+             :callbacks-that-brought-more-than-one-change-at-once
+             :steps-at-which-pushes-said-different-versions-and-the-read-knew
+             :steps-at-which-pushes-said-different-versions-and-the-read-did-not-know
+             :changes-in-place-written :changes-in-place-of-a-give-that-an-open-read-rested-on-above-its-own
+             :acts-written-that-change-more-than-one-give
+             :such-acts-that-moved-what-an-open-read-rested-on-and-left-its-level :tells]]
+    (println (format "  %9d  %s" (get counts k 0) (str/replace (name k) "-" " ")))))
+
+(defn- run-live
+  "The reference read, held to what every step of a read is held to: in
+  every order of the small histories, and in sampled orders of generated
+  histories; with the runs as CONTRACT 2.4 has them, and with runs that
+  keep a mark. Gives true when nothing broke but the two questions."
+  [histories seed]
+  (let [started (System/nanoTime)
+        report-every (fn [lines]
+                       (doseq [{:keys [what reader worlds broke]} lines]
+                         (println (format "  %7d worlds  %-22s %s" worlds (reader-word reader) what))
+                         (doseq [[class _] broke]
+                           (println (format "                  %s %s"
+                                            (if (contains? questions-of-a-read (first class)) "QUESTION" "BROKEN  ")
+                                            (class-of-a-read class))))))
+        red-lines (fn [lines] (mapcat (fn [line] (red-of (vals (:broke line)))) lines))
+        asked (fn [lines word] (count (filter #(some (fn [class] (= word (first class))) (keys (:broke %))) lines)))
+        every (vec (every-order 1))
+        every-marked (binding [live/*a-run-keeps-a-mark?* true] (vec (every-order 1)))
+        sampled (sample-orders histories seed)
+        sampled-marked (binding [live/*a-run-keeps-a-mark?* true] (sample-orders histories seed))
+        red-kinds (fn [found] (remove #(contains? questions-of-a-read (first (key %))) (:kinds found)))
+        in-how-many (fn [found word] (reduce + (keep (fn [[class {:keys [count]}]] (when (= word (first class)) count)) (:kinds found))))
+        green? (and (empty? (red-lines every)) (empty? (red-lines every-marked))
+                    (empty? (red-kinds sampled)) (empty? (red-kinds sampled-marked))
+                    (zero? (asked every-marked :came-back)) (zero? (in-how-many sampled-marked :came-back)))]
+    (println "THE LIVE READ: the reference read, held to answered, was, not more, silent, asks and settles")
+    (println)
+    (println "EVERY ORDER of each small history, one read at a time, one ask failing at most; the runs as CONTRACT 2.4 has them:")
+    (report-every every)
+    (println "EVERY ORDER of the same, with runs that keep the stamp of the last decision that wrote under them:")
+    (report-every every-marked)
+    (println)
+    (println (format "SAMPLED ORDERS: %d histories of up to 40 steps, one to four reads each, seed %d; the runs as CONTRACT 2.4 has them:"
+                     histories seed))
+    (print-live-counts (:counts sampled))
+    (doseq [[word says] questions-of-a-read]
+      (println (format "QUESTION %s, in %d of the %d histories, and in %d with runs that keep a mark: %s"
+                       (name word) (in-how-many sampled word) histories (in-how-many sampled-marked word) says)))
+    (doseq [[what found] [["the runs as CONTRACT 2.4 has them" sampled] ["runs that keep a mark" sampled-marked]]
+            [class {:keys [count at tree]}] (red-kinds found)]
+      (println)
+      (println (format "BROKEN, %s: %s; in %d histories, first at history %d. The smallest order:"
+                       what (class-of-a-read class) count at))
+      (let [smallest (first (get-in (tc/quick-check 1 (prop/for-all [order (gen/return (rose/root tree))]
+                                                         (not-any? #(= class (:class %)) (:broke (play-order order)))))
+                                    [:shrunk :smallest]))]
+        (print-sampled-break (or smallest (rose/root tree)) class)))
+    (doseq [word (keys questions-of-a-read)
+            :let [line (first (filter #(some (fn [class] (= word (first class))) (keys (:broke %))) every))]
+            :when line
+            ;; the order is looked for again with no ask failing: it is shorter
+            :let [found (:broke (live/explore (:vs line) (:reader line) 0
+                                              (fn [found] (some #(= word (first %)) (keys found)))))
+                  [_ b] (first (filter #(= word (first (key %))) found))]]
+      (println)
+      (println (format "THE QUESTION %s, in the first order found of \"%s\", read by %s:"
+                       (name word) (:what line) (reader-word (:reader line))))
+      (live/print-order (:vs line) [(:reader line)] (:log b)))
+    (println)
+    (println (format "%.1f seconds" (/ (- (System/nanoTime) started) 1e9)))
+    (if green?
+      (println "HOLDS: in every order of the small histories and in every sampled order, the reference read keeps answered, not more, silent, asks and settles; it keeps was but for the question came-back, and keeps it whole with runs that keep a mark; the query and the rules give the same word at every version")
+      (println "BROKEN: see above"))
+    green?))
+
+(def ^:private broken-reads
+  "The broken copies of the live read and of its query, each as [what, {a
+  var of `gate-histories.live-read`, a function that takes what is in
+  place and gives the broken one}, how many asks may fail in an order of a
+  small history]. Each must break something that a read is held to."
+  [["invariant 9: an answer is told whatever its pushes say: a remembered answer"
+    {#'live/agrees? (fn [_] (fn [read _present] (some? (:answer read))))} 1]
+   ["invariant 9, the gap between the query and the push: a source of the read set that is not given yet counts as agreeing"
+    {#'live/agrees?
+     (fn [_]
+       (fn [read present]
+         (boolean (when-let [answer (:answer read)]
+                    (every? (fn [[source expected]]
+                              (or (not (contains? present source))
+                                  (= expected (live/seen source (get present source)))))
+                            (:read-set answer))))))} 1]
+   ["invariant 9: an answer is held to its rows and not to its runs"
+    {#'live/agrees?
+     (fn [real]
+       (fn [read present]
+         (and (some? (:answer read))
+              (real (update-in read [:answer :read-set] #(into {} (remove (fn [[[kind] _]] (= :run kind))) %)) present))))} 1]
+   ["invariant 9: where no answer agrees, the read works a level out of what its pushes say"
+    {#'live/standing-of
+     (fn [real]
+       (fn [read present]
+         (let [word (real read present)
+               {:keys [question asker session]} (:params read)]
+           (if (and (= :not-known-yet word) (live/held-against-all? read present))
+             (:standing (live/lane-rights
+                         {:rows (into {} (keep (fn [[[kind id] v]] (when (= :row kind) [id v]))) present)
+                          :runs (into {} (keep (fn [[[kind id] v]] (when (= :run kind) [id v]))) present)}
+                         question asker session))
+             word))))} 1]
+   ["invariant 9: the read keeps what each push said at its callback, and does not read its pushes at each step"
+    {#'live/present-to (fn [_] (fn [read _present] (:copies read)))} 1]
+   ["invariant 10: while it does not know, the read goes on telling the lane's facts as they change"
+    {#'live/tells
+     (fn [real]
+       (fn [read standing present]
+         (let [facts (get present live/facts-source)]
+           (if (and (= :not-known-yet standing) (= :yes (:told read)) (some? facts) (not= facts (:shown read)))
+             [(assoc read :shown facts) [{:changed facts}]]
+             (real read standing present)))))} 1]
+   ["invariant 10: after not knowing, the read tells a change and not the whole answer: nothing is owed"
+    {#'live/tells
+     (fn [real]
+       (fn [read standing present]
+         (let [[after told] (real read standing present)]
+           [(if (= :not-known-yet standing) (assoc after :owed? (:owed? read)) after) told])))} 1]
+   ["invariant 11: the read asks whenever no answer agrees, though no rights push said anything new since its last ask"
+    {#'live/called-back? (fn [_] (fn [_read _present] true))} 1]
+   ["invariant 11: the read never asks again once it holds an answer"
+    {#'live/wants-to-ask? (fn [_] (fn [_read _present] false))} 1]
+   ["single flight: the read asks though an ask of it is in flight"
+    {#'live/may-ask? (fn [_] (fn [_read] true))} 1]
+   ["invariant 12: an answer is taken by every read of the lane, whoever asked and whatever was asked"
+    {#'live/client-step
+     (fn [real]
+       (fn [client rid event present]
+         (let [[client effects] (real client rid event present)]
+           [(if (= :answer (first event))
+              (update client :reads
+                      (fn [reads] (into {} (map (fn [[r read]] [r (if (= r rid) read (assoc read :answer (nth event 2)))])) reads)))
+              client)
+            effects])))} 1]
+   ["answers out of order: the answer of an earlier ask is taken when it comes late, in place of the one held"
+    {#'live/takes-answer? (fn [_] (fn [_read _n] true))} 1]
+   ["a failed ask: it reads as \"she may not see\""
+    {#'live/after-failure
+     (fn [_] (fn [read] (assoc read :flying nil :answer {:standing :may-not-see :read-set {}})))} 1]
+   ["a failed ask: it is not asked again, and the read does not end"
+    {#'live/after-failure (fn [_] (fn [read] (assoc read :flying nil)))} 1]
+   ["a read that ended: it goes on telling the last level that it knew"
+    {#'live/standing-of
+     (fn [real]
+       (fn [read present]
+         (if (:ended? read) (or (:told read) live/ended-word) (real read present))))} 4]
+   ["CONTRACT 2.4, the read set: it leaves out the rows above a lent give"
+    {#'live/climb
+     (fn [real]
+       (fn [tables read-set id]
+         (let [[values after] (real tables read-set id)
+               source [:row id]]
+           [values (assoc read-set source (get after source))])))} 1]
+   ["CONTRACT 2.4, the read set: it leaves out a holder's run, and holds the rows that were read"
+    {#'live/scan
+     (fn [real]
+       (fn [tables read-set holder session]
+         (let [[found? cut? after] (real tables read-set holder session)]
+           [found? cut? (dissoc after [:run holder])])))} 1]
+   ["invariant 5: the query reads the runs in one turn and the rows in a later one"
+    {#'live/answer-of
+     (fn [_]
+       (fn [vs a later {:keys [question asker session]}]
+         (live/lane-rights (assoc (nth (:tables vs) later) :runs (:runs (nth (:tables vs) a)))
+                           question asker session)))} 1]
+   ["invariant 6: at the bound of a scan the query answers a level, \"she may not see\", and not a word"
+    {#'live/lane-rights
+     (fn [real]
+       (fn [tables question asker session]
+         (let [answer (real tables question asker session)]
+           (if (= :too-many-permissions (:standing answer))
+             (assoc answer :standing (if (= :see question) :may-not-see :outside))
+             answer))))} 1]])
+
+(defn- run-live-mutants
+  "Plays every order of the small histories, and then sampled orders,
+  against each broken copy of the read and of its query. Gives true when
+  each broke something that a read is held to, beyond the two questions."
+  [histories seed show?]
+  (println (format "THE BROKEN COPIES OF THE LIVE READ: %d, each played every order of the small histories, then up to %d sampled orders, seed %d"
+                   (count broken-reads) histories seed))
+  (let [missed
+        (reduce
+         (fn [missed [what replaced fails]]
+           (let [redefs (into {} (map (fn [[the-var make]] [the-var (make @the-var)])) replaced)
+                 red? (fn [found] (boolean (seq (red-of (vals found)))))
+                 in-every (with-redefs-fn redefs
+                            #(first (for [line (every-order fails red?)
+                                          b (red-of (vals (:broke line)))]
+                                      (assoc b :line line))))]
+             (if in-every
+               (do (println (format "  caught in every order  %s" what))
+                   (println (format "                   by %s; in \"%s\", read by %s"
+                                    (class-of-a-read (:class in-every)) (:what (:line in-every))
+                                    (reader-word (:reader (:line in-every)))))
+                   (when (and show? (:log in-every))
+                     (with-redefs-fn redefs
+                       #(live/print-order (:vs (:line in-every)) [(:reader (:line in-every))] (:log in-every)))
+                     (println))
+                   missed)
+               (let [result (with-redefs-fn redefs
+                              #(tc/quick-check histories
+                                               (prop/for-all [order gen-order]
+                                                 (empty? (red-of (:broke (play-order order)))))
+                                               :seed seed :max-size 80))]
+                 (if (:pass? result)
+                   (do (println (format "  NOT CAUGHT   %s" what)) (conj missed what))
+                   (let [smallest (first (get-in result [:shrunk :smallest]))
+                         class (with-redefs-fn redefs #(:class (first (red-of (:broke (play-order smallest))))))]
+                     (println (format "  caught at %5d  %s" (:num-tests result) what))
+                     (println (format "                   by %s" (class-of-a-read class)))
+                     (when show?
+                       (with-redefs-fn redefs #(print-sampled-break smallest class))
+                       (println))
+                     missed))))))
+         []
+         broken-reads)]
+    (println (format "%d of %d broken copies of the live read caught" (- (count broken-reads) (count missed)) (count broken-reads)))
+    (empty? missed)))
+
 (defn- print-sentences
   "The rules in plain words, each with where it comes from and where in the
   code it is said."
@@ -984,11 +1382,14 @@
 (defn -main
   "`clojure -M:run [histories [seed]]` runs the rules as their own gate, the
   store of the permission fix, the store before the fix, and the broken
-  copies, each when it loads against the store on the path; `rules`, `fix`,
-  `today` or `mutants` before the count runs one of them; `sentences`
-  prints the rules in plain words. Exits 1 when anything was red."
+  copies, and the live read and its broken copies, each when it loads
+  against the store on the path; `rules`, `fix`, `fix-mutants`, `today`,
+  `mutants`, `live` or `live-mutants` before the count runs one of them;
+  `sentences` prints the rules in plain words. Exits 1 when anything was
+  red."
   [& args]
-  (let [mode (when (contains? #{"rules" "fix" "fix-mutants" "today" "mutants" "sentences"} (first args)) (first args))
+  (let [mode (when (contains? #{"rules" "fix" "fix-mutants" "today" "mutants" "live" "live-mutants" "sentences"} (first args))
+               (first args))
         args (if mode (rest args) args)
         histories (if-let [n (first args)] (parse-long n) 2000)
         seed (if-let [s (second args)] (parse-long s) (System/currentTimeMillis))
@@ -1014,7 +1415,13 @@
                               (when (and lens? (run? "mutants"))
                                 (let [green? (run-broken-stores histories seed show?)]
                                   (println)
-                                  ["the store before the fix with one rule broken" green?]))])]
+                                  ["the store before the fix with one rule broken" green?]))
+                              (when (run? "live")
+                                (let [green? (run-live histories seed)] (println) ["the live read" green?]))
+                              (when (run? "live-mutants")
+                                (let [green? (run-live-mutants histories seed show?)]
+                                  (println)
+                                  ["the broken copies of the live read" green?]))])]
         (doseq [[what green?] results]
           (println (if green? "GREEN" "RED  ") what))
         (when (and (not lens?) (or (run? "today") (run? "mutants")))

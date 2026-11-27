@@ -5,30 +5,31 @@
 of the store's piece 2, which this folder held before:
 [README-piece-2.md](README-piece-2.md).
 
-A check of the permission fix by a session that does not build it. Written
-on 27 November 2026, before the store's kernel is written, from
-[PERMISSIONS.md](../../permissions-2026-11-27/PERMISSIONS.md) sections 6 and
-12, BUILD.md with the clarifications that Sid confirmed at its end,
-[CONTRACT.md](../../permissions-2026-11-27/CONTRACT.md) sections 1 to 2.3
-for the shapes alone, and the first 95 lines of
-[ALLOWLIST.md](../../permissions-2026-11-27/ALLOWLIST.md). `PLAN.md`,
+A check of the permission fix by a session that does not build it. Part 1,
+the gate's rules and the read asked once, was written on 27 November 2026,
+before the store's kernel. Part 2, on 28 November 2026 from the prompt that
+Sid pasted, brought the rules to what was decided and found after part 1,
+and added the read that stays open. Read for part 2:
+[PERMISSIONS.md](../../permissions-2026-11-27/PERMISSIONS.md) section 6,
+items 18 to 26, and section 12; BUILD.md with the clarifications that Sid
+confirmed at its end; [CONTRACT.md](../../permissions-2026-11-27/CONTRACT.md)
+sections 2.3 and 2.4; `state/loop-0d.md` and `state/loop-2b.md` beside them;
+the first 100 lines of `ALLOWLIST.md`; and this folder. `PLAN.md`,
 `HANDOFF-implementer.md` and the proofs under `test-store/` were not read.
-Nothing in `src-store/` or `test-store/` was changed.
-
-This is part 1: the gate's rules and the read asked once. What a read tells
-while it stays open, and that a transfer in one act shows no state in
-between (BUILD batch 4, line 4), wait for the examination of caching;
-`live.clj` is as it was.
+Of `src-store/`, only the names of `read_path/lanes.clj` and its bound, to
+make `fix.clj` load again. Nothing outside this folder and
+`state/loop-2a.md` was changed.
 
 ## What it does
 
 It makes random histories of one lane in the form of the fix, and holds
-each thing of a history to the rules.
+each thing of a history to the rules. And it plays a read that stays open
+against every order in which its pushes and its answers can come.
 
 - **The rules** ([reference.clj](src/gate_histories/reference.clj)): the
   plainest code that says batches 1 to 4. Each rule of the gate is one entry
   of a table: a word, the sentence in plain words, where the sentence comes
-  from, and the test. `clojure -M:run sentences` prints the 37 sentences.
+  from, and the test. `clojure -M:run sentences` prints the 42 sentences.
   Where the batches say nothing the rule is today's, by batch 1's "everything
   else is as today".
 - **The statement to prove** ([statement.clj](src/gate_histories/statement.clj)):
@@ -37,17 +38,27 @@ each thing of a history to the rules.
   exceptions are named in its docstring.
 - **The histories** ([histories.clj](src/gate_histories/histories.clj)):
   gives that stand on their own and gives that are lent, to people, agents, a
-  run and both everyones; the right to give in finer values than the two
-  presets; changes up and down; ends by each of the four who may end; several
-  changes in one act; a lane handed over in one act, and the ways that fail;
-  chains of lent gives to the bound of 32 and past it; gives for one sitting
-  and for one exact act; what a stranger does under everyone's give; the same
-  thing again, and another thing, under an act-id that has an answer.
+  run and both everyones; the right to give in finer values than the
+  presets, and the right to give to everyone; changes up and down; ends by
+  each of the four who may end; a giver who is lowered in place and then
+  takes back what she gave; an end past an ended give; a raise that no give
+  could make; several changes in one act; a lane handed over in one act, and
+  the ways that fail; chains of lent gives to the bound of 32 and past it;
+  gives for one sitting and for one exact act; what a stranger does under
+  everyone's give; the same thing again, and another thing, under an act-id
+  that has an answer.
 - **A gate under test** is a map of four functions
   ([run.clj](src/gate_histories/run.clj), `rules-gate`). Nothing else knows
-  which gate it plays. There are four today, below. The store of the fix is
-  the fifth: it needs `:send` and `:sees` written over the new door and
-  kernel, and `walk.clj` brought to the new module's walk.
+  which gate it plays. There are five: the rules themselves, their broken
+  copies, the store before the fix, that store with one rule broken, and
+  the store of the fix ([fix.clj](src/gate_histories/fix.clj), the
+  builder's).
+- **The read that stays open**
+  ([live_read.clj](src/gate_histories/live_read.clj)): the lane over time as
+  the store's tables hold it, the one query of CONTRACT 2.4 with its read
+  set, a read that holds an answer against its pushes, and a world that
+  brings pushes, callbacks and answers in any order. Its own section is
+  below.
 
 ## What every history is held to
 
@@ -64,16 +75,20 @@ A thing on which the gate and the rules differ is taken out of its history
 for both, so the rest is still judged. A thing whose answer BUILD.md does not
 settle is not sent, and is counted by its word.
 
-## The four runs
+## The runs
 
 ```
-clojure -M:run                  # all four, 2000 histories each, a seed of its own
-clojure -M:run 2000 1           # so many histories, this seed
-clojure -M:run rules 20000 1    # 1
-clojure -M:run today 20000 1    # 2
-clojure -M:run mutants 2000 1   # 3 and 4; `show` after the seed prints each smallest history
-clojure -M:run sentences        # the rules in plain words
-clojure -M:piece-2 2000 1       # the judge of piece 2, as it was
+clojure -M:run                       # all that load, 2000 histories each, a seed of its own
+clojure -M:run 2000 1                # so many histories, this seed
+clojure -M:run rules 20000 1         # 1
+clojure -M:run today 20000 1         # 2
+clojure -M:run mutants 2000 1        # 3 and 4; `show` after the seed prints each smallest history
+clojure -M:run fix 2000 1            # 5, the builder's
+clojure -M:run fix-mutants 2000 1    # 6, the builder's
+clojure -M:run live 2000 1           # 7
+clojure -M:run live-mutants 2000 1   # 8; `show` prints each order
+clojure -M:run sentences             # the rules in plain words
+clojure -M:piece-2 2000 1            # the judge of piece 2, as it was
 ```
 
 It needs Clojure and test.check. It exits 1 when anything is red.
@@ -85,94 +100,330 @@ It needs Clojure and test.check. It exits 1 when anything is red.
 2. **Against the store before the fix, on today's default values**
    ([today.clj](src/gate_histories/today.clj)). Each thing is said again in
    today's form and sent through today's own door and gate (`walk.clj`); the
-   lane is read through today's read path. The histories keep to today's
-   values: every give lent from the give above it, and what a give allows one
-   of today's two words. Each difference must fall under a reason of the
-   allowlist, held by a test of the thing and of what stood, not by the two
-   answers alone. What today's form cannot say is not sent, and is counted.
-3. **The broken copies of the rules**: 54. The rules with one entry of the
-   table taken out, 27 of them, or one function replaced, 27. Each must be
-   caught by a history.
+   lane is read through today's read path. Each difference must fall under a
+   reason of the allowlist, held by a test of the thing and of what stood,
+   not by the two answers alone. What today's form cannot say is not sent,
+   and is counted.
+3. **The broken copies of the rules**: 67. The rules with one entry of the
+   table taken out, 28 of them, or one function replaced or one rule not
+   asked of a raise, 39. Each must be caught by a history.
 4. **The store before the fix with one rule broken**: 12, the list of the
-   judge of piece 2. Each must show a difference outside the allowlist's
-   reasons, through the saying again in today's form.
+   judge of piece 2.
+5. **Against the store of the fix**, and 6, **that store with one rule
+   broken**: the builder's, in the last section of this page.
+7. **The live read**: the reference read in every order of seven small
+   histories, and in sampled orders of generated histories.
+8. **The broken copies of the live read**: 19, of the read and of its
+   query. Each must break something that a read is held to.
 
-Runs 2 and 4 call the store before the fix. Once `src-store` takes the new
-form they do not load, and the run says `NOT RUN` for them and stays green on
-1 and 3. To run them then, put an export of the store before the fix on the
-path in its place:
+Runs 2 and 4 call the store before the fix. Against a store in the new form
+they do not load, and the run says `NOT RUN` for them. To run them, put an
+export of the store before the fix on the path in its place:
 
 ```
-git archive <a commit before the fix> src-store | tar -x -C /somewhere/outside
+git archive 25cafbfe src-store | tar -x -C /somewhere/outside
 clojure -Sdeps '{:paths ["src" "/somewhere/outside/src-store"]}' -M:run today 20000 1
 ```
 
-## What the runs found, 27 November 2026
+## What part 2 changed in the rules, 28 November 2026
 
-On a cloud machine, against `src-store` as committed at `25cafbfe` (the
-working tree, untouched). `clojure -M:run 2000 <seed>` under seeds 1 to 5:
-all four green each time, exit 0; 60 seconds for seed 1, run alone.
+Each is in `reference.clj` as said here, with broken copies that a history
+catches.
 
-**The rules as their own gate**, seed 1: 94,884 things sent, 31,551 taken.
-Every rule of the table refused something. Taken: 7,391 gives to a person
-that stand on their own and 1,118 lent; 12,594 lent to an agent and 644 to a
-run; 1,313 to everyone; chains of each length from 1 to 32; 1,087 changes;
-ends by a holder (3,030), a giver (953), one further up a lent chain (40) and
-an owner (99); 2,063 lanes handed over in one act. 20,000 histories under
-seed 21, 955,245 things, hold as well.
+1. **The right to give to everyone (P section 6, item 26, "Option B").**
+   `:everyone` is a fifth thing that a right to give can name. A give to
+   `:anyone` or `:anyone-signed-in`, and a raise of one, needs it in the
+   right to give of the give that the act names, besides the right to pass
+   on what is passed (`may-give-to?`, the rule
+   `opens-to-everyone-without-the-right`). It is passed on like the other
+   four: only by one whose right to give names the right to give and names
+   it. Inviting a named person, and lending to an agent or a run, need
+   none of it. The owner's preset names it; a member's does not; a
+   publisher's does.
+2. **Whoever gave a give ends or lowers it only while she could still give
+   it (item 26, the clarification).** The give that she gave it under must
+   stand and must still let her pass on to its holder what it holds at that
+   moment (`ends-as-giver?`). A giver who was lowered in place takes back
+   nothing that she could no longer give. So finding 4 of `state/loop-2b.md`
+   is gone: an owner lowered to see no longer ends the owners' gives that
+   she made.
+3. **Reading 4, turned.** The row of an ended give holds no value
+   (CONTRACT 2.3), so it does not say what that give was lent from. The
+   holder of a give further up a chain ends a lower one only when no give
+   between the two was ended (`ends-as-lender?`). Its holder and an owner
+   still end a give that fell.
+4. **Reading 5, turned.** A raise is held as a give of what it adds: to the
+   holder that the give has, lent as it is lent, covering what it covers.
+   So besides the right to pass on what is added it needs what a give needs:
+   a lent give is raised only under the give that it is lent from; a give
+   that stands on its own only under one that stands on its own; none under
+   a give that covers less, a give good in every sitting under one good for
+   one. The rules of a give that speak of those are now asked of a raise
+   too (`:of #{:give :raise}`).
+5. **Reading 6, turned.** Anyone at all is held to seeing at a change too.
+6. **The statement to prove** holds a change to the same as a give: its
+   author held what is added over all that the give covers. Before, the
+   statement let a raise out of a sitting through, as the rules did.
+7. **A reason more for the run against the store before the fix**, "B1
+   form": that store writes the gives above a give out in the permission, so
+   it still lets one further up end a give past an ended one. It came up in
+   3 of 20,000 histories, and is held by a test of the thing
+   (`today.clj`, `past-an-end?`).
 
-**Against the store before the fix**, seed 1: 70,875 things compared. The
-rules and today's store differ on 3,076, each inside a reason of the
-allowlist, and nowhere else:
+## What the runs found, 28 November 2026
+
+On Sid's machine, in the working tree at `7f75eee5` (the store of Loop 3)
+with this folder's changes. `clojure -M:run 2000 1`: six runs green, exit 0,
+five and a half minutes.
+
+**The rules as their own gate**, seed 1: 125,415 things sent, 55,363 taken.
+Every rule of the table refused something. Taken: 16,923 gives to a person
+that stand on their own and 1,016 lent; 17,243 lent to an agent and 685 to a
+run; 2,373 to everyone; chains of each length from 1 to 32; 7,566 changes;
+ends by a holder (4,236), a giver (2,326), one further up a lent chain (637)
+and an owner (654); 1,404 lanes handed over in one act. Seeds 2 to 5 hold as
+well, about 125,000 things each.
+
+**The broken copies of the rules**: 67 of 67 caught under seeds 1 to 3, the
+latest at history 120 of 2,000 under seed 1 ("reading 6, as it was"), 380
+under seed 2 and 812 under seed 3. Among
+them the store as it was before each change of part 2: Option A; a giver who
+was lowered still taking back; reading 4, 5 and 6 as they were.
+
+**Against the store before the fix**, an export of `25cafbfe`, seed 1: 70,880
+things compared; 2,962 differ, each inside a reason, none outside.
 
 | Reason | Things | What differs |
 |---|---|---|
 | B1 many | 1,613 | Today a give to a holder whose permission stands, or for a sitting that has one, is refused. |
-| B3 change | 884 | Today has no change in place. |
+| B3 change | 881 | Today has no change in place. |
 | B1 own end | 311 | Today a holder ends her own only under a permission that lets her act. |
 | B2 give | 129 | Today a holder of see, or of a permission for one sitting or one act, gives nothing; by the rules she lends to an agent or a run. |
-| B4 public | 111 | Today only the first holder opens a lane. After 2,893 decisions a read differed too: today an agent or a run sees an open lane as everyone. |
 | B3 one act | 17 | Today an act that ends a permission and gives one beneath it is taken. |
-| B1 again | 11 | Today the same permission is given again at its place after an end, and its holder is then above what hung beneath the ended one. |
+| B1 again | 11 | Today the same permission is given again at its place after an end. |
+| B4 public | 0 | Today only the first holder opens a lane. By the rules of 27 November any holder who might give see opened it, 111 things; with item 26 only one whose right to give names everyone does, and on today's values that is the first holder. After 2,893 decisions a read still differed: today an agent or a run sees an open lane as everyone. |
+| B1 form | 0 | 3 things in 20,000 histories under seed 21: one further up ends a give past an ended one. |
 
-20,000 histories under seed 21, 722,605 things compared: the same, no
-difference outside the reasons. 7,983 things of seed 1 were not sent because today's form cannot
-say them, by twelve words that the run prints; the first three are an act
-that names no give (3,220), a give that today's two words cannot say
-(2,015), and an act under everyone's give (1,053).
+20,000 histories under seed 21, 722,609 things compared: no difference
+outside the reasons. The store before the fix with one rule broken: 12 of
+12 caught.
 
-**The broken copies**: 54 of 54 caught under seeds 1 to 5; the latest at
-history 567 of 2,000 ("a lent owner's give counts as the lane's owner").
-Three things were found only by a statement other than `agree`: "never given
-is answered as ended" by `apart`; the read's four by `see`; "another thing
-under an answered act-id is decided" by `once`.
+**Against the store of the fix** as Loop 3 left it (`7f75eee5`), seed 1:
+124,871 things, each decided by the store's own walk and judged by the
+rules. agree, told, once, apart, proved and see hold. Not one thing differs
+under reading 4, 5 or 6, on which the store and the rules of 27 November
+differed in 67 to 88 things of a run: the rules as turned and the store are
+one. After 293 decisions a read asked once answered the word of its bound,
+`:too-many-permissions`, for an asker whose runs hold more than the store's
+32 gives; each is held by that count (`fix.clj`, `see-question`). That store
+with one rule broken: 32 of 32 caught. One broken copy of the builder's
+list is not played, because the function it replaced is gone from the
+store (`lanes/holders-for`): the builder's to write again.
 
-**The store before the fix with one rule broken**: 12 of 12 caught under
-seeds 1 to 5.
+**The live read**, seed 1: below.
 
-**The judge of piece 2**, `clojure -M:piece-2 2000 1`: holds as before the
-move.
+**The judge of piece 2**, `clojure -M:piece-2 2000 1` against the export:
+holds as before.
+
+## The read that stays open
+
+BUILD batch 4, line 4: "A transfer in one act never shows a live viewer a
+state in between." CONTRACT 2.4: a read's standing is that of the query's
+snapshot only while its open pushes match the snapshot's read set entry for
+entry; otherwise `:not-known-yet`. The examination of caching
+(`state/loop-0d.md`) gave the invariants of the pure model. Its write-up is
+on this machine only as a paste of Sid's in the record (‹b2ac587b›,
+27 November), which has 9 to 12 whole and stops after the first three words
+of 13, "The sentence …". The judge took 13 to be BUILD's sentence above,
+held in every order; that reading is a session's.
+
+`live_read.clj` has four parts, each the judge's own writing.
+
+- **The lane over time.** The acts that the rules took, written one after
+  the other. After each, a version: the row of each give, with the stamp of
+  the decision that wrote it last and what it says, or no value once it
+  ended; for each holder the run of her gives over the lane's default group,
+  key to stamp, the stamp moved by a grant and by a change in place, the key
+  gone at an end; and the lane's plain facts.
+- **The query.** `lane-rights` reads one version in one turn and gives the
+  standing and every row and run that it read, each with what it saw. For
+  `:see`: everyone's runs first, then her own, and it stops at the first
+  give that lets her see. For `:acts`: `:holder` when a give of her own lets
+  her see, `:visitor` when only everyone's does, `:outside`. At the bound of
+  a scan, a word. A run holds this query to the rules at every version: the
+  same word, or the bound's.
+- **The read.** It holds one answer, that of its last ask, and pushes on
+  that answer's read set. It tells the answer's level only while every
+  source of the read set is given and says what the answer saw. It works no
+  level out of pushed rows. While it does not know, it tells nothing and
+  owes the whole answer. It asks again when its answer was held against all
+  its pushes, does not agree, and a rights push said something new since
+  the last ask; else it waits. One ask in flight. A failed ask is asked
+  again, three in a row at most; then the read ends with a word.
+- **The world.** It writes versions, gives and advances each push on its
+  own, hands each callback over later, runs a query at any version between
+  the ask and the answer, lets it fail, and lets the answer of a failed ask
+  come after all.
+
+### What every step of a read is held to
+
+| Word | What must hold |
+|---|---|
+| answered | It tells a level only when an answer that was handed to that very read, for its own asker, sitting and question, says that level and agrees with what its pushes say now, entry for entry (invariants 9 and 12). |
+| was | The level that it tells was the lane's level, by the rules, at a version no older than what all its pushes have shown: no state in between two versions, and none that its pushes left behind. |
+| not more | It never tells more than she had at any version that its pushes cover. |
+| silent | While it does not know, it tells nothing; what it tells next is the whole answer, never a change (invariant 10). |
+| asks | One ask in flight at most; and an ask is sent only when the read was opened, when its last ask failed, or when a rights push of it was given or changed since its last ask (invariant 11). |
+| settles | When the world stops writing and delivers everything, the read comes to the lane's level at the last version, unless it ended for a cause that the world gave it. |
+
+### Every order, and sampled orders
+
+Seven small histories: the lane open to everyone, then one act that closes
+it and gives Ben see; one act that moves what Asha sees under from her
+first give to a new one, read by Asha, who is in before it; a lane handed
+over in one act; a lender lowered and
+raised in place under an agent's borrow; an end, and a fact written after
+it; a run that says again what it said; more gives than a scan reads. For
+each read of each, **every** order is played: every interleaving of writes,
+of each push given and brought to each version at which it says something
+else, of each query answered at each version that gives another answer, and
+of one ask failing. 131,875 worlds under the runs as CONTRACT 2.4 has them,
+152,560 with runs that keep a mark (the run prints each line's). The last
+history is held for its query alone. In those orders a callback is handed
+over at once; the delay of a callback is in the sampled orders.
+
+Sampled, seed 1: 2,000 histories of up to 40 steps, one to four reads each.
+29,818 versions written, 5,032 reads opened, 256,210 steps of a read. 10,930
+answers, 4,108 of them of an older version than the store was at when they
+came; 2,380 asks failed, and 2,234 of their answers came after all; 2,210
+answers came after a later ask was sent. 8,258 callbacks, 1,448 of them
+with more than one change at once. 4,361 changes in place, 77 of them of a
+give that an open read rested on above its own. 2,081 acts that change more
+than one give; 333 times such an act moved what an open read rested on and
+left its level as it was. At 1,292 steps a read's pushes said different
+versions and it knew; at 3,215 they did and it did not.
+
+**What holds.** In every order of the small histories and in every sampled
+order, under seeds 1 to 3, the reference read keeps answered, not more,
+silent, asks and settles. It never told more than she had. For the transfer
+in one act, read by one who is in before it: in none of its 1,376 worlds is
+she told that she may not see, or anything but what she holds. The query and the rules give the same word at every
+version.
+
+**The broken copies**: 19 of 19 caught under seeds 1 to 3, 17 of them in
+every order of a small history. Of the read: a remembered answer; a source
+not given yet counts as agreeing (the gap between the query and the push);
+an answer held to its rows and not its runs; a level worked out of pushed
+rows; what a push said at its callback kept in place of what it says now;
+telling while not knowing; a change told where the whole is owed; asking
+with nothing new; never asking again; two asks in flight; an answer taken
+by every read of the lane; a late answer taken in place of the held one; a
+failed ask read as "may not see"; a failed ask not asked again; a read that
+ended still telling a level. Of the query: a read set without the rows
+above a lent give; without a holder's run; a query that reads runs in one
+turn and rows in a later one; a level at the bound of a scan.
+
+### Two questions that the model raises
+
+Each is a kind of break that no read can mend from what the pages give it.
+The run counts them and does not go red on them. Neither lets a reader keep
+a standing that she lost: `not more` holds in every order.
+
+**1. A run can say again what it said, and then an old answer agrees with a
+state in between.** CONTRACT 2.4 takes a give's key out of its holder's run
+at an end. So a run that was empty, got a give and lost it is empty again,
+with nothing in it to tell the two apart. An answer from before then agrees
+with it. In the small history of the transfer, read by Ben who opened his
+read before the lane was opened:
+
+```
+a read is opened for Ben                              not known
+ask 1 is answered: may-not-see (three empty runs)     not known
+the three runs are given as of version 1              may not see
+the store writes version 2: the lane is open
+anyone's run comes to version 2                       not known; ask 2 is sent
+the store writes version 3: one act closes the lane and gives Ben see
+anyone's run comes to version 3: empty again          may not see
+```
+
+Ben's own run is still as of version 1. The pushes say (anyone's run at 3,
+Ben's at 1), which is the state in between of the one act, and it is what
+version 1 said. He is told "may not see" though he could see at versions 2
+and 3. It lasts until his own run's push calls back. It needs an answer
+older than the run's earlier state to be still held, so a read that was
+opened while the lane was open never shows it. In sampled orders: 0 of 2,000
+histories under seed 1, 3 under seed 2, 0 under seed 3.
+
+With a run that also keeps the stamp of the last decision that wrote under
+it, an end too, the same orders show none: 0 in every order of the seven
+histories, 0 in 2,000 sampled under each seed (`*a-run-keeps-a-mark?*`). The
+judge's position: the seventh table needs that one number more for each
+holder's run, or a row that stays at an end with no value, as a fact's row
+does. Without it, "equal to the read set" does not mean "nothing happened in
+between" for a run, as the stamps make it mean for a row. It changes a
+frozen shape, so it is Sid's.
+
+**2. A fact can be told that was written after her give ended.** The push
+of the lane's facts and the rights pushes are apart. In the small history
+where Ben holds see, Asha writes, ends his give and writes again: the facts
+push comes to the last version while Ben's rights pushes still say the
+version before the end, his answer still agrees, and he is told the fact
+that was written after. P section 12's statement says that nobody is shown
+an act unless she holds a give that stands. 4, 4 and 2 of 2,000 sampled
+histories under seeds 1 to 3, with a mark or without. Invariants 9 to 13 speak of the standing and not of
+which facts go with it. Not checked: whether Rama can hand over the callback
+of a later decision's fact before that of an earlier decision's rights row
+on one task (the probe of Loop 0d measured two pushes across one act), and
+whether today's read path has the same window. One way to close it in the
+same manner: the snapshot says up to which stamp it read, and a fact with a
+later stamp is told only after an answer of a later turn agrees. It costs a
+query for each burst of writes for each open read. A question for Loop 3
+and for Sid.
+
+### A read under test
+
+`client-step` takes a client, a read's id, an event and what that read's
+pushes say now, and gives the client after and its effects: `[:join
+source]`, `[:leave source]`, `[:ask n]`, `[:tell what]`. The store's own
+pure read path is the next read under test: it needs that one function
+written over it, as `fix.clj` did for the gate, and `answer-of` over its
+`lane-rights`. Until then no code of the store's live read is judged here.
+
+### What the model does not hold
+
+Rama's pushes. A callback that is lost for good: the model delays a
+callback, and a read that reads its pushes at each step is safe then, but
+nothing in invariants 9 to 13 asks again for a change that came and went
+unseen. A lane that is not made yet. Two lanes, and a routing id other than
+the lane: an answer is kept apart by asker, sitting and question, which one
+lane can show. The microbatch gate's copies. A read asked once.
 
 ## What the code showed that the pages have wrong, or do not say
 
-Found while the rules were written. Each is in the rules as said here.
+From part 1, each still so:
 
-1. **A change keeps who gave the give.** P section 12, point 2: "never the
-   holder, the lender or who gave it". CONTRACT 2.3 calls `:given-by` and
-   `:under` "the granting act's". So a change's value carries the give's own
-   `:given-by` and `:under`, not the changer's, and the one who gave a give
-   can still end it after another changed it.
-2. **Any holder whose right to give names see can open the lane.** Item 20
-   makes everyone a holder like any other, and batch 2 lets whoever may give
-   see give it to another. Today only the first holder opens a lane. Sid was
-   not shown this case.
-3. **One owner ends, or lowers, another owner's give while an owner
+1. **A change keeps who gave the give.** A change's value carries the
+   give's own `:given-by` and `:under`, not the changer's.
+2. **One owner ends, or lowers, another owner's give while an owner
    remains.** BUILD names it; the rules follow items 18 and 21.
-4. **Today's form cannot tell a give from the one given at its place after
-   an end** when both say the same. So today a holder who is given a
-   permission again can end what hung beneath her ended one. By the rules
-   she cannot: it is another give. Nothing she gains by it: what hung
-   beneath fell for good.
+3. **Today's form cannot tell a give from the one given at its place after
+   an end** when both say the same.
+
+Answered since: "any holder whose right to give names see can open the
+lane" is item 26.
+
+From part 2:
+
+4. **The two questions of the live read**, above.
+5. **"What the target permission holds"** in the clarification on the giver
+   can be read as what it says or as what it allows at that moment. They
+   differ only for a lent give whose lender was lowered. Reading 10 below.
+6. **CONTRACT 2.4 names `:holder`, `:visitor` and `:outside` and no page
+   says what each is of.** Reading 11 below. The store of Loop 3 reads them
+   the same way, by the names of its `holder-plan`.
+7. **Invariant 13 of the examination of caching is not on this machine
+   whole**, nor are 14 to 19: `state/loop-0d.md` has three items for the
+   nineteen.
 
 ## The judge's readings, each Sid's or the builder's to turn
 
@@ -182,26 +433,34 @@ not a break.
 
 1. **Authority comes from the one give that an act names.** The giver ends a
    give in an act under the give she gave it under; a lender, under the give
-   that it is lent from; an owner, under her owner's give. Today's gate is so.
-   The other reading: any give of hers will do, while the right one stands.
-2. **A give is lent from the give its act names, or stands on its own.** No
-   give is lent from a third give.
-3. **Its holder ends her own give in any act that is heard**: under no give,
-   or under any give of hers that stands, whatever that give covers.
-4. **A give that fell with the one above it can still be ended** by those
-   who may end it, as today.
-5. **Raising needs what giving needs, of what is added.** Where giving the
-   whole give after the raise would need more, the thing is not sent.
-6. **Anyone at all holds see and nothing more.** A give of write to
-   `:anyone` is refused; `:anyone-signed-in` holds what it is given.
-7. **An agent or a run is not anyone at all for reading either.** One who is
-   not signed in sees an open lane; an agent sees it only under a give lent
-   to it.
+   that it is lent from; an owner, under her owner's give.
+2. **A give is lent from the give its act names, or stands on its own.**
+3. **Its holder ends her own give in any act that is heard.**
+4. **A give that fell with the one above it can still be ended** by its
+   holder and by an owner; by one further up only with no ended give between
+   (turned on 28 November, above).
+5. **Raising needs what giving needs**: the right to pass on what is added,
+   and all else that a give of it would need (turned on 28 November, above).
+   Where giving the whole give after the raise would need more than giving
+   what is added, the thing is not sent.
+6. **Anyone at all holds see and nothing more**, at a give and at a change
+   (turned on 28 November). `:anyone-signed-in` holds what it is given.
+7. **An agent or a run is not anyone at all for reading either.**
 8. **A person acts under everyone's give as one who holds it**: she writes
    under a give of write to anyone signed in, and lends everyone's give to an
    agent or a run. She is not its holder for ending what others lent from it.
-9. **Nothing special under a give for one exact act.** The general rules
-   decide what its one act may hold.
+9. **Nothing special under a give for one exact act.**
+10. **"What the target permission holds" is what it allows at that
+    moment.** For a give that stands on its own that is what it says. For a
+    lent give under a lowered lender it is less; then a person who lent
+    everyone's give to her agent can still end the borrow as its giver,
+    which the other reading would refuse her. Where the two readings differ
+    and she may end it by no other road, the thing is not sent. No history
+    of the runs above walked into it.
+11. **`:holder` is one whom a give of her own lets see; `:visitor` one whom
+    only everyone's give lets see; `:outside` neither.**
+12. **To give to everyone needs the right for the holder, whatever is
+    passed**: a give to `:anyone-signed-in` of see alone needs it too.
 
 ## What is not sent, and what is not walked
 
@@ -209,28 +468,26 @@ Not sent, because BUILD.md does not settle the answer
 (`reference/unsettled`): a change of what a give covers; a change that
 changes nothing; a change of a give that fell; a raise by one who may give
 what is added and not the whole; an act that ends a give and changes one
-lent from it; a give under or lent from a give that the same act makes.
+lent from it; a give under or lent from a give that the same act makes; an
+end or a lowering by its giver of a give that says more than it holds
+(reading 10).
 
 Not walked: a making act that also opens its lane, or holds more than the
 depot and the first give; who may make a lane for another holder; who owns
 the base; `:system`; two lanes; the microbatch gate; a fact that names one to
 replace; who may read a lane's acts whole; that the old form is refused for a
-new act, which is the declaration's.
+new act, which is the declaration's; a give lent from a give for one exact
+act (`state/loop-2b.md`, finding 10).
 
 ## What waits
 
-1. **The store of the fix as a gate under test.** `:send` and `:sees` over
-   the new door and kernel, and the copy of the walk brought to the new
-   module. Until then no new code is judged: the rules are held to the
-   statement to prove, to today's store on today's values, and to their own
-   broken copies. (The builder's session wrote that gate over the pure
-   kernel on 27 November: the last section of this page. The module on a
-   cluster still waits.)
-2. **Part 2: the live read.** What a read tells while it stays open, the
-   non-flicker of a transfer, and the watches of CONTRACT 2.4, after the
-   examination of caching.
-3. **A cluster.** Nothing here was run on Rama.
-4. **Every history.** A run samples.
+1. **The store's live read as a read under test**: `client-step` over the
+   read path of Loop 3.
+2. **The two questions of the live read**, for Sid.
+3. **The builder's broken copy over `holder-plan`** in `fix.clj`.
+4. **A cluster.** Nothing here was run on Rama.
+5. **Every history.** A run of histories samples; only the seven small
+   histories of the live read are played in every order.
 
 ## The files
 
@@ -240,10 +497,16 @@ new act, which is the declaration's.
 | `src/gate_histories/statement.clj` | The statement to prove, as a fold of its own. |
 | `src/gate_histories/histories.clj` | The world, the steps, the things that a step sends. |
 | `src/gate_histories/run.clj` | Playing a history against a gate, the statements held, the broken copies, the runs. |
+| `src/gate_histories/live_read.clj` | The read that stays open: the lane over time, the query, the read, the world, every order of a small history. |
 | `src/gate_histories/today.clj` | The store before the fix as a gate under test, and its excuses. |
-| `src/gate_histories/fix.clj` | The builder's: the store of the fix as a gate under test, the readings on which it differs, and its broken copies. |
-| `src/gate_histories/walk.clj`, `live.clj`, `record.clj` | As they were: the copy of today's walk, the live read through today's read path, Sid's record through the gate. |
+| `src/gate_histories/fix.clj` | The builder's: the store of the fix as a gate under test, the readings on which it differed, and its broken copies. The judge's session made one entry of its list conditional and added the test of the bound's word, on 28 November. |
+| `src/gate_histories/walk.clj`, `live.clj`, `record.clj` | As they were: the copy of today's walk, the live read through today's read path, Sid's record through the gate. `live.clj` is not the read of part 2. |
 | `src/gate_histories/piece_2/` | The judge of piece 2, moved, its namespaces renamed and nothing else changed. |
+
+The section below is the builder's, as written on 27 November against the
+rules of that day. Since 28 November the rules are turned on readings 4, 5
+and 6, so a `fix` run counts none under them; its numbers for the store of
+Loop 3 are under "What the runs found" above.
 
 ## The store of the fix as a gate under test (the builder's, 27 November 2026)
 

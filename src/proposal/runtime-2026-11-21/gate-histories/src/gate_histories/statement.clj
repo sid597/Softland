@@ -40,7 +40,8 @@
                    and that the give is used once, is the rules' and is
                    held by the run's `agree`
     what a change  a change is held to it for what it adds, not for what it
-    adds           leaves
+    adds           leaves: its author held what is added, over all that the
+                   give covers
     not here       who may read a lane's acts whole
                    (`:softland.store/who-may-read-acts`), refused acts read
                    by a lane's members, and the open read of the store's
@@ -171,7 +172,13 @@
                                                            (when (seq more) [:give more]))
                                                          (when-not (get was right) [right value]))))
                                                (:allows (:v fact)))]
-                               (not (held-within? added then)))
+                               ;; she held what is added, and held it over
+                               ;; all that the give covers: nothing is added
+                               ;; to a give good in every sitting by one
+                               ;; who holds it for one sitting
+                               (and (seq added)
+                                    (not (and (held-within? added then)
+                                              (covers-within? (get-in fold [:gives (:e fact)]) under)))))
                      false))
                  facts))
       (conj :gave-more-than-she-held)

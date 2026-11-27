@@ -10,6 +10,18 @@
   says \"everything else is as today\", and the statements of the store's
   piece 2 (`gate-histories.piece-2.reference`) say what today is.
 
+  Brought on 28 November 2026 to three things that came after its first
+  writing. Item 26 of P section 6: a give to everyone, or a raise of one,
+  needs `:everyone` in its author's right to give (`may-give-to?`); and
+  whoever gave a give ends or lowers it only while the give that she gave
+  it under still lets her pass on what it holds (`ends-as-giver?`). And
+  what a review of the store's kernel found (`state/loop-2b.md`), on which
+  three readings of the judge were turned: the row of an ended give says
+  nothing, so nobody ends a give as one further up past an ended give
+  (`ends-as-lender?`); a raise is held to everything that a give of what it
+  adds is held to (the rules asked `:of` a `:raise`); and anyone at all is
+  held to seeing at a change too.
+
   It keeps, for one lane, what a person would keep on paper: each give that
   was taken, by its id, with what it says now; which gives an act ended;
   which give for one exact act was used; and the one answer of each act-id.
@@ -196,12 +208,25 @@
                   (when-not (get old right) [right value]))))
         new))
 
+(defn may-give-to?
+  "Whether one who holds `held` at this moment may give to `to`, or raise a
+  give whose holder is `to`. To everyone, `:anyone` or `:anyone-signed-in`:
+  only when her right to give names `:everyone`. To a party that is named,
+  a person, an agent or a run: always; inviting needs no such right (P
+  section 6, item 26, \"Option B\"). What she passes is held apart
+  (`may-pass?`)."
+  [held to]
+  (boolean (or (not (contains? everyone to))
+               (contains? (:give held #{}) :everyone))))
+
 (defn may-pass?
   "Whether one who holds `held` at this moment may pass `allows` on to `to`.
   See and write: she holds it, and `to` is an agent or a run, which only
   borrows; or her right to give names it. The right to give: her own right
   to give names the right to give, and names everything that the new right
-  names. Owner: she is an owner and her right to give names owning."
+  names; so `:everyone` in a right to give is passed on only by one whose
+  own right to give names both the right to give and `:everyone`. Owner:
+  she is an owner and her right to give names owning."
   [held allows to]
   (let [may-give (:give held #{})]
     (boolean
@@ -222,20 +247,49 @@
   [_state who _under target]
   (= who (:holder target)))
 
+(defn- holds-or-says
+  "What a give allows at this moment; for a give that does not stand, what
+  it says."
+  [state target]
+  (:allows (or (holds-now state (:id target)) target)))
+
+(defn- gives-it-still?
+  "Whether the give `under` still lets its holder pass `what` on to the
+  holder of `target` at this moment: she may give to that holder
+  (`may-give-to?`) and may pass each right of `what` on to her
+  (`may-pass?`). Nothing is asked for a `what` that is empty: a give that
+  holds nothing at this moment has nothing in it that she could not give."
+  [state under target what]
+  (let [held (:allows (holds-now state (:id under)))]
+    (boolean (or (empty? what)
+                 (and (may-give-to? held (:holder target))
+                      (may-pass? held what (:holder target)))))))
+
 (defn ends-as-giver?
   "Whoever gave it, while she still holds what she gave it under: her act
-  names that give, which stands."
-  [_state who under target]
-  (boolean (and under (= who (:given-by target)) (= (:id under) (:under target)))))
+  names that give, which stands, and that give still lets her pass on to
+  the target's holder what the target holds at this moment. So a giver who
+  was lowered in place ends, and lowers, nothing that she could no longer
+  give (P section 6, item 26)."
+  [state who under target]
+  (boolean (and under
+                (= who (:given-by target))
+                (= (:id under) (:under target))
+                (gives-it-still? state under target (holds-or-says state target)))))
 
 (defn ends-as-lender?
   "Whoever is the holder of a give that it is lent from, directly or
-  further up: her act names that give. Being covered by everyone does not
-  make her the holder of everyone's give."
+  further up: her act names that give, and no give between the two was
+  ended. The gives above a give are found one at a time, each from what the
+  one below says it is lent from, and an ended give says nothing: past an
+  end nobody is known to be above. Being covered by everyone does not make
+  her the holder of everyone's give."
   [state who under target]
   (boolean (and under
                 (= who (:holder under))
-                (some #{(:id under)} (lent-chain state (:id target))))))
+                (let [above (lent-chain state (:id target))]
+                  (and (some #{(:id under)} above)
+                       (not-any? #(ended? state %) (take-while #(not= (:id under) %) above)))))))
 
 (defn ends-as-owner?
   "Whoever holds everything over what it covers: her act names her owner's
@@ -333,8 +387,13 @@
 
 (def rules
   "Each rule of the gate. `:of` says what it is asked of: `:act`, the act as
-  a whole before its facts; a kind of fact (`fact-kind`); or `:whole`, the
-  result of the act as a whole. `:refuses?` takes what is in hand:
+  a whole before its facts; a kind of fact (`fact-kind`); `:raise`, a
+  change that adds to what its give allows, which is asked after the rules
+  of a `:change`; a set of those, for a rule that is asked of each; or
+  `:whole`, the result of the act as a whole. A raise is held as a give of
+  what it adds, to the holder that the give has, lent as the give is lent
+  and covering what it covers: so each rule of a give that speaks of those
+  is asked of a raise too. `:refuses?` takes what is in hand:
 
     :state :lane :thing :who   the state just before the act, and the act
     :under                     the give that the act names, or nil
@@ -342,6 +401,8 @@
                                moment (`holds-now`), or nil
     :fact :id :v :target       for a fact: itself, its `:e`, its `:v`, and
                                the give at that id before the act
+    :added                     for a `:raise`: what the change adds to what
+                               the give allows (`allows-added`)
     :after                     for `:whole`: the state after the act
 
   and gives true when the act must be refused for it. `:from` says where
@@ -403,29 +464,33 @@
     :from "P section 12, the record: under, the give that act named; today's \"straight beneath the giver's own\""
     :says "A give is made under the give that its act names, and says so."
     :refuses? (fn [{:keys [under v]}] (not= (:id under) (:under v)))}
-   {:of :give :word :lent-from-the-give-it-is-made-under
-    :from "BUILD batch 2, lines 1 and 2; a session's reading of \"unless its giver lends it\""
-    :says "A give is lent from the give it is made under, or it stands on its own."
+   {:of #{:give :raise} :word :lent-from-the-give-it-is-made-under
+    :from "BUILD batch 2, lines 1 and 2; a session's reading of \"unless its giver lends it\"; for a raise, batch 3, line 2, and the review of the kernel (state/loop-2b.md, item 1)"
+    :says "A give is lent from the give it is made under, or it stands on its own. A lent give is raised only in an act under the give that it is lent from."
     :refuses? (fn [{:keys [under v]}] (and (some? (:lent-from v)) (not= (:lent-from v) (:id under))))}
-   {:of :give :word :made-under-a-lent-give-is-lent
-    :from "BUILD batch 2, line 3"
-    :says "What is made under a lent give is lent from it. Only a give that stands on its own makes another that stands on its own."
+   {:of #{:give :raise} :word :made-under-a-lent-give-is-lent
+    :from "BUILD batch 2, line 3; for a raise, batch 3, line 2, and the review of the kernel (state/loop-2b.md, item 1)"
+    :says "What is made under a lent give is lent from it. Only a give that stands on its own makes another that stands on its own, and only under one that stands on its own is a give that stands on its own raised: nothing that an act adds outlives the give that it was added under."
     :refuses? (fn [{:keys [under v]}] (and (some? (:lent-from under)) (nil? (:lent-from v))))}
    {:of :give :word :an-agent-or-a-run-only-borrows
     :from "BUILD batch 2, line 2 (item 5)"
     :says "A give to an agent or a run is always lent, so its chain ends at a give that a person or everyone holds."
     :refuses? (fn [{:keys [v]}] (and (borrower? (:holder v)) (nil? (:lent-from v))))}
-   {:of :give :word :anyone-only-sees
+   {:of #{:give :change} :word :anyone-only-sees
     :from "BUILD batch 4, line 1 (item 20): anyone at all, for reading"
-    :says "A give to anyone at all allows seeing and nothing more. Writing by everyone is a give to anyone signed in, because an act needs an author."
+    :says "A give to anyone at all allows seeing and nothing more, where it is made and at every change of it. Writing by everyone is a give to anyone signed in, because an act needs an author."
     :refuses? (fn [{:keys [v]}] (and (= :anyone (:holder v)) (not= {:see true} (:allows v))))}
-   {:of :give :word :covers-more-than-the-give-above
-    :from "BUILD batch 2, line 4"
-    :says "A give never covers more than the give it is made under: the same lane; the same sitting, when that give is good for one; the same exact act, when that give covers one."
+   {:of #{:give :raise} :word :covers-more-than-the-give-above
+    :from "BUILD batch 2, line 4; for a raise, batch 3, line 2, and the review of the kernel (state/loop-2b.md, item 1)"
+    :says "A give never covers more than the give it is made under: the same lane; the same sitting, when that give is good for one; the same exact act, when that give covers one. A give is raised only under a give that covers all that it covers: nothing is added to a give good in every sitting under a give good for one."
     :refuses? (fn [{:keys [holds v]}] (not (within-scope? v holds)))}
+   {:of #{:give :raise} :word :opens-to-everyone-without-the-right
+    :from "P section 6, item 26 (\"Option B\"); the clarification on `:everyone` inside `:give`"
+    :says "A give to everyone, anyone at all or anyone signed in, is made, and is raised, only under a give whose right to give names everyone. An owner's give names it. Inviting a named person, or lending to an agent or a run, needs no such right."
+    :refuses? (fn [{:keys [holds v]}] (not (may-give-to? (:allows holds) (:holder v))))}
    {:of :give :word :gives-more-than-she-may
     :from "BUILD batch 2, lines 4 and 5 (items 2 and 19)"
-    :says "A give never allows more than the give it is made under allows at that moment. Passing see or write to a person, or to everyone, needs the right to give it; lending see or write to an agent or a run needs only holding it. The right to give says what may be given on: the right to give itself, and owning, are passed on only by one whose own right to give names them."
+    :says "A give never allows more than the give it is made under allows at that moment. Passing see or write to a person, or to everyone, needs the right to give it; lending see or write to an agent or a run needs only holding it. The right to give says what may be given on: the right to give itself, owning, and giving to everyone are passed on only by one whose own right to give names the right to give and names each of them."
     :refuses? (fn [{:keys [holds v]}] (not (may-pass? (:allows holds) (:allows v) (:holder v))))}
    {:of :give :word :lent-too-deep
     :from "CONTRACT section 2.3: max-lent-depth"
@@ -449,12 +514,10 @@
     :says "Lowering a give needs what ending it needs: only one who may end it takes anything away from it."
     :refuses? (fn [{:keys [state who under target v]}]
                 (and (lowers? target v) (not (may-end? state who under target))))}
-   {:of :change :word :raising-needs-what-giving-needs
+   {:of :raise :word :raising-needs-what-giving-needs
     :from "BUILD batch 3, line 2"
     :says "Raising a give needs what giving needs: only one who may give its holder what is added adds it."
-    :refuses? (fn [{:keys [holds target v]}]
-                (and (raises? target v)
-                     (not (may-pass? (:allows holds) (allows-added (:allows v) (:allows target)) (:holder v)))))}
+    :refuses? (fn [{:keys [holds v added]}] (not (may-pass? (:allows holds) added (:holder v))))}
 
    {:of :end :word :never-given
     :from "BUILD batch 1, lines 1 and 3 (bug 3)"
@@ -470,7 +533,7 @@
     :refuses? (fn [{:keys [state id]}] (used? state id))}
    {:of :end :word :not-one-who-may-end-it
     :from "BUILD batch 2, line 6 (item 18); batch 1, line 4 (bug 4); the clarification on \"holds\""
-    :says "These may end a give, and nobody else: its holder, whatever it allows; whoever gave it, in an act under the give she gave it under, while that give stands; the holder of a give it is lent from, directly or further up, in an act under that give; an owner of the lane, in an act under her owner's give. Being covered by everyone makes nobody the holder of everyone's give."
+    :says "These may end a give, and nobody else: its holder, whatever it allows; whoever gave it, in an act under the give she gave it under, while that give stands and still lets her pass on to its holder what it holds at that moment; the holder of a give it is lent from, directly or further up with no ended give between, in an act under that give; an owner of the lane, in an act under her owner's give. Being covered by everyone makes nobody the holder of everyone's give."
     :refuses? (fn [{:keys [state who under target]}]
                 (and (some? target) (not (may-end? state who under target))))}
 
@@ -493,11 +556,18 @@
     :says "A lane always has an owner: an act that would leave it with no owner's give that stands on its own is refused. The lane's first give ends like any other in an act that leaves an owner, so a whole lane is handed over in one act."
     :refuses? (fn [{:keys [after lane]}] (not (has-owner? after lane)))}])
 
+(defn- asked-of?
+  "True when a rule is asked of this: its `:of` is this, or a set that
+  holds it."
+  [rule of]
+  (let [rule-of (:of rule)]
+    (if (set? rule-of) (contains? rule-of of) (= of rule-of))))
+
 (defn- reason-of
-  "The word of the first rule of a kind that refuses what is in hand, or
-  nil."
+  "The word of the first rule asked of this that refuses what is in hand,
+  or nil."
   [of in-hand]
-  (some (fn [rule] (when (and (= of (:of rule)) ((:refuses? rule) in-hand)) (:word rule)))
+  (some (fn [rule] (when (and (asked-of? rule of) ((:refuses? rule) in-hand)) (:word rule)))
         rules))
 
 ;; --------------------------------------------------------------------- judging
@@ -550,10 +620,14 @@
   then."
   [in-hand fact]
   (let [state (:state in-hand)
-        kind (fact-kind state fact)]
-    (reason-of kind (assoc in-hand
-                           :fact fact :id (:e fact) :v (:v fact)
-                           :target (when (= permission-key (:k fact)) (give state (:e fact)))))))
+        kind (fact-kind state fact)
+        target (when (= permission-key (:k fact)) (give state (:e fact)))
+        in-hand (assoc in-hand :fact fact :id (:e fact) :v (:v fact) :target target)]
+    (or (reason-of kind in-hand)
+        ;; a change that adds is held, after the rules of a change, as a
+        ;; give of what it adds
+        (when (and (= :change kind) (raises? target (:v fact)))
+          (reason-of :raise (assoc in-hand :added (allows-added (:allows (:v fact)) (:allows target))))))))
 
 (defn- judge-afresh
   "The rules' judgment of a thing under an act-id that has no answer. Gives
@@ -654,6 +728,18 @@
         whether \"no give left lent from one the same act ends\" reaches a
         give that the act only changes
 
+  one is of an end, or of a change that takes away, by whoever gave the
+  give:
+
+    :an-end-by-its-giver-of-a-give-that-says-more-than-it-holds
+        its giver ends or lowers a give only while the give that she gave
+        it under \"currently allows passing what the target permission
+        holds\" (BUILD, the clarifications). The rules read \"holds\" as what
+        it allows at this moment. For a lent give whose lender was lowered
+        that is less than what it says; where she may pass on the one and
+        not the other, and may end it by no other road, the thing is not
+        sent
+
   and one is of a give:
 
     :a-give-under-or-lent-from-a-give-that-the-same-act-makes
@@ -667,15 +753,36 @@
     (let [under (when-let [id (:permission thing)] (give state id))
           holds (when under (holds-now state (:id under)))
           ended-here (into #{} (keep #(when (= :end (fact-kind state %)) (:e %))) (:facts thing))
-          made-here (into #{} (keep #(when (= :give (fact-kind state %)) (:e %))) (:facts thing))]
+          made-here (into #{} (keep #(when (= :give (fact-kind state %)) (:e %))) (:facts thing))
+          who (:who thing)
+          by-what-it-says-alone?
+          (fn [target]
+            ;; she may end it as its giver by one reading of \"holds\" and
+            ;; not by the other, and by no other road
+            (and under target
+                 (= who (:given-by target))
+                 (= (:id under) (:under target))
+                 (not (ends-as-holder? state who under target))
+                 (not (ends-as-lender? state who under target))
+                 (not (ends-as-owner? state who under target))
+                 (not= (gives-it-still? state under target (holds-or-says state target))
+                       (gives-it-still? state under target (:allows target)))))]
       (some (fn [fact]
-              (if (and (= :give (fact-kind state fact))
-                       (or (contains? made-here (:under (:v fact)))
-                           (contains? made-here (:lent-from (:v fact)))))
+              (cond
+                (and (= :give (fact-kind state fact))
+                     (or (contains? made-here (:under (:v fact)))
+                         (contains? made-here (:lent-from (:v fact)))))
                 :a-give-under-or-lent-from-a-give-that-the-same-act-makes
-              (when (and (= :change (fact-kind state fact))
-                         (not (ended? state (:e fact)))
-                         (not (used? state (:e fact))))
+
+                (and (= :end (fact-kind state fact))
+                     (not (ended? state (:e fact)))
+                     (not (used? state (:e fact)))
+                     (by-what-it-says-alone? (give state (:e fact))))
+                :an-end-by-its-giver-of-a-give-that-says-more-than-it-holds
+
+                (and (= :change (fact-kind state fact))
+                     (not (ended? state (:e fact)))
+                     (not (used? state (:e fact))))
                 (let [target (give state (:e fact))
                       v (:v fact)]
                   (cond
@@ -694,7 +801,10 @@
                     :a-raise-by-one-who-may-give-the-raise-and-not-the-whole
 
                     (contains? ended-here (:lent-from target))
-                    :an-act-that-ends-a-give-and-changes-one-lent-from-it)))))
+                    :an-act-that-ends-a-give-and-changes-one-lent-from-it
+
+                    (and (lowers? target v) (by-what-it-says-alone? target))
+                    :an-end-by-its-giver-of-a-give-that-says-more-than-it-holds))))
             (:facts thing)))))
 
 ;; ------------------------------------------------------------- for a person to read
@@ -707,8 +817,16 @@
     :says "A give stands from the act that makes it until an act ends it. A lent give stands only while every give above it stands: it falls with the give it is lent from. A give that stands on its own does not fall when the one who gave it loses hers."}
    {:in "holds-now" :from "BUILD batch 2, line 1; batch 3, line 3 (bug 2)"
     :says "A lent give never allows more than the give it is lent from allows at that moment. Lowering or raising someone leaves her in throughout and ends nothing she lent: what she lent is capped by what she holds at that moment, and uncapped when she is raised again."}
-   {:in "has-owner?, the owner preset" :from "BUILD batch 3, line 4 (items 6 and 21)"
-    :says "Owning is a give that allows everything over a lane: seeing, writing, its settings, giving all of it on, ending any give over it. It can be given. Several owners each act alone, and one owner may end another owner's give while an owner remains."}
+   {:in "has-owner?, the owner preset" :from "BUILD batch 3, line 4 (items 6 and 21); P section 6, item 26"
+    :says "Owning is a give that allows everything over a lane: seeing, writing, its settings, giving all of it on, to everyone too, ending any give over it. It can be given. Several owners each act alone, and one owner may end another owner's give while an owner remains."}
+   {:in "may-give-to?, may-pass?" :from "P section 6, item 26 (\"Option B\"); the clarification on `:everyone` inside `:give`"
+    :says "The right to give says what may be given on and to whom. Inviting a named person needs the right to give what is passed. Giving to everyone, or raising everyone's give, needs that and the right to give to everyone besides; and that right is passed on only by one who holds it together with the right to give."}
+   {:in "ends-as-giver?" :from "BUILD, the clarification on ending or lowering as the giver; P section 6, item 26"
+    :says "Whoever gave a give ends it, or lowers it, only while the give that she gave it under stands and still lets her pass on to its holder what it holds at that moment. A giver who was lowered in place takes back nothing that she could no longer give."}
+   {:in "ends-as-lender?" :from "CONTRACT section 2.3: an end leaves no value; the review of the kernel (state/loop-2b.md, question 1)"
+    :says "The gives above a lent give are found one at a time, each from what the give below says it is lent from. An ended give says nothing. So a give that fell is still ended by its holder and by an owner; by one further up only when no give between the two was ended."}
+   {:in "fact-reason, the rules asked of a raise" :from "BUILD batch 3, line 2; the review of the kernel (state/loop-2b.md, item 1 and question 2)"
+    :says "A raise is held as a give of what it adds: to the holder that the give has, lent as the give is lent, covering what the give covers. So it needs the right to pass on what is added, and everything else that a give needs: a lent give is raised only under the give that it is lent from, a give that stands on its own only under one that stands on its own, and no give under one that covers less."}
    {:in "judge-afresh" :from "BUILD batch 3, line 1 (item 7)"
     :says "One act is one moment. Every change in it is checked against what its author held just before the act; then the result is checked as a whole. All of it is taken, or none of it is kept."}
    {:in "makes-the-lane?" :from "CONTRACT section 2, the making act; P section 12, point 15"
