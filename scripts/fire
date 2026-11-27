@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""Read-only 1-screen dashboard of active Softland proposal tracks and loop state."""
+import pathlib, re, subprocess
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+PROP = ROOT / "src" / "proposal"
+LOOPS = ["0a", "0b", "0c", "1", "2a", "2b", "3", "4", "5"]
+
+def parse_edn(path: pathlib.Path) -> dict:
+    txt = path.read_text()
+    return {k: v for k, v in re.findall(r':([a-z-]+)\s+"([^"]*)"', txt)}
+
+def parse_kv(path: pathlib.Path) -> dict:
+    out = {}
+    for line in path.read_text().splitlines():
+        if m := re.match(r"^([a-z]+):\s*(.+)$", line.strip()):
+            out[m.group(1)] = m.group(2).strip()
+    return out
+
+head = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"],
+                      capture_output=True, text=True).stdout.strip()
+print(f"=== SOFTLAND FIRE (HEAD {head}) ===")
+tracks = [parse_edn(p) | {"_dir": p.parent} for p in sorted(PROP.glob("*/FIRE.edn"))]
+rev = PROP / "design-pitfalls-review-2026-11-26" / "DECISIONS-AND-FIXES.md"
+if rev.exists() and not (rev.parent / "FIRE.edn").exists():
+    tracks.append({"track": rev.parent.name, "status": "OPEN (untracked)",
+                   "summary": "26 Nov review fixes F1-F34 (§7.1 ready; §7.2 needs Sid; §7.3 waits on permissions)",
+                   "next": "§7.1 F6-F12 safe in src-command/src-wire; hold store form fixes"})
+for t in tracks:
+    st = f"dir:{t['status-dir']}/" if "status-dir" in t else t.get("status", "?")
+    print(f"TRACK  {t['track']:<34} [{st}] {t.get('summary', '')}")
+
+sdir = PROP / "permissions-2026-11-27" / "state"
+active_next = None
+for lid in LOOPS:
+    f = sdir / f"loop-{lid}.md"
+    if f.exists():
+        kv = parse_kv(f)
+        print(f"  loop-{lid:<2}  {kv.get('status','?'):<22} commit={kv.get('commit','none'):<10} verified={kv.get('verified','not run')}")
+        if kv.get("status") != "DONE" and not active_next:
+            active_next = kv.get("next")
+    else:
+        print(f"  loop-{lid:<2}  PENDING")
+print("OVERLAP-FREE: review §7.1 F6-F12 (src-command/src-wire) || permissions Loop 0/1/2A; Loop 1 (test-store) || Loop 2A (gate-histories)")
+print("HELD OVERLAP: review F13,F22-F26,F28-F34 share src-store/act form with permissions Loops 2B-4")
+print(f"NEXT: {active_next or (tracks[0].get('next', 'none') if tracks else 'none')}")

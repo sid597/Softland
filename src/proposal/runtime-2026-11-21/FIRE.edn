@@ -1,0 +1,6 @@
+{:track      "runtime-2026-11-21"
+ :summary    "Runtime spine + Store pieces 1-3 built; Pieces 5-8 held per Item 17"
+ :status     "HELD"
+ :waiting-on "design-pitfalls-review-2026-11-26 + permissions-2026-11-27"
+ :next       "Window B owns gate-histories/ in Loop 2A; Pieces 5-8 wait until fixes land"
+ :notes      "Window A must never edit src/proposal/runtime-2026-11-21/gate-histories/"}

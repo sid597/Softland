@@ -1,0 +1,6 @@
+{:track      "permissions-2026-11-27"
+ :summary    "Store permissions rebuild (Batches 1-4 unified across Rings 1-3)"
+ :status-dir "state"
+ :waiting-on "Window B (Fable max: Loop 0b unanchored CONTRACT.md + ALLOWLIST.md)"
+ :next       "Window B (Fable max): derive CONTRACT.md (shapes only) + ALLOWLIST.md unanchored, then type 'continue' in Window A"
+ :notes      "Loop 0a probe+scan done (zero src-store/test-store edits); Window A frozen pre-Fable draft ready for Loop 0c break"}
