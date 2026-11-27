@@ -5,7 +5,7 @@
 | File | Responsibility | State and lifetime |
 |---|---|---|
 | [client.clj](client.clj) | The library: a program's sign-in, the line, a word and its result, a watch. It requires the JDK's HTTP client and the wire's forms. | A connection, in the memory of the process: the socket, the results that are waited for, the watches. |
-| [main.clj](main.clj) | The program: the commands, the one file that it keeps, and its exit status. | The file `sign-in.edn`; for `send`, a file of UUIDs beside the file that is sent. |
+| [main.clj](main.clj) | The program: the commands, the one file that it keeps, and its exit status. | The file `sign-in.edn`; for `send`, a file of the acts that were sent and their UUIDs, beside the file that is sent. |
 
 `main.clj` requires `client.clj`. Neither requires Rama, the runtime or Auth.
 

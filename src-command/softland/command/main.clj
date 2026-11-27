@@ -406,24 +406,40 @@
 
               :else got)))))))
 
+(defn- journal-of
+  "A UUID belongs to its act and not to the act's place in the file: an act
+  takes the UUID of a kept entry of the same who and the same act that no
+  act before it took in this run, so two equal acts of one file are two
+  acts. Gives {:uuids, in the file's order, :sent, the entries to keep}.
+
+  The `:session` is no part of what makes an act the same: a run that was
+  cut off and is sent again after `new-session` keeps its UUIDs, so the
+  store takes no act twice."
+  [who entries acts make-uuid]
+  (let [sent (first (reduce (fn [[sent free] act]
+                              (let [[entry & others] (get free [who act])]
+                                [(conj sent (or entry {:who who :act act :uuid (make-uuid)}))
+                                 (assoc free [who act] others)]))
+                            [[] (group-by (juxt :who :act) entries)]
+                            acts))]
+    {:uuids (mapv :uuid sent) :sent sent}))
+
 (defn- send-file!
   "The file holds EDN maps, one after another; each is an act without `:who`
-  and `:session`, which are this program's. A UUID is made for each act and
-  kept in `<file>.sent.edn` before anything is sent, so a run that was cut
-  off sends the same acts again under the same UUIDs, and the store takes
-  each once."
+  and `:session`, which are this program's. The UUID of each act is kept in
+  `<file>.sent.edn`, with the act and who sent it, before anything is sent,
+  so a run that was cut off sends the same acts again under the same UUIDs,
+  and the store takes each once."
   [connection hello path]
   (let [file (io/file path)
         acts (with-open [reader (PushbackReader. (io/reader file))]
                (doall (take-while (fn [form] (not= ::end form))
                                   (repeatedly (fn [] (edn/read {:eof ::end} reader))))))
         journal (io/file (str path ".sent.edn"))
-        uuids (let [held (:uuids (kept journal))]
-                (if (= (count held) (count acts))
-                  held
-                  (let [made (vec (repeatedly (count acts) (fn [] (UUID/randomUUID))))]
-                    (keep! journal {:uuids made :session (:session hello)})
-                    made)))]
+        held (vec (:sent (kept journal)))
+        {:keys [uuids sent]} (journal-of (:who hello) held acts (fn [] (UUID/randomUUID)))]
+    (when (not= sent held)
+      (keep! journal {:sent sent}))
     (client/say connection
                 {:word :send-all
                  :acts (mapv (fn [act uuid]

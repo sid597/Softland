@@ -1,6 +1,7 @@
 (ns softland.runtime.command-pure-proof
   "The proof of the command line's parts that need no runtime: how many
-  plain arguments a command takes. One command, from the repository root:
+  plain arguments a command takes, and under which UUID an act of a file is
+  sent. One command, from the repository root:
 
     clojure -M:runtime -m softland.runtime.command-pure-proof
 
@@ -11,7 +12,8 @@
   State. None."
   (:require [clojure.string :as str]
             [softland.command.main]
-            [softland.wire.proof :refer [check finish]]))
+            [softland.wire.proof :refer [check finish]])
+  (:import [java.util UUID]))
 
 (defn- command
   "Calls a private function of the command line by its name. A name that
@@ -60,8 +62,59 @@
            (and (nil? (mistyped ["fly" "away"])) (nil? (mistyped [nil])))
            [(mistyped ["fly" "away"]) (mistyped [nil])])))
 
+;; --------------------------------------------------------------- the journal
+
+(defn- journal-checks []
+  (let [her (UUID/randomUUID)
+        agent (UUID/randomUUID)
+        journal (fn [who entries acts] (command 'journal-of who entries acts (fn [] (UUID/randomUUID))))
+        act (fn [n] {:version 1 :facts [{:e :shelf :k (keyword (str "slot-" n)) :v n}]})
+        acts [(act 0) (act 1) (act 2)]
+        first-run (journal her nil acts)
+        uuids (:uuids first-run)
+        whole? (fn [got n] (and (= n (count (:uuids got))) (every? uuid? (:uuids got))))]
+    (check "A file that is sent for the first time gets a UUID for each act, each its own, and the journal keeps for each act who sent it, the act as the file holds it and its UUID, in the file's order."
+           (and (whole? first-run 3) (= 3 (count (set uuids)))
+                (= (:sent first-run) (mapv (fn [a u] {:who her :act a :uuid u}) acts uuids)))
+           first-run)
+    (let [again (journal her (:sent first-run) acts)]
+      (check "The same file sent again by the same who gives the same UUIDs, and the journal to keep is the one that was kept."
+             (and (whole? again 3) (= uuids (:uuids again)) (= (:sent first-run) (:sent again)))
+             again))
+    (let [edited (journal her (:sent first-run) [(act 0) (act 7) (act 2)])]
+      (check "When one act of a file is edited and the count stays, the edited act gets a new UUID, the other acts keep theirs, and the entry of the act that the file holds no more is dropped."
+             (and (whole? edited 3)
+                  (= [(uuids 0) (uuids 2)] [((:uuids edited) 0) ((:uuids edited) 2)])
+                  (not (contains? (set uuids) ((:uuids edited) 1)))
+                  (= [(act 0) (act 7) (act 2)] (mapv :act (:sent edited))))
+             edited))
+    (let [turned (journal her (:sent first-run) [(act 2) (act 0) (act 1)])]
+      (check "Acts in another order keep their UUIDs: a UUID belongs to its act and not to the act's place in the file."
+             (and (whole? turned 3) (= [(uuids 2) (uuids 0) (uuids 1)] (:uuids turned)))
+             turned))
+    (let [twice (journal her nil [(act 0) (act 0)])
+          twice-again (journal her (:sent twice) [(act 0) (act 0)])
+          thrice (journal her (:sent twice) [(act 0) (act 0) (act 0)])]
+      (check "Two equal acts in one file are two acts and take two UUIDs; sent again they keep the two, and a third equal act gets a new one."
+             (and (whole? twice 2) (= 2 (count (set (:uuids twice))))
+                  (= (:uuids twice) (:uuids twice-again))
+                  (whole? thrice 3) (= (:uuids twice) (subvec (:uuids thrice) 0 2))
+                  (not (contains? (set (:uuids twice)) ((:uuids thrice) 2))))
+             [twice twice-again thrice]))
+    (let [as-agent (journal agent (:sent first-run) acts)]
+      (check "The same acts sent by another who get new UUIDs, and the journal then keeps them under that who."
+             (and (whole? as-agent 3) (empty? (filter (set uuids) (:uuids as-agent)))
+                  (= #{agent} (set (map :who (:sent as-agent)))))
+             as-agent))
+    (let [earlier {:uuids uuids :session (UUID/randomUUID)}
+          got (journal her (:sent earlier) acts)]
+      (check "A journal in the earlier form, `{:uuids [...] :session s}`, holds no entry under `:sent`, so nothing of it is matched: each act gets a new UUID."
+             (and (whole? got 3) (empty? (filter (set uuids) (:uuids got))))
+             got))))
+
 (defn -main
   "Runs every check, prints the counts, and ends the process with a status."
   [& _]
   (argument-checks)
+  (journal-checks)
   (finish))
