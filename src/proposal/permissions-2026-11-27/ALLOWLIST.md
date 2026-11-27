@@ -1,6 +1,6 @@
-# Allowlist: the check sentences that the permission fix changes
+# Allowlist: Frozen Check Sentences Changed by the Permission Fix
 
-Loop 0b, 27 November 2026. A session's page (Window B), derived from
+Frozen at Loop 0c, 27 November 2026 (derived in Loop 0b, reconciled with frozen `CONTRACT.md` in Loop 0c). A session's page (Window B), derived from
 `BUILD.md` batches 1 to 4, `CONTRACT.md` beside this file, and the dump of
 the 2,081 check sentences of the seven proofs
 (`/mnt/data/projects/research/softland/permissions-test-store-scan/check-sentences.txt`,
@@ -19,9 +19,7 @@ reaches it again, both are named.
 Two kinds of reason are kept apart. A reason that begins with B follows
 from `BUILD.md` whatever the contract says. `S1 party` and `S5 rights`
 follow from a default of the contract that waits for Sid's word, and
-`making`, `table`, `end` and the count of a give's facts from a default
-that is a session's: when a default is turned, its entries fall away or
-change.
+`making` and `table` from the frozen contract's engineering defaults.
 
 What was checked and what was not. The judgment is from the sentence. The
 check's own code was opened for three: `door_proof.clj:1136`,
@@ -63,7 +61,7 @@ entry says that a sentence may change, not how it will read.
 - **B1 again** (23). BUILD batch 1, line 3 (bug 3). A give never given is answered apart from one that ended. Given again it is a new give with a new id, and a place takes one give for good; so no stamp tells two gives of one id apart.
 - **B1 own end** (4). BUILD batch 1, line 4 (bug 4). A holder ends her own give, a holder of see too.
 - **B1 rows** (37). CONTRACT section 2, PStates; P section 12, point 14. A row holds the id of the give that its act named, a UUID, where it held the permission's whole text; and a count of bytes or of fields that rested on that text changes.
-- **B1 digest** (3). BUILD batch 1, line 1; CONTRACT section 2. The digest that a give for one exact act names leaves `:under` out, where it left `:permission` out.
+- **B1 digest** (3). BUILD batch 1, line 1; CONTRACT section 2.2. `:permission` is an optional UUID on `:act` (still stripped by `hex-for-a-yes`).
 - **making** (22). CONTRACT section 2. A making act names no give. It holds the depot fact and the facts of the lane's first give, and in B4 it can hold a give to everyone: not "two facts", and not "the permission that the act names".
 - **B2 lent** (15). BUILD batch 2, lines 1 to 3. A give to a person stands on its own unless its giver lends it; only what is lent falls with the give above it.
 - **B2 give** (7). BUILD batch 2, lines 4 and 5. Passing a give to another person needs the right to give; whoever holds see or write lends it to an agent with no such right.
@@ -72,10 +70,9 @@ entry says that a sentence may change, not how it will read.
 - **B3 change** (1). BUILD batch 3, lines 2 and 3. What a give allows is changed in place; "see" does not become "see and act" by an end and a give.
 - **B3 owner** (11). BUILD batch 3, lines 4 and 5. Any owner writes the lane's settings; a lane's first give can end while an owner remains.
 - **B4 public** (49). BUILD batch 4, lines 1 and 2; CONTRACT section 2. "Seen by everyone" is a give to everyone. `:softland.store/who-may-see` is no store key, and no lane is open by a value in code.
-- **S1 party** (8). CONTRACT S1(a), if Sid takes it. Whoever acts, holds or asks is named as `[kind id]`.
-- **S5 rights** (91). CONTRACT S5(a), if Sid takes it; BUILD batch 4, line 4. A read's rights come from one query. The sources "her permission's row, her run's row, the rows above", the stamp that a row above names, and the counts of calls, rounds and pushes that follow from them, change.
-- **table** (3). CONTRACT section 2, PStates. Each gate has a seventh table, `gives-by-holder`, and the base's gate copies it to every task.
-- **end** (9). CONTRACT section 2. An end is a fact of its own on the give's id, and the give's own place keeps who holds it. "A row with no value at the place", "the place holds an end" and "the place holds its use" are of the old form.
+- **S1 party** (9). Frozen CONTRACT §1.2 (`1A`). Whoever acts, holds or asks is named as `:person.<id>` / `:agent.<id>` / `:run.<id>` / `:system` (plus holder-only `:anyone` / `:anyone-signed-in`).
+- **S5 rights** (91). Frozen CONTRACT §1.3 (`2`); BUILD batch 4, line 4. A read's rights come from one query. The sources "her permission's row, her run's row, the rows above", the stamp that a row above names, and the counts of calls, rounds and pushes that follow from them, change.
+- **table** (3). Frozen CONTRACT §2.4. Each gate has a seventh table, `permissions-by-holder`, and the base's gate copies it to every task.
 
 An entry with two reasons is counted under each.
 
@@ -84,13 +81,13 @@ An entry with two reasons is counted under each.
 | Proof | Sentences | Listed |
 |---|---|---|
 | `act_proof.clj` | 139 | 37 |
-| `door_proof.clj` | 240 | 3 |
-| `module_proof.clj` | 479 | 102 |
-| `pure_proof.clj` | 743 | 154 |
-| `read_path_proof.clj` | 206 | 52 |
+| `door_proof.clj` | 240 | 2 |
+| `module_proof.clj` | 479 | 101 |
+| `pure_proof.clj` | 743 | 151 |
+| `read_path_proof.clj` | 206 | 51 |
 | `read_path_pure_proof.clj` | 242 | 61 |
 | `run_again_proof.clj` | 32 | 2 |
-| all seven | 2,081 | 411 |
+| all seven | 2,081 | 405 |
 
 ## act_proof.clj
 
@@ -99,7 +96,7 @@ An entry with two reasons is counted under each.
 - `act_proof.clj:181` the one rule, with its reason
   **B1 form.** The one rule read the lane slot of the written-out permission.
 - `act_proof.clj:183` the ten parts of an act
-  **B1 form.** `:permission` is no part; `:under` is. Ten still.
+  **B1 form.** `:permission` becomes optional `:uuid`. Ten still.
 - `act_proof.clj:193` the seven reason words, read from the two declarations
   **B1 form.** `:no-permission` and `:permission-not-in-lane` are words of the old part and of the old rule.
 - `act_proof.clj:200` the one shape with a number of its own for how often it may hold itself is a permission id, and its number is the value's: 32
@@ -115,7 +112,7 @@ An entry with two reasons is counted under each.
 - `act_proof.clj:262` an act under a given permission that says what it allows: see and act
   **B1 form.**
 - `act_proof.clj:317` no permission
-  **B1 form.** The part is `:under`; whether an act without it is refused by the form is the implementer's.
+  **B1 form.** `:permission` is optional on `:act` (absent/nil on making acts and own-ends).
 - `act_proof.clj:318` a permission of two items
   **B1 form.**
 - `act_proof.clj:319` a permission that is a list
@@ -175,13 +172,13 @@ An entry with two reasons is counted under each.
   **B1 place.** A give is facts under the give's own id; two at the giving, by the contract.
 - `door_proof.clj:1176` a maker makes the digest that a yes names of her act as she made it, before it has an act-id or a permission: the door's one call for it, which the gate makes of the thing that arrives; Alice gives the yes on an id of its own, and it is accepted
   **B1 digest.** "before it has an act-id or a permission".
-- `door_proof.clj:1187` each yes's place holds its use: an end, written by the act that used it
-  **end.** The use is at the yes's end place.
 
 ## module_proof.clj
 
 - `module_proof.clj:1247` the record holds the depot as a fact on the lane's own entity, and the person's permission on its holder
   **B1 place.**
+- `module_proof.clj:1255` a lane whose id is a UUID, made by a person whose id is a UUID
+  **S1 party.** A person's id in the store is `:person.<id>`.
 - `module_proof.clj:1257` a making act for a lane that is made, by the system under the person's permission, is refused
   **making.** The system's making act names no give.
 - `module_proof.clj:1259` a making act for a lane that is made, by its holder, is refused: its permission is not beneath its own
@@ -281,7 +278,7 @@ An entry with two reasons is counted under each.
 - `module_proof.clj:2068` an end that names a give which is not the one at the place is refused as a stale fact; the end that names the give at the place is taken
   **B1 again.** A place takes one give for good, so no other give can be "the one at the place".
 - `module_proof.clj:2070` the end is a fact at the holder's place: a row with no value, by the act that ended it, with that act's stamp, who ended it and under which permission
-  **B1 place, end.**
+  **B1 place.**
 - `module_proof.clj:2074` after the end her act is refused with the word of an end, and the act of each holder beneath her with the word of an end above: nothing is written at their places, and the row of the holder beneath still holds her permission
   **B2 lent.** A person beneath the end stays; in B1 it holds as worded.
 - `module_proof.clj:2078` what was taken under those permissions before the end stays: each row holds its value, its writer and the permission that it was written under
@@ -300,8 +297,6 @@ An entry with two reasons is counted under each.
   **B1 place.**
 - `module_proof.clj:2183` a run ends no permission but its own: her other run's is refused; a give at a run that has a permission which stands is refused
   **B1 own end, B1 many.**
-- `module_proof.clj:2197` the accept uses the yes up: its place holds an end, written by the act that used it and naming the yes, on the lane's task
-  **end.**
 - `module_proof.clj:2209` a yes stands as any permission does: given beneath a holder who is not the first, the end of that holder's permission ends it
   **B2 lent.** It falls with the giver's only when it is lent.
 - `module_proof.clj:2283` a fact under the marked key, with a value that is a keyword id: its place is the run of that value, and the row holds the fact that wrote it, its stamp, the time on its act, who and the permission, and no value
@@ -368,12 +363,10 @@ An entry with two reasons is counted under each.
   **B1 many.**
 - `module_proof.clj:3356` in one batch, in the order appended: an act of each before the end is taken; the end is taken; an act of each after it is refused, hers with the word of an end and the one beneath with the word of an end above
   **B2 lent.** A person beneath the end stays; in B1 it holds as worded.
-- `module_proof.clj:3359` the end's row is on every task: a row with no value, with the stamp of the act that ended it; the row of the one beneath still holds his permission on every task
-  **end.** "a row with no value".
 - `module_proof.clj:3369` she is given the same permission again and acts in the same batch: taken; the one beneath her does not come back with it; her new row is on every task
   **B1 again.**
 - `module_proof.clj:3425` the rows are on every task: the run's place an end after the batch; each yes's place its use, an end written by the act that used it; the act's fact, written under the second yes, which used it last
-  **B1 place, end.** "the run's place".
+  **B1 place.** "the run's place".
 - `module_proof.clj:3496` two facts on two entities with one value: both places are in the run of that value, each row of the run is on every task, and the row holds the fact that wrote it, its stamp, the time on its act, who and the permission, and no value
   **B1 rows.**
 - `module_proof.clj:3587` two writes of who may see the base in one batch: both accepted, and every task holds one row, the second one's
@@ -563,8 +556,6 @@ An entry with two reasons is counted under each.
   **B1 form.**
 - `pure_proof.clj:1854` the same permission given a second time, to a holder whose permission stands
   **B1 many, B1 again.**
-- `pure_proof.clj:1857` an end of a permission, by the holder above it: a permission fact with no value, at a place that holds a permission
-  **end.** "a permission fact with no value".
 - `pure_proof.clj:1861` an end that names a give which is no longer at the place: the word of a stale fact
   **B1 again.**
 - `pure_proof.clj:1866` an end of the lane's first permission, by its own holder: it does not end
@@ -659,10 +650,6 @@ An entry with two reasons is counted under each.
   **B1 digest.**
 - `pure_proof.clj:2849` a line of a lane's acts under yeses for one act: a try before the yes lands, one with another value and one in another run are refused and use nothing; the same thing again under its act-id is not decided; the act written another way is taken under any act-id of its maker's and uses the yes up, so the same act again is refused and the used yes has nothing to end; its id takes no give again. Two yeses for one act stand at once, and each is used once. A yes is ended by its giver, by one above the giver, and by its holder under her permission for the lane; never under another yes; it ends itself only when its act is its end, and that end is its use. A yes gives nothing, and a refused give uses nothing. A yes stands as any permission does: the end of a permission above it ends it, and the give again of the one above does not bring it back; its holder ends it all the same
   **B2 end, B1 own end, B2 give.** "A yes gives nothing": in B2 its holder may lend it to her own agent.
-- `pure_proof.clj:2864` the accept under a yes writes the act's fact, the yes's use, the answer and the last stamp; the use is an end at the yes's place, written by the act and by no fact of it, so it names the act and no index, and the yes as the permission that its act named; a gate may copy it to other tasks with the fact
-  **end.** "the use is an end at the yes's place".
-- `pure_proof.clj:2870` after the line: the places of the used yeses hold their use, by the act that used each; a yes that ends itself holds its own end, which is its use; an ended yes holds an end that is no use; a yes under which a try was refused stands still
-  **end.**
 - `pure_proof.clj:2976` probe 6C, a holder ends her yes under itself: a yes for another act cannot, its act being another; a yes for the act that ends it does, and that end is its use, so the same end again is refused; a run's permission that says see takes no act, its own end neither
   **B1 own end.** "a run's permission that says see takes no act, its own end neither".
 - `pure_proof.clj:3036` the words of the review's probe 2: an act whose digest is not the yes's, under a yes that is used and under one that is ended, is refused as not the act that the yes permits; an act of another run under a run's permission that is ended, as of another run; whatever the place of the permission holds (SPEC.md, R9)
@@ -684,7 +671,7 @@ An entry with two reasons is counted under each.
 - `pure_proof.clj:4029` a fact under each of the five store keys is the maker's own object in the thing
   **B1 place, B4 public.** The store keys that the door's reading is held to.
 - `pure_proof.clj:4148` the door comes back for a thing whose facts have no end, for a who that throws when it is hashed and for a permission that throws when it is read: it reads none of them, and builds the thing with each as given
-  **B1 form.** "a permission that throws when it is read": the part is `:under`.
+  **B1 form.** "a permission that throws when it is read": `:permission` is an optional `:uuid`.
 - `pure_proof.clj:4466` a sender has standing when the declaration took the thing and the act's permission stands and is hers: an accept, a refusal of the places, a holder who may only see, and a making act are kept up to 32 MiB; a permission that does not stand, ended, above ended, used up, of another holder or another run, a yes for another act, a lane not made or of the other gate, and a refusal of the declaration, up to 256 KiB
   **B1 again, B4 public.** The words of a standing that it counts off follow the gate's; in B4 a give held through everyone is hers too.
 - `pure_proof.clj:4494` :a :asha 0000000000000000003
@@ -764,8 +751,6 @@ An entry with two reasons is counted under each.
   **B1 again, S5 rights.**
 - `read_path_proof.clj:1588` the review's P2 through the door: an act whose digest is not the used yes's is refused as not the act that it permits; a yes that was never given, on the used yes's id, as one that does not stand; an act of another run under a run's permission that ended, as of another run
   **B1 form, B1 again.** As `pure_proof.clj:3036` and `3039`.
-- `read_path_proof.clj:1591` the review's P3 of the yes's use, read back: the used yes's place says nothing here, with the stamp of the act that used it and who sent it, and names no fact
-  **end.** The yes's own place still holds the yes; its end place holds the use.
 - `read_path_proof.clj:1689` one asker of a place in a members lane holds three pushes: the lane's own rows, her permission, the place
   **S5 rights, B1 place.**
 - `read_path_proof.clj:1691` a second asker of the same place joins the two pushes that are open, and opens his own permission and a push of his own on the row above it, the first asker's permission, which he reads after his own row
