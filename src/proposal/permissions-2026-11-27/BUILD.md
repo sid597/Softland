@@ -17,11 +17,11 @@ What a give holds is decided: who holds it (item 1), what it allows
 it written out (the answer he said "5. yeah" to).
 
 How that is stored is yours: the id, the keys, where a field sits. Your
-record of 26 November stands: a give is a fact on an id its giver makes, as
-a yes is today, and an act carries that id. It replaces point 1 of P
-section 12, which was written without the code. One thing to keep through
-batch 3: who gave a give, and under what, must still be readable from it
-after a change.
+record stands, as you amended it on 27 November: a give is a fact on an id
+its giver makes, as a yes is today; its value holds who gave it and under
+what from the start, so both stay readable after a change; and an act
+carries the give's id. It replaces point 1 of P section 12, which was
+written without the code.
 
 Which goes first, this or the fixes of the review of 26 November, is Sid's
 (P section 12, "The order"). Your position and this session's are the

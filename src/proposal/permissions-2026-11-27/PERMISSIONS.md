@@ -1072,23 +1072,27 @@ case. The slice follows the two items; question 4 below can turn it.
 
 ### What the implementer read in the code
 
-IN THE CODE, per the session "permission-fix-implementer" («678be1d3»,
-26 November 20:41 UTC), which read the code the first batch changes. Not
-checked by the working session.
+Per the session "permission-fix-implementer" («678be1d3», 26 November
+20:41 UTC, and its correction of 27 November to the first text of this
+part). Not checked by the working session.
 
-- A yes already sits on an id its giver makes, takes its place for good,
-  and has "never given" and "ended" answered apart.
-- A read finds a holder's permission because it sits at (lane, holder).
-  With any number of gives per holder, a read needs her gives listed by
-  holder, written in the same decision as the give. Each live viewer then
-  holds more pushes than today.
-- The nested form is what caps a chain at 32 today. With ids, the gate has
-  to refuse a give that is too deep.
-- What kept an end and a give out of one act is that an act names a place
-  once, and both sat at (lane, holder). With each give at its own place
-  they can ride in one act, already after batch 1.
-- Stamps are compared today only because a give made again has the same
-  id.
+What it read. Whole: `act.clj`, `gate/chain.clj`, `gate/decision.clj`,
+`gate/first_act.clj`, `record/rows.clj`, `record/tables.clj`,
+`module/walk.clj`, `door/declaration.clj`, `read_path/lanes.clj`. Only the
+lines that mention a permission: `read_path/sources.clj`,
+`read_path/acts.clj`, `door/digest.clj`. Not opened: `read_path.clj`,
+`read_path/query.clj`, `read_path/answer.clj`, `door.clj` beyond its
+act-id lines, the two gate modules, any proof, anything above the store.
+
+IN THE CODE:
+
+- A yes sits on an id its giver makes, takes its place for good, and has
+  "never given" and "ended" answered apart.
+- A read finds a holder's permission at (lane, holder).
+- The nested form caps a chain at 32 (`act.clj`, `nesting`).
+- An act names a place once (`declaration.clj`, `:place-named-once`), and
+  an end and a give for one holder are the same place.
+- Stamps are compared only because a give made again has the same id.
 - "One per run" is one per sitting id per lane, with the holder checked
   afterwards.
 - Of the eight facts of section 9, four: a row above a permission cannot
@@ -1096,6 +1100,25 @@ checked by the working session.
   permission, except the system making a personal lane; nobody can give a
   lane's first permission again; an act names what it was written against
   per fact (`:replaces`), plus a `:based-on` label no gate reads.
+
+A SESSION'S (the implementer's), for a form not yet built:
+
+- With any number of gives per holder, a read needs her gives listed by
+  holder, written in the same decision as the give. That a live viewer
+  then holds more pushes is not traced: the rounds of a live read were not
+  read.
+- With ids, the gate has to hold the bound on a chain's depth itself.
+- With each give at its own place, an end and a give can ride in one act,
+  already after batch 1.
+
+Its record, as it amended it on 27 November. The giver's program makes the
+id, and the give is a fact on that id. Its value holds: holder, allows,
+covers, the sitting when it has one, given by, under, lent from. The
+giver's program states "given by" and "under", and the gate holds "given
+by" to the act's who and "under" to the give the act names. They are in
+the value from the start because a change (batch 3) writes the row again
+with the changer's two, so the row's own fields say who gave a give only
+until then.
 
 ### How it is built: four batches
 
