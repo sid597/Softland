@@ -300,34 +300,50 @@ by a test of the thing and of what stood (`fix.clj`, `question`).
   so it no longer says what that give was lent from, and the store cannot
   tell that the author's give is above it. To keep the reading whole, an end
   has to keep what it ended.
+- **Reading 5.** The rules hold a raise to what its author may pass on, of
+  what is added, and to nothing else. The store holds it to what a give is
+  held to as well: a right is added to a lent give only in an act under the
+  give it is lent from; to a give that stands on its own only under a give
+  that stands on its own; and to no give that covers more than the act's
+  own. Without that, a holder of a give for one sitting, or of a lent give,
+  raises another give of hers that is good in every sitting, or that stands
+  on its own, and keeps what she added when the sitting is over or the
+  lender's give ends. A reviewing session found it by running it against
+  the store; by its reading the rules take it too.
 - **Reading 6.** The rules hold anyone at all to seeing where the give is
   made, and take a change that raises anyone's give past seeing. The store
   holds it at the change too.
 
-On the other seven readings the store is built as the judge reads them.
+On the other six readings the store is built as the judge reads them.
 
 ### What the runs found
 
 On a cloud machine. `clojure -M:run fix 2000 <seed>`, seeds 1 to 3: green,
-exit 0, 78 to 81 seconds each.
+exit 0, 79 to 86 seconds each.
 
-| Seed | Things compared | Not sent for their form | Reading 4 | Reading 6 |
-|---|---|---|---|---|
-| 1 | 94,218 | 652 (439 a permission named twice, 177 a place, 36 by everyone) | 1 | 56 |
-| 2 | 93,409 | 656 (436, 182, 38) | 1 | 52 |
-| 3 | 95,078 | 664 (500, 150, 14) | 1 | 45 |
+| Seed | Things compared | Not sent for their form | Reading 4 | Reading 5 | Reading 6 |
+|---|---|---|---|---|---|
+| 1 | 94,214 | 653 (440 a permission named twice, 177 a place, 36 by everyone) | 1 | 32 | 55 |
+| 2 | 93,405 | 656 (436, 182, 38) | 1 | 21 | 52 |
+| 3 | 95,074 | 664 (500, 150, 14) | 1 | 21 | 45 |
 
 Everywhere else agree, told, once, apart, proved and see hold: after each
 decision that wrote, a read asked once for each of the 37 askers.
 
 `clojure -M:run fix-mutants 2000 1`: 33 of 33 caught, the latest at history
-22; 27 by `agree`, two by `apart` and four by `see`. One broken copy was taken out of the list after a run of 2,000 histories did
-not catch it, and `fix.clj` says why: the store without its word
-`:no-permission` takes nothing that the store with it refuses, since each
-fact of an act that names no permission is then refused by its own check.
+22; 27 by `agree`, two by `apart` and four by `see`. One broken copy was
+taken out of the list after a run of 2,000 histories did not catch it, and
+`fix.clj` says why: the store without its word `:no-permission` takes
+nothing that the store with it refuses, since each fact of an act that names
+no permission is then refused by its own check.
 
 The judge's own runs, after `run.clj` got its two runs more: `rules 2000 1`
 green, 94,884 things, as above; `mutants 2000 1`, 54 of 54; and against the
 export of the store at `25cafbfe`, `today 2000 1` green with the numbers of
 the table above (70,875 compared, 3,076 inside the seven reasons, none
 outside) and `mutants 2000 1`, 54 of 54 and 12 of 12.
+
+What a `fix` run does not hold. A thing that is not sent, and a thing taken
+out under a reading, is judged by nobody here: the store's own proof
+(`test-store/softland/store/permission_proof.clj`) holds each of those
+refusals, and nothing else does.

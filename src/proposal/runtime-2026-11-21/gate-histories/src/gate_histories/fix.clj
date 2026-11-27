@@ -76,6 +76,7 @@
   "The readings of the judge on which this store differs, each with what
   the difference is."
   {"reading 4" "one further up a lent chain ends, or lowers, a give that fell: the rules take it; the store refuses it, because the row of the ended give above no longer says what that give was lent from, so the store cannot tell that the author's give is above it"
+   "reading 5" "a raise that no give could make: the rules hold a raise to what its author may pass on and to nothing else; the store also holds it to what a give is held to, so that a right is added to a lent give only under the give it is lent from, to a standing give only under a standing give, and to no give that covers more than the act's own"
    "reading 6" "an owner raises anyone's give past seeing by a change: the rules take it, since they hold anyone at all to seeing at the give alone; the store refuses it at the change too"})
 
 ;; ------------------------------------------------- a thing, said to the store
@@ -157,6 +158,21 @@
           (some #(reference/ended? ref %)
                 (take-while #(not= (:id under) %) (reference/lent-chain ref (:e fact))))))))
 
+(defn- raises-as-no-give-could?
+  "True for a change that adds to what a give allows where a give of what
+  is added could not be made in its place: the give is lent from another
+  give than the one that the act names; or it stands on its own and the
+  act's give is lent; or it covers more than the act's give."
+  [ref under fact]
+  (let [target (reference/give ref (:e fact))]
+    (boolean
+     (and under target
+          (= :change (reference/fact-kind ref fact))
+          (seq (reference/allows-added (:allows (:v fact)) (:allows target)))
+          (or (and (:lent-from target) (not= (:lent-from target) (:id under)))
+              (and (nil? (:lent-from target)) (some? (:lent-from under)))
+              (not (reference/within-scope? target (reference/holds-now ref (:id under)))))))))
+
 (defn- raises-anyone-past-seeing?
   [ref fact]
   (and (= :change (reference/fact-kind ref fact))
@@ -175,6 +191,11 @@
         (and (contains? #{:may-not-end-the-permission :may-not-lower-the-permission} word)
              (some #(through-an-ended-give? ref (:who sent) under %) (:facts sent)))
         "reading 4"
+
+        (and (contains? #{:permission-not-lent-from-the-acts-own :made-under-a-lent-permission-is-lent
+                          :permission-covers-more-than-the-acts-own} word)
+             (some #(raises-as-no-give-could? ref under %) (:facts sent)))
+        "reading 5"
 
         (and (= :anyone-only-sees word)
              (some #(raises-anyone-past-seeing? ref %) (:facts sent)))

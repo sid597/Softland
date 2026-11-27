@@ -90,11 +90,12 @@
                    :level-from stamp})
         record-writes (decision/writes act-id act refused stamp time digest in-hand)
         line-writes (decision/line-writes act-id thing refused stamp time digest weight
-                                          (decision/kept-bound declarations-reason refused-standing))]
+                                          (decision/kept-bound declarations-reason refused-standing refused
+                                                               (boolean (and act (decision/held-through-everyone? act rows)))))]
     (done state {:verdict (or refused :accepted)
                  :stamp stamp
                  :act act
-                 :makes? (boolean makes?)
+                 :makes? (boolean (and makes? (nil? refused)))
                  :writes (into (vec line-writes) record-writes)})))
 
 (defn- step

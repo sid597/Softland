@@ -277,14 +277,26 @@
          [:or [:tuple [:enum :default-group] :id]
               [:tuple [:enum :exact-act] :digest-hex]]))
 
+(def owner-allows
+  "What an owner's permission allows: everything over a lane. Seeing,
+  writing, giving each right on, the right to give and owning among them,
+  and with `:owner` its settings and the end of any permission over it."
+  {:see true :write :all :give #{:see :write :give :owner} :owner true})
+
 (defn permission-value
   "The one form of what a permission says, or nil for a thing that is no
-  such value: one that does not fit `:permission-value`, or that allows
-  nothing. A part that was given as nil is absent from it, so two values
-  that say the same have one text. It never throws."
+  such value: one that does not fit `:permission-value`, that allows
+  nothing, or that allows owning and not everything (`owner-allows`). A
+  lane always has an owner, and an owner that could not see, write or give
+  owning on would hold a lane that nobody can hand over. A part that was
+  given as nil is absent from the one form, so two values that say the same
+  have one text. It never throws."
   [v]
-  (try (let [[verdict one-form] (act/as-shape shapes :permission-value v)]
-         (when (and (= :ok verdict) (seq (:allows one-form)))
+  (try (let [[verdict one-form] (act/as-shape shapes :permission-value v)
+             allows (:allows one-form)]
+         (when (and (= :ok verdict)
+                    (seq allows)
+                    (or (not (:owner allows)) (= owner-allows allows)))
            one-form))
        (catch Throwable _ nil)))
 

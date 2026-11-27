@@ -74,12 +74,15 @@
 (defn- holders-for
   "The holders whose permissions an asker holds: herself; anyone at all,
   when she is a person or is not signed in, which `asker` nil says; anyone
-  signed in, when she is a person (`softland.store.gate.chain/held-by?`)."
+  signed in, when she is a person (`softland.store.gate.chain/held-by?`).
+  None for an asker that is no party that can act: everyone holds and
+  never asks, so no read is answered for `:anyone` as if it were somebody."
   [asker]
   (cond
     (nil? asker) [:anyone]
     (= :person (act/party-kind asker)) [asker :anyone :anyone-signed-in]
-    :else [asker]))
+    (act/author-party? asker) [asker]
+    :else []))
 
 (defn- holder-reads
   "The runs of the order by holder that hold every permission which could

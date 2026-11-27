@@ -494,8 +494,16 @@
   what she lent is capped by what she holds at each moment
   (`softland.store.gate.chain/allows-now`).
 
-  To take something away needs what an end needs; to add something needs
-  what a give of what is added needs. A change that does both needs both.
+  To take something away needs what an end needs. To add something needs
+  what a give of what is added, to that holder, in that permission's place,
+  needs: a right is added to a lent permission only in an act under the
+  permission that it is lent from, and to one that stands on its own only
+  in an act under one that stands on its own; the permission covers no
+  more than the act's own; and the act's own lets its author pass on what
+  is added (`may-pass?`). Without the first two a holder would move what a
+  permission for one sitting, or a lent one, allows her into a permission
+  that is good in every sitting, or that outlives the lender. A change
+  that does both needs both.
 
   Not built: a change of what a permission covers, or of its sitting. What
   is lent from it would have to be capped by what it covers at each
@@ -521,11 +529,16 @@
       (and (takes-away? target fact) (not (may-end? act acts-own (:e fact) target rows)))
       :may-not-lower-the-permission
 
-      (let [added (allows-added (:allows says) (:allows target))]
-        (and (seq added) (not (may-pass? (:allows acts-own) added (:holder says)))))
-      :permission-gives-more-than-its-giver-may
-
-      :else nil)))
+      :else
+      (let [added (allows-added (:allows says) (:allows target))
+            lender (:lent-from target)]
+        (cond
+          (empty? added) nil
+          (and lender (not= lender (:id acts-own))) :permission-not-lent-from-the-acts-own
+          (and (nil? lender) (:lent-from (:says acts-own))) :made-under-a-lent-permission-is-lent
+          (not (within-scope? target (:says acts-own))) :permission-covers-more-than-the-acts-own
+          (not (may-pass? (:allows acts-own) added (:holder says))) :permission-gives-more-than-its-giver-may
+          :else nil)))))
 
 (defn- end-fault
   "For a fact with no value under the permission key: the end of the
@@ -606,7 +619,7 @@
   whole lane is handed over in one act, which gives the new owner hers and
   ends the old one's. `rows` holds the count of the owners only when the
   act takes one away and makes none (`places-wanted`); a count that is not
-  there reads as none."
+  there, or that a reader gave as nil, reads as none."
   [act rows]
   (let [ended-here (into #{} (comp (filter end-fact?) (map :e)) (:facts act))
         {:keys [out in]} (owners-moved act rows)]
@@ -619,7 +632,7 @@
             (:facts act))
       :permission-lent-from-one-the-act-ends
 
-      (and (seq out) (empty? in) (<= (long (get rows owners-key 0)) (count out)))
+      (and (seq out) (empty? in) (<= (long (or (get rows owners-key) 0)) (count out)))
       :lane-would-have-no-owner
 
       :else nil)))
@@ -875,12 +888,28 @@
   [declarations-reason]
   (if declarations-reason max-kept-weight-with-no-standing max-kept-weight))
 
+(defn held-through-everyone?
+  "True for an act under a permission whose holder is everyone: its author
+  is no party that the permission names. What must hold: the row at the
+  place of the act's permission is in `rows`."
+  [act rows]
+  (boolean (when-let [k (permission-place act)]
+             (contains? act/everyone (:holder (record/held-permission (get rows k)))))))
+
 (defn kept-bound
   "A sender has standing when the declaration took the thing and `standing`
   gave nil: the act's permission stands and is hers, a holder's who may
-  only see among them, or the act makes its lane or ends only her own."
-  [declarations-reason refused-standing]
-  (if (and (nil? declarations-reason) (nil? refused-standing))
+  only see among them, or the act makes its lane or ends only her own.
+
+  Whoever holds a permission through everyone has that standing only for
+  an act that is taken. A gate checks no sender, so on a lane that is open
+  to everyone any program holds everyone's permission: were a refused act
+  of such a sender kept at the larger bound, anybody could make the task
+  write and hold the bytes of a large thing twice."
+  [declarations-reason refused-standing refused through-everyone?]
+  (if (and (nil? declarations-reason)
+           (nil? refused-standing)
+           (or (nil? refused) (not through-everyone?)))
     max-kept-weight
     max-kept-weight-with-no-standing))
 

@@ -428,6 +428,27 @@
                     (by cal (g 3) (gives (g 1) (says ben owner asha g0)))))
        [:may-not-lower-the-permission :accepted :permission-gives-more-than-its-giver-may
         :accepted :permission-gives-more-than-its-giver-may]]
+      ["a raise is held as a give of what is added: a right is added to a lent permission only under the permission that it is lent from"
+       (fn [] (then (by ben (g 1) (gives (g 2) (says ada {:see true} ben (g 1) :lent-from (g 1))))
+                    (by asha g0 (gives (g 2) (says ada see-write ben (g 1) :lent-from (g 1))))
+                    (by cal (g 3) (gives (g 2) (says ada see-write ben (g 1) :lent-from (g 1))))
+                    (by ben (g 1) (gives (g 2) (says ada see-write ben (g 1) :lent-from (g 1))))))
+       [:accepted :permission-not-lent-from-the-acts-own :permission-not-lent-from-the-acts-own :accepted]]
+      ["a raise under a lent permission adds nothing to a permission that stands on its own: what it added would outlive the lender"
+       (fn [] (then (by asha g0 (gives (g 4) (says dee see asha g0)))
+                    (by asha g0 (gives (g 5) (says bot member asha g0 :lent-from g0)))
+                    (by bot (g 5) (gives (g 4) (says dee member asha g0)))
+                    (by asha g0 (gives (g 6) (says dee member asha g0 :lent-from g0)))
+                    (by dee (g 6) (gives (g 4) (says dee member asha g0)))))
+       [:accepted :accepted :made-under-a-lent-permission-is-lent :accepted :made-under-a-lent-permission-is-lent]]
+      ["a raise under a permission for one sitting adds nothing to a permission that is good in every sitting"
+       (fn [] (then (by asha g0 (gives (g 4) (says dee see asha g0)))
+                    (by asha g0 (gives (g 5) (says dee owner asha g0 :session :sit-7)))
+                    (assoc (by dee (g 5) (gives (g 4) (says dee owner asha g0))) :session :sit-7)
+                    (assoc (by dee (g 5) (gives (g 4) (says dee member asha g0))) :session :sit-7)
+                    (assoc (by dee (g 4) (note :thing-1 "in another sitting")) :session :sit-9)))
+       [:accepted :accepted :permission-covers-more-than-the-acts-own :permission-covers-more-than-the-acts-own
+        :permission-does-not-allow-writing]]
       ["a holder lowers her own: lowering needs what ending needs, and she may end it"
        (fn [] (then (by ben (g 1) (gives (g 1) (says ben see asha g0)))))
        [:accepted]]
@@ -458,6 +479,17 @@
                         (settings asha g0)
                         (settings cal (g 2))))
        [:accepted :accepted :accepted :accepted :only-an-owner-writes-a-setting]]
+      ["owning holds everything over a lane: a permission that allows owning and less than everything is no permission, at a give, at a change and in a making act"
+       (fn [] [(verdicts (by asha g0 (gives (g 1) (says ben {:owner true} asha g0)))
+                         (by asha g0 (gives (g 1) (says ben (dissoc owner :see) asha g0)))
+                         (by asha g0 (gives (g 1) (says ben (assoc owner :give #{:see :write :give}) asha g0)))
+                         (by asha g0 (gives g0 (says asha {:owner true} asha nil))))
+               (:verdicts (played [(by asha nil
+                                       {:e lane :k :softland.store/depot :v :streaming}
+                                       (gives g0 (says asha {:owner true} asha nil)))]))])
+       [[:permission-fact-not-a-permission :permission-fact-not-a-permission
+         :permission-fact-not-a-permission :permission-fact-not-a-permission]
+        [:permission-fact-not-a-permission]]]
       ["an act that would leave a lane with no owner's permission that stands on its own is refused: by an end, and by a change that takes owning away"
        (fn [] (verdicts (by asha g0 (ends g0))
                         (by asha nil (ends g0))
@@ -514,6 +546,10 @@
                          (by ada (g 2) (note :thing-1 "an agent on its own")))
                (sees (after open-to-write) zed) (sees (after open-to-write) nil) (sees (after open-to-write) ada)])
        [[:accepted :accepted :who-not-the-permissions-holder] :yes :may-not-see :may-not-see]]
+      ["everyone holds and never asks: a read for an asker that is everyone, or that is no party, is shown nothing"
+       (fn [] (let [record (after open open-to-write)]
+                [(sees record :anyone-signed-in) (sees record :anyone) (sees record :asha) (sees record zed)]))
+       [:may-not-see :may-not-see :may-not-see :yes]]
       ["everyone holds and never acts: an act whose who is everyone is refused for its form"
        (fn [] (verdicts open-to-write (by :anyone-signed-in (g 2) (note :thing-1 "x")) (by :anyone (g 2) (note :thing-1 "x"))))
        [:accepted :who-not-a-party :who-not-a-party]]
@@ -640,6 +676,35 @@
                (asks-owners? (by ben (g 1) (ends g0) (gives (g 2) (says cal owner ben (g 1)))))
                (asks-owners? (by ben (g 1) (gives (g 2) (says cal member ben (g 1)))))]))
      [true false false]]
+    ["a gate keeps a refused thing at the larger bound only for a sender whom a permission names: on a lane that is open to everyone, a large act that is refused is not kept a second time, and one that is taken is"
+     (fn [] (let [large (fn [who permission]
+                          (apply by who permission
+                                 (for [n (range 6)] (note (keyword (str "thing-" n)) (apply str (repeat 60000 "x"))))))
+                  kept (fn [& makers]
+                         (let [{:keys [record outcomes]} (played (cons making makers))
+                               stamp (:stamp (peek outcomes))]
+                           [(:verdict (peek outcomes)) (contains? (:things record) (record/line-key lane stamp))]))]
+              [(kept (by asha g0 (gives (g 1) (says :anyone see asha g0))) (large zed (g 1)))
+               (kept (by asha g0 (gives (g 1) (says ben see asha g0))) (large ben (g 1)))
+               (kept (by asha g0 (gives (g 1) (says :anyone-signed-in see-write asha g0))) (large zed (g 1)))
+               (kept (large zed (g 9)))]))
+     [[:permission-does-not-allow-writing false]
+      [:permission-does-not-allow-writing true]
+      [:accepted true]
+      [:permission-never-given false]]]
+    ["a count of owners that a reader gives as nothing reads as none, and throws nothing; and a making act that is refused is not said to make its lane"
+     (fn [] (let [record (after)
+                  driven (loop [state (walk/begin :streaming (arrived 99 (by asha g0 (ends g0))))]
+                           (if-let [reads (seq (walk/reads state))]
+                             (recur (walk/resume state (into {} (map (fn [r] [r (when-not (= :owners (first r))
+                                                                                    (memory/read-one record r))]))
+                                                                  reads)))
+                             (walk/outcome state)))
+                  refused-making (:outcome (memory/decide memory/empty-record :streaming
+                                                          (arrived 0 (update-in making [:facts 0] assoc
+                                                                                :replaces [[lane :streaming (UUID. 0 7)] 0]))))]
+              [(:verdict driven) (select-keys refused-making [:verdict :makes?])]))
+     [:lane-would-have-no-owner {:verdict :replaced-fact-not-current :makes? false}]]
     ["a party's kind is read from its id, and everyone is a holder that is no author"
      (fn [] [(mapv act/party-kind [asha ada :run.r1 :system :anyone :anyone-signed-in :asha :person. :softland/person.x "person.x"])
              (mapv act/author-party? [asha ada :system :anyone])
