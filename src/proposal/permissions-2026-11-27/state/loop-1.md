@@ -1,4 +1,4 @@
-status:     READY
+status:     WAITING-ON-WINDOW-C
 commit:     none
 verified:   not run
-next:       Window A: type 'continue' after launching fresh Window B so Loop 1 and Loop 2A run simultaneously
+next:       Window C (/goal): run Loop 1 party + permission pre-cut across test-store/ + 6 callers (zero src-store/ or gate-histories/ edits) in parallel with Window B Loop 2A

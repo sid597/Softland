@@ -1,6 +1,6 @@
 {:track      "permissions-2026-11-27"
  :summary    "Store permissions rebuild (Batches 1-4 unified across Rings 1-3)"
  :status-dir "state"
- :waiting-on "Stage 2 parallel: Window A (Loop 1 pre-cut) || Fresh Window B (Loop 2A Blind Judge)"
- :next       "Paste fresh Window B Loop 2A prompt, then type 'continue' in Window A to run Loop 1 in parallel"
- :notes      "CONTRACT.md (1 page) + ALLOWLIST.md (405 sentences) FROZEN at Loop 0c"}
+ :waiting-on "Stage 2 parallel: Window C (Loop 1 pre-cut) || Fresh Window B (Loop 2A Blind Judge)"
+ :next       "Run Window B (Loop 2A) + Window C (Loop 1) in parallel, then type 'continue' in Orchestrator"
+ :notes      "3-window setup: Orchestrator (this chat) + Window B (Fable) + Window C (Builder / fresh Breaker tabs); Loop 3a caching break gated before Loop 3"}

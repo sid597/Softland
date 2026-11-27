@@ -169,3 +169,12 @@ Must be true:
 - Who owns the base stays as it is today.
 
 Bring back also: a proof for each line.
+
+## Confirmed clarifications (27 November 2026, Loop 0c)
+
+Confirmed by Sid after the cross-family contract audit:
+
+- On a lane where `:anyone` or `:anyone-signed-in` holds a permission (Batch 4), a signed-in person may lend that permission (`:lent-from` naming that permission's id) to an agent or a run under Batch 2, so an agent comes in through its person (item 20, item 19).
+- Under Batch 2 ("whoever holds a give it is lent from"), "holds" means the party named as `:holder` on that permission. Being covered through `:anyone` or `:anyone-signed-in` does not make a visitor the holder of the public permission, so a stranger cannot end another person's agent borrow `:lent-from` it (only the borrow's holder, whoever gave it while what it was given under still stands, or an owner of what it covers may end it).
+- Neither the store nor `runtime/seam` adds an `Auth` `made-by` check on lends (Batch 2's reading of "her own agents" stands as written above).
+- `:softland.store/who-may-read-acts` is left as it is in this build, except that in Batch 3 any owner of the lane writes it (not only the first holder).
