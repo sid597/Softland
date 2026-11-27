@@ -70,8 +70,8 @@ read is kept. Nothing here holds state: who looks at what, and the pushes, are
 the memory of [read_path.clj](../read_path.clj).
 
 The read path is not sign-in, not a network edge, not a view or a screen, and
-not a record of who read what. It is in-process Clojure, and in this build no
-asker uses it but its proof.
+not a record of who read what. It is in-process Clojure, and the runtime asks
+it ([seam.clj](../../../../src-runtime/softland/runtime/seam.clj)).
 
 ## Decisions this build stands on
 
@@ -146,9 +146,9 @@ not see. They are dropped and never handed over. It halves the round trips of
 the commonest read. One predicate in [sources.clj](sources.clj) holds the
 choice; the other answer is that predicate giving false.
 
-**A lane's own rows are one run.** Its depot, who may see it, what it builds on
-and its marked keys sit on the lane's own entity under the store's namespace,
-so one read, or one push, gives the four.
+**A lane's own rows are one run.** Its settings (`setting-keys` of
+[declaration.clj](../door/declaration.clj)) sit on the lane's own entity under
+the store's namespace, so one read, or one push, gives them all.
 
 **Her permission is followed only under "members".** Under "everyone" it shapes
 nothing; when the setting goes to "members" under an open read, the push on her
@@ -333,7 +333,7 @@ at one function, so that the other answer is a small change.
 | The store's own facts in a tool's read | Left out unless the query asks for them; any asker who may see the lane may ask | One function of [answer.clj](answer.clj) |
 | "What points at a thing" through a list of lanes | At a place that an order by value gives, the nearest lane that holds a row wins, and the place is given when the winner's value is the thing. A place is found only through an order | One function of [sources.clj](sources.clj): left out, the runs are joined |
 | One moment for all the lanes of one read | None: the lanes are read at moments that differ | Nowhere here: it would be a query of the store |
-| What a lane starts with | A lane with no setting fact reads as [first_act.clj](../gate/first_act.clj) says | That function; one function of [lanes.clj](lanes.clj) is its one caller here |
+| What a lane starts with | A lane with no setting fact reads as [first_act.clj](../gate/first_act.clj) says | That function; [lanes.clj](lanes.clj) calls it here |
 | One permission for each holder; who may write a setting, a list or a mark | No code here: the read path reads whether the permission at her place stands, and what it allows is no part of that | — |
 | Who asks | What the caller says | The check of a query; sign-in would stand in front of the read path |
 
@@ -375,11 +375,11 @@ over the store, `softland.store.line-statements`.
 wrong: `:not-a-query`, `:part-not-known`, `:asks-no-word-known`,
 `:place-not-named`, `:entity-not-named`, `:run-not-named`,
 `:points-at-not-named`, `:asker-is-no-id`, `:no-one-asker`,
-`:session-is-no-id`, `:run-with-no-asker`,
-`:lanes-not-a-list-of-lanes`, `:from-lane-is-no-lane`,
+`:session-is-no-id`, `:run-with-no-asker`, `:acts-not-named`,
+`:lanes-not-a-list-of-lanes`, `:from-lane-is-no-lane`, `:acts-not-of-one-lane`,
 `:lanes-not-named-one-way`, `:too-many-lanes`, `:part-of-a-row-not-known`,
 `:id-over-the-limit`, `:run-ends-out-of-order`, `:run-end-not-ordered`,
-`:store-key-not-asked-for`. The eight rule names are in
+`:store-key-not-asked-for`. The rule names are in
 [query.clj](query.clj).
 
 **What a call gives.**
@@ -391,7 +391,7 @@ wrong: `:not-a-query`, `:part-not-known`, `:asks-no-word-known`,
 | `:left`, `:not-open` | What `leave` gives |
 | `:lanes`, `:left-out`, with `:lane`, `:why`, `:may-not-see`, `:not-made` | The lanes of an answer, and what it says of a lane that gave nothing |
 | `:place`, `:places`, `:orders`, with `:level-since` and `:not-marked` | The parts of an answer |
-| `:holds`, `:value`, `:lane`, `:fact`, `:stamp`, `:writer`, `:permission` | The parts of a place-answer. `:no-fact`, `:nothing-here`, `:value` and `:not-a-value` under `:holds` are the record's own |
+| `:holds`, `:value`, `:lane`, `:fact`, `:stamp`, `:writer`, `:permission`, `:time` | The parts of a place-answer. `:no-fact`, `:nothing-here`, `:value` and `:not-a-value` under `:holds` are the record's own |
 | `:could-not` | The name under which a result holds one of the read path's own words |
 
 **The read path's ten words.** Each reads after "the read path could not":
