@@ -28,7 +28,7 @@ each thing of a history to the rules.
 - **The rules** ([reference.clj](src/gate_histories/reference.clj)): the
   plainest code that says batches 1 to 4. Each rule of the gate is one entry
   of a table: a word, the sentence in plain words, where the sentence comes
-  from, and the test. `clojure -M:run sentences` prints the 38 sentences.
+  from, and the test. `clojure -M:run sentences` prints the 37 sentences.
   Where the batches say nothing the rule is today's, by batch 1's "everything
   else is as today".
 - **The statement to prove** ([statement.clj](src/gate_histories/statement.clj)):
@@ -91,7 +91,7 @@ It needs Clojure and test.check. It exits 1 when anything is red.
    allowlist, held by a test of the thing and of what stood, not by the two
    answers alone. What today's form cannot say is not sent, and is counted.
 3. **The broken copies of the rules**: 54. The rules with one entry of the
-   table taken out, 28 of them, or one function replaced, 26. Each must be
+   table taken out, 27 of them, or one function replaced, 27. Each must be
    caught by a history.
 4. **The store before the fix with one rule broken**: 12, the list of the
    judge of piece 2. Each must show a difference outside the allowlist's

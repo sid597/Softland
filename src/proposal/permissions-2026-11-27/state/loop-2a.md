@@ -1,5 +1,5 @@
 status:     DONE (Part 1: the gate's rules and the read asked once). Part 2, the live read, waits for Loop 0d
-commit:     25cafbfe+loop2a-part1
+commit:     138fd5a1 and the one after it, which corrects two counts
 verified:   clojure -M:run 2000 <seed> in gate-histories/, seeds 1 to 5, against untouched src-store: exit 0 each. The rules keep the statement to prove; on today's default values the rules and today's store differ only inside 7 reasons of ALLOWLIST.md (70,875 things compared under seed 1, 3,076 differ); 54 of 54 broken copies of the rules caught; 12 of 12 broken stores caught. 20,000 histories under seed 21: the same
 next:       Loop 2B builder: write `:send` and `:sees` of a gate under test over the new kernel (run.clj, `rules-gate` shows the shape) and run `clojure -M:run rules` and `mutants` beside it. Sid: the two cases under "Not shown to Sid", and the nine readings in gate-histories/README.md
 
@@ -19,7 +19,7 @@ No file under `src-store/` or `test-store/` was touched.
 In `src/proposal/runtime-2026-11-21/gate-histories/`, its page the README
 there:
 
-- `reference.clj`: batches 1 to 4 as 38 sentences, each a function or an
+- `reference.clj`: batches 1 to 4 as 37 sentences, each a function or an
   entry of a table with its test. `clojure -M:run sentences` prints them.
 - `statement.clj`: the statement to prove, written a second time as a fold
   of its own over the acts that were taken.
