@@ -1,6 +1,6 @@
 {:track      "permissions-2026-11-27"
  :summary    "Store permissions rebuild (Batches 1-4 unified across Rings 1-3)"
  :status-dir "state"
- :waiting-on "Window B (Fable max: Loop 0b unanchored CONTRACT.md + ALLOWLIST.md)"
- :next       "Window B (Fable max): derive CONTRACT.md (shapes only) + ALLOWLIST.md unanchored, then type 'continue' in Window A"
- :notes      "Loop 0a probe+scan done (zero src-store/test-store edits); Window A frozen pre-Fable draft ready for Loop 0c break"}
+ :waiting-on "Sid (Loop 0c: 3 calls on CONTRACT.md after Window A adversarial break)"
+ :next       "Sid: answer Loop 0c Calls 1-3 + 'go' -> Window A freezes CONTRACT.md/ALLOWLIST.md and launches Loop 1 || Loop 2A"
+ :notes      "Loop 0b (44a0dda1) audited in Loop 0c; 5 real code/Rama/word breaks caught before any src-store/test-store code"}
