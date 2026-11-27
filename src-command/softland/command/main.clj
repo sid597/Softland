@@ -56,7 +56,7 @@
 
   It prints one EDN form, the result. The exit status is 0 when the thing
   was done; 1 for a word that holds `:could-not`; 3 when a gate refused an
-  act; 2 for a command that it does not know."
+  act; 2 for a command that it could not read."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -178,6 +178,34 @@
     (UUID/fromString text)
     (let [[outcome form] (frame/read-one text)]
       (if (and (= :ok outcome) (not (symbol? form))) form text))))
+
+(def ^:private typed
+  "How each command is typed, after the number of its plain arguments:
+  those that are no `--flag value` pair."
+  {"sign-in"        [0 "sign-in [--url address] [--agent name]"]
+   "who"            [0 "who"]
+   "write"          [3 "write e k v; a retract is typed with the value nil"]
+   "read"           [2 "read e k"]
+   "watch"          [2 "watch e k"]
+   "send"           [1 "send file"]
+   "give"           [3 "give who lane see|act"]
+   "invite"         [0 "invite [--email a]"]
+   "agent"          [2 "agent new name [--out file] | agent end uuid"]
+   "under"          [0 "under"]
+   "end-sign-in"    [1 "end-sign-in uuid"]
+   "replace-secret" [0 "replace-secret"]
+   "new-session"    [0 "new-session [--model name]"]
+   "sign-out"       [0 "sign-out"]})
+
+(defn- mistyped
+  "A command that is typed with another number of plain arguments is not
+  run, and nothing is connected for it: it opens no session and replaces no
+  secret. `write e k` with the value left out would be sent as a retract.
+  Nil for a command that `typed` does not hold: `run` names the commands."
+  [command args]
+  (when-let [[takes how] (get typed command)]
+    (when (not= takes (count (:rest (parsed args))))
+      {:could-not :read-the-command :said how})))
 
 ;; ------------------------------------------------------------------ the result
 
@@ -543,7 +571,7 @@
 
 (defn -main
   [& [command & args]]
-  (let [result (try (run command args)
+  (let [result (try (or (mistyped command args) (run command args))
                     (catch Throwable t
                       {:could-not :run-the-command :threw (.getName (class t)) :said (.getMessage t)}))
         status (out! result)]
