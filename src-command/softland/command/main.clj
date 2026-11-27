@@ -44,7 +44,9 @@
   What it keeps. One file, `sign-in.edn` under `$SOFTLAND_HOME` or
   `~/.config/softland`: the runtime's address, the credential, and the id
   of the session that it is in. Who it is and where the person's own lane
-  is come from the runtime's hello each time.
+  is come from the runtime's hello each time. For `send`, a journal beside
+  the file that is sent, `<file>.sent.edn`: who sent each act, the act, and
+  its UUID.
 
   Two commands at once. Each change of the file is made while the command
   holds the file (`with-file-lock`), and is made to what the file holds
@@ -54,9 +56,15 @@
   `new-session`. A run of an agent that wants a session of its own says
   `new-session` first.
 
-  It prints one EDN form, the result. The exit status is 0 when the thing
-  was done; 1 for a word that holds `:could-not`; 3 when a gate refused an
-  act; 2 for a command that it does not know."
+  It prints one EDN form, the result. The exit status is the first of
+  these that holds. 2: the command could not be read. 1: a \"could not\":
+  the result holds `:could-not`, or a result of `send` or the word that a
+  `watch` ended with holds it, or the ask of `sign-in` ran out. 3: a
+  refusal: a gate refused an act, one of `send` too, or she said no to the
+  sign-in. 0: otherwise.
+
+  Three of the words that hold `:could-not` are the command line's own:
+  `:read-the-command`, `:run-the-command` and `:find-a-credential`."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -179,16 +187,47 @@
     (let [[outcome form] (frame/read-one text)]
       (if (and (= :ok outcome) (not (symbol? form))) form text))))
 
+(def ^:private typed
+  "How each command is typed, after the number of its plain arguments:
+  those that are no `--flag value` pair."
+  {"sign-in"        [0 "sign-in [--url address] [--agent name]"]
+   "who"            [0 "who"]
+   "write"          [3 "write e k v; a retract is typed with the value nil"]
+   "read"           [2 "read e k"]
+   "watch"          [2 "watch e k"]
+   "send"           [1 "send file"]
+   "give"           [3 "give who lane see|act"]
+   "invite"         [0 "invite [--email a]"]
+   "agent"          [2 "agent new name [--out file] | agent end uuid"]
+   "under"          [0 "under"]
+   "end-sign-in"    [1 "end-sign-in uuid"]
+   "replace-secret" [0 "replace-secret"]
+   "new-session"    [0 "new-session [--model name]"]
+   "sign-out"       [0 "sign-out"]})
+
+(defn- mistyped
+  "A command that is typed with another number of plain arguments is not
+  run, and nothing is connected for it: it opens no session and replaces no
+  secret. `write e k` with the value left out would be sent as a retract.
+  Nil for a command that `typed` does not hold: `run` names the commands."
+  [command args]
+  (when-let [[takes how] (get typed command)]
+    (when (not= takes (count (:rest (parsed args))))
+      {:could-not :read-the-command :said how})))
+
 ;; ------------------------------------------------------------------ the result
 
 (defn- status-of
+  "A `send` that holds both a \"could not\" and a refusal gives 1: the run
+  did not finish, and the refusal is in what is printed."
   [result]
-  (cond
-    (and (map? result) (:could-not result)) 1
-    (= :refused (get-in result [:answer :answer])) 3
-    (and (map? result) (some (fn [r] (or (:could-not r) (= :refused (get-in r [:answer :answer]))))
-                             (:results result))) 3
-    :else 0))
+  (let [each (cons result (:results result))
+        refused? (fn [r] (= :refused (get-in r [:answer :answer])))]
+    (cond
+      (= :read-the-command (:could-not result)) 2
+      (or (some :could-not each) (:could-not (:ended result)) (= :over (:state result))) 1
+      (or (some refused? each) (= :no (:state result))) 3
+      :else 0)))
 
 (defn- out!
   [result]
@@ -242,7 +281,10 @@
 
 (defn- connect-held
   "`:next-credential` is tried first, so that a replacement whose answer
-  was lost is recovered even after the old secret expires."
+  was lost is recovered even after the old secret expires. The kept
+  credential is tried after it only when the runtime says that the waiting
+  one stands for nobody: the two are of one sign-in, so a session that is
+  not open under one is not open under the other."
   [{:keys [url credential next-credential session]}]
   (if next-credential
     (let [trying (client/connect {:url url :credential next-credential :session session})]
@@ -250,7 +292,7 @@
         (not (:could-not trying))
         {:connection trying :credential next-credential :promoted? true}
 
-        (and (= 401 (:status trying)) credential)
+        (and (= :find-her-sign-in (:could-not trying)) credential)
         (let [fallback (client/connect {:url url :credential credential :session session})]
           (if (:could-not fallback)
             {:error fallback}
@@ -267,11 +309,12 @@
   (let [file (file-of flags)
         {:keys [credential session] :as held} (kept file)]
     (if-not (or credential (:next-credential held))
-      {:could-not :find-the-sign-in :said "This program is not signed in. Run: sign-in"}
+      {:could-not :find-a-credential :said "This program is not signed in. Run: sign-in"}
       (let [{:keys [connection error promoted?] active-cred :credential} (connect-held held)]
         (if error
           (cond-> error
-            (= 401 (:status error)) (assoc :said "The sign-in stands for nobody now, or its session is closed. Run: sign-in"))
+            (= :find-her-sign-in (:could-not error)) (assoc :said "The sign-in stands for nobody now. Run: sign-in")
+            (= :find-her-session (:could-not error)) (assoc :said "The session is not open. Run: new-session"))
           (let [hello (client/hello connection)]
             (try
               (if (:could-not hello)
@@ -378,24 +421,40 @@
 
               :else got)))))))
 
+(defn- journal-of
+  "A UUID belongs to its act and not to the act's place in the file: an act
+  takes the UUID of a kept entry of the same who and the same act that no
+  act before it took in this run, so two equal acts of one file are two
+  acts. Gives {:uuids, in the file's order, :sent, the entries to keep}.
+
+  The `:session` is no part of what makes an act the same: a run that was
+  cut off and is sent again after `new-session` keeps its UUIDs, so the
+  store takes no act twice."
+  [who entries acts make-uuid]
+  (let [sent (first (reduce (fn [[sent free] act]
+                              (let [[entry & others] (get free [who act])]
+                                [(conj sent (or entry {:who who :act act :uuid (make-uuid)}))
+                                 (assoc free [who act] others)]))
+                            [[] (group-by (juxt :who :act) entries)]
+                            acts))]
+    {:uuids (mapv :uuid sent) :sent sent}))
+
 (defn- send-file!
   "The file holds EDN maps, one after another; each is an act without `:who`
-  and `:session`, which are this program's. A UUID is made for each act and
-  kept in `<file>.sent.edn` before anything is sent, so a run that was cut
-  off sends the same acts again under the same UUIDs, and the store takes
-  each once."
+  and `:session`, which are this program's. The UUID of each act is kept in
+  `<file>.sent.edn`, with the act and who sent it, before anything is sent,
+  so a run that was cut off sends the same acts again under the same UUIDs,
+  and the store takes each once."
   [connection hello path]
   (let [file (io/file path)
         acts (with-open [reader (PushbackReader. (io/reader file))]
                (doall (take-while (fn [form] (not= ::end form))
                                   (repeatedly (fn [] (edn/read {:eof ::end} reader))))))
         journal (io/file (str path ".sent.edn"))
-        uuids (let [held (:uuids (kept journal))]
-                (if (= (count held) (count acts))
-                  held
-                  (let [made (vec (repeatedly (count acts) (fn [] (UUID/randomUUID))))]
-                    (keep! journal {:uuids made :session (:session hello)})
-                    made)))]
+        held (vec (:sent (kept journal)))
+        {:keys [uuids sent]} (journal-of (:who hello) held acts (fn [] (UUID/randomUUID)))]
+    (when (not= sent held)
+      (keep! journal {:sent sent}))
     (client/say connection
                 {:word :send-all
                  :acts (mapv (fn [act uuid]
@@ -425,13 +484,13 @@
       "watch"
       (with-line flags
         (fn [connection hello]
-          (let [ended (promise)]
-            (client/watch connection (query-of hello flags (value-of a) (value-of b))
-                          (fn [message]
-                            (println (frame/write message))
-                            (flush)
-                            (when (contains? message :ended) (deliver ended (:ended message)))))
-            {:ended @ended})))
+          (let [ended (promise)
+                sent (client/watch connection (query-of hello flags (value-of a) (value-of b))
+                                   (fn [message]
+                                     (println (frame/write message))
+                                     (flush)
+                                     (when (contains? message :ended) (deliver ended (:ended message)))))]
+            (if (:could-not sent) sent {:ended @ended}))))
 
       "send" (with-line flags (fn [connection hello] (send-file! connection hello a)))
 
@@ -480,7 +539,7 @@
         "end" (with-line flags
                 (fn [connection _hello]
                   (client/say connection {:word :end-agent :agent (value-of b)})))
-        {:could-not :read-the-command :said "agent new name | agent end uuid"})
+        {:could-not :read-the-command :said (second (get typed "agent"))})
 
       "under" (with-line flags (fn [connection _] (client/say connection {:word :under})))
 
@@ -502,7 +561,7 @@
             held (kept file)
             drop-session! (fn [] (update-kept! file (fn [now] (when now (dissoc now :session)))))]
         (if-not (or (:credential held) (:next-credential held))
-          {:could-not :find-the-sign-in :said "This program is not signed in. Run: sign-in"}
+          {:could-not :find-a-credential :said "This program is not signed in. Run: sign-in"}
           (if (contains? flags :model)
             (let [open-word {:word :open-session :driven-by {:kind :model :model (or (:model flags) "")}}
                   open-then-close
@@ -518,7 +577,7 @@
                                 (client/say connection {:word :close-session})
                                 opened))))))
                   opened (let [first-try (open-then-close)]
-                           (if (and (:could-not first-try) (= 401 (:status first-try)))
+                           (if (= :find-her-session (:could-not first-try))
                              (do (drop-session!)
                                  (open-then-close))
                              first-try))]
@@ -531,9 +590,9 @@
                                                   (when (and now (= (:session hello) (:session now)))
                                                     (dissoc now :session))))
                              (client/say connection {:word :close-session})))]
-              (if (and (:could-not closed) (not= 401 (:status closed)))
+              (if (and (:could-not closed) (not= :find-her-session (:could-not closed)))
                 closed
-                (do (when (= 401 (:status closed)) (drop-session!))
+                (do (when (= :find-her-session (:could-not closed)) (drop-session!))
                     (with-line flags (fn [_ hello] hello))))))))
 
       "sign-out" (with-line flags (fn [connection _] (client/say connection {:word :sign-out})))
@@ -543,9 +602,9 @@
 
 (defn -main
   [& [command & args]]
-  (let [result (try (run command args)
+  (let [result (try (or (mistyped command args) (run command args))
                     (catch Throwable t
                       {:could-not :run-the-command :threw (.getName (class t)) :said (.getMessage t)}))
         status (out! result)]
     (shutdown-agents)
-    (System/exit (if (= :read-the-command (:could-not result)) 2 status))))
+    (System/exit status)))

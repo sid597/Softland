@@ -6,9 +6,9 @@
   There is no word for a feature of the product. A new thing that a system
   can do is a new key in a lane, written with `:send` and read with
   `:read`. `:read` and `:watch` name no lane themselves: they carry a
-  query, and what a query can ask grows with the read path. That is how a
-  session's trail will be read by the same two words (the runtime's page,
-  entry 5).
+  query, and what a query can ask grows with the read path. A session's
+  trail would be read by the same two words; that is not designed (the
+  runtime's page, entry 5).
 
   The whole form goes on the wire. An act is the store's own maker's act
   (`softland.store.act`), with its `:who` and its `:session`; a query is
@@ -30,8 +30,8 @@
   that carries a form of the store's: `:act`, `:acts` or `:query`. Of such
   a part the check tests only that it is a plain map. The store judges the
   rest: an act whose form is wrong goes to its depot, and a gate refuses it
-  under its act-id (src-store/README.md, 12 October 2026, entry 7); a query
-  is checked by the read path.
+  under its act-id, as for a maker who may not act (src-store/README.md,
+  12 October 2026, entry 7); a query is checked by the read path.
 
   `check` never throws."
   (:require [softland.store.act :as act]
@@ -333,7 +333,7 @@
    {:says "the text held no one EDN form within the bounds; `:why` is `:too-large`, `:a-token-too-long`, `:not-edn`, `:empty` or `:more-than-one-form`"
     :status 400}
    :read-the-word
-   {:says "the thing is no word of the form; `:why` is the check's reason and `:at` the part"
+   {:says "the thing is no word of the form, or its number is that of a live watch; `:why` is the check's reason and `:at` the part, or, from the line, `:no-number` or `:number-in-use` at `:id`"
     :status 400}
    :find-her-sign-in
    {:says "the word needs a who, or the credential stands for nobody now; `:why` is `:no-credential`, `:not-a-credential`, `:not-known`, `:ended` or `:over`"
@@ -363,7 +363,7 @@
    {:says "Auth refused the thing; `:why` is Auth's word"
     :status 409}
    :take-more
-   {:says "this copy's ration was reached: too many sign-in posts from this address or too many live watches; `:why` is `:sign-in-paced` or `:too-many-watches`"
+   {:says "a limit was reached, and the same thing can be done later; `:why` is `:sign-in-paced`, `:polls-paced`, `:sessions-paced`, `:too-many-watches`, `:too-many-watches-on-a-connection` or `:too-many-waiting`, and `:most` is the limit"
     :status 429}
    :reach-auth
    {:says "a call of Auth threw, or Auth's watch was lost; a read that failed has not said that there is no sign-in"

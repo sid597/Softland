@@ -5,7 +5,7 @@
 | File | Responsibility | State and lifetime |
 |---|---|---|
 | [client.clj](client.clj) | The library: a program's sign-in, the line, a word and its result, a watch. It requires the JDK's HTTP client and the wire's forms. | A connection, in the memory of the process: the socket, the results that are waited for, the watches. |
-| [main.clj](main.clj) | The program: the commands, the one file that it keeps, and its exit status. | The file `sign-in.edn`; for `send`, a file of UUIDs beside the file that is sent. |
+| [main.clj](main.clj) | The program: the commands, the one file that it keeps, and its exit status. | The file `sign-in.edn`; for `send`, a file of the acts that were sent and their UUIDs, beside the file that is sent. |
 
 `main.clj` requires `client.clj`. Neither requires Rama, the runtime or Auth.
 
@@ -20,8 +20,9 @@ Each is a session's, kept and not decided.
   Beside the file it keeps an empty `sign-in.edn.lock`, which a command holds
   while it changes the file, so that two commands at once change it one after
   the other.
-- **A gate's refusal ends with status 3,** so that a script can tell an act
-  that was refused from a command that could not be done.
+- **A refusal ends with status 3,** a gate's of an act or her no to a
+  sign-in, so that a script can tell it from a command that could not be
+  done, which ends with 1.
 - **`send` keeps the UUIDs of a file's acts before it sends any,** so that a
   run that was cut off is sent again as the same acts.
 - **The JVM stops at its first compiler** (`-XX:TieredStopAtLevel=1`, on the

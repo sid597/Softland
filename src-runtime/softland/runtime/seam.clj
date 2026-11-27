@@ -36,8 +36,8 @@
   so a word said twice is one making, and no UUID that a system can pick
   gives the id of a thing that is not its own. The UUID is kept nowhere,
   not by the runtime, not in Auth and in no act, so a derived id cannot be
-  worked back to its root (src-store/README.md, 9 October 2026, entry 1:
-  nothing that is written plain in an act is made from the person). Auth
+  worked back to its root. A person's id says nothing (src-store/README.md,
+  9 October 2026, entry 1), and neither does an id made from it. Auth
   trusts the runtime for that (its spec, \"The client's contract\"): an
   actor's id is the who of its acts, so a system that could choose one
   could become somebody else.

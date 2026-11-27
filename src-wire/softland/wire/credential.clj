@@ -16,10 +16,13 @@
   no secret.
 
   Whoever is signed in makes the secret. A program that asks to be signed
-  in makes its own and sends the runtime its hash, so the secret crosses no
-  wire before her yes; when she has said yes, the program is told the root
-  and the sign-in, and puts the three parts together itself. The runtime
-  makes the secret of a browser's sign-in, and sets it as a cookie.
+  in makes its own and sends the runtime its hash. While it waits for her
+  yes it sends the secret itself with the code: that is how the runtime
+  knows that the program that waits is the one that asked. So the secret
+  is on the wire before her yes, and is as safe as what carries it. When
+  she has said yes, the program is told the root and the sign-in, and puts
+  the three parts together itself. The runtime makes the secret of a
+  browser's sign-in, and sets it as a cookie.
 
   A code is the short text under which a program's sign-in that is under
   way is found: eight characters of an alphabet that leaves out the letters
