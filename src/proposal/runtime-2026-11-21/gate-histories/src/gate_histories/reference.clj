@@ -327,19 +327,19 @@
 (def ^:private left-out-parts
   "The parts of an act that its maker may leave out, with what a part that
   is left out says."
-  {:based-on {} :because-of nil :claimed-when nil :subjects #{}})
+  {:based-on {} :because-of nil})
 
 (defn the-act
   "An act part for part, as the rules compare two acts. Takes a thing as it
   arrived, or an act as its maker made it, or nil. Gives each of its parts
-  but the four that are no part of the act that a give for one exact act
-  names: its act-id, its depot, the time on it, and its permission. A part
+  but the three that are no part of the act that a give for one exact act
+  names: its act-id, the time on it, and its permission. A part
   that its maker left out reads as that part says when it is empty; its
   facts come as a vector, each fact with its four parts, a part left out as
   nil. nil for nil."
   [thing]
   (when thing
-    (-> (merge left-out-parts (dissoc thing :permission :act-id :depot :door-time))
+    (-> (merge left-out-parts (dissoc thing :permission :act-id :door-time))
         (update :facts (fn [facts] (mapv (fn [fact] (merge {:v nil :replaces nil} fact)) facts))))))
 
 (defn as-sent
