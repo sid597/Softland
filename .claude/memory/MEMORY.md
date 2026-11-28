@@ -18,3 +18,5 @@ search it. A new note goes in on his word.
 - [Store proof runs and the shell](reference-store-proof-runs-and-the-shell.md) — before running the store's proofs from the Bash tool: the shell is zsh (an unquoted variable is not split), no source edit while a sequence still has a proof to start, and never open a `raw-` file under a build's `runs/`.
 - [WebGL2 bench headless check](reference-webgl2-bench-headless-check.md) — one command to screenshot or dump a single-file WebGL2 bench headless (SwiftShader works for WebGL2, unlike the WebGPU app).
 - [Desktop browser-harness road](reference-desktop-browser-harness-road.md) — before driving the app for WebGPU runtime receipts: the road that works and the two that fail.
+- [Fable thinks, Opus builds](feedback-fable-thinks-opus-builds.md) — before you hand building or proof runs to a Fable subagent, or run every proof in each subagent: what Sid said on 28 November 2026 about cost.
+- [Subagents in this harness](reference-subagents-in-this-harness.md) — before you orchestrate background subagents: stopping one, where its report lives, briefs as files, what each notification costs, worktrees and the cluster lock.

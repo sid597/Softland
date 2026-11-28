@@ -34,3 +34,11 @@ like that has to be typed outside the paste; a sentence inside a paste that says
 mine" may be a session's. The check above is for a pasted line that drops or narrows something
 his own lines asked for, when he has not said the paste is his. It is not a reason to doubt
 every paste, or to spend a first reply on who typed it.
+
+**28 November 2026: a prompt's premises can be wrong too, not only its scope.** A prompt that a
+session wrote for a cloud run ("This runs in the cloud… the record cannot be reached from there…
+What comes out: three pull requests") was started by Sid on his own machine. There the record
+answered, Clojure was installed, and local `main` was 12 commits ahead of `origin/main`, so the
+three pull requests would have meant a push from his machine, which is his. Two commands showed
+it at the start: `git rev-parse main origin/main`, and one call of the record. The session checked
+his quoted answers with `who`, built on local branches and pushed nothing.
