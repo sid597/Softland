@@ -1,7 +1,8 @@
 (ns softland.runtime.checks
   "The checks of the runtime as a system outside it meets it: over real
   requests to its pages, and over the line with the command line's own
-  client. It requires the client library, the wire's forms and the proofs'
+  client, as a program and, for the words that only she may say there, as
+  her browser. It requires the client library, the wire's forms and the proofs'
   driver, and nothing of the runtime: it is handed addresses.
 
   Two proofs run these same checks. `softland.runtime.proof` starts three
@@ -37,14 +38,15 @@
             [softland.wire.credential :as credential]
             [softland.wire.frame :as frame]
             [softland.wire.proof :refer [check]])
-  (:import [java.net.http WebSocket]
+  (:import [java.net URI]
+           [java.net.http HttpClient WebSocket]
            [java.util UUID]
            [java.util.concurrent CompletableFuture]))
 
 (def short-numbers
   "The seam's numbers of the copy `:c`: a secret lasts six seconds, the
-  secret before it one second, and a session four."
-  {:secret-ms 6000 :previous-ms 1000 :session-ms 4000})
+  secret before it one second, a session four, and an invitation four."
+  {:secret-ms 6000 :previous-ms 1000 :session-ms 4000 :invitation-ms 4000})
 
 ;; ------------------------------------------------------------------- helpers
 
@@ -76,6 +78,22 @@
     (if (:could-not connection)
       connection
       {:line connection :hello (client/hello connection)})))
+
+(defn- browser-line
+  "Opens the line at an address as a browser does, with the cookie and the
+  runtime's own `Origin`: past the library's `connect`, which carries a
+  credential in a header alone, and onto the library's own listener, so
+  that `say` speaks on it. Gives what `line` gives."
+  [url cookie]
+  (let [state (atom {:hello (promise) :next 0 :waits {} :watches {}})
+        socket (.join ^CompletableFuture
+                      (-> (.newWebSocketBuilder (HttpClient/newHttpClient))
+                          (.header "Cookie" (str credential/cookie-name "=" cookie))
+                          (.header "Origin" url)
+                          (.buildAsync (URI/create (str (str/replace url #"^http" "ws") "/line"))
+                                       (#'client/listener state))))
+        connection (client/->Connection socket state)]
+    {:line connection :hello (client/hello connection)}))
 
 (defn- close-line!
   "Closes a line that `line` opened; nothing for one that did not open.
@@ -401,6 +419,98 @@
                                                   (:own-lane (:hello (line a (:credential program) nil)))))
                                               both))]
                        (and (uuid? (first lanes)) (apply = lanes)))))
+
+            ;; ------------------------- her accounts, and an invitation's end
+            ;; Bea is invited by the first person, signs in, and at a browser
+            ;; names herself for a second account, and for a third address
+            ;; whose account never comes. Each step is a word of the wire.
+            (let [bea (account 6 "bea")
+                  work (account 7 "bea-work")
+                  never (account 8 "bea-never")
+                  bea-uuid (UUID/randomUUID)
+                  invited-bea (say me {:word :invite :uuid bea-uuid :claim {:by :email :email (:email bea)}})
+                  bea-in (drive/sign-in a bea)
+                  at-browser (browser-line b (:cookie bea-in))
+                  her-program (let [p (drive/program a "bea's program" (fn [code] (drive/yes a (:cookie bea-in) code {})))]
+                                (line a (:credential p) nil))
+                  from-a-program (say her-program {:word :invite :uuid (UUID/randomUUID) :herself true
+                                                   :claim {:by :email :email (:email work)}})
+                  herself (say at-browser {:word :invite :uuid (UUID/randomUUID) :herself true
+                                           :claim {:by :email :email (:email work)}})
+                  work-in (drive/sign-in a work)
+                  waiting (say at-browser {:word :invite :uuid (UUID/randomUUID) :herself true
+                                           :claim {:by :email :email (:email never)}})
+                  listed (say at-browser {:word :accounts})]
+              (check "Two accounts enter as one person: at a browser she names herself under the address of a second account, and that account then signs in as she; the same word from a program that holds her sign-in is refused, and her accounts are the two, in the order in which they were linked, each with its link."
+                     (and (= (:invited invited-bea) (:person bea-in))
+                          (= :do-that-at-a-browser (:could-not from-a-program))
+                          (= {:invited (:person bea-in)} herself waiting)
+                          (= (:person bea-in) (:person work-in))
+                          (= [[:google (:sub bea)] [:google (:sub work)]] (mapv :account (:accounts listed)))
+                          (every? (comp uuid? :link) (:accounts listed)))
+                     {:from-a-program from-a-program :herself herself :work (dissoc work-in :cookie) :listed listed})
+
+              (let [other (account 9 "not-bea")
+                    again (account 10 "bea-again")
+                    named-anew (say me {:word :invite :uuid bea-uuid :claim {:by :email :email (:email other)}})
+                    other-in (drive/sign-in b other)
+                    said-again (say me {:word :invite :uuid bea-uuid :claim {:by :email :email (:email bea)}})
+                    again-in (drive/sign-in b (assoc again :email (:email bea)))]
+                (check "A person cannot name another person who has entered: the UUID of Bea's invitation under another claim names another person, whose account does not enter as she; and the same word as her invitation again gives its answer and lets in no account of her address that is not hers."
+                       (and (:invited named-anew) (not= (:person bea-in) (:invited named-anew))
+                            (= (:invited named-anew) (:person other-in))
+                            (= invited-bea said-again)
+                            (= 403 (:status again-in)))
+                       [named-anew (dissoc other-in :cookie) said-again (dissoc again-in :body)]))
+
+              (let [cleo (account 11 "cleo")
+                    invited-cleo (say me {:word :invite :uuid (UUID/randomUUID) :claim {:by :email :email (:email cleo)}})
+                    by-another (say at-browser {:word :take-back-invite :claim {:by :email :email (:email cleo)}})
+                    by-inviter (say me {:word :take-back-invite :claim {:by :email :email (:email cleo)}})
+                    once-more (say me {:word :take-back-invite :claim {:by :email :email (:email cleo)}})
+                    cleo-in (drive/sign-in a cleo)]
+                (check "Only whoever invited takes an invitation back: another person is told that no invitation of hers waits under the claim, the inviter takes it back, and then none waits; an invitation that was taken back lets nobody in."
+                       (and (:invited invited-cleo)
+                            (= :find-the-invitation (:could-not by-another))
+                            (= {:taken-back (:invited invited-cleo)} by-inviter)
+                            (= :find-the-invitation (:could-not once-more))
+                            (= 403 (:status cleo-in)))
+                       [by-another by-inviter once-more (dissoc cleo-in :body)]))
+
+              ;; The copy `c` makes invitations that last seconds.
+              (let [dora (account 12 "dora")
+                    at-c (line c (:credential mine) nil)
+                    invited-dora (say at-c {:word :invite :uuid (UUID/randomUUID) :claim {:by :email :email (:email dora)}})
+                    _ (Thread/sleep (+ 500 (long (:invitation-ms short-numbers))))
+                    dora-in (drive/sign-in a dora)]
+                (close-line! at-c)
+                (check "An invitation that is over lets nobody in: the account of its address, signing in after the invitation's end, is turned away."
+                       (and (:invited invited-dora) (= 403 (:status dora-in)))
+                       [invited-dora (dissoc dora-in :body)]))
+
+              (let [[first-link work-link] (:accounts listed)
+                    not-hers (say me {:word :unlink-account :account (:account first-link) :link (:link first-link)})
+                    unlinked (mapv (fn [{:keys [account link]}]
+                                     (say at-browser {:word :unlink-account :account account :link link}))
+                                   [first-link work-link])
+                    taken-back (say at-browser {:word :take-back-invite :claim {:by :email :email (:email never)}})
+                    after (say at-browser {:word :accounts})
+                    never-in (drive/sign-in b never)
+                    anew (say me {:word :invite :uuid (UUID/randomUUID) :claim {:by :email :email (:email bea)}})
+                    bea-again (drive/sign-in b bea)]
+                (check "After she unlinks each of her accounts and takes back the invitation that she named, she has no account, the address of that invitation lets nobody in, and her first address can be invited as another person, as whom her first account then enters; the connection that she unlinked through stays, and nobody else unlinks her account."
+                       (and (= [:take-that :another-persons] [(:could-not not-hers) (:why not-hers)])
+                            (= [{:unlinked (:person bea-in)} {:unlinked (:person bea-in)}] unlinked)
+                            (= {:taken-back (:person bea-in)} taken-back)
+                            (= {:accounts []} after)
+                            (= 403 (:status never-in))
+                            (:invited anew) (not= (:person bea-in) (:invited anew))
+                            (= (:invited anew) (:person bea-again))
+                            (= (:who (:hello at-browser)) (:who (say at-browser {:word :who-am-i}))))
+                       {:not-hers not-hers :unlinked unlinked :taken-back taken-back :after after
+                        :never (dissoc never-in :body) :anew anew :bea-again (dissoc bea-again :cookie)}))
+              (close-line! at-browser)
+              (close-line! her-program))
 
             ;; ------------------------------------------- a secret is replaced
             ;; The times are read from what the copy `c` reports: the end of

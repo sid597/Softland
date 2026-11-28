@@ -18,7 +18,9 @@
 
   Then it holds who may say each word: what the seam answers a visitor, an
   agent and a person, in a session and in none, for each word of the wire's
-  table, against a list that is written out here a second time. And who
+  table, against a list that is written out here a second time. Then the
+  hash by which Auth is handed an email, and that no address is handed it
+  under `:email`. And who
   may end an agent, against a list of actors in which whose ending ends an
   agent is not who made it.
 
@@ -167,6 +169,9 @@
    :open-session   [:find-her-sign-in nil                  nil               nil]
    :close-session  [:find-her-sign-in nil                  :find-her-session nil]
    :invite         [:find-her-sign-in :do-that-as-an-agent nil               nil]
+   :take-back-invite [:find-her-sign-in :do-that-as-an-agent :find-her-session nil]
+   :accounts       [:find-her-sign-in :do-that-as-an-agent :find-her-session nil]
+   :unlink-account [:find-her-sign-in :do-that-as-an-agent :find-her-session nil]
    :make-agent     [:find-her-sign-in nil                  nil               nil]
    :end-agent      [:find-her-sign-in nil                  nil               nil]
    :under          [:find-her-sign-in :do-that-as-an-agent nil               nil]
@@ -184,7 +189,7 @@
                        (keys words/words))
         seam-code (code-of (slurp "src-runtime/softland/runtime/seam.clj"))
         named (fn [f] (count (re-seq (re-pattern (str "(?<![\\w-])" f "(?![\\w-])")) seam-code)))]
-    (check "For each word of the wire's table, the seam answers a visitor, an agent in a session, a person in no session and a person in a session as the list of this proof says: `:find-her-sign-in` for a visitor at each word but `:who-am-i`, `:read`, `:watch` and `:leave`; `:do-that-as-an-agent` for an agent at `:invite`, `:under` and `:end-sign-in`; `:find-her-session` for a caller in no session at `:send`, `:send-all` and `:close-session`."
+    (check "For each word of the wire's table, the seam answers a visitor, an agent in a session, a person in no session and a person in a session as the list of this proof says: `:find-her-sign-in` for a visitor at each word but `:who-am-i`, `:read`, `:watch` and `:leave`; `:do-that-as-an-agent` for an agent at `:invite`, `:take-back-invite`, `:accounts`, `:unlink-account`, `:under` and `:end-sign-in`; `:find-her-session` for a caller in no session at `:send`, `:send-all`, `:close-session`, `:take-back-invite`, `:accounts` and `:unlink-account`."
            (= who-says answered)
            (into {} (remove (fn [[word got]] (= got (get who-says word)))) answered))
     (check "A word that the table does not hold is held back by nothing here: the seam's `call` then says that it does not know the word."
@@ -192,6 +197,17 @@
     (check "The seam holds a word against its caller in one place: each of its three tests of a caller is named twice in its code, where it is defined and in the one function that reads the table, and no word of `call` names one."
            (= [2 2 2] (mapv named ["needs-a-who" "needs-a-session" "needs-the-person"]))
            (mapv named ["needs-a-who" "needs-a-session" "needs-the-person"]))))
+
+(defn- email-checks []
+  (check "Auth is handed an email as its hash, made in one place: SHA-256, in 64 lower-case hex characters, of `softland/email/` and the address lower-cased in the root locale, so one address in other letters gives one hash. The value here was made outside the JVM, with `sha256sum`."
+         (and (= "3ffd44dc74bd01c0d90f733d07c6727eba012689ce82ff1c6ca8eb7a8ae98cb9"
+                 (seam/email-hash "asha@example.com") (seam/email-hash "Asha@EXAMPLE.com"))
+              (not= (seam/email-hash "asha@example.com") (seam/email-hash "asha@example.org")))
+         (seam/email-hash "Asha@EXAMPLE.com"))
+  (let [keyed (fn [file] (re-seq #"(?<!:by |\(= ):email(?![\w-])" (code-of (slurp file))))]
+    (check "No address reaches Auth: in the two files that call Auth's invite, take-back and enter, `:email` is only ever the kind of a claim, never a key that carries an address."
+           (= [nil nil] (mapv keyed ["src-runtime/softland/runtime/sign_in.clj" "src-runtime/softland/runtime/seam.clj"]))
+           (mapv keyed ["src-runtime/softland/runtime/sign_in.clj" "src-runtime/softland/runtime/seam.clj"]))))
 
 (defn- who-ends-an-agent-checks []
   (let [[person a1 a2 a3] (repeatedly 4 #(UUID/randomUUID))
@@ -212,5 +228,6 @@
   (google-checks)
   (source-checks)
   (who-says-checks)
+  (email-checks)
   (who-ends-an-agent-checks)
   (finish))

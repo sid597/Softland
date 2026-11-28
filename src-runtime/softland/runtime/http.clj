@@ -338,8 +338,9 @@
                                         :code-hash (credential/hash-of (get fields "invited"))})]
             (cond
               (= :not-invited (:why person))
-              (page 403 (str "<p>This account has no invitation. Softland takes a new person by invitation: "
-                             "open the link that you were sent, or ask whoever invited you for one.</p>"
+              (page 403 (str "<p>No invitation lets this account in: it has none, or its invitation is over or was "
+                             "taken back. Softland takes a new person by invitation: open the link that you were "
+                             "sent, or ask whoever invited you for a new one.</p>"
                              "<p><a href=\"/\">Back</a></p>"))
 
               (:could-not person)

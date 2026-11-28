@@ -9,8 +9,8 @@
   It starts the cluster, launches the store's module and Auth, opens three
   copies of what a runtime holds (`softland.runtime.main/start`), two with
   the seam's default numbers and one with short times, and serves each. It
-  holds what a store that is not born is told, runs the setup, and then
-  runs the checks that both proofs of the runtime share
+  holds what a store that is not born is told, runs the setup, and a setup
+  whose invitation is over before she comes, and then runs the checks that both proofs of the runtime share
   (`softland.runtime.checks`).
 
   What a pass shows, and what it does not. The copies share nothing but
@@ -23,6 +23,7 @@
   State. It changes nothing outside its process: the cluster is thrown
   away at the end."
   (:require [softland.runtime.checks :as checks]
+            [softland.runtime.drive :as drive]
             [softland.runtime.google-stand-in :as stand-in]
             [softland.runtime.jetty :as jetty]
             [softland.runtime.main :as main]
@@ -68,10 +69,24 @@
                (and (uuid? (:person done)) (= :made (:base done)) (= :accepted (:answer (:gave done)))
                     (true? (sign-in/born? (:the-seam b))))
                done)
-        (check "The setup run again with the same person, through another copy, finds the base made and ends; run with a new person for the same email, it is refused, since the email names the first one for good."
+        (check "The setup run again with the same person, through another copy, finds the base made and ends, and her invitation keeps the end of the first run; run with a new person for the same email, it is refused, since the email names the first one while her invitation waits."
                (and (= (:person done) (:person again)) (= :was-made (:base again))
+                    (= (:ends done) (:ends again)) (< (System/currentTimeMillis) (long (:ends done)))
                     (= :take-that (:could-not other)) (= :claim-in-use (:why other)))
-               [again other]))
+               [done again other]))
+      ;; The copy `c` makes invitations that last seconds, so the setup's
+      ;; own invitation, made through it, is over before the proof ends.
+      (let [owner {:sub "1000009" :email "owner@example.com" :name "Late Owner"}
+            done (sign-in/setup! (:the-seam c) {:email (:email owner)})
+            _ (Thread/sleep (+ 500 (max 0 (- (long (or (:ends done) 0)) (System/currentTimeMillis)))))
+            late (drive/sign-in (:url a) owner)
+            again (sign-in/setup! (:the-seam c) {:email (:email owner) :person (:person done)})
+            in-time (drive/sign-in (:url b) owner)]
+        (check "The first person who comes after the setup's invitation is over is turned away as not invited, and the setup run again with her id invites her anew: she then enters as that id."
+               (and (uuid? (:person done)) (= 403 (:status late))
+                    (= (:person done) (:person again)) (< (long (:ends done)) (long (:ends again)))
+                    (= (:person done) (:person in-time)))
+               [done (dissoc late :body) again (dissoc in-time :cookie)]))
       (checks/run! {:a (:url a) :b (:url b) :c (:url c)
                     :tag "one"
                     :first first-person

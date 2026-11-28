@@ -6,8 +6,9 @@
 
   What sign-in keeps lives in Auth, and the store holds none of it: what
   the provider said of her, her account's number and her email among it, is
-  in Auth, with the link, and in no act. An invitation is a person id that
-  waits for an account.
+  in Auth, with the link, and in no act. Auth is handed the hash of her
+  email and never the address (`softland.runtime.seam/email-hash`). An
+  invitation is a person id that waits for an account until its end.
 
   Auth first, the store second. A first sign-in writes in two modules: the
   link in Auth, and the act that makes her own lane in the store. Auth
@@ -35,7 +36,7 @@
   (:import [java.nio ByteBuffer]
            [java.nio.charset StandardCharsets]
            [java.security MessageDigest]
-           [java.util Locale UUID]))
+           [java.util UUID]))
 
 (def name-key
   "The key under which a person's own id holds the name that she
@@ -122,7 +123,8 @@
 (defn enter!
   "An account that its provider has proven comes in. `:account` is
   [provider subject]; `:says`, what the provider said, a map of texts;
-  `:email`, the address that the provider vouches for, or nil;
+  `:email`, the address that the provider vouches for, or nil, of which
+  Auth is given the hash;
   `:code-hash`, the hash of an invitation's code that came with the
   sign-in, or nil. An account that has no person and proves no claim gets
   `:take-that` with `:why :not-invited`. A person whose lane is marked as
@@ -131,7 +133,7 @@
   (let [client (seam/auth-of the-seam)
         entered (auth/enter client {:account account
                                     :says says
-                                    :email (some-> ^String email (.toLowerCase Locale/ROOT))
+                                    :email-hash (some-> email seam/email-hash)
                                     :code-hash code-hash
                                     :own-lane (UUID/randomUUID)
                                     :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)}
@@ -299,18 +301,35 @@
   the first person's account, as her provider vouches for it; `:person` is
   the id that an earlier run of this call printed, or nil for a new one.
 
-  Auth first: the first person waits under her email; then the base is
-  made, when it is not; then the system gives her a permission in the base,
-  beneath its own, to see and to act. Each step holds when it is done
-  twice. A run that was cut off after the first step is run again with the
-  same `:person`: a new id would be refused, since the claim names the
-  first id for good. Her own lane is made at her first sign-in, as
-  everybody's is."
+  Auth first: the first person waits under her email, until `:ends`, the
+  seam's `:invitation-ms` from now, as every invitation does; then the base
+  is made, when it is not; then the system gives her a permission in the
+  base, beneath its own, to see and to act. Each step holds when it is done
+  twice. A run that was cut off is run again with the same `:person`: while
+  her invitation waits, or once she has entered, a new id is refused
+  `:claim-in-use`, since the claim names the first.
+
+  Each run is a new invite, with an op of its own, so that a run after her
+  invitation is over invites her anew. When she comes late, her sign-in is
+  turned away as one that no invitation lets in, with the page that says
+  so; the owner runs the setup again with `:person` and she has as long
+  again. A run then with no `:person` would make another person, given a
+  permission in the base too, and the first id would stay a holder whom
+  nobody becomes. A run with her id after she has entered lets another
+  account of her address in as her, until its end. Her own lane is made at
+  her first sign-in, as everybody's is.
+
+  Gives `{:person :ends :base :gave}`: `:ends` is the end of the
+  invitation that waits under her email after the run, nil when none does
+  or when the read failed."
   [the-seam {:keys [email person]}]
   (let [client (seam/auth-of the-seam)
         person (or person (UUID/randomUUID))
-        invited (auth/invite client {:person person :claim {:by :email :email (.toLowerCase ^String email Locale/ROOT)}
-                                     :invited-by :system :at (seam/now-ms)})]
+        now (seam/now-ms)
+        ends (+ now (long (:invitation-ms (seam/numbers-of the-seam))))
+        claim {:by :email :hash (seam/email-hash email)}
+        invited (auth/invite client {:person person :claim claim
+                                     :invited-by :system :at now :ends ends :op-id (UUID/randomUUID)})]
     (cond
       (:could-not invited) (words/could-not :reach-auth {:got invited})
       (:refused invited) (words/could-not :take-that {:why (:refused invited) :person person})
@@ -354,5 +373,8 @@
             (if (:could-not given)
               given
               {:person person
+               ;; Not `ends`: a run while her invitation waits changes
+               ;; nothing, and the end that stands is the first run's.
+               :ends (get-in (auth/invitation-of client claim) [:invitation :ends])
                :base (if (= :was-made made) :was-made :made)
                :gave (:answer given)})))))))

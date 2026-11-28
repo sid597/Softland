@@ -28,7 +28,10 @@
     --first-person-email a the email of the first person's account, for
                            `setup`, and for `serve` on the in-process
                            cluster, which is born at each start
-    --person uuid          for `setup`: the id that an earlier run printed
+    --person uuid          for `setup`: the id that an earlier run printed.
+                           Her invitation ends after the seam's
+                           `:invitation-ms`, seven days; when she comes
+                           later, setup run again with it invites her anew
     --trusted-proxy a,b    the addresses of the proxies in front of the
                            runtime whose `X-Forwarded-For` is believed for
                            the pace of sign-ins
@@ -192,8 +195,12 @@
                          (do (close!)
                              (end! 1 (str "The setup did not end: " (pr-str done)
                                           (when (= :claim-in-use (:why done))
-                                            " This email was set up before. If that run was cut off, run setup again with --person and the id that it printed."))))
+                                            " This email names a person who was set up before, whose invitation waits or who has entered. If that run was cut off, run setup again with --person and the id that it printed."))))
                          (println (str "Setup: the first person is " (:person done)
+                                       (when-let [ends (:ends done)]
+                                         (str ". She signs in before " (java.time.Instant/ofEpochMilli (long ends))
+                                              "; later, her sign-in is turned away as not invited, and this command, run again with --person "
+                                              (:person done) ", invites her anew"))
                                        ". If this command was cut off, run it again with --person " (:person done)
                                        ". The base: " (name (:base done)) ". Her permission in it: "
                                        (pr-str (:gave done)) ".")))))]

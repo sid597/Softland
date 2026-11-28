@@ -90,7 +90,10 @@
               :sign-out {:word :sign-out}
               :open-session {:word :open-session :driven-by {:kind :person}}
               :close-session {:word :close-session}
-              :invite {:word :invite :uuid uuid :claim {:by :email :email "asha@example.com"}}
+              :invite {:word :invite :uuid uuid :claim {:by :email :email "asha@example.com"} :herself false}
+              :take-back-invite {:word :take-back-invite :claim {:by :code :hash a-hash}}
+              :accounts {:word :accounts}
+              :unlink-account {:word :unlink-account :account [:google "1082"] :link uuid}
               :make-agent {:word :make-agent :uuid uuid :label "importer" :hash a-hash}
               :end-agent {:word :end-agent :agent uuid}
               :under {:word :under}
@@ -140,6 +143,22 @@
                                        (refused (assoc (:invite each) :claim claim))))
                         [{:by :phone :phone "1"} {:by :email :email "a@b" :more 1}
                          {:by :email :email "nobody"} {:by :code :hash "abc"}])))
+    (check "An invitation names the caller herself only with `:herself true`, which is a yes or a no; left out, it is no; and a take-back names its claim in the invitation's own form."
+           (and (nil? (:herself (:ok (words/check (dissoc (:invite each) :herself)))))
+                (true? (:herself (:ok (words/check (assoc (:invite each) :herself true)))))
+                (= {:refuse :herself-is-no-yes :at :herself} (refused (assoc (:invite each) :herself :yes)))
+                (= {:refuse :claim-not-given :at :claim} (refused (dissoc (:take-back-invite each) :claim)))
+                (= {:refuse :claim-has-no-form :at :claim}
+                   (refused (assoc (:take-back-invite each) :claim {:by :email :email "nobody"}))))
+           [(words/check (assoc (:invite each) :herself :yes)) (words/check (dissoc (:take-back-invite each) :claim))])
+    (check "An account is unlinked by its [provider subject] and its link: a provider that is no keyword, a subject that is no text or is too long, a vector of another length, and a link that is no UUID or is left out are turned away at their parts."
+           (and (every? (fn [account] (= {:refuse :account-has-no-form :at :account}
+                                         (refused (assoc (:unlink-account each) :account account))))
+                        [["google" "1082"] [:google 1082] [:google ""] [:google (apply str (repeat (inc words/max-text) "x"))]
+                         [:google] [:google "1082" "more"]])
+                (= {:refuse :link-is-no-uuid :at :link} (refused (assoc (:unlink-account each) :link "one")))
+                (= {:refuse :link-not-named :at :link} (refused (dissoc (:unlink-account each) :link))))
+           (mapv (fn [account] (refused (assoc (:unlink-account each) :account account))) [["google" "1082"] [:google 1082]]))
     (check "An :open-session word takes {:kind :person}, {:kind :model :model text} up to 256 characters, or no :driven-by, and turns away any other :driven-by."
            (and (= {:ok {:word :open-session :driven-by nil}} (words/check {:word :open-session}))
                 (= {:ok {:word :open-session :driven-by nil}} (words/check {:word :open-session :driven-by nil}))
@@ -160,6 +179,9 @@
                                   (words/check (dissoc (:send each) :act-id))
                                   (words/check (assoc (:replace-secret each) :hash "abc"))
                                   (words/check (assoc (:invite each) :claim {:by :phone}))
+                                  (words/check (assoc (:invite each) :herself 1))
+                                  (words/check (assoc (:unlink-account each) :account [:google]))
+                                  (words/check (dissoc (:unlink-account each) :link))
                                   (words/check {:word :send-all :acts []})])))
     (check "A word of the runtime's own is made only when it is declared, and each has what it says and a status."
            (and (= {:could-not :find-her-sign-in :why :over} (words/could-not :find-her-sign-in {:why :over}))
