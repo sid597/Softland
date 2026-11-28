@@ -12,7 +12,7 @@ call. It reads no clock, opens no cluster and requires nothing outside Clojure.
 |---|---|---|
 | [reference.clj](reference.clj) | The twelve writes as a pure state machine, the pure reads of a state, a thing that stands for a cluster in which Auth is launched under the names it is given, and the eighteen functions of the contract, `open` among them, so that a program can stand on it. | The atoms of a cluster, in memory, one for each name: the state, the watches, which clients are closed. Every client opened under one name shares its atom, as copies of the runtime share one Auth. |
 | [reference_proof.clj](reference_proof.clj) | The checks of the reference: by cases, by generated histories, by broken copies. | None outside its process. |
-| [histories.clj](histories.clj) | The generator of the histories that both checks send: random sequences of calls made to meet the state often, with repeats, inputs that do not fit, and a clock that now and then goes back. | None: a world is a value, with a random source of its own. |
+| [histories.clj](histories.clj) | The generator of the histories that both checks send: random sequences of calls made to meet the state often, with repeats, inputs that do not fit, a clock that now and then goes back, and now and then one write from a clock far ahead. | None: a world is a value, with a random source of its own. |
 | [module_check.clj](module_check.clj) | The run that holds a module against the reference through the contract alone: every result, every read and what every watch came to, compared call by call. | It writes to the module that it is given. Run on the reference, nothing outside its process. |
 | [module_harness.clj](module_harness.clj) | The launcher of the real module that `module_check.clj` is given (`launch-module`), and the checks of the module that the contract cannot show: `:says` as stored, the slices of the build with carbon's concurrent scenarios, a watch's `:not-reached`, a proxy that opens after its wait (`late-open`), a partial outage (`partial-outage`), a depot record that does not have the client's form (`unfit-record`), and that the plan of `end-actor` follows whose ending ends an agent and not who made it (`ends-with`, which needs no cluster). | It launches in-process clusters and writes to them. |
 | [full_life_measure.clj](full_life_measure.clj) | The measures of the real module at full life: what a `who-is` reads, writes under 20,000 watched roots, a heavy `end-actor`, an `end-actor` over a long ended history, and that no person's calls go through a shared task. | It launches in-process clusters and writes to them. |
@@ -77,7 +77,7 @@ other. After it the run makes `under`, and `who-is` of each of the history's
 sign-ins and sessions, for every root that the write could change, and
 `ask-of` of each of its codes after an ask or an answer. It compares each
 result and each read with the reference's, and what each watch came to with
-what is live under its root in the reference. It reads nothing of the module
+what is watched under its root in the reference. It reads nothing of the module
 but what the eighteen functions give.
 
 What a real module needs of it, and what the run does:

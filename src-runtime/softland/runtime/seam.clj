@@ -826,7 +826,10 @@
 
 (defn- seems-gone?
   "`until` is the end that is held for her sign-in, and `value` what Auth
-  pushed as live under her root. True is a reason to read, and no judgment."
+  pushed as watched under her root. True is a reason to read, and no
+  judgment: a sign-in or a session that the value does not hold has not
+  ended for that, and it stays true at each push for as long as the value
+  does not hold her, so each push is then a read."
   [^Caller caller until value]
   (let [sign-in (get-in value [:sign-ins (.-sign-in caller)])]
     (or (nil? sign-in)
@@ -842,9 +845,13 @@
 
   It listens for her root first and reads Auth after, so no change falls
   between the two. A push that does not show her as she is held is only a
-  reason to read, since a push can be behind a write: the read decides. A
-  read also comes when the time of her secret or of her session comes near,
-  and it moves the session's time on when that is due. A secret that was
+  reason to read: a push can be behind a write, and what Auth watches under
+  her root is thinned by the clock of whichever copy wrote last, so she can
+  stand and not be in it. The read decides: a sign-in or a session that
+  someone ended is over for good; one that nobody ended is held against
+  this copy's clock, and stands until its time passes here. A read also
+  comes when the time of her secret or of her session comes near, and it
+  moves the session's time on when that is due. A secret that was
   replaced moves the sign-in's end; a session is never ended by that.
 
   When Auth's watch of her root is lost, the flow ends with `:reach-auth`

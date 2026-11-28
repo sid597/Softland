@@ -79,8 +79,11 @@ Each is a session's, kept and not decided.
 - **A browser's sign-in is taken from a cookie alone, a program's from a
   header alone,** and Auth holds which a sign-in is.
 - **A push is a signal, and a read decides.** What Auth pushes can be behind a
-  write, so nothing is ended on a push alone, but when the watch itself is
-  lost.
+  write, and it is thinned by the clock of whichever copy wrote last under
+  the root, so a thing that is not in it has not ended for that. Nothing is
+  ended on a push alone, but when the watch itself is lost: a read says
+  whether someone ended the thing, and its time is held against this copy's
+  clock.
 - **Ids are made or derived here.** No system chooses the id of a person, an
   actor, a sign-in or a session.
 - **Words are done one at a time for a connection,** in the order in which

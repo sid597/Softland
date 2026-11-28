@@ -3,7 +3,9 @@
   sequences of calls of the twelve writes, made to meet the state often,
   with repeats of calls that were taken, inputs that do not fit, and a
   clock that moves on and now and then goes back, as a slower copy of the
-  runtime would. Two checks use it: the reference's proof
+  runtime would; and now and then one write whose `:at` is far ahead, as a
+  copy whose clock is wrong would send it, after which the clock is where
+  it was. Two checks use it: the reference's proof
   (`softland.auth.reference-proof`), which holds each step against rules of
   its own, and the run that holds a module against the reference
   (`softland.auth.module-check`).
@@ -117,10 +119,11 @@
   (vec (sort (keys (get-in state [:roots P :sessions])))))
 
 (defn live-sign-ins-of
-  "The sign-ins of the root `P` that are live in the state and whose time is
-  after `now`, so that a call at `now` finds them live."
+  "The sign-ins of the root `P` that nobody ended and whose time is after
+  `now`, so that a call at `now` finds them live, watched or not."
   [state P now]
-  (vec (sort (keep (fn [[G g]] (when (< now (:until g)) G)) (:sign-ins (r/live-under state P))))))
+  (vec (sort (keep (fn [[G g]] (when (and (not (:ended? g)) (< now (:until g))) G))
+                   (get-in state [:roots P :sign-ins])))))
 
 (defn a-root
   "A root for a call: mostly a person who has entered."
@@ -206,7 +209,9 @@
                                      :label (pick rnd ["importer" "runner"]) :at now}]])
       :end-actor (let [P (a-root w state)
                        agents (agents-of state P)
-                       signed-in (vec (sort (disj (into #{} (map :actor) (vals (:sign-ins (r/live-under state P)))) P)))]
+                       signed-in (vec (sort (disj (into #{} (keep (fn [g] (when-not (:ended? g) (:actor g))))
+                                                         (vals (get-in state [:roots P :sign-ins])))
+                                                   P)))]
                    [w [:end-actor {:root P
                                    :actor (cond (chance? rnd 0.08) P
                                                 (and (seq signed-in) (chance? rnd 0.5)) (pick rnd signed-in)
@@ -222,7 +227,8 @@
                                           2 (assoc input :driven-by {:kind :person})
                                           (assoc input :driven-by {:kind :model :model (pick rnd ["claude-opus-5-5" "a-small-model"])}))]])
       :close-session (let [P (a-root w state)
-                           open (vec (sort (keys (:sessions (r/live-under state P)))))]
+                           open (vec (sort (keep (fn [[S s]] (when-not (:closed? s) S))
+                                                 (get-in state [:roots P :sessions]))))]
                        [w [:close-session {:root P
                                            :session (if (and (seq open) (chance? rnd 0.7))
                                                       (pick rnd open)
@@ -378,11 +384,23 @@
                   (pick rnd [nil 7 "a write" [input] (seq input) (dissoc (into (sorted-map) input) :at)])))]
     [w kind input]))
 
+(def far-ahead
+  "How far ahead the clock of a copy that is wrong is: past every end that
+  a history gives a thing."
+  1000000)
+
+(defn from-a-clock-far-ahead
+  "The call, now and then with its `:at` far ahead of the world's now."
+  [w [kind input :as call]]
+  (if (and (map? input) (contains? input :at) (chance? (:rnd w) 0.04))
+    [kind (assoc input :at (+ (:now w) far-ahead))]
+    call))
+
 (defn next-call
   "The next call of a history: moves the clock, then makes a repeat of a
-  taken call, a call that does not fit, or a call that fits. Gives the
-  world, the call, and what the history knows of it: whether it fits, and
-  of which taken call it is a repeat."
+  taken call, a call that does not fit, or a call that fits, now and then
+  from a clock far ahead. Gives the world, the call, and what the history
+  knows of it: whether it fits, and of which taken call it is a repeat."
   [w state]
   (let [w (tick w)
         rnd (:rnd w)
@@ -395,4 +413,4 @@
                          (pick rnd [:invite :enter])
                          (pick rnd weighted-kinds))
                   [w call] (make-call w state kind)]
-              [w call {:fits? true}]))))
+              [w (from-a-clock-far-ahead w call) {:fits? true}]))))

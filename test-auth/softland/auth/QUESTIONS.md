@@ -16,6 +16,10 @@ two rules: what fits, and that a repeat's result comes from what stands, never
 from a memory of calls. The others are his to turn. Question 28 is new: what in
 the reference's state grows with the number of calls.
 
+**28 November 2026.** Sid's yes to three changes of what Auth stores (the
+spec's note of that day) turns questions 9, 10 and 17, each of which says so
+under it, and adds 30 to 34, which are a session's readings and his to turn.
+
 ## Forms
 
 **1. A part that is left out, and a part that the contract does not name.**
@@ -204,7 +208,12 @@ reads then give.
   has ended, or the session is closed.
 - (b) It is kept as not ended, and is only left out of what is live.
 
-The reference takes (a).
+The reference took (a).
+
+**Turned on 28 November, to (b),** by Sid's yes that a time which passes ends
+nothing: the thing is taken with its time, is not watched, and is not ended
+or closed. An ask so made is still over from its making (19): an ask is not
+part of that change.
 
 **10. A replacement whose new end is at or before its own `:at`.** These bear on
 it:
@@ -236,8 +245,18 @@ replacement: the sessions close because their sign-in's time passed, as by
 `end-sign-in`, and not because its secret was replaced. The checks of both
 sentences say so.
 
-**Stands as taken, by Sid's call of 22 November, and stays his to turn.** The
-spec now says it at replace-secret.
+**Stood as taken, by Sid's call of 22 November.** The spec said it at
+replace-secret.
+
+**Turned on 28 November,** by Sid's yes that a time which passes ends
+nothing. The replacement is taken; the sign-in has that `:until`, is not
+watched, and is not ended; its sessions are not closed, and the standing of
+each follows the sign-in's at each read. It differs from (b) in one thing:
+the sign-in leaves what is watched at once, since its time is at or before
+the `:at` of its root's latest write, so the "bounded" sentence and the rule
+of the generated histories still hold. A later replacement whose `:at` is
+before that `:until`, from a copy whose clock is behind, is taken. "No
+session changes" now holds of every replacement.
 
 **11. A replacement that arrives after a newer one, when its sign-in is no longer
 live.** "A replacement that arrives after a newer one is no repeat, and is
@@ -320,8 +339,18 @@ said of the sign-in, which may still be live. What follows for the runtime: one
 that keeps a session in use by calling `open-session` again reads `{:open S}`
 for a session that has closed. Only `who-is` tells it so.
 
-**Stands as taken, by Sid's call of 22 November, and stays his to turn.** The
-spec now says it at open-session.
+**Stood as taken, by Sid's call of 22 November.** The spec said it at
+open-session.
+
+**Turned in part on 28 November.** (a) stands for a session that someone
+closed: the repeat gives `{:open S}` and the session stays closed. A session
+whose time passed is no longer closed for that, so the question's second
+half has a new reading: the repeat gives `{:open S}`; it does not move the
+session on when the session's time, or its sign-in's, has passed at the
+repeat's own `:at`, and it closes nothing; the same repeat with an `:at`
+before both times moves the session on, and the session is then watched
+again. What followed for the runtime still follows: only `who-is` tells it
+how the session stands.
 
 **18. `under` and `live-under` of a root that is no person.** Nothing is said. The
 reference gives no agents, no sign-ins and no sessions.
@@ -339,6 +368,46 @@ other write, so no history holds an agent whose two parts differ; the check of
 `end-actor` that tells them apart makes its state by hand. The bound of 32
 stays on who made whom (15). Nothing in the reference takes the two to be
 equal.
+
+**32. What an end does to what is not watched.** Since 28 November a sign-in
+or a session that nobody ended can be out of what is watched. "The sign-in
+ends, and every session under it is closed." "The agent ends ... and every
+sign-in and session of each." Neither says whether that holds of a thing
+that is not watched.
+
+- (a) It holds of every one: `who-is` says `:ended?` of each sign-in of an
+  ended actor and `:closed?` of each session of an ended sign-in; a write
+  that needs such a sign-in live is `:not-live`; ending or closing it again
+  changes nothing.
+- (b) It holds of the watched ones, and the others stay as they were.
+
+The reference takes (a): under (b) an end would be taken back by a clock.
+What it costs a module that finds the things of an actor in what is watched
+is its own; the spec says what this build's module does.
+
+**33. What `:ends` counts.** "A count of the ends written under the root."
+
+- (a) The writes that ended or closed something: an `end-actor` that ends
+  three agents, five sign-ins and nine sessions counts one.
+- (b) The things that ended.
+
+The reference takes (a). The count is there so that every end is a call of a
+watch's function, and one write is one call. A repeat of an end, and an end
+of a thing that has ended with one above it, count nothing.
+
+**34. Whether a session leaves what is watched with its sign-in.** Until 28
+November a sign-in whose time passed took its sessions out with it, whatever
+their own time.
+
+- (a) Each thing leaves by its own time: a session stays watched while its
+  sign-in is not.
+- (b) A session leaves with its sign-in, and is watched only while its
+  sign-in is.
+
+The reference takes (a), which changes less at a write: what is watched says
+nothing of standing any more, so nothing rests on the two agreeing, and a
+watcher that holds a thing which the value does not hold reads `who-is`
+either way.
 
 ## Asks
 

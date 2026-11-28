@@ -23,13 +23,13 @@
   `under`, of their own and, after each write, of every root that the write
   could change; and watches, registered with `watch-root` and stopped. After
   each step it compares the module's result with the reference's, each read
-  with the reference's read, and what each watch came to with what is live
-  under its root in the reference. It reads nothing of the module but what
+  with the reference's read, and what each watch came to with what is
+  watched under its root in the reference. It reads nothing of the module but what
   the eighteen functions give.
 
   What a real module needs of it:
   - A watch's calls come later, on another thread. After a write that
-    changed what is live under a watched root, the run waits, a bound at
+    changed what is watched under a watched root, the run waits, a bound at
     most, until the watch has come to the reference's value. It compares
     what the watch came to, not the values that it passed through.
   - A `{:could-not ...}` from a write, but `:read-the-event`, says nothing of
@@ -44,7 +44,7 @@
     else has written to.
   - A watch that says `:softland.auth.client/not-reached`, or is called after
     it, is a difference: the contract lets a process say so when it can no
-    longer say what is live, and in a run on one machine nothing is lost.
+    longer say what is watched, and in a run on one machine nothing is lost.
   - A quarter of the histories hold a deep segment: 32 agents in a line under
     one root, one more under the deepest, which is `:too-deep`, and a sign-in
     for the deepest. The histories go on with those agents among the rest.
@@ -408,7 +408,7 @@
                        (hs/pick rnd [:invite :enter])
                        (hs/pick rnd hs/weighted-kinds))
                 [w call] (hs/make-call w state kind)]
-            [w {:op :write :call call}]))))))
+            [w {:op :write :call (hs/from-a-clock-far-ahead w call)}]))))))
 
 (defn- follow-ups
   "Steps that a write calls for next, as the runtime sends them, so that two

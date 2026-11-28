@@ -2,10 +2,11 @@
   "STEP 4 full-life cluster measurements for `softland.auth.module/Auth` and
   `softland.auth.client`, run on live Rama 1.6.0 `InProcessCluster`s:
 
-    1. `who-is` is one round trip to one task, its seeks match the 2-seek
-       fast path (`1` seek for `S=nil`, `2` seeks for `S!=nil` live, `3` seeks
-       for ended agent `S!=nil`), and neither seek count nor latency grows
-       between 10 and 10,000 closed historical sessions.
+    1. `who-is` is one round trip to one task, its seeks are `1` for a
+       person's sign-in with `S=nil`, `2` with a session of that sign-in, and
+       one more for an agent's sign-in, live or ended, whose actor's record
+       is read (`3` with a session), and neither seek count nor latency grows
+       between 10 and 10,000 historical sessions.
     2. 20,000 distinct roots are watched simultaneously on ONE task (testing
        `pstate.proxy.limit = 20000` on `$$live`), with live updates delivered
        while all 20,000 proxies are open; and what a write under another root
@@ -109,9 +110,11 @@
 (defn- trace-who-is-seeks
   "Evaluates the exact conditional seek guards of `module.clj`'s `\"who-is\"`
   query topology (`s/signin-fast-path?`, `s/root-entered?`, `some?`,
-  `s/need-actor-seek?`) against the live `$$root-data` PState of `Auth` on
-  `ipc`, returning exact per-key seek counts and verifying the result matches
-  `(client/who-is c query)` verbatim."
+  `s/signin-agent`, `s/other-signin-of-session`) against the live
+  `$$root-data` PState of `Auth` on `ipc`, returning exact per-key seek
+  counts and verifying the result matches `(client/who-is c query)`
+  verbatim. `:g` and `:a` count the reads of the session's own sign-in and
+  its agent too, when that sign-in is another than the one asked for."
   [ipc mod-name c {:keys [root sign-in session] :as query}]
   (let [p-rd (rama/foreign-pstate ipc mod-name "$$root-data")
         sel! (fn [k] (rama/foreign-select-one [(com.rpl.rama.path/keypath k)] p-rd {:pkey root}))
@@ -122,9 +125,13 @@
         entered? (or fast? (s/root-entered? r))
         sess (when (and entered? (some? session))
                (swap! s-cnt inc) (sel! (s/k-session root session)))
-        arec (when (and entered? (s/need-actor-seek? root sig))
-               (swap! a-cnt inc) (sel! (s/k-actor root (s/signin-actor sig))))
-        traced-res (s/build-who-is-result root sig r sess arec)
+        agent-rec (fn [g] (when-let [agent (s/signin-agent root g)]
+                            (swap! a-cnt inc) (sel! (s/k-actor root agent))))
+        arec (when entered? (agent-rec sig))
+        other (s/other-signin-of-session sess sign-in)
+        sess-sig (if other (do (swap! g-cnt inc) (sel! (s/k-signin root other))) sig)
+        sess-arec (if other (agent-rec sess-sig) arec)
+        traced-res (s/build-who-is-result root sig r sess arec sess-sig sess-arec)
         live-res (client/who-is c query)
         seeks {:g @g-cnt :r @r-cnt :s @s-cnt :a @a-cnt}]
     {:matches-live? (= traced-res live-res)
@@ -179,7 +186,14 @@
             _ (client/open-session c {:root P :sign-in G-end :session S-end :until 1000000
                                       :driven-by {:kind :model :model "m"} :at 46})
             _ (client/end-actor c {:root P :actor A-end :at 50})
-            ;; Seed 10 closed historical sessions
+            A-live (UUID/randomUUID)
+            G-agent (UUID/randomUUID)
+            S-agent (UUID/randomUUID)
+            _ (client/make-actor c {:root P :actor A-live :made-by P :label "live-ag" :at 51})
+            _ (client/begin-sign-in c {:root P :actor A-live :sign-in G-agent :kind :program :hash (h-of 3)
+                                       :until 1000000 :label "live-ag-g" :at 52})
+            _ (client/open-session c {:root P :sign-in G-agent :session S-agent :until 1000000 :at 53})
+            ;; Seed 10 historical sessions whose time had passed at their opening
             _ (doseq [i (range 10)]
                 (client/open-session c {:root P :sign-in G-live :session (UUID/randomUUID)
                                         :until 50 :at (+ 60 i)}))
@@ -187,6 +201,8 @@
             q-conn    {:root P :sign-in G-live :session nil}
             q-end-s   {:root P :sign-in G-end  :session S-end}
             q-end-nil {:root P :sign-in G-end  :session nil}
+            q-agent   {:root P :sign-in G-agent :session S-agent}
+            q-other   {:root P :sign-in G-live :session S-agent}
             q-unknown {:root (UUID/randomUUID) :sign-in G-live :session S-live}
             ;; Warmup + small-history latency (200 calls)
             _ (dotimes [_ 50] (client/who-is c q-http))
@@ -194,6 +210,8 @@
                          :conn (trace-who-is-seeks ipc mod-name c q-conn)
                          :ended-agent-with-s (trace-who-is-seeks ipc mod-name c q-end-s)
                          :ended-agent-no-s (trace-who-is-seeks ipc mod-name c q-end-nil)
+                         :live-agent-with-s (trace-who-is-seeks ipc mod-name c q-agent)
+                         :session-of-another-sign-in (trace-who-is-seeks ipc mod-name c q-other)
                          :unknown-root (trace-who-is-seeks ipc mod-name c q-unknown)}
             small-ms (mapv (fn [_] (second (time-ms #(client/who-is c q-http)))) (range 200))
             ;; Now grow history to 10,000 closed sessions + 500 ended sign-ins + 100 ended agents!
@@ -219,6 +237,8 @@
                          :conn (trace-who-is-seeks ipc mod-name c q-conn)
                          :ended-agent-with-s (trace-who-is-seeks ipc mod-name c q-end-s)
                          :ended-agent-no-s (trace-who-is-seeks ipc mod-name c q-end-nil)
+                         :live-agent-with-s (trace-who-is-seeks ipc mod-name c q-agent)
+                         :session-of-another-sign-in (trace-who-is-seeks ipc mod-name c q-other)
                          :unknown-root (trace-who-is-seeks ipc mod-name c q-unknown)}
             large-ms (mapv (fn [_] (second (time-ms #(client/who-is c q-http)))) (range 200))
             _ (client/close! c)
@@ -232,6 +252,9 @@
                            (= 1 (get-in small-seeks [:conn :total]))
                            (= 3 (get-in small-seeks [:ended-agent-with-s :total]))
                            (= 2 (get-in small-seeks [:ended-agent-no-s :total]))
+                           (= 3 (get-in small-seeks [:live-agent-with-s :total]))
+                           ;; g, s, then the session's own sign-in and its agent
+                           (= 4 (get-in small-seeks [:session-of-another-sign-in :total]))
                            (= 2 (get-in small-seeks [:unknown-root :total]))
                            (= (into {} (map (fn [[k v]] [k (:seeks v)]) small-seeks))
                               (into {} (map (fn [[k v]] [k (:seeks v)]) large-seeks))))

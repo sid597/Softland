@@ -10,7 +10,7 @@
     gives `[state' result]`, where a call is `[:invite {...}]`,
     `[:enter {...}]` and so on. `empty-state` is where it starts.
   - The pure reads of a state: `who-is`, `ask-of`, `under`, and
-    `live-under`, which is what is live under a root: the value that
+    `live-under`, which is what is watched under a root: the value that
     `watch-root` hands to its function.
   - `cluster`, a thing that stands for a cluster in which Auth is launched
     under the names that it is given; and the eighteen functions of the
@@ -30,10 +30,11 @@
                          :agent-order [agent ...]
                          :sign-ins {sign-in {:actor :kind :hash :first-hash
                                              :until :previous :label :begun
-                                             :ended?}}
+                                             :ended? :watched?}}
                          :sign-in-order [sign-in ...]
                          :sessions {session {:sign-in :until :driven-by
-                                             :opened-at :closed?}}}
+                                             :opened-at :closed? :watched?}}
+                         :ends n}
     :asks     code -> {:hash :asking-hash :asks :ends :asked-at
                        :over-when-made? :state :answer}
 
@@ -50,15 +51,26 @@
 
   Approach. `step` reads the form of the call first: an input that does
   not fit gives `{:could-not :read-the-event}` and the state as it was. A
-  write that names a `:root` then takes out of what is live under that root
-  whatever has passed at its `:at` (`take-out`), however it is judged after.
-  Then the write is judged: a repeat is recognised first, and an answer to
-  an ask that has an answer is told what stands; then come the refusals in
-  the order in which the contract lists them, and only then is the write
-  taken. A refusal leaves the state as the take-out left it. Nothing reads a
-  clock: every time is the `:at` of a call. Standing is worked out as the
-  spec words it (`actor-live?`, `sign-in-live?`); what a read costs is not
-  modelled.
+  write that names a `:root` then thins what is watched under that root:
+  whatever has passed at its `:at` leaves it (`thin`), however the write is
+  judged after. Then the write is judged: a repeat is recognised first, and
+  an answer to an ask that has an answer is told what stands; then come the
+  refusals in the order in which the contract lists them, and only then is
+  the write taken. A refusal leaves the state as the thinning left it.
+  Nothing reads a clock: every time is the `:at` of a call. Standing is
+  worked out as the spec words it (`actor-live?`, `sign-in-live?`); what a
+  read costs is not modelled.
+
+  Two things are kept apart for a sign-in and a session. `:ended?` and
+  `:closed?` say that someone ended it: `end-sign-in`, `close-session` and
+  `end-actor` alone write them, and nothing takes them back. `:watched?`
+  says that the thing is in what `watch-root` and `under` give: it is so
+  from a write that gave it a time after that write's `:at`, until a write
+  under its root whose `:at` its time is at or before, or until someone
+  ends it. A time that passes ends nothing: a write that needs a live
+  sign-in holds the sign-in's `:until` against its own `:at`, and keeps
+  nothing of that. A root's `:ends` counts the writes that ended something
+  under it.
 
   Where the spec does not say what happens, or says two things, the
   reference takes the reading that refuses more or changes less.
@@ -314,7 +326,7 @@
 
 (def ^:private empty-root
   "What the root of a person holds when she has just entered."
-  {:agents {} :agent-order [] :sign-ins {} :sign-in-order [] :sessions {}})
+  {:agents {} :agent-order [] :sign-ins {} :sign-in-order [] :sessions {} :ends 0})
 
 (defn- state?
   "Whether `x` has the keys of a state. A map whose comparator throws has
@@ -377,35 +389,48 @@
 (defn- end-sign-ins
   "Ends the sign-ins `Gs` (a set) of the root `P`, which must be there, as
   `end-sign-in` does, and closes every session under them unless `close?`
-  is false."
+  is false. What is ended or closed is watched no longer."
   [state P Gs close?]
   (update-in state [:roots P]
              (fn [r]
-               (cond-> (update r :sign-ins (fn [gs] (reduce (fn [gs G] (assoc-in gs [G :ended?] true)) gs Gs)))
+               (cond-> (update r :sign-ins (fn [gs] (reduce (fn [gs G] (update gs G assoc :ended? true :watched? false)) gs Gs)))
                  close? (update :sessions
                                 (fn [ss]
-                                  (into {} (map (fn [[S s]] [S (if (contains? Gs (:sign-in s)) (assoc s :closed? true) s)]))
+                                  (into {} (map (fn [[S s]] [S (if (contains? Gs (:sign-in s))
+                                                                 (assoc s :closed? true :watched? false)
+                                                                 s)]))
                                         ss)))))))
 
-(defn take-out
-  "Takes out of what is live under the root `P` every sign-in and every
-  session whose time is at or before `at`. A sign-in so taken out is ended,
-  as by `end-sign-in`, with its sessions; a session so taken out is closed,
-  as by `close-session`. Neither is taken back. A root that is not there is
+(defn- counted
+  "The state with one more write that ended something under the root `P`."
+  [state P]
+  (update-in state [:roots P :ends] (fnil inc 0)))
+
+(defn thin
+  "Thins what is watched under the root `P` at the time `at`: every sign-in
+  and every session whose time is at or before `at` leaves it, each by its
+  own time. Nothing of it is ended or closed, and a later write that gives
+  it a time after its own `:at` puts it back. A root that is not there is
   left as it is. `step` does this first for each write that names a root,
   whether the write is then taken, is a repeat, or is refused; the proof
   uses it to say what a repeat or a refusal may change. The arity with
-  `broken` is for the broken copies."
-  ([state P at] (take-out state P at nil))
+  `broken` is for the broken copies: in `:time-ends`, what leaves is ended
+  or closed, as by `end-sign-in` and `close-session`."
+  ([state P at] (thin state P at nil))
   ([state P at broken]
    (if-let [r (get-in state [:roots P])]
-     (let [Gs (into #{} (keep (fn [[G g]] (when (and (not (:ended? g)) (passed? (sign-in-time g broken) at broken)) G)))
+     (let [Gs (into #{} (keep (fn [[G g]] (when (and (:watched? g) (passed? (sign-in-time g broken) at broken)) G)))
                     (:sign-ins r))
-           Ss (into #{} (keep (fn [[S s]] (when (and (not (:closed? s)) (passed? (:until s) at broken)) S)))
+           Ss (into #{} (keep (fn [[S s]] (when (and (:watched? s) (passed? (:until s) at broken)) S)))
                     (:sessions r))]
-       (-> state
-           (end-sign-ins P Gs true)
-           (update-in [:roots P :sessions] (fn [ss] (reduce (fn [ss S] (assoc-in ss [S :closed?] true)) ss Ss)))))
+       (if (= broken :time-ends)
+         (-> state
+             (end-sign-ins P Gs true)
+             (update-in [:roots P :sessions]
+                        (fn [ss] (reduce (fn [ss S] (update ss S assoc :closed? true :watched? false)) ss Ss))))
+         (-> state
+             (update-in [:roots P :sign-ins] (fn [gs] (reduce (fn [gs G] (assoc-in gs [G :watched?] false)) gs Gs)))
+             (update-in [:roots P :sessions] (fn [ss] (reduce (fn [ss S] (assoc-in ss [S :watched?] false)) ss Ss))))))
      state)))
 
 ;; ------------------------------------------------------------------ the writes
@@ -494,12 +519,12 @@
   "Begins the sign-in `G` of the root `P` from `g`, which holds its actor,
   kind, hash, until and label, at the time `at`, last in the order in which
   the root's sign-ins began. A sign-in whose until is at or before `at` is
-  taken and is never live: it begins ended."
+  taken, and is not watched and not ended (QUESTIONS.md, 9)."
   [state P G g at broken]
   (-> state
       (assoc-in [:roots P :sign-ins G]
-                (assoc g :first-hash (:hash g) :previous nil :begun at
-                       :ended? (and (passed? (:until g) at broken) (not= broken :born-live))))
+                (assoc g :first-hash (:hash g) :previous nil :begun at :ended? false
+                       :watched? (or (not (passed? (:until g) at broken)) (= broken :born-live))))
       (update-in [:roots P :sign-in-order] conj G)))
 
 (defn- write-begin-sign-in
@@ -514,7 +539,10 @@
       (and g (= actor (:actor g)) (= kind (:kind g)) (= hash (:first-hash g)))
       (case broken
         :ended-sign-in-begins-again
-        [(if (:ended? g) (update-in state [:roots root :sign-ins sign-in] assoc :ended? false :until until) state)
+        [(if (:ended? g)
+           (update-in state [:roots root :sign-ins sign-in] assoc :ended? false :until until
+                      :watched? (not (passed? until at broken)))
+           state)
          {:begun sign-in}]
         :repeat-keeps-its-parts
         [(update-in state [:roots root :sign-ins sign-in] assoc :until until :label label) {:begun sign-in}]
@@ -534,8 +562,10 @@
   is `:wrong-secret`. A replacement is judged by the present hash and the
   one before it alone (Sid's call of 22 November): one that arrives after
   a newer one is refused, and one whose hash has come back is taken when
-  its old hash is the hash now. No session changes. A new until at or
-  before `:at` takes the sign-in out at once, with its sessions
+  its old hash is the hash now. No session changes. A sign-in whose time is
+  at or before the replacement's own `:at` is not live at it, whatever an
+  earlier write under the root said. A new until at or before `:at` is
+  taken: the sign-in then has that until, is not watched, and is not ended
   (QUESTIONS.md, 10). The broken copy `:replacements-remembered` keeps, in
   `:replaced`, each replacement that the sign-in took, as the reading that
   the call set aside did."
@@ -553,20 +583,32 @@
       :else
       (let [g' (cond-> (assoc g :hash new-hash :until until :previous {:hash old-hash :until previous-until})
                  remembering? (update :replaced (fnil conj #{}) [old-hash new-hash]))
-            state' (assoc-in state [:roots root :sign-ins sign-in] g')]
-        [(if (passed? (sign-in-time g' broken) at broken) (end-sign-ins state' root #{sign-in} true) state')
-         {:replaced sign-in}]))))
+            g' (assoc g' :watched? (not (passed? (sign-in-time g' broken) at broken)))]
+        [(assoc-in state [:roots root :sign-ins sign-in] g') {:replaced sign-in}]))))
+
+(defn- ended-something
+  "The state `after` an end under the root `P`, counted. In the broken copy
+  `:end-of-unwatched-not-counted`, counted only when the end changed what
+  was watched in `before`."
+  [before after P broken]
+  (let [watched (fn [state] (select-keys (get-in state [:roots P]) [:sign-ins :sessions]))
+        shows (fn [state] (into #{} (for [[kind things] (watched state) [id thing] things :when (:watched? thing)] [kind id])))]
+    (if (and (= broken :end-of-unwatched-not-counted) (= (shows before) (shows after)))
+      after
+      (counted after P))))
 
 (defn- write-end-sign-in
-  "end-sign-in: the sign-in ends, and every session under it is closed.
-  Ending it again changes nothing. A sign-in that is not of this root is
-  `:no-such-sign-in`."
+  "end-sign-in: the sign-in ends, and every session under it is closed,
+  watched or not. Ending it again changes nothing. A sign-in that is not of
+  this root is `:no-such-sign-in`. A sign-in whose time has passed is ended
+  by this like any other: its time ended nothing."
   [state {:keys [root sign-in]} broken]
   (let [g (get-in state [:roots root :sign-ins sign-in])]
     (cond
       (nil? g) (refuse state :no-such-sign-in)
       (:ended? g) [state {:ended sign-in}]
-      :else [(end-sign-ins state root #{sign-in} (not= broken :end-leaves-sessions-open)) {:ended sign-in}])))
+      :else [(ended-something state (end-sign-ins state root #{sign-in} (not= broken :end-leaves-sessions-open)) root broken)
+             {:ended sign-in}])))
 
 (defn- make-agent
   "Makes the agent `A` of the root `P`, made by `B` with `label` at the time
@@ -624,20 +666,25 @@
       (let [r (get-in state [:roots root])
             As (beneath r actor broken)
             Gs (into #{} (keep (fn [[G g]] (when (contains? As (:actor g)) G))) (:sign-ins r))]
-        [(-> state
-             (update-in [:roots root :agents] (fn [as] (reduce (fn [as B] (assoc-in as [B :ended?] true)) as As)))
-             (end-sign-ins root Gs (not= broken :end-actor-leaves-sessions-open)))
+        [(ended-something
+          state
+          (-> state
+              (update-in [:roots root :agents] (fn [as] (reduce (fn [as B] (assoc-in as [B :ended?] true)) as As)))
+              (end-sign-ins root Gs (not= broken :end-actor-leaves-sessions-open)))
+          root broken)
          {:ended actor}]))))
 
 (defn- write-open-session
   "open-session: opens the session under a live sign-in, with its until and
   its `:driven-by`, nil when not said. The same id under the same sign-in is
-  a repeat: while the session is open it moves its until to the one that
-  came, when that is later, and changes nothing else; a session that is
-  closed is not opened again. Else a sign-in that is not live is
-  `:not-live`, and an id that is a session of another sign-in, open or
-  not, is `:in-use`. A session whose until is at or before `:at` is taken
-  and is never live: it opens closed."
+  a repeat, which gives `{:open S}` whatever it changes. It moves the
+  session's until to the one that came, when that is later, and the session
+  is then watched; but only while nobody closed the session, its time has
+  not passed at the repeat's `:at`, and its sign-in is live at that `:at`
+  (QUESTIONS.md, 17). Else a sign-in that is not live is `:not-live`, and
+  an id that is a session of another sign-in, open or not, is `:in-use`. A
+  session whose until is at or before `:at` is taken, and is not watched
+  and not closed (QUESTIONS.md, 9)."
   [state {:keys [root sign-in session until at] :as input} broken]
   (let [s (get-in state [:roots root :sessions session])
         g (get-in state [:roots root :sign-ins sign-in])]
@@ -645,27 +692,36 @@
       (and s (= sign-in (:sign-in s)))
       [(cond
          (and (:closed? s) (= broken :closed-session-opens-again))
-         (update-in state [:roots root :sessions session] assoc :closed? false :until (max (:until s) until))
+         (update-in state [:roots root :sessions session] assoc :closed? false :until (max (:until s) until)
+                    :watched? (not (passed? (max (:until s) until) at broken)))
          (:closed? s) state
-         :else (update-in state [:roots root :sessions session]
-                          (fn [s] (cond-> (assoc s :until (max (:until s) until))
-                                    (= broken :repeat-sets-driven-by) (assoc :driven-by (:driven-by input))))))
+         (and (not (and (passed? (:until s) at broken) (not= broken :passed-session-moves-on)))
+              (sign-in-live? state root g at broken))
+         (update-in state [:roots root :sessions session]
+                    (fn [s] (cond-> s
+                              (> until (:until s)) (assoc :until until :watched? (not (passed? until at broken)))
+                              (= broken :repeat-sets-driven-by) (assoc :driven-by (:driven-by input)))))
+         :else state)
        {:open session}]
       (not (sign-in-live? state root g at broken)) (refuse state :not-live)
       (some? s) (refuse state :in-use)
       :else [(assoc-in state [:roots root :sessions session]
-                       {:sign-in sign-in :until until :driven-by (:driven-by input) :opened-at at
-                        :closed? (and (passed? until at broken) (not= broken :born-live))})
+                       {:sign-in sign-in :until until :driven-by (:driven-by input) :opened-at at :closed? false
+                        :watched? (or (not (passed? until at broken)) (= broken :born-live))})
              {:open session}])))
 
 (defn- write-close-session
   "close-session: the session is closed, once; closing it again changes
-  nothing. A session that is not of this root is `:no-such-session`."
-  [state {:keys [root session]} _]
+  nothing, and neither does closing one that closed with its sign-in. A
+  session that is not of this root is `:no-such-session`."
+  [state {:keys [root session]} broken]
   (let [s (get-in state [:roots root :sessions session])]
     (cond (nil? s) (refuse state :no-such-session)
           (:closed? s) [state {:closed session}]
-          :else [(assoc-in state [:roots root :sessions session :closed?] true) {:closed session}])))
+          :else [(ended-something state
+                                  (update-in state [:roots root :sessions session] assoc :closed? true :watched? false)
+                                  root broken)
+                 {:closed session}])))
 
 (defn- write-ask
   "ask: binds the code, for good, to the two hashes that the program sends:
@@ -801,7 +857,7 @@
    :answer-ask write-answer-ask})
 
 (def names-a-root
-  "The writes that name a `:root`, and so take out what has passed under it.
+  "The writes that name a `:root`, and so thin what is watched under it.
   `invite`, `enter`, `own-lane-made` and `ask` name none."
   #{:begin-sign-in :replace-secret :end-sign-in :make-actor :end-actor
     :open-session :close-session :answer-ask})
@@ -818,13 +874,19 @@
    :second-claim-taken
    "a person who has a claim is invited under another, which takes the place of the first"
    :refusal-takes-nothing-out
-   "a write that is refused takes nothing out of what is live"
+   "a write that is refused thins nothing of what is watched"
    :edge-is-after-the-end
-   "a thing whose end is the time of a write is still live at that write"
+   "a thing whose end is the time of a write is still live at that write, and still watched after it"
+   :time-ends
+   "a sign-in or a session whose time is at or before the time of a write under its root is ended, or closed, as by end-sign-in and close-session, and stays so"
+   :end-of-unwatched-not-counted
+   "an end of a thing that is not watched, which changes nothing else that a watch is given, is not counted in the root's :ends"
+   :passed-session-moves-on
+   "a repeat of open-session moves on a session whose time has passed at the repeat's :at"
    :time-of-the-older-secret
    "a sign-in's time is the later of its present secret's and the secret's before it"
    :born-live
-   "a sign-in or a session whose end is at or before the time of the event that makes it is live"
+   "a sign-in or a session whose end is at or before the time of the event that makes it is watched"
    :ended-sign-in-begins-again
    "a repeat of begin-sign-in makes an ended sign-in live again"
    :closed-session-opens-again
@@ -850,7 +912,7 @@
    :asking-hash-not-bound
    "an ask under a code that is bound to the same hash and another asking hash is taken as a repeat"
    :unfit-input-takes-out
-   "an input that does not fit, but names a root and a time, takes out what has passed under that root"
+   "an input that does not fit, but names a root and a time, thins what is watched under that root"
    :long-label-fits
    "a label of more than 256 characters fits"
    :loose-form
@@ -870,14 +932,14 @@
    :replacements-remembered
    "a sign-in keeps each replacement that it took, and refuses one that it took before, also when that one's old hash has come back and is the hash now"})
 
-(defn- take-out-for-unfit
+(defn- thin-for-unfit
   "The broken copy `:unfit-input-takes-out`: an input that does not fit, but
-  names a root and a time, takes out what has passed under that root."
+  names a root and a time, thins what is watched under that root."
   [state call]
   (try
     (let [input (when (and (vector? call) (= 2 (count call))) (nth call 1))]
       (if (and (map? input) (id? (get input :root)) (time? (get input :at)))
-        (take-out state (:root input) (:at input))
+        (thin state (:root input) (:at input))
         state))
     (catch Throwable _ state)))
 
@@ -885,27 +947,29 @@
   "Takes a state and a call, `[write-keyword input-map]`, and gives
   `[state' result]`: the state after the write, and what the write gives.
   An input that does not fit gives `{:could-not :read-the-event}` and the
-  state as it was. A write that names a root takes out, under that root,
-  what has passed at its `:at` before it is judged (`take-out`); then a
+  state as it was. A write that names a root thins what is watched under
+  that root at its `:at` before it is judged (`thin`); then a
   repeat is recognised first, and the refusals come in the order in which
   the contract lists them. It reads no clock and throws for no input.
   `broken`, a key of `breaks` or nil, breaks one rule."
   ([state call] (step state call nil))
   ([state call broken]
    (if-let [[kind input] (fitting call broken)]
-     (let [swept (if (contains? names-a-root kind) (take-out state (:root input) (:at input) broken) state)
+     (let [swept (if (contains? names-a-root kind) (thin state (:root input) (:at input) broken) state)
            [state' result] ((get writes kind) swept input broken)]
        [(if (and (contains? result :refused) (= broken :refusal-takes-nothing-out)) state state') result])
-     [(if (= broken :unfit-input-takes-out) (take-out-for-unfit state call) state)
+     [(if (= broken :unfit-input-takes-out) (thin-for-unfit state call) state)
       {:could-not :read-the-event}])))
 
 ;; ------------------------------------------------------------------- the reads
 
 (defn- who-is-in
-  "who-is of a state: the sign-in of the root, with its standing, the
-  session asked for, which can be of another sign-in, with its
-  `:driven-by`, and the root person's own lane. Ended and closed things
-  are given too."
+  "who-is of a state: the sign-in of the root, the session asked for, which
+  can be of another sign-in, with its `:driven-by`, and the root person's
+  own lane. Ended and closed things are given too, and so are things that
+  are not watched. `:ended?` and `:closed?` say that someone ended the
+  thing, never that its time has passed: the caller holds `:until` against
+  its clock."
   [state query]
   (if-not (try (shaped? query {:root id? :sign-in id? :session (or-nil id?)} {})
                (catch Throwable _ false))
@@ -933,20 +997,19 @@
       {:hash (:hash k) :asking-hash (:asking-hash k) :asks (:asks k) :ends (:ends k) :state (:state k)
        :answer (:answer k)})))
 
-(defn- live-sign-ins
-  "The sign-ins of the root `P` that are live as the state holds them: not
-  ended, and their actor live. Gives `[id record]` pairs in the order in
-  which they began."
+(defn- watched-sign-ins
+  "The sign-ins of the root `P` that are watched. Gives `[id record]` pairs
+  in the order in which they began."
   [state P]
   (let [r (get-in state [:roots P])]
     (keep (fn [G] (let [g (get-in r [:sign-ins G])]
-                    (when (and (not (:ended? g)) (actor-live? state P (:actor g))) [G g])))
+                    (when (:watched? g) [G g])))
           (:sign-in-order r))))
 
 (defn- under-in
   "under of a state: the agents of the root, ended ones too, in the order in
   which they were made, each with who made it and whose ending ends it, and
-  its live sign-ins, in the order in which they began."
+  its watched sign-ins, in the order in which they began."
   [state P]
   (if-not (id? P)
     {:could-not :read-the-event}
@@ -957,18 +1020,20 @@
                      (:agent-order r))
        :sign-ins (mapv (fn [[G g]] {:sign-in G :actor (:actor g) :kind (:kind g) :label (:label g)
                                     :begun (:begun g) :until (:until g)})
-                       (live-sign-ins state P))})))
+                       (watched-sign-ins state P))})))
 
 (defn- live-under-in
-  "What is live under the root `P` in a state: its live sign-ins and its
-  open sessions, with no `:driven-by`."
+  "What is watched under the root `P` in a state: its watched sign-ins and
+  sessions, with no `:driven-by`, and the count of the writes that ended
+  something under it."
   [state P]
   (if-not (id? P)
     {:could-not :read-the-event}
     {:sign-ins (into {} (map (fn [[G g]] [G (select-keys g [:actor :kind :hash :until :previous])]))
-                     (live-sign-ins state P))
-     :sessions (into {} (keep (fn [[S s]] (when-not (:closed? s) [S {:sign-in (:sign-in s) :until (:until s)}])))
-                     (get-in state [:roots P :sessions]))}))
+                     (watched-sign-ins state P))
+     :sessions (into {} (keep (fn [[S s]] (when (:watched? s) [S {:sign-in (:sign-in s) :until (:until s)}])))
+                     (get-in state [:roots P :sessions]))
+     :ends (get-in state [:roots P :ends] 0)}))
 
 ;; ------------------------------------------------------------------ the client
 
@@ -1199,22 +1264,25 @@
   "Takes a client or a state, and a root. Gives `{:actors [{:actor :made-by
   :ends-with :label :ended?} ...] :sign-ins [{:sign-in :actor :kind :label :begun
   :until} ...]}`: the agents of the root, ended ones too, in the order in
-  which they were made, and its live sign-ins, in the order in which they
-  began, as they stood at the root's latest event."
+  which they were made, and its watched sign-ins, in the order in which
+  they began. A sign-in that is not among them has not ended for that:
+  `who-is` says."
   [client-or-state P]
   (read-with client-or-state #(under-in % P)))
 
 (defn live-under
-  "Takes a client or a state, and a root. Gives what is live under the root,
-  the value that `watch-root` hands to its function: `{:sign-ins {G {:actor
-  :kind :hash :until :previous}} :sessions {S {:sign-in :until}}}`, the live
-  sign-ins and the open sessions as they stood at the root's latest event."
+  "Takes a client or a state, and a root. Gives what is watched under the
+  root, the value that `watch-root` hands to its function: `{:sign-ins {G
+  {:actor :kind :hash :until :previous}} :sessions {S {:sign-in :until}}
+  :ends n}`: the watched sign-ins and sessions, none of which someone ended
+  and none of whose times had passed at the root's latest write, and how
+  many writes ended something under the root."
   [client-or-state P]
   (read-with client-or-state #(live-under-in % P)))
 
 (defn watch-root
   "Takes a client, a root and a function of one argument. From now on,
-  each time what is live under the root changes, through this client or
+  each time what is watched under the root changes, through this client or
   any other opened under the same name, calls the function with the new value of
   `live-under`, on the thread that made the write, before the write
   returns, in the order of the changes. No call is made at the

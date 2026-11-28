@@ -248,16 +248,10 @@
          (case op
            :put
            (if-let [entry (get new-val k)]
-             (if-let [[section id proj] (s/project-live-entry entry)]
-               (assoc-in acc [section id] proj)
-               acc)
-             (if-let [[section id] (s/parse-live-key k)]
-               (update acc section dissoc id)
-               acc))
+             (s/live-with acc entry)
+             (s/live-without acc k))
            :out
-           (if-let [[section id] (s/parse-live-key k)]
-             (update acc section dissoc id)
-             acc)))
+           (s/live-without acc k)))
        prev-proj
        ops))))
 
@@ -614,10 +608,16 @@
         nil))))
 
 (defn watch-root
-  "`f` gets `{:sign-ins {...} :sessions {...}}` on each change, without
-  `:driven-by`, and no call at registration; and
+  "`f` gets `{:sign-ins {...} :sessions {...} :ends n}` on each change,
+  without `:driven-by`, and no call at registration; and
   `:softland.auth.client/not-reached` once when the module or the task
-  cannot be reached. Gives a stop function of no argument."
+  cannot be reached. Gives a stop function of no argument.
+
+  A sign-in or a session that is not in the value has not ended for that:
+  it leaves when its time is at or before the `:at` of a write under the
+  root, by the writer's clock. `who-is` says whether someone ended it, and
+  `:ends` goes up at each write that ended something under the root, also a
+  thing that the value does not hold."
   [client root f]
   (if-not (client? client)
     {:could-not :read-the-event}
@@ -642,7 +642,7 @@
                                  :open-done (CountDownLatch. 1)
                                  :open-err (atom nil)
                                  :initialized? (atom false)
-                                 :projected (atom {:sign-ins {} :sessions {}})
+                                 :projected (atom s/no-live)
                                  :proj-lock (Object.)
                                  :watchers (atom {wid w})
                                  :closed? (atom false)}]

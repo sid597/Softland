@@ -113,7 +113,7 @@
                     :carries nil :who :an-actor}
    :end-agent      {:says "ends an agent beneath the caller, with every actor that ends with it and every sign-in of each"
                     :carries nil :who :an-actor}
-   :under          {:says "the actors of the caller's root, and its live sign-ins"
+   :under          {:says "the actors of the caller's root, and its sign-ins that are watched and whose time has not passed"
                     :carries nil :who :a-person}
    :end-sign-in    {:says "ends one sign-in of the caller's root"
                     :carries nil :who :a-person :can-end-its-connection true}})

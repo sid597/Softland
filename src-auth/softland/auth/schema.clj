@@ -9,7 +9,20 @@
   ASCII so RocksDB UTF-8 byte order matches JVM UTF-16 order identically: the
   composite keys of `$$root-data` (`\"<P>\\0...\"`), and the inner keys of a
   root's map in `$$live` (`\"g:<G>\"` for a sign-in, `\"s:<S>\"` for a
-  session).
+  session, `\"ends\"` for the count of ends).
+
+  Two things are kept apart for a sign-in and a session. That someone ended
+  it is a fact, written on its record (`ended?`, `closed?`) by `end-sign-in`,
+  `close-session` and `end-actor` alone, and never taken back. That its time
+  has passed is no fact of Auth's, which reads no clock: the record keeps
+  `until`, each write that needs the thing live holds `until` against its
+  own `:at` and keeps nothing of that, and each reader holds it against its
+  own clock. `$$live` is what a root's watchers are pushed. A thing is in it
+  from a write that gave it an `until` after that write's `:at`, until a
+  write under its root whose `:at` that `until` is at or before, or until
+  someone ends it. So it holds nothing that someone ended and nothing whose
+  time had passed at the root's latest write; a thing that left it has not
+  ended, and is not put back until a write gives it a time again.
 
   The pure transition functions for `invite`, `enter`, and `answer-ask` are
   written from the step specification that was model-checked in
@@ -106,7 +119,15 @@
 (defrecord LiveSignIn [sign-in actor kind initial-hash hash until prev-hash prev-until
                        begun label seq own-lane own-lane-made-at-begin?]
   ILiveEntry)
-(defrecord LiveSession [session sign-in until driven-by]
+;; `actor` is the actor of the session's sign-in, which never changes: by it
+;; `end-actor` finds the watched sessions of an agent whose sign-in is not
+;; watched.
+(defrecord LiveSession [session sign-in actor until driven-by]
+  ILiveEntry)
+;; How many writes under the root ended something. A watcher can hold a
+;; thing that is not in the root's map, so an end of such a thing would
+;; change nothing that is pushed: this makes every end a push.
+(defrecord LiveEnds [n]
   ILiveEntry)
 
 ;; $$accounts {String -> IAccountState} (partitioned by |hash account-key)
@@ -253,12 +274,23 @@
   ^String [^UUID s]
   (str "s:" s))
 
+(def lk-ends
+  "Below `g:`, so that no scan of sign-ins or sessions reads it."
+  "ends")
+
 (def live-lo
   "")
 
 (def live-hi
   "Exclusive. DEL (0x7f): above every printable 7-bit ASCII character."
   "\u007f")
+
+(def live-things-lo
+  "With `live-things-hi`: the sign-ins and the sessions, without `lk-ends`."
+  "g:")
+
+(def live-things-hi
+  "s;")
 
 (def live-signin-lo
   "g:")
@@ -905,6 +937,15 @@
   [plan]
   (:result plan))
 
+(defn plan-ended-something?
+  [plan]
+  (boolean (:ended-something? plan)))
+
+(defn bump-ends
+  "`entry` is the root's `LiveEnds`, or nil before its first end."
+  [entry]
+  (->LiveEnds (inc (long (if (instance? LiveEnds entry) (:n entry) 0)))))
+
 (defn signin-rec->live
   [^SignInRec g]
   (->LiveSignIn (:sign-in g) (:actor g) (:kind g) (:initial-hash g) (:hash g)
@@ -923,41 +964,57 @@
   [^LiveSession s]
   (->SessionRec (:session s) (:sign-in s) (:until s) true (:driven-by s)))
 
-(defn plan-take-out
-  "The caller gives a non-empty `exp-map`, the `exp:` entries with
-  `until <= at`, and `live-map`, the root's map in `$$live`. An expired
-  sign-in closes its open sessions even when a session's `:until > at`."
-  [root exp-map live-map]
-  (let [exp-gs (volatile! #{})
-        exp-ss (volatile! #{})
-        rd-deletes (volatile! (set (keys exp-map)))
-        rd-upserts (transient [])
-        live-deletes (transient [])]
-    (doseq [[_ ^ExpiryEntry e] exp-map]
-      (case (:kind e)
-        :sign-in (vswap! exp-gs conj (:id e))
-        :session (vswap! exp-ss conj (:id e))))
-    (let [gs @exp-gs
-          ss @exp-ss]
-      (doseq [[lk lv] live-map]
-        (when (instance? LiveSignIn lv)
-          (when (contains? gs (:sign-in lv))
-            (conj! live-deletes lk)
-            (conj! rd-upserts [(k-signin root (:sign-in lv)) (live-signin->ended-rec lv)]))))
-      (doseq [[lk lv] live-map]
-        (when (instance? LiveSession lv)
-          (let [sid (:session lv)]
-            (when (or (contains? ss sid) (contains? gs (:sign-in lv)))
-              (conj! live-deletes lk)
-              (conj! rd-upserts [(k-session root sid) (live-session->closed-rec lv)])
-              (vswap! rd-deletes conj (k-exp root (:until lv) "s" sid)))))))
-    {:rd-upserts (persistent! rd-upserts)
-     :rd-deletes (vec @rd-deletes)
-     :live-upserts []
-     :live-deletes (persistent! live-deletes)}))
+(defn plan-thin-watched
+  "`exp-map` holds the `exp:` entries with `until <= at`. Each leaves the
+  root's map in `$$live` with its `exp:` entry, by its own `until`: a
+  session stays while its sign-in leaves, and the other way round. No
+  record is written: leaving what is watched ends nothing, and a later
+  write that gives the thing a time after its own `:at` puts it back.
+  What it bounds is the map that a watcher holds, which would otherwise
+  keep every sign-in and session that nobody ended."
+  [exp-map]
+  {:rd-deletes (vec (keys exp-map))
+   :live-deletes (mapv (fn [^ExpiryEntry e]
+                         (case (:kind e)
+                           :sign-in (lk-signin (:id e))
+                           :session (lk-session (:id e))))
+                       (vals exp-map))})
+
+(defn signin-agent
+  "The agent whose record a judgment of the sign-in `g` needs; nil for a
+  sign-in of the person herself, and for what is no sign-in."
+  [root g]
+  (when (and (instance? SignInRec g) (not= (:actor g) root))
+    (:actor g)))
+
+(defn- actor-over?
+  "`actor-rec` is the record of `(signin-agent root g)`. An agent's record
+  alone says it: `end-actor` marks every agent that ends with the one it
+  ends, watched or not, since agents have no time."
+  [root g actor-rec]
+  (and (not= (:actor g) root)
+       (or (not (instance? ActorRec actor-rec)) (boolean (:ended? actor-rec)))))
+
+(defn signin-ended?
+  "Whether someone ended the sign-in `g`: itself, or its actor or one above.
+  The second is read from the actor's record and not from `ended?` of `g`:
+  `end-actor` writes `ended?` on the sign-ins that it finds in `$$live`,
+  and a sign-in that had left `$$live` is not among them."
+  [root g actor-rec]
+  (boolean (and (instance? SignInRec g)
+                (or (:ended? g) (actor-over? root g actor-rec)))))
+
+(defn signin-stands-at?
+  "The judgment of a write that needs the sign-in live, against that write's
+  own `at`. Nothing of it is kept."
+  [root g actor-rec at]
+  (boolean (and (instance? SignInRec g)
+                (not (signin-ended? root g actor-rec))
+                (> (long (:until g)) (long at)))))
 
 (defn plan-begin-sign-in
-  "On H(P), after take-out."
+  "On H(P), after the thinning. A sign-in whose `until` is at or before the
+  `:at` of its begin is taken, not watched and not ended."
   [^BeginSignInEvent ev r g actor-rec]
   (let [P (:root-id ev)
         A (:actor ev)
@@ -986,36 +1043,26 @@
 
       :else
       (let [seq-n (long (:next-sign-in-seq r))
-            born-ended? (<= until at)
+            watched? (> until at)
             own-lane (:own-lane r)
             made-at-begin? (boolean (:own-lane-made? r))
-            rec (->SignInRec G A kind h h until nil nil born-ended? at lbl seq-n own-lane made-at-begin?)
+            rec (->SignInRec G A kind h h until nil nil false at lbl seq-n own-lane made-at-begin?)
             r' (assoc r :next-sign-in-seq (inc seq-n))]
         {:rd-upserts (cond-> [[(k-root P) r']
                               [(k-signin P G) rec]]
-                       (not born-ended?)
+                       watched?
                        (conj [(k-exp P until "g" G) (->ExpiryEntry :sign-in G A until)]))
-         :live-upserts (if born-ended?
-                         []
-                         [[(lk-signin G) (signin-rec->live rec)]])
+         :live-upserts (if watched?
+                         [[(lk-signin G) (signin-rec->live rec)]]
+                         [])
          :result {:begun G}}))))
 
-(defn replace-secret-born-ended?
-  "True when an accepted `replace-secret` ends `g` at once, because
-  `(:until ev) <= (:at ev)`: the caller must then scan `s:` in `$$live` to
-  close the open sessions."
-  [^ReplaceSecretEvent ev g]
-  (boolean (and (instance? SignInRec g)
-                (not (and (= (:hash g) (:new-hash ev))
-                          (= (:prev-hash g) (:old-hash ev))))
-                (not (:ended? g))
-                (= (:hash g) (:old-hash ev))
-                (<= (long (:until ev)) (long (:at ev))))))
-
 (defn plan-replace-secret
-  "On H(P), after take-out. `live-s-map` is needed only when
-  `replace-secret-born-ended?` is true."
-  [^ReplaceSecretEvent ev g live-s-map]
+  "On H(P), after the thinning. `actor-rec` is the record of
+  `(signin-agent P g)`. A replacement whose new `until` is at or before its
+  own `:at` is taken: the sign-in then has that `until`, is not watched, and
+  is not ended."
+  [^ReplaceSecretEvent ev g actor-rec]
   (let [P (:root-id ev)
         G (:sign-in ev)
         old-h (:old-hash ev)
@@ -1029,7 +1076,7 @@
            (= (:prev-hash g) old-h))
       {:result {:replaced G}}
 
-      (or (not (instance? SignInRec g)) (:ended? g))
+      (not (signin-stands-at? P g actor-rec at))
       {:result {:refused :not-live}}
 
       (not= (:hash g) old-h)
@@ -1037,43 +1084,36 @@
 
       :else
       (let [old-until (long (:until g))
-            born-ended? (<= until at)
+            watched? (> until at)
             g' (assoc g :hash new-h :until until
-                      :prev-hash old-h :prev-until prev-until
-                      :ended? born-ended?)]
-        (if born-ended?
-          (let [rd-upserts (transient [[(k-signin P G) g']])
-                rd-deletes (transient [(k-exp P old-until "g" G)])
-                live-deletes (transient [(lk-signin G)])]
-            (doseq [[lk ^LiveSession s] live-s-map]
-              (when (= (:sign-in s) G)
-                (conj! live-deletes lk)
-                (conj! rd-upserts [(k-session P (:session s)) (live-session->closed-rec s)])
-                (conj! rd-deletes (k-exp P (:until s) "s" (:session s)))))
-            {:rd-upserts (persistent! rd-upserts)
-             :rd-deletes (persistent! rd-deletes)
-             :live-deletes (persistent! live-deletes)
-             :result {:replaced G}})
-          {:rd-upserts [[(k-signin P G) g']
-                        [(k-exp P until "g" G) (->ExpiryEntry :sign-in G (:actor g) until)]]
-           :rd-deletes (if (= until old-until) [] [(k-exp P old-until "g" G)])
-           :live-upserts [[(lk-signin G) (signin-rec->live g')]]
-           :result {:replaced G}})))))
+                      :prev-hash old-h :prev-until prev-until)]
+        ;; A delete of an `exp:` or `$$live` entry that is not there, as when
+        ;; the sign-in had left what is watched, changes nothing.
+        {:rd-upserts (cond-> [[(k-signin P G) g']]
+                       watched?
+                       (conj [(k-exp P until "g" G) (->ExpiryEntry :sign-in G (:actor g) until)]))
+         :rd-deletes (if (and watched? (= until old-until)) [] [(k-exp P old-until "g" G)])
+         :live-upserts (if watched? [[(lk-signin G) (signin-rec->live g')]] [])
+         :live-deletes (if watched? [] [(lk-signin G)])
+         :result {:replaced G}}))))
 
 (defn signin-needs-end?
-  [g]
-  (boolean (and (instance? SignInRec g) (not (:ended? g)))))
+  [root g actor-rec]
+  (boolean (and (instance? SignInRec g) (not (signin-ended? root g actor-rec)))))
 
 (defn plan-end-sign-in
-  "On H(P), after take-out."
-  [^EndSignInEvent ev g live-s-map]
+  "On H(P), after the thinning. `live-s-map` holds the watched sessions of
+  the root, and is read only when `signin-needs-end?`. A session of the
+  sign-in that is not watched is not written here: `who-is` and each write
+  read its standing from the sign-in's record."
+  [^EndSignInEvent ev g actor-rec live-s-map]
   (let [P (:root-id ev)
         G (:sign-in ev)]
     (cond
       (not (instance? SignInRec g))
       {:result {:refused :no-such-sign-in}}
 
-      (:ended? g)
+      (signin-ended? P g actor-rec)
       {:result {:ended G}}
 
       :else
@@ -1088,10 +1128,11 @@
         {:rd-upserts (persistent! rd-upserts)
          :rd-deletes (persistent! rd-deletes)
          :live-deletes (persistent! live-deletes)
+         :ended-something? true
          :result {:ended G}}))))
 
 (defn plan-make-actor
-  "On H(P), after take-out."
+  "On H(P), after the thinning."
   [^MakeActorEvent ev r existing-a maker-rec]
   (let [P (:root-id ev)
         A (:actor ev)
@@ -1162,7 +1203,11 @@
   that the scan from the target's `seq`, taken in the order of `seq`, meets
   an agent after the one that it ends with. That holds while `ends-with` is
   the maker, and no write makes it anything else; a write that points an
-  agent at another must scan all of `ao:`, to a fixed point."
+  agent at another must scan all of `ao:`, to a fixed point.
+
+  `live-map` holds the watched sign-ins and sessions of the root. A sign-in
+  of an ended agent that is not watched is not written here: its standing
+  is read from the agent's record (`signin-ended?`)."
   [root ^ActorRec target-rec ao-map live-map]
   (let [target-id (:actor target-rec)
         ended-as (volatile! #{target-id})
@@ -1182,7 +1227,7 @@
           (conj! rd-upserts [(k-actor root aid)
                              (->ActorRec aid (:made-by ao) (:ends-with ao) (:depth ao) (:label ao) true
                                          (:seq ao))]))))
-    ;; Pass 2a: live sign-ins of any ended actor (0 point seeks on g:).
+    ;; Pass 2a: watched sign-ins of any ended actor (0 point seeks on g:).
     (let [as @ended-as]
       (doseq [[lk lv] live-map]
         (when (instance? LiveSignIn lv)
@@ -1191,22 +1236,30 @@
             (conj! live-deletes lk)
             (conj! rd-deletes (k-exp root (:until lv) "g" (:sign-in lv)))
             (conj! rd-upserts [(k-signin root (:sign-in lv)) (live-signin->ended-rec lv)])))))
-    ;; Pass 2b: open sessions of any ended sign-in (0 point seeks on s:, preserves :driven-by).
-    (let [gs @ended-gs]
+    ;; Pass 2b: watched sessions of any ended actor, by the actor that the
+    ;; live entry holds: the session's sign-in need not be watched
+    ;; (0 point seeks on s:, preserves :driven-by).
+    (let [as @ended-as]
       (doseq [[lk lv] live-map]
         (when (instance? LiveSession lv)
-          (when (contains? gs (:sign-in lv))
+          (when (contains? as (:actor lv))
             (conj! live-deletes lk)
             (conj! rd-deletes (k-exp root (:until lv) "s" (:session lv)))
             (conj! rd-upserts [(k-session root (:session lv)) (live-session->closed-rec lv)])))))
     {:rd-upserts (persistent! rd-upserts)
      :rd-deletes (persistent! rd-deletes)
      :live-deletes (persistent! live-deletes)
+     :ended-something? true
      :result {:ended target-id}}))
 
 (defn plan-open-session
-  "On H(P), after take-out."
-  [^OpenSessionEvent ev s g]
+  "On H(P), after the thinning. `g` is the record of the event's sign-in and
+  `actor-rec` that of `(signin-agent P g)`. A repeat moves the session's
+  time on when nobody closed it, its time has not passed at this `:at`, and
+  its sign-in stands at this `:at`; otherwise it changes nothing. A session
+  whose `until` is at or before the `:at` of its opening is taken, not
+  watched and not closed."
+  [^OpenSessionEvent ev s g actor-rec]
   (let [P (:root-id ev)
         G (:sign-in ev)
         S (:session ev)
@@ -1215,49 +1268,63 @@
         at (long (:at ev))]
     (cond
       (and (instance? SessionRec s) (= (:sign-in s) G))
-      (if (and (not (:closed? s)) (> until (long (:until s))))
+      (if (and (not (:closed? s))
+               (> (long (:until s)) at)
+               (signin-stands-at? P g actor-rec at)
+               (> until (long (:until s))))
         (let [old-until (long (:until s))
               s' (assoc s :until until)]
           {:rd-upserts [[(k-session P S) s']
                         [(k-exp P until "s" S) (->ExpiryEntry :session S G until)]]
            :rd-deletes [(k-exp P old-until "s" S)]
-           :live-upserts [[(lk-session S) (->LiveSession S G until (:driven-by s))]]
+           :live-upserts [[(lk-session S) (->LiveSession S G (:actor g) until (:driven-by s))]]
            :result {:open S}})
         {:result {:open S}})
 
-      (or (not (instance? SignInRec g)) (:ended? g))
+      (not (signin-stands-at? P g actor-rec at))
       {:result {:refused :not-live}}
 
       (some? s)
       {:result {:refused :in-use}}
 
       :else
-      (let [born-closed? (<= until at)
-            rec (->SessionRec S G until born-closed? db)]
+      (let [watched? (> until at)
+            rec (->SessionRec S G until false db)]
         {:rd-upserts (cond-> [[(k-session P S) rec]]
-                       (not born-closed?)
+                       watched?
                        (conj [(k-exp P until "s" S) (->ExpiryEntry :session S G until)]))
-         :live-upserts (if born-closed?
-                         []
-                         [[(lk-session S) (->LiveSession S G until db)]])
+         :live-upserts (if watched?
+                         [[(lk-session S) (->LiveSession S G (:actor g) until db)]]
+                         [])
          :result {:open S}}))))
 
+(defn open-session-signin
+  "The sign-in whose record `close-session` needs: nil when `s` is no
+  session, or one that is closed."
+  [s]
+  (when (and (instance? SessionRec s) (not (:closed? s)))
+    (:sign-in s)))
+
 (defn plan-close-session
-  "On H(P), after take-out."
-  [^CloseSessionEvent ev s]
+  "On H(P), after the thinning. `g` is the record of
+  `(open-session-signin s)` and `actor-rec` that of `(signin-agent P g)`: a
+  session whose sign-in someone ended is closed already, though its own
+  record may not say so."
+  [^CloseSessionEvent ev s g actor-rec]
   (let [P (:root-id ev)
         S (:session ev)]
     (cond
       (not (instance? SessionRec s))
       {:result {:refused :no-such-session}}
 
-      (:closed? s)
+      (or (:closed? s) (signin-ended? P g actor-rec))
       {:result {:closed S}}
 
       :else
       {:rd-upserts [[(k-session P S) (assoc s :closed? true)]]
        :rd-deletes [(k-exp P (:until s) "s" S)]
        :live-deletes [(lk-session S)]
+       :ended-something? true
        :result {:closed S}})))
 
 ;; ------------------------------------------------- Slice c: ask & answer-ask
@@ -1343,7 +1410,9 @@
 
 (defn answer-ask-eval-root
   "Step 2, on H(P_target), after the caller confirmed that `ok:<op>` is
-  absent and ran `take-out(P_target, target.at)`."
+  absent and thinned what is watched under P_target at `target.at`. The
+  sign-in that a yes begins is taken, not watched and not ended when its
+  `until` is at or before the answer's `:at`."
   [code target r actor-rec g]
   (let [{:keys [op-id yes? root actor new-agent-label sign-in until at hash asks]} target
         ok-key (k-ok root op-id)]
@@ -1375,18 +1444,18 @@
 
           :else
           (let [g-seq (long (:next-sign-in-seq r))
-                born-ended? (<= (long until) (long at))
+                watched? (> (long until) (long at))
                 own-lane (:own-lane r)
                 made-at-begin? (boolean (:own-lane-made? r))
                 srec (->SignInRec sign-in actor :program hash hash until nil nil
-                                  born-ended? at asks g-seq own-lane made-at-begin?)
+                                  false at asks g-seq own-lane made-at-begin?)
                 out (->AskOutcomeYes root actor sign-in)]
             {:rd-upserts (cond-> [[(k-root root) (assoc r :next-sign-in-seq (inc g-seq))]
                                   [(k-signin root sign-in) srec]
                                   [ok-key out]]
-                           (not born-ended?)
+                           watched?
                            (conj [(k-exp root until "g" sign-in) (->ExpiryEntry :sign-in sign-in actor until)]))
-             :live-upserts (if born-ended? [] [[(lk-signin sign-in) (signin-rec->live srec)]])
+             :live-upserts (if watched? [[(lk-signin sign-in) (signin-rec->live srec)]] [])
              :outcome out})))
 
       :else
@@ -1397,22 +1466,22 @@
             {:rd-upserts [[ok-key out]] :outcome out})
           (let [a-seq (long (:next-actor-seq r))
                 g-seq (long (:next-sign-in-seq r))
-                born-ended? (<= (long until) (long at))
+                watched? (> (long until) (long at))
                 own-lane (:own-lane r)
                 made-at-begin? (boolean (:own-lane-made? r))
                 arec (->ActorRec actor root root 1 new-agent-label false a-seq)
                 aorec (->ActorOrderRec actor root root 1 new-agent-label false a-seq)
                 srec (->SignInRec sign-in actor :program hash hash until nil nil
-                                  born-ended? at asks g-seq own-lane made-at-begin?)
+                                  false at asks g-seq own-lane made-at-begin?)
                 out (->AskOutcomeYes root actor sign-in)]
             {:rd-upserts (cond-> [[(k-root root) (assoc r :next-actor-seq (inc a-seq) :next-sign-in-seq (inc g-seq))]
                                   [(k-actor root actor) arec]
                                   [(k-ao root a-seq) aorec]
                                   [(k-signin root sign-in) srec]
                                   [ok-key out]]
-                           (not born-ended?)
+                           watched?
                            (conj [(k-exp root until "g" sign-in) (->ExpiryEntry :sign-in sign-in actor until)]))
-             :live-upserts (if born-ended? [] [[(lk-signin sign-in) (signin-rec->live srec)]])
+             :live-upserts (if watched? [[(lk-signin sign-in) (signin-rec->live srec)]] [])
              :outcome out}))))))
 
 (defn plan-outcome
@@ -1426,7 +1495,7 @@
 
 (defn answer-ask-step-3
   "On H(U) (Revision 4). Helpers (`op != self-op`) on Yes/No ALWAYS hop to
-  H(self-root) for take-out at `(:at ev)` (Witness 10)."
+  H(self-root) for the thinning at `(:at ev)` (Witness 10)."
   [^AnswerAskEvent ev st k]
   (let [U (:code ev)
         self-op (:op-id ev)
@@ -1486,31 +1555,28 @@
   [r]
   (instance? RootEntered r))
 
-(defn need-actor-seek?
-  "True only when `sig` is an ended sign-in of an agent: `who-is` must then
-  read `a:<A>`."
-  [root sig]
-  (boolean (and (instance? SignInRec sig)
-                (:ended? sig)
-                (not= (:actor sig) root))))
-
-(defn signin-actor
-  [^SignInRec sig]
-  (:actor sig))
+(defn other-signin-of-session
+  "The sign-in of the session `sess` when it is another than `sign-in`, the
+  one that `who-is` was asked for, and nobody closed the session: `who-is`
+  then reads that sign-in's record too, to say whether the session is
+  closed."
+  [sess sign-in]
+  (when (and (instance? SessionRec sess) (not (:closed? sess)) (not= (:sign-in sess) sign-in))
+    (:sign-in sess)))
 
 (defn build-who-is-result
-  [root sig r sess actor-rec]
+  "`actor-rec` is the record of `(signin-agent root sig)`. `sess-sig` is the
+  record of the session's own sign-in, which is `sig` unless
+  `other-signin-of-session`, and `sess-actor-rec` that of its agent.
+  `:ended?` and `:closed?` say that someone ended the thing, at whichever
+  record that is written; neither says that a time has passed."
+  [root sig r sess actor-rec sess-sig sess-actor-rec]
   (let [fast? (signin-fast-path? sig)
         entered? (or fast? (instance? RootEntered r))]
     (if-not entered?
       {:sign-in nil :session nil :own-lane nil :own-lane-made? false}
       (let [own-lane (if fast? (:own-lane sig) (:own-lane r))
-            made? (if fast? true (boolean (:own-lane-made? r)))
-            actor-ended? (if (and (instance? SignInRec sig)
-                                  (:ended? sig)
-                                  (not= (:actor sig) root))
-                           (boolean (when (instance? ActorRec actor-rec) (:ended? actor-rec)))
-                           false)]
+            made? (if fast? true (boolean (:own-lane-made? r)))]
         {:sign-in (when (instance? SignInRec sig)
                     {:actor (:actor sig)
                      :kind (:kind sig)
@@ -1518,12 +1584,12 @@
                      :until (:until sig)
                      :previous (when (:prev-hash sig)
                                  {:hash (:prev-hash sig) :until (:prev-until sig)})
-                     :ended? (boolean (:ended? sig))
-                     :actor-ended? actor-ended?})
+                     :ended? (signin-ended? root sig actor-rec)
+                     :actor-ended? (boolean (actor-over? root sig actor-rec))})
          :session (when (instance? SessionRec sess)
                     {:sign-in (:sign-in sess)
                      :until (:until sess)
-                     :closed? (boolean (:closed? sess))
+                     :closed? (boolean (or (:closed? sess) (signin-ended? root sess-sig sess-actor-rec)))
                      :driven-by (from-driven-by (:driven-by sess))})
          :own-lane own-lane
          :own-lane-made? made?}))))
@@ -1538,7 +1604,7 @@
 
 (defn build-under-result
   "`:actors` holds live and ended agents, in the order in which they were
-  made (`:seq`); `:sign-ins` holds live sign-ins only."
+  made (`:seq`); `:sign-ins` holds the watched sign-ins only."
   [ao-map ae-map live-g-map]
   {:actors (if (or (seq ao-map) (seq ae-map))
              (->> (concat (vals ao-map) (vals ae-map))
@@ -1574,39 +1640,49 @@
     (instance? AskNo k)
     {:hash (:hash k) :asking-hash (:asking-hash k) :asks (:asks k) :ends (:ends k) :state :no :answer nil}))
 
-(defn project-live-entry
-  [entry]
+(def no-live
+  "What `watch-root` gives of a root under which nothing is watched and
+  nothing was ended."
+  {:sign-ins {} :sessions {} :ends 0})
+
+(defn live-with
+  "`proj` with the entry of a root's map in `$$live` put in."
+  [proj entry]
   (cond
     (instance? LiveSignIn entry)
-    [:sign-ins (:sign-in entry)
-     {:actor (:actor entry)
-      :kind (:kind entry)
-      :hash (:hash entry)
-      :until (:until entry)
-      :previous (when (:prev-hash entry)
-                  {:hash (:prev-hash entry) :until (:prev-until entry)})}]
+    (assoc-in proj [:sign-ins (:sign-in entry)]
+              {:actor (:actor entry)
+               :kind (:kind entry)
+               :hash (:hash entry)
+               :until (:until entry)
+               :previous (when (:prev-hash entry)
+                           {:hash (:prev-hash entry) :until (:prev-until entry)})})
 
     (instance? LiveSession entry)
-    [:sessions (:session entry)
-     {:sign-in (:sign-in entry)
-      :until (:until entry)}]))
+    (assoc-in proj [:sessions (:session entry)]
+              {:sign-in (:sign-in entry)
+               :until (:until entry)})
 
-(defn parse-live-key
-  [k]
-  (when (and (string? k) (> (.length ^String k) 2) (= \: (.charAt ^String k 1)))
-    (let [id (try (UUID/fromString (.substring ^String k 2)) (catch Throwable _ nil))]
-      (when id
-        (case (.charAt ^String k 0)
-          \g [:sign-ins id]
-          \s [:sessions id]
-          nil)))))
+    (instance? LiveEnds entry)
+    (assoc proj :ends (:n entry))
+
+    :else proj))
+
+(defn live-without
+  "`proj` without the sign-in or the session of the inner key `k`. The
+  count of ends is never taken out."
+  [proj k]
+  (if (and (string? k) (> (.length ^String k) 2) (= \: (.charAt ^String k 1)))
+    (let [id (try (UUID/fromString (.substring ^String k 2)) (catch Throwable _ nil))
+          section (case (.charAt ^String k 0)
+                    \g :sign-ins
+                    \s :sessions
+                    nil)]
+      (if (and id section)
+        (update proj section dissoc id)
+        proj))
+    proj))
 
 (defn project-live-map
   [m]
-  (reduce-kv
-   (fn [acc _ v]
-     (if-let [[section id proj] (project-live-entry v)]
-       (assoc-in acc [section id] proj)
-       acc))
-   {:sign-ins {} :sessions {}}
-   (or m {})))
+  (reduce-kv (fn [acc _ v] (live-with acc v)) no-live (or m {})))

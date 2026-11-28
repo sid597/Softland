@@ -186,10 +186,11 @@
 
 (defn check-slice-b-root-rules!
   "Verifies Slice b root operations against `softland.auth.reference`: 32-deep
-  agent chain + `:too-deep` at 33 + 2-scan `end-actor` cascade, take-out
-  cascading expired sign-ins to longer-lived sessions, born-expired sign-ins/
-  sessions/`replace-secret`, `:driven-by` preservation across close/repeat,
-  2-seek `who-is` (before and after `own-lane-made`), and live-only `under`."
+  agent chain + `:too-deep` at 33 + 2-scan `end-actor` cascade, the thinning
+  of what is watched at a write whose `:at` a sign-in's and a session's time
+  have passed, which ends neither, `:driven-by` preservation across
+  close/repeat, `who-is` (before and after `own-lane-made`), and `under` of
+  the watched sign-ins."
   []
   (let [ref-step (requiring-resolve 'softland.auth.reference/step)
         ref-who  (requiring-resolve 'softland.auth.reference/who-is)
@@ -226,7 +227,8 @@
                  [:open-session {:root P :sign-in G-live :session S-stay :until 2000 :at 47}]
                  ;; Extend S-stay without overwriting driven-by (nil)
                  [:open-session {:root P :sign-in G-live :session S-stay :until 3000 :driven-by {:kind :person} :at 48}]
-                 ;; Trigger take-out at t=1000 (ends G-exp, cascades S-long despite until=5000, closes S-short)
+                 ;; Thins at t=1000: G-exp and S-short leave what is watched and are not
+                 ;; ended; S-long stays by its own until=5000, though its sign-in left.
                  [:replace-secret {:root P :sign-in G-live :old-hash (h 3) :new-hash (h 4)
                                    :until 9500 :previous-until 8000 :at 1000}]
                  ;; Repeat of replace-secret
@@ -278,7 +280,7 @@
                           {:root (UUID/randomUUID) :sign-in G-live :session nil}]))]
         (client/close! c)
         (if reads-ok?
-          (do (println "PASSED Slice b root rules (32-deep chain, :too-deep, 2-scan end-actor, take-out cascade, :driven-by, 2-seek who-is, live-only under) match reference 100%.")
+          (do (println "PASSED Slice b root rules (32-deep chain, :too-deep, 2-scan end-actor, the thinning of what is watched, :driven-by, who-is, under of the watched sign-ins) match reference 100%.")
               true)
           (do (println "FAILED Slice b read comparison against reference")
               false))))))

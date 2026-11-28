@@ -34,6 +34,12 @@ turn. Each is written below where it belongs, marked "28 November".
   credential (F6). The runtime answers a program that waits against the
   second alone, so the secret of the credential crosses no wire before her
   yes.
+- A time that passes ends nothing (F17). Auth stores a sign-in's and a
+  session's "good until T" and never writes "ended" because T passed;
+  "ended" and "closed" are written only when someone ends the thing. The
+  section "What is watched, and what a time that passes does" says what
+  replaces the taking out at a write, which he asked to see. With it,
+  questions 9, 10 and 17 of the reference's questions have new readings.
 
 ## What Auth is
 
@@ -85,14 +91,18 @@ Auth never reads the store, and the store never reads Auth.
   holds two hashes that the program sent (28 November): `:hash`, of the
   secret that becomes the sign-in's at a yes, and `:asking-hash`, of a
   secret that the program made only to ask how its ask stands.
-- **Standing.** Whether a thing is live now. A sign-in is live when it has
-  not ended, its secret's time has not passed, its actor has not ended, and
-  no actor above that one has ended. A session is live when it is not
-  closed, its time has not passed, and its sign-in is live. Auth reads no
-  clock, so "has not passed" is judged in two places: by the runtime, which
-  holds each time that a read gives against its own clock; and by Auth at
-  each event, against that event's `:at` ("What takes a thing out of what is
-  live", below).
+- **Standing.** Whether a thing is live now. A sign-in is live when nobody
+  has ended it, its secret's time has not passed, its actor has not ended,
+  and no actor above that one has ended. A session is live when nobody has
+  closed it, its time has not passed, and its sign-in is live. These are
+  two kinds of thing (28 November). That someone ended a sign-in, an actor
+  or a session is a fact, which Auth stores and never takes back. That a
+  time has passed is no fact of Auth's: Auth reads no clock, stores the
+  time, and writes "ended" for no time that passed. "Has not passed" is
+  judged in two places, and kept in neither: by the runtime, which holds
+  each time that a read gives against its own clock, at each read; and by
+  Auth at a write that needs the thing live, against that write's own `:at`
+  ("What is watched, and what a time that passes does", below).
 
 ## The client's contract
 
@@ -122,7 +132,8 @@ Rules for every call:
   root and the sign-in; for `ask`, the two hashes. The other parts of a repeat
   are dropped, but for `open-session`, whose repeat moves the session's
   time on. A refusal binds nothing: the same write after the state changed
-  can be taken.
+  can be taken, and so can the same write with another `:at`, when it was
+  refused for a time that had passed at the first one.
 - Where two refusals apply to one write, a repeat is recognised first, then
   the refusals in the order in which the contract lists them.
 - A write returns when its effect can be read by any copy of the runtime.
@@ -247,6 +258,9 @@ reads
                       :session {:sign-in G' :until t3 :closed? bool
                                 :driven-by D-or-nil}-or-nil
                       :own-lane L-or-nil :own-lane-made? bool}
+                     :ended? and :closed? say that someone ended the
+                     thing, never that its time has passed: the caller
+                     holds t1 and t3 against its own clock
 
 (ask-of client U) -> {:hash H :asking-hash H2 :asks text :ends t1
                       :state :waiting|:yes|:no
@@ -258,25 +272,35 @@ reads
                                   :begun t :until t1} ...]}
                      the agents of the root, ended ones too, in the order
                      in which they were made, each with who made it and
-                     whose ending ends it; and its live sign-ins, in the
-                     order in which they began
+                     whose ending ends it; and its watched sign-ins, in the
+                     order in which they began. A sign-in that is not among
+                     them has not ended for that
 
 (watch-root client P f)
                   -> a function of no argument that stops the watching
 ```
 
-`watch-root` calls `f` with one argument each time what is live under the
-root `P` changed, through whichever copy of the runtime the change came:
+`watch-root` calls `f` with one argument each time what is watched under
+the root `P` changed, through whichever copy of the runtime the change came:
 
 ```text
-{:sign-ins {G {:actor A :kind K :hash H :until t1 :previous ...}}   the live ones
- :sessions {S {:sign-in G :until t3}}}                               the open ones
+{:sign-ins {G {:actor A :kind K :hash H :until t1 :previous ...}}   the watched ones
+ :sessions {S {:sign-in G :until t3}}                                the watched ones
+ :ends n}                                 how many writes under P ended something
 ```
 
-or with `:softland.auth.client/not-reached` when this process can no longer
-say what is live under `P`: within seconds of the loss, once, and `f` is not
-called again after it. `watch-root`'s value does not carry `:driven-by`.
-The caller then stops the watch and registers anew.
+What is watched is not what stands: a sign-in or a session that nobody
+ended can be missing from it ("What is watched, and what a time that passes
+does"), so a caller that holds a thing which the value does not hold reads
+`who-is` before it ends anything. `:ends` goes up by one at each
+`end-sign-in`, `close-session` and `end-actor` that ended or closed
+something, whether or not the value held that thing: every end under the
+root is a call of `f`. The value does not carry `:driven-by`.
+
+In place of that value, `f` is called with
+`:softland.auth.client/not-reached` when this process can no longer say what
+is watched under `P`: within seconds of the loss, once, and `f` is not
+called again after it. The caller then stops the watch and registers anew.
 No call is owed at the registration: a caller that must know how its own
 sign-in stands at the start registers first and then reads with `who-is`.
 `f` runs on a thread of Rama's client and must return at once.
@@ -340,7 +364,9 @@ refused with `:no-such-person`: she has no lane yet.
 **begin-sign-in.** From now on the secret whose hash is `H` stands for the
 actor `A`, until `t1`. `A` is under the root `P` and is live. A sign-in id is
 bound once: the same id with the same parts again changes nothing; with
-other parts it is refused.
+other parts it is refused. A sign-in whose `t1` is at or before the begin's
+own `:at` is taken, with that time: it is not watched, and nobody has ended
+it (question 9, as turned on 28 November).
 
 **replace-secret.** The sign-in's secret becomes the one whose hash is `H'`,
 with a new end `t1`. `H` is the sign-in's hash now; or it is the same
@@ -351,15 +377,19 @@ before it alone, for a sign-in keeps no history of its replacements, which
 would grow with every one (Sid's call of 22 November): it is refused with
 `:wrong-secret` when its old hash is no longer the hash now, and a hash that
 has come back is taken when the replacement's old hash is the hash now. The
-old secret keeps standing until `t2` and no longer. No session changes. A replacement whose new `:until` is at or
-before its own `:at` is taken, and its event takes the sign-in out at once,
-ended as by `end-sign-in`, with its sessions: they close because the
-sign-in's time has passed, not because its secret was replaced. (Question
-10: Sid let the reference's reading stand on 22 November, and it stays his
-to turn.)
+old secret keeps standing until `t2` and no longer. No session changes. A
+sign-in that is not live at the replacement's own `:at` is `:not-live`:
+someone ended it or its actor, or its `:until` is at or before that `:at`.
+A replacement whose new `:until` is at or before its own `:at` is taken:
+the sign-in then has that `:until`, is not watched, and is not ended, and
+its sessions are not closed; the standing of each follows the sign-in's at
+each read. (Question 10. On 22 November Sid let the reference's reading
+stand, in which such a replacement ended the sign-in with its sessions; his
+yes of 28 November, that a time which passes ends nothing, turns it.)
 
-**end-sign-in.** The sign-in ends, and every session under it is closed.
-Ending it again changes nothing.
+**end-sign-in.** The sign-in ends, and every session under it is closed,
+watched or not. Ending it again changes nothing. A sign-in whose time has
+passed is ended by this like any other.
 
 **make-actor.** Makes the agent `A` under the root `P`, made by the live
 actor `B` of that root. Who made whom goes 32 deep at most, the store's own
@@ -368,7 +398,7 @@ The agent ends with its maker: its `:ends-with` starts as `B`, and
 `make-actor` takes no part that sets it (28 November).
 
 **end-actor.** The agent ends, with every actor that ends with it, in any
-depth, and every sign-in and session of each. It follows `:ends-with`, and
+depth, and every sign-in and session of each, watched or not. It follows `:ends-with`, and
 reads who made an agent for nothing (28 November). A person is not ended by
 this call.
 
@@ -382,15 +412,21 @@ A repeat of `open-session` does not change it. When `:driven-by` is absent
 reads. This addition is a session's default and Sid's to turn; it rests on
 Sid's decision of 12 October, entry 4, in `src-store/README.md` (a model's
 reads are kept always, a person's until she turns it off) and on entry 8 of
-the runtime's page. The same id under the same sign-in again, while the
-session is open, moves its time to the `:until` that came, when that is
-later: that is how the runtime keeps a session that is in use. A session
-that is closed, or was taken out because its time passed, is not opened
-again: the same id under the same sign-in then gives `{:open S}`, the result
-of the first, and the session stays closed; only `who-is` says that it is
-closed. (Question 17: Sid let the reference's reading stand on 22 November,
-and it stays his to turn.) A session's id that is another sign-in's, open or
-not, is `:in-use`.
+the runtime's page. The same id under the same sign-in again gives `{:open S}`, the result of
+the first, whatever it changes. It moves the session's time to the `:until`
+that came, when that is later, and the session is then watched: that is how
+the runtime keeps a session that is in use. It does so only while nobody
+has closed the session, the session's time has not passed at the repeat's
+own `:at`, and its sign-in is live at that `:at`. A session that someone
+closed stays closed. One whose time has passed at the repeat's `:at` is not
+moved on, and is not closed for that: the same repeat with an `:at` before
+the session's `:until`, from a copy whose clock is right, moves it on. Only
+`who-is` says how the session stands. (Question 17. On 22 November Sid let
+the reference's reading stand, in which a session whose time had passed was
+closed for good; his yes of 28 November turns that part.) A session whose
+`:until` is at or before the `:at` of its opening is taken, not watched and
+not closed. A session's id that is another sign-in's, open or not, is
+`:in-use`.
 
 **ask, answer-ask.** A program asks under a code, with the hashes of two
 secrets that it made (28 November): `:hash`, of the secret that a yes makes
@@ -407,7 +443,7 @@ person answers once:
 
 The first answer stands. Once an ask has an answer, every answer that fits
 gives what stands, before any refusal, and changes nothing but what its time
-takes out (below): the same answer again, another answer, and one at or
+thins from what is watched (below): the same answer again, another answer, and one at or
 after the ask's `:ends` alike (Sid's call of 22 November). An answer to an ask that still waits is judged: one
 whose `:at` is at or after the ask's `:ends` is refused with `:over`, and
 then come the refusals of the actor and of the ids, in the contract's order.
@@ -428,37 +464,95 @@ it says `:waiting` for an ask that nobody answered, and the runtime holds
 keeps its code, so that a program that still asks under an old code never
 reads another program's answer.
 
-## What takes a thing out of what is live
+## What is watched, and what a time that passes does
 
 Auth reads no clock, and three things have a time: a sign-in's secret, a
-session, and an ask. A sign-in whose time passes with no `end-sign-in`, and
-a session that nobody closes because its program crashed, would stay in what
-is watched for ever. So:
+session, and an ask.
 
-- Each write that names a `:root` takes out of what is live under that root
-  every sign-in and every session whose time is at or before the write's
-  `:at`, before the write itself is judged, and whether the write is then
-  taken, is a repeat, or is refused. A sign-in that is taken out so is
-  ended, as by `end-sign-in`, with its sessions; a session, as by
-  `close-session`. Neither is taken back. `invite`, `enter`,
-  `own-lane-made` and `ask` name no root and take nothing out. "The same
-  state as once" is said of a write's own effect: what a repeat takes out
-  follows its time.
+Until 28 November this section was "What takes a thing out of what is
+live". A sign-in or a session whose time was at or before the `:at` of a
+write under its root was then written as ended, as by `end-sign-in`, and
+never taken back; so a copy of the runtime whose clock was far ahead ended,
+for good, the sign-ins of every root that it wrote under. One mechanism did
+two jobs: it kept what is watched from growing for ever, and it stated that
+a thing had ended. The first job is kept. The second is taken away.
+
+- **A time that passes ends nothing.** A sign-in and a session keep their
+  `:until`. That a sign-in has ended or a session is closed is written by
+  `end-sign-in`, `close-session` and `end-actor` alone, never because a
+  time passed, in any write. `who-is` says `:ended?` only of a sign-in that
+  someone ended, itself or with its actor, and `:closed?` only of a session
+  that someone closed, itself or with its sign-in; it gives the `:until` of
+  each, and the runtime holds that against its own clock at each read.
+- **A write is judged against its own `:at`, and nothing of the judgment is
+  kept.** A write that needs a live sign-in, `replace-secret` and
+  `open-session`, is refused `:not-live` when the sign-in's `:until` is at
+  or before that write's `:at`. The same write with an `:at` before that
+  `:until` is judged afresh and taken: a refusal binds nothing. A repeat of
+  `open-session` moves a session on only when the session's time and its
+  sign-in's have not passed at the repeat's `:at`.
+- **What replaces the taking out: what is watched.** A sign-in whose time
+  passes with no `end-sign-in`, and a session that nobody closes because
+  its program crashed, would stay in what `watch-root` pushes for ever. So
+  what `watch-root` and `under` give is a thinner thing than "what nobody
+  ended". A sign-in or a session is watched from a write that gave it a
+  time after that write's own `:at`: its begin or its opening, a
+  replacement of its secret, a moving on of its time. It leaves what is
+  watched at the first write that names its root and whose `:at` its time
+  is at or before, or when someone ends it. Each write that names a `:root`
+  thins what is watched under that root so, before the write itself is
+  judged, and whether the write is then taken, is a repeat, or is refused.
+  `invite`, `enter`, `own-lane-made` and `ask` name no root and thin
+  nothing. Each thing leaves by its own time: a session stays while its
+  sign-in leaves. Leaving is no end, and writes nothing on the thing: it
+  bounds what a watcher holds, and that is all it means. A thing that left
+  comes back when a later write gives it a time that is after that write's
+  own `:at`. "The same state as once" is said of a write's own effect: what
+  a repeat thins follows its time.
+- **Every end is pushed.** Since leaving what is watched is no end, a copy
+  of the runtime can rightly hold a connection for a sign-in that the
+  watched value does not hold. When that sign-in is then ended, nothing
+  else in the value would change, and nobody would be told. So the value
+  carries `:ends`, the number of writes under the root that ended or closed
+  something. A copy that holds a thing which the value does not hold reads
+  `who-is` at each push of its root.
+- **An end reaches what is not watched.** `end-sign-in` closes every
+  session of the sign-in, and `end-actor` ends every sign-in and session of
+  each actor that it ends, watched or not: `who-is` says `:ended?` and
+  `:closed?` of each, no session is opened under such a sign-in, its secret
+  is not replaced, its sessions are not moved on, and ending or closing it
+  again changes nothing and is not counted. How the module does it is the
+  module's (`softland.auth.schema`): it writes the end on the records of
+  what is watched, and reads the standing of the rest from the record of
+  the sign-in and of its actor. That costs `who-is` one seek more for an
+  agent's sign-in than for a person's.
 - A sign-in's time is its present secret's `:until` alone. The secret
   before it stays with the sign-in until the next replacing; the runtime
   holds its `t2` against the clock.
-- What `watch-root` and `under` give is therefore bounded by what was live
-  at the root's latest event. A root with no new event shows what was live
-  then; the runtime holds each time against its clock when it reads.
-- A copy of the runtime whose clock is far ahead ends the sign-ins of the
-  roots that it writes under. That is the cost of a time in Auth, and it is
-  why the runtime's clock must be kept: here a wrong clock does more than
-  write a wrong label.
+- What `watch-root` and `under` give is therefore bounded by what was
+  watched at the root's latest write. A root with no new write shows what
+  was watched then; the runtime holds each time against its clock when it
+  reads.
+- **What a clock far ahead does, and what it does not.** A copy of the
+  runtime whose clock is far ahead takes, by its own clock, each sign-in
+  that it reads to be over, and each write that it sends under a root thins
+  what is watched there, to nothing when the clock is far enough ahead. It
+  ends nothing. `who-is` goes on saying of each sign-in and session that
+  nobody ended it, with its `:until`; the copies whose clocks are right go
+  on holding what they hold, and a write of theirs is judged against its
+  own `:at`. What is left over: a sign-in that stands is missing from the
+  watched value and from `under` until its secret is next replaced, and a
+  session until its time is next moved on. A person who lists her sign-ins
+  does not see it there, though `end-sign-in` of it is taken as of any
+  other. Healing that at the next write would need an index of every
+  sign-in and session that nobody ended, which grows for ever; it was
+  weighed and is not built. The runtime's clock must still be kept: a wrong
+  one refuses what it should take, and writes a wrong label.
 - A time's edge: a thing is live while the time that it is held against is
-  before its end. A sign-in, a session or an ask whose end is at or before
-  the `:at` of the event that makes it is taken and is never live. One
-  secret before the present one stands, until its `t2`; a later replacing
-  ends it whatever its `t2`.
+  before its end. A sign-in or a session whose end is at or before the
+  `:at` of the event that makes it is taken, and is not watched; an ask so
+  made is over from its making. One secret before the present one stands,
+  until its `t2`; a later replacing ends it whatever its `t2`.
 
 ## What the runtime does, and Auth does not check
 
@@ -477,6 +571,12 @@ is watched for ever. So:
   runtime's order of calls: an enter whose `own-lane-made` did not go
   through ends with no sign-in. Auth refuses nothing for a person whose
   lane is not marked as made.
+- Holding a time against a clock. Auth gives each `:until` and judges none
+  at a read: the runtime holds a sign-in's and a session's `:until`, and an
+  ask's `:ends`, against its own clock at each read. What `watch-root`
+  pushes is a signal to it and no judge: a thing that the runtime holds and
+  that the value does not hold is read with `who-is`, and is over when
+  someone ended it or when its time has passed by this copy's clock.
 - How often the runtime calls. `who-is` is made for each request and each
   opening of a connection. `open-session` is made once for a new session,
   and then at most once in half of a session's span for each session that
@@ -500,11 +600,13 @@ Judge each of these against many writers, many readers and years of data.
   is what this module replaces.
 - **`who-is` is the read of every request.** It is made for each HTTP
   request and each opening of a connection. It is one round trip to one
-  task, and it reads a bounded amount however long the person's history is.
+  task, and it reads a bounded amount however long the person's history is:
+  the sign-in, the session, and for an agent's sign-in the agent.
 - **What a runtime watches for one root stays small.** `watch-root` is held
   open for each person who has an open connection at a copy of the runtime.
-  Its value is bounded by what is live under her, not by what has ended: an
-  agent that opens a session for each run closes thousands a day.
+  Its value is bounded by what is watched under her, not by what has ended
+  and not by what nobody ended: an agent that opens a session for each run
+  closes thousands a day, and a program that crashes closes none.
 - **How many roots can be watched.** Rama bounds the live reads of one table
   on one task (`pstate.proxy.limit`; seen at 1,000 on Rama 1.6.0, with no
   option set: `src-store/OPEN-QUESTIONS-rama.md`, section 4). The watched
@@ -522,7 +624,8 @@ Judge each of these against many writers, many readers and years of data.
   without bound. Asks: short-lived, without bound over time.
 - **Order.** Events of one person are decided in one order. An end is never
   taken back: no later event makes an ended sign-in, a closed session or an
-  ended actor live again.
+  ended actor live again. That is said of an end that someone wrote, and
+  there is no other: a time that passed is no end.
 - **Who appends.** Rama asks no name. Only programs on machines that Sid
   runs may reach Rama's ports (`src-store/README.md`, 11 and 12 October,
   entry 4), and the runtime is the one program that is meant to append here.

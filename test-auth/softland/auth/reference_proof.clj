@@ -15,7 +15,8 @@
     seed that the run prints, with repeats of calls, inputs that do not fit
     and times that pass, some going back as a slower clock would. After
     every step, each rule of `invariants` is checked, and a check of its
-    own says whether it held in every history.
+    own says whether it held in every history. Now and then a write comes
+    from a clock far ahead (`softland.auth.histories`).
   - By broken copies: for each key of `reference/breaks`, the same
     histories are run against the copy of the rules with that one rule
     broken, and must catch it.
@@ -363,7 +364,7 @@
 
   (let [before (:state (run sitting))
         [after got] (r/step before (c :open-session :until "later" :at 99999999))]
-    (check "A write whose input does not fit gives {:could-not :read-the-event} and writes nothing, also when its time has passed what is live under its root."
+    (check "A write whose input does not fit gives {:could-not :read-the-event} and writes nothing, also when its time has passed what is watched under its root."
            (and (= unfit got) (= before after) (= 1 (count (:sessions (r/live-under after asha)))))))
 
   (let [state (:state (run sitting))]
@@ -616,19 +617,23 @@
            (and (= {:replaced sign-in-1} last)
                 (= {:hash (h 102) :until 200000 :previous {:hash (h 101) :until 150000}}
                    (select-keys (:sign-in (who state sign-in-1)) [:hash :until :previous]))
-                (= #{:actor :kind :hash :first-hash :until :previous :label :begun :ended?}
+                (= #{:actor :kind :hash :first-hash :until :previous :label :begun :ended? :watched?}
                    (set (keys (get-in state [:roots asha :sign-ins sign-in-1]))))
                 (= {:replaced sign-in-1} (last-of (conj signed-in (c :replace-secret :new-hash (h 101))))))))
 
   (check "Where both refusals of replace-secret apply, :not-live comes first: an ended sign-in with a wrong old hash is :not-live."
          (= {:refused :not-live} (last-of (conj signed-in (c :end-sign-in :at 135) (c :replace-secret :old-hash (h 109))))))
 
-  (let [{:keys [state last]} (run (conj sitting (c :replace-secret :until 140 :at 145)))]
-    (check "A replacement whose new until is at or before its own :at is taken, and takes the sign-in out at once, with its sessions (QUESTIONS.md, 10, which Sid's call of 22 November let stand)."
+  (let [{:keys [state last]} (run (conj sitting (c :replace-secret :until 140 :at 145)))
+        [later result] (r/step state (c :replace-secret :old-hash (h 102) :new-hash (h 103) :until 200000 :at 130))]
+    (check "A replacement whose new until is at or before its own :at is taken: the sign-in then has that until, is not watched and is not ended, and its session is not closed and stays watched by its own time; a later replacement whose :at is before that until, from a copy whose clock is behind, is taken and puts the sign-in back in what is watched (QUESTIONS.md, 10, as Sid turned it on 28 November)."
            (and (= {:replaced sign-in-1} last)
-                (:ended? (:sign-in (who state sign-in-1)))
-                (:closed? (:session (who state sign-in-1 session-1)))
-                (= {:sign-ins {} :sessions {}} (r/live-under state asha))))))
+                (= {:until 140 :ended? false} (select-keys (:sign-in (who state sign-in-1)) [:until :ended?]))
+                (false? (:closed? (:session (who state sign-in-1 session-1))))
+                (= {:sign-ins {} :sessions {session-1 {:sign-in sign-in-1 :until 50000}} :ends 0} (r/live-under state asha))
+                (= {:replaced sign-in-1} result)
+                (= [sign-in-1] (keys (:sign-ins (r/live-under later asha)))))
+           [last (r/live-under state asha) result])))
 
 ;; -------------------------------------------------------------- end-sign-in
 
@@ -636,11 +641,22 @@
   "The checks of end-sign-in."
   []
   (let [{:keys [state last]} (run (conj sitting (c :open-session :session session-2 :at 141) (c :end-sign-in)))]
-    (check "end-sign-in gives {:ended G}: the sign-in ends, every session under it is closed, and none of them is in what is live."
+    (check "end-sign-in gives {:ended G}: the sign-in ends, every session under it is closed, and none of them is in what is watched; the root counts one end."
            (and (= {:ended sign-in-1} last)
                 (:ended? (:sign-in (who state sign-in-1)))
                 (every? #(:closed? (:session (who state sign-in-1 %))) [session-1 session-2])
-                (= {:sign-ins {} :sessions {}} (r/live-under state asha)))))
+                (= {:sign-ins {} :sessions {} :ends 1} (r/live-under state asha)))))
+
+  (let [{:keys [state results]} (run (conj sitting
+                                           (c :make-actor :at 100000)
+                                           (c :end-sign-in :at 160)
+                                           (c :end-sign-in :at 161)))]
+    (check "end-sign-in of a sign-in that is not watched, since a write from a clock far ahead came under its root, ends it and closes its sessions like any other; and the root's count of ends goes up by that one, so that whoever watches the root is told, and not by the repeat."
+           (and (= [{:made agent-1} {:ended sign-in-1} {:ended sign-in-1}] (take-last 3 results))
+                (:ended? (:sign-in (who state sign-in-1)))
+                (:closed? (:session (who state sign-in-1 session-1)))
+                (= {:sign-ins {} :sessions {} :ends 1} (r/live-under state asha)))
+           [results (r/live-under state asha)]))
 
   (check "end-sign-in of a sign-in that the root does not have is refused with :no-such-sign-in."
          (= {:refused :no-such-sign-in} (last-of (conj signed-in (c :end-sign-in :sign-in sign-in-2)))))
@@ -785,12 +801,23 @@
                             (c :open-session :sign-in sign-in-2 :at 152)))]))
 
   (let [closed (run (conj sitting (c :close-session) (c :open-session :until 90000 :at 151)))
-        passed (run (conj sitting (c :end-sign-in :sign-in sign-in-2 :at 50000) (c :open-session :until 90000 :at 50001)))]
-    (check "A session that is closed, or was taken out because its time passed, is not opened again: open-session of it gives {:open S}, the result of the first, and it stays closed (QUESTIONS.md, 17, which Sid's call of 22 November let stand)."
-           (and (= {:open session-1} (:last closed) (:last passed))
-                (= {:closed? true :until 50000}
-                   (select-keys (:session (who (:state closed) sign-in-1 session-1)) [:closed? :until])
-                   (select-keys (:session (who (:state passed) sign-in-1 session-1)) [:closed? :until])))))
+        passed (run (conj sitting (c :end-sign-in :sign-in sign-in-2 :at 50000) (c :open-session :until 90000 :at 50001)))
+        ;; The same repeat from a copy whose clock is right, after the one
+        ;; from the clock that is ahead.
+        judged-afresh (run (conj sitting (c :open-session :until 90000 :at 50001) (c :open-session :until 90000 :at 200)))
+        session-of (fn [ran] (select-keys (:session (who (:state ran) sign-in-1 session-1)) [:closed? :until]))]
+    (check "A repeat of open-session gives {:open S}, the result of the first, whatever it changes (QUESTIONS.md, 17, as Sid turned it on 28 November): a session that someone closed stays closed; one whose time has passed at the repeat's :at is not moved on, is not closed and is not watched; and the same repeat at a time before the session's until moves it on and puts it back in what is watched."
+           (and (= {:open session-1} (:last closed) (:last passed) (:last judged-afresh))
+                (= {:closed? true :until 50000} (session-of closed))
+                (= {:closed? false :until 50000} (session-of passed))
+                (= {} (:sessions (r/live-under (:state passed) asha)))
+                (= {:closed? false :until 90000} (session-of judged-afresh))
+                (= {session-1 {:sign-in sign-in-1 :until 90000}} (:sessions (r/live-under (:state judged-afresh) asha))))
+           [(session-of passed) (session-of judged-afresh)]))
+
+  (let [state (:state (run (conj signed-in (c :open-session :until 150000) (c :open-session :until 190000 :at 100000))))]
+    (check "A repeat of open-session moves a session on only under a sign-in that is live at the repeat's :at: when the sign-in's time has passed there, the session keeps its until, though its own time has not passed, and it is not closed."
+           (= {:closed? false :until 150000} (select-keys (:session (who state sign-in-1 session-1)) [:closed? :until]))))
 
   (let [model {:kind :model :model "claude-opus-5-5"}
         state (:state (run (conj signed-in (c :open-session :driven-by model) (c :close-session))))]
@@ -813,10 +840,11 @@
                            (c :open-session :sign-in sign-in-2 :at 143)))))
 
   (let [{:keys [state last]} (run (conj sitting (c :close-session)))]
-    (check "close-session gives {:closed S}: who-is says the session is closed, and it is not in what is live."
+    (check "close-session gives {:closed S}: who-is says the session is closed, and it is not in what is watched; the root counts one end."
            (and (= {:closed session-1} last)
                 (:closed? (:session (who state sign-in-1 session-1)))
-                (= {} (:sessions (r/live-under state asha))))))
+                (= {:sign-ins [sign-in-1] :sessions {} :ends 1}
+                   (update (r/live-under state asha) :sign-ins keys)))))
 
   (check "close-session of a session that the root does not have is refused with :no-such-session."
          (= {:refused :no-such-session} (last-of (conj sitting (c :close-session :session session-2)))))
@@ -963,9 +991,9 @@
             (r/who-is r/empty-state {:root cy :sign-in sign-in-1 :session session-1})))
 
   (let [state (:state (run asha-in))]
-    (check "under and live-under of a root that is no person give no agents, no sign-ins and no sessions."
+    (check "under and live-under of a root that is no person give no agents, no sign-ins, no sessions and no end."
            (and (= {:actors [] :sign-ins []} (r/under state cy))
-                (= {:sign-ins {} :sessions {}} (r/live-under state cy)))))
+                (= {:sign-ins {} :sessions {} :ends 0} (r/live-under state cy)))))
 
   (let [state (:state (run (conj sitting (c :begin-sign-in :sign-in sign-in-2 :hash (h 102) :at 141))))]
     (check "who-is gives the session asked for with the sign-in that it is under, which can be another than the sign-in asked for."
@@ -978,7 +1006,7 @@
                                  (c :end-actor :actor agent-2 :at 135)
                                  (c :end-sign-in :sign-in sign-in-1 :at 136))))
         {:keys [actors sign-ins]} (r/under state asha)]
-    (check "under gives the agents of the root, ended ones too, in the order in which they were made, and its live sign-ins, in the order in which they began."
+    (check "under gives the agents of the root, ended ones too, in the order in which they were made, and its watched sign-ins, in the order in which they began."
            (and (= [[agent-2 true] [agent-1 false]] (map (juxt :actor :ended?) actors))
                 (= [sign-in-2 sign-in-3] (map :sign-in sign-ins))
                 (= {:sign-in sign-in-2 :actor asha :kind :browser :label nil :begun 132 :until 100000} (first sign-ins)))))
@@ -991,75 +1019,118 @@
                 (:ended? (first (:actors (r/under state asha))))
                 (= :no (:state (r/ask-of state code-1)))))))
 
-;; ---------------------------------------------------------------- take-out
+;; ------------------------------------------------- what is watched, and time
 
-(defn- take-out-checks
-  "The checks of \"What takes a thing out of what is live\"."
+(defn- watched-checks
+  "The checks of \"What is watched, and what a time that passes does\"."
   []
   (let [calls (conj sitting (c :begin-sign-in :sign-in sign-in-2 :hash (h 102) :until 200000 :at 141))
-        late 100000]
-    (check "A write that names a root takes out of what is live under it every sign-in and session whose time is at or before its :at, also when the write is refused."
+        late 100000
+        thinned? (fn [state]
+                   (and (= {:sign-ins [sign-in-2] :sessions {} :ends 0} (update (r/live-under state asha) :sign-ins keys))
+                        (= [sign-in-2] (map :sign-in (:sign-ins (r/under state asha))))
+                        (= {:until 100000 :ended? false} (select-keys (:sign-in (who state sign-in-1)) [:until :ended?]))
+                        (= {:until 50000 :closed? false} (select-keys (:session (who state sign-in-1 session-1)) [:until :closed?]))))]
+    (check "A write that names a root thins what is watched under it: every sign-in and session whose time is at or before the write's :at leaves what watch-root and under give, also when the write is refused; and none of them is ended or closed for that: who-is says so, with the until of each."
            (let [{:keys [state last]} (run (conj calls (c :end-sign-in :sign-in sign-in-3 :at late)))]
-             (and (= {:refused :no-such-sign-in} last)
-                  (= [sign-in-2] (keys (:sign-ins (r/live-under state asha))))
-                  (= {} (:sessions (r/live-under state asha))))))
-    (check "The take-out comes also when the write is a repeat: what a repeat takes out follows its time."
+             (and (= {:refused :no-such-sign-in} last) (thinned? state))))
+    (check "The thinning comes also when the write is a repeat: what a repeat thins follows its time."
            (let [{:keys [state last]} (run (conj calls (c :begin-sign-in :sign-in sign-in-2 :hash (h 102) :at late)))]
-             (and (= {:begun sign-in-2} last)
-                  (= [sign-in-2] (keys (:sign-ins (r/live-under state asha))))
-                  (:ended? (:sign-in (who state sign-in-1)))))))
+             (and (= {:begun sign-in-2} last) (thinned? state)))))
 
-  (check "The take-out comes before the write is judged: open-session under a sign-in at the very time of its until is :not-live, and replace-secret of it is :not-live."
-         (and (= {:refused :not-live} (last-of (conj signed-in (c :open-session :session session-2 :at 100000 :until 200000))))
-              (= {:refused :not-live} (last-of (conj signed-in (c :replace-secret :at 100000))))))
+  (let [far 1000000
+        ahead (conj sitting (c :make-actor :at far))
+        {:keys [state results]} (run (conj ahead
+                                           (c :open-session :session session-2 :until 60000 :at 150)
+                                           (c :replace-secret :at 151)))
+        after-the-clock (:state (run ahead))]
+    (check "A time that passes ends nothing, and a clock far ahead ends nothing: after a write under her root whose :at is far ahead, her sign-in and her session are in no watched value, and who-is still says that nobody ended the one or closed the other, with the until of each; then, from a copy whose clock is right, a session is opened under the sign-in and its secret is replaced, which puts the sign-in back in what is watched."
+           (and (= {:sign-ins {} :sessions {} :ends 0} (r/live-under after-the-clock asha))
+                (= {:until 100000 :ended? false :actor-ended? false}
+                   (select-keys (:sign-in (who after-the-clock sign-in-1)) [:until :ended? :actor-ended?]))
+                (= {:until 50000 :closed? false} (select-keys (:session (who after-the-clock sign-in-1 session-1)) [:until :closed?]))
+                (= [{:open session-2} {:replaced sign-in-1}] (take-last 2 results))
+                (= {:sign-ins [sign-in-1] :sessions {session-2 {:sign-in sign-in-1 :until 60000}} :ends 0}
+                   (update (r/live-under state asha) :sign-ins keys))
+                (= [sign-in-1] (map :sign-in (:sign-ins (r/under state asha)))))
+           [(r/live-under after-the-clock asha) results (r/live-under state asha)]))
 
-  (let [state (:state (run (conj sitting (c :open-session :session session-2 :until 300 :at 141) (c :make-actor :at 100000))))]
-    (check "A sign-in that is taken out so is ended, as by end-sign-in, with its sessions; a session alone is closed, as by close-session."
-           (and (:ended? (:sign-in (who state sign-in-1)))
-                (every? #(:closed? (:session (who state sign-in-1 %))) [session-1 session-2])))
-    (let [state' (:state (run (conj sitting (c :open-session :session session-2 :until 300 :at 141) (c :make-actor :at 300))))]
-      (check "A session whose time has passed is closed alone: its sign-in and the other sessions under it stay live."
-             (and (not (:ended? (:sign-in (who state' sign-in-1))))
-                  (:closed? (:session (who state' sign-in-1 session-2)))
-                  (= [session-1] (keys (:sessions (r/live-under state' asha)))))))
-    (check "Neither is taken back: a later write whose :at is earlier, from a copy whose clock is behind, leaves them out."
-           (let [later (:state (run (conj sitting (c :make-actor :at 100000) (c :make-actor :actor agent-2 :at 150))))]
-             (and (:ended? (:sign-in (who later sign-in-1)))
-                  (= {:sign-ins {} :sessions {}} (r/live-under later asha))))))
+  (check "A write is judged against its own :at, and nothing of the judgment is kept: open-session under a sign-in at the very time of its until is :not-live, and so is replace-secret of it; the same two writes sent after them with a time before that until are taken."
+         (= [{:refused :not-live} {:refused :not-live} {:open session-2} {:replaced sign-in-1}]
+            (take-last 4 (:results (run (conj signed-in
+                                              (c :open-session :session session-2 :at 100000 :until 200000)
+                                              (c :replace-secret :at 100000)
+                                              (c :open-session :session session-2 :at 99999 :until 200000)
+                                              (c :replace-secret :at 99999)))))))
 
-  (check "invite, enter, own-lane-made and ask name no root and take nothing out."
+  (let [state (:state (run (conj sitting (c :open-session :session session-2 :until 300 :at 141) (c :make-actor :at 300))))]
+    (check "Each thing leaves what is watched by its own time: a session whose time has passed leaves alone, its sign-in and the other sessions under it stay, and it is not closed."
+           (and (= [session-1] (keys (:sessions (r/live-under state asha))))
+                (= [sign-in-1] (keys (:sign-ins (r/live-under state asha))))
+                (false? (:closed? (:session (who state sign-in-1 session-2)))))))
+
+  (let [later (:state (run (conj sitting (c :make-actor :at 100000) (c :make-actor :actor agent-2 :at 150))))]
+    (check "A later write whose :at is earlier does not by itself bring back what a write thinned: a thing comes back when a write gives it a time after that write's own :at, a secret that is replaced or a session that is moved on."
+           (and (= {:sign-ins {} :sessions {} :ends 0} (r/live-under later asha))
+                (false? (:ended? (:sign-in (who later sign-in-1)))))))
+
+  (check "invite, enter, own-lane-made and ask name no root and thin nothing."
          (every? (fn [call] (let [state (:state (run (conj sitting call)))]
                               (= [sign-in-1] (keys (:sign-ins (r/live-under state asha))))))
                  [(c :invite :person bo :claim bo-email :at 999999) (c :enter :at 999999) (c :own-lane-made :at 999999)
                   (c :ask :at 999999 :ends 9999999)]))
 
-  (let [state (:state (run (conj signed-in (c :replace-secret :until 500 :previous-until 900) (c :make-actor :at 600))))]
-    (check "A sign-in's time is its present secret's :until alone: a secret before it that stands longer does not keep it live."
-           (:ended? (:sign-in (who state sign-in-1)))))
+  (let [{:keys [state last]} (run (conj signed-in (c :replace-secret :until 500 :previous-until 900) (c :make-actor :at 600)
+                                        (c :open-session :at 601)))]
+    (check "A sign-in's time is its present secret's :until alone: a secret before it that stands longer keeps it neither watched nor live at a write, and it is not ended."
+           (and (= {:refused :not-live} last)
+                (= {} (:sign-ins (r/live-under state asha)))
+                (false? (:ended? (:sign-in (who state sign-in-1)))))))
 
   (let [state (:state (run (conj signed-in (c :replace-secret :previous-until 145) (c :make-actor :at 5000))))]
     (check "The secret before the present one stays with the sign-in until the next replacing: who-is gives it after its t2 has passed."
            (= {:hash (h 101) :until 145} (:previous (:sign-in (who state sign-in-1))))))
 
   (let [state (:state (run (conj asha-in (c :begin-sign-in :until 500))))]
-    (check "What watch-root and under give is bounded by what was live at the root's latest event: a sign-in whose time has passed with no event since is still given."
+    (check "What watch-root and under give is bounded by what was watched at the root's latest write: a sign-in whose time has passed with no write since is still given."
            (and (= [sign-in-1] (map :sign-in (:sign-ins (r/under state asha))))
                 (= [sign-in-1] (keys (:sign-ins (r/live-under state asha)))))))
 
   (let [{:keys [state results]} (run (conj asha-in (c :begin-sign-in :until 130) (c :begin-sign-in :sign-in sign-in-2 :hash (h 102) :at 131)
                                            (c :open-session :sign-in sign-in-2 :until 132 :at 132) (c :ask :ends 120)
                                            (c :answer-ask :sign-in sign-in-3 :at 100)))]
-    (check "A sign-in, a session or an ask whose end is at or before the :at of the event that makes it is taken and is never live: the sign-in begins ended, the session opens closed, and the ask is over, also to an answer from a slower clock (QUESTIONS.md, 9 and 19)."
+    (check "A sign-in or a session whose end is at or before the :at of the event that makes it is taken, and is neither watched nor ended or closed; an ask so made is over, also to an answer from a slower clock (QUESTIONS.md, 9 and 19)."
            (and (= [{:begun sign-in-1} {:begun sign-in-2} {:open session-1} {:asked code-1} {:refused :over}] (drop 2 results))
-                (:ended? (:sign-in (who state sign-in-1)))
-                (:closed? (:session (who state sign-in-2 session-1)))
-                (= [sign-in-2] (keys (:sign-ins (r/live-under state asha))))
+                (false? (:ended? (:sign-in (who state sign-in-1))))
+                (false? (:closed? (:session (who state sign-in-2 session-1))))
+                (= {:sign-ins [sign-in-2] :sessions {} :ends 0} (update (r/live-under state asha) :sign-ins keys))
                 (= :waiting (:state (r/ask-of state code-1))))))
 
-  (check "A thing is live while the time that it is held against is before its end: a sign-in until 1000 is live at a write at 999 and is taken out at a write at 1000."
+  (check "A thing is watched while the time that it is held against is before its end: a sign-in until 1000 is given after a write at 999 and is not after a write at 1000."
          (= [[sign-in-1] []]
             (map #(vec (keys (:sign-ins (r/live-under (:state (run (conj asha-in (c :begin-sign-in :until 1000) (c :make-actor :at %)))) asha))))
-                 [999 1000]))))
+                 [999 1000])))
+
+  (let [far 1000000
+        {:keys [state results]} (run (conj with-agent
+                                           (c :begin-sign-in :actor agent-1 :sign-in sign-in-3 :hash (h 103) :at 133)
+                                           (c :open-session :sign-in sign-in-3 :session session-2 :at 134)
+                                           (c :make-actor :actor agent-2 :at far)
+                                           (c :end-actor :at 150)
+                                           (c :open-session :sign-in sign-in-3 :session session-1 :at 151)
+                                           (c :replace-secret :sign-in sign-in-3 :old-hash (h 103) :at 152)
+                                           (c :open-session :sign-in sign-in-3 :session session-2 :until 90000 :at 153)
+                                           (c :close-session :session session-2 :at 154)
+                                           (c :end-sign-in :sign-in sign-in-3 :at 155)))]
+    (check "An end reaches what is not watched: when an agent is ended whose sign-in and session had left what is watched, who-is says that the sign-in ended with its actor and that the session is closed; no session is opened under the sign-in, its secret is not replaced, and its session is not moved on; closing that session and ending that sign-in then change nothing; and the root counts one end."
+           (and (= [{:ended agent-1} {:refused :not-live} {:refused :not-live} {:open session-2} {:closed session-2}
+                    {:ended sign-in-3}]
+                   (take-last 6 results))
+                (= {:ended? true :actor-ended? true} (select-keys (:sign-in (who state sign-in-3)) [:ended? :actor-ended?]))
+                (= {:closed? true :until 50000} (select-keys (:session (who state sign-in-3 session-2)) [:closed? :until]))
+                (true? (:closed? (:session (who state sign-in-1 session-2))))
+                (= {:sign-ins {} :sessions {} :ends 1} (r/live-under state asha)))
+           [(take-last 6 results) (r/live-under state asha)])))
 
 ;; ------------------------------------------------------------------ the client
 
@@ -1137,16 +1208,28 @@
           _ (r/close-session a (second (c :close-session)))]
       (check "No call is owed at the registration of watch-root."
              (= [] at-registration))
-      (check "watch-root calls f with what is live under the root each time it changed, and not for a write that changed nothing live."
+      (check "watch-root calls f with what is watched under the root each time it changed, and not for a write that changed nothing of it."
              (and (= [] after-nothing-live) (= 2 (count two))))
       (check "watch-root's function is called through whichever copy of the runtime the change came: a sign-in begun through another client is seen."
              (= [sign-in-1] (keys (:sign-ins (first two)))))
-      (check "watch-root's value is {:sign-ins {G {:actor :kind :hash :until :previous}} :sessions {S {:sign-in :until}}}, and does not carry :driven-by."
+      (check "watch-root's value is {:sign-ins {G {:actor :kind :hash :until :previous}} :sessions {S {:sign-in :until}} :ends n}, and does not carry :driven-by."
              (= {:sign-ins {sign-in-1 {:actor asha :kind :browser :hash (h 101) :until 100000 :previous nil}}
-                 :sessions {session-1 {:sign-in sign-in-1 :until 50000}}}
+                 :sessions {session-1 {:sign-in sign-in-1 :until 50000}}
+                 :ends 0}
                 (second two)))
       (check "watch-root gives a function of no argument that stops the watching: a change after it calls nothing."
              (= two @seen))))
+
+  (let [[a b] (two-clients)
+        seen (atom [])]
+    (through! a sitting)
+    (r/watch-root a asha #(swap! seen conj %))
+    (r/make-actor b (second (c :make-actor :at 1000000)))
+    (r/end-sign-in b (second (c :end-sign-in :at 160)))
+    (r/end-sign-in b (second (c :end-sign-in :at 161)))
+    (check "An end reaches whoever watches the root, also an end of a thing that the watched value does not hold: after a write from a clock far ahead the function is called with a value that holds no sign-in and no session, which is no end; when the sign-in is then ended, the function is called once more, with the count of ends gone up by one and nothing else changed; and a repeat of that end calls nothing."
+           (= [{:sign-ins {} :sessions {} :ends 0} {:sign-ins {} :sessions {} :ends 1}] @seen)
+           @seen))
 
   (let [[a b] (two-clients)
         seen (atom 0)]
@@ -1219,11 +1302,14 @@
   the words that its check prints."
   [[:no-throw "no step throws"]
    [:one-person "an account names one person at most, and the same one for good; a claim names one person for good; a person has one claim"]
-   [:repeat "a write that arrives twice gives the result of the first, by the parts that bind, an enter with :own-lane-made? as it stands, and leaves the state as once, but for what its own time takes out, the time that a repeat of open-session moves on, and the :says of an enter whose :at is later than the kept one's; a replacement that arrives after a newer one is no repeat: it is refused when its sign-in is not live or its old hash is not the hash now, and taken when that hash has come back"]
-   [:refusal "a write that is refused changes nothing but what its time takes out"]
+   [:repeat "a write that arrives twice gives the result of the first, by the parts that bind, an enter with :own-lane-made? as it stands, and leaves the state as once, but for what its own time thins from what is watched, the time that a repeat of open-session moves on while the session and its sign-in stand at the repeat's :at, and the :says of an enter whose :at is later than the kept one's; a replacement that arrives after a newer one is no repeat: it is refused when its sign-in is not live or its old hash is not the hash now, and taken when that hash has come back"]
+   [:refusal "a write that is refused changes nothing but what its time thins from what is watched"]
    [:no-revival "an end is never taken back: no later call makes an ended sign-in, a closed session or an ended actor live again"]
-   [:time "what is live under a root holds no sign-in and no session whose time is at or before the :at of that root's latest write"]
-   [:standing "what is live under a root holds no open session whose sign-in is not live in it"]
+   [:only-an-end-ends "who-is says :ended? of a sign-in and :closed? of a session from an end-sign-in, an end-actor or a close-session on, and from no other write: a time that passes, by whatever clock, ends nothing"]
+   [:ends "the count of ends under a root goes up by one at each end-sign-in, end-actor and close-session that ended or closed something, and at no other write"]
+   [:judged-afresh "an open-session of a new session and a replace-secret that is no repeat are refused with :not-live exactly when someone ended the sign-in or its actor, or the sign-in's :until is at or before the write's own :at, whatever times earlier writes under the root came with"]
+   [:time "what is watched under a root holds no sign-in and no session whose time is at or before the :at of that root's latest write"]
+   [:standing "what is watched under a root holds no sign-in that someone ended, none whose actor ended, and no session that someone closed or whose sign-in someone ended"]
    [:end-actor "end-actor ends every actor that ends with it, in any depth, with every sign-in and session of each, and an actor that ends with an ended one has ended"]
    [:ask "an ask under a code that is bound is the same write when its two hashes are the ask's, and gives {:asked U}; with another of either it is refused with :in-use"]
    [:answer "the first answer to an ask stands, and the ask keeps its two hashes, :asks and :ends; every answer to an ask that has an answer gives what stands; and an answer to an ask that waits, at or after its :ends or to an ask that was over when it was made, is refused with :over"]
@@ -1242,10 +1328,16 @@
   (not (or (contains? result :refused) (contains? result :could-not))))
 
 (defn- swept
-  "The state before a call, with what the call's time takes out under its
-  root taken out, by the reference's own `take-out`."
+  "The state before a call, with what is watched under its root thinned at
+  the call's time, by the reference's own `thin`."
   [state kind input]
-  (if (contains? r/names-a-root kind) (r/take-out state (:root input) (:at input)) state))
+  (if (contains? r/names-a-root kind) (r/thin state (:root input) (:at input)) state))
+
+(defn- stands-at?
+  "Whether the sign-in `g`, as who-is gives it, stands at the time `at`:
+  nobody ended it or its actor, and its until is after `at`."
+  [g at]
+  (boolean (and g (not (:ended? g)) (not (:actor-ended? g)) (< at (:until g)))))
 
 (defn- first-seen
   "`m` with each pair of `kvs` whose key it does not hold yet."
@@ -1268,16 +1360,21 @@
 
 (defn- expected-after-repeat
   "The state that a repeat of `kind` with `input` must leave after
-  `before`: what its time takes out; then for open-session the session's
-  time moved on while it is open; and for an enter whose :at is later than
-  the :at that its link keeps, the link's :says and its :at set from it."
+  `before`: what is watched thinned at its time; then for open-session the
+  session's time moved on, and the session watched, when nobody closed it,
+  its time has not passed at the repeat's :at, its sign-in stands at that
+  :at, and the until that came is later; and for an enter whose :at is
+  later than the :at that its link keeps, the link's :says and its :at set
+  from it."
   [kind input before]
   (let [s0 (swept before kind input)]
     (case kind
       :open-session (let [path [:roots (:root input) :sessions (:session input)]
-                          s (get-in s0 path)]
-                      (if (and s (= (:sign-in input) (:sign-in s)) (not (:closed? s)))
-                        (assoc-in s0 (conj path :until) (max (:until s) (:until input)))
+                          s (get-in s0 path)
+                          g (:sign-in (r/who-is s0 {:root (:root input) :sign-in (:sign-in input) :session nil}))]
+                      (if (and s (= (:sign-in input) (:sign-in s)) (not (:closed? s)) (< (:at input) (:until s))
+                               (stands-at? g (:at input)) (> (:until input) (:until s)))
+                        (update-in s0 path assoc :until (:until input) :watched? true)
                         s0))
       :enter (let [link (get-in s0 [:links (:account input)])]
                (if (and link (> (:at input) (:said-at link)))
@@ -1307,7 +1404,7 @@
         late? (and (= kind :replace-secret)
                    (not (and g (= (:new-hash input) (:hash g)) (= (:old-hash input) (get-in g [:previous :hash])))))]
     (if late?
-      (let [live? (and g (not (:ended? g)) (not (:actor-ended? g)) (< (:at input) (:until g)))
+      (let [live? (stands-at? g (:at input))
             want (cond (not live?) {:refused :not-live}
                        (not= (:old-hash input) (:hash g)) {:refused :wrong-secret}
                        :else {:replaced (:sign-in input)})
@@ -1337,14 +1434,14 @@
 
 (defn- views
   "For each root of the state and each root that the tracker knows, what is
-  live under it and what `under` gives."
+  watched under it and what `under` gives."
   [tracker state]
   (into {} (map (fn [P] [P {:live (r/live-under state P) :under (r/under state P)}]))
         (into (set (keys (:roots state))) (keys (:latest-at tracker)))))
 
 (defn- revival-violations
   "Checks that each thing that had ended is still ended by who-is and under,
-  and is not in what is live."
+  and is not in what is watched."
   [tracker after vs]
   (let [{:keys [sign-ins sessions agents]} (:ended tracker)]
     (concat
@@ -1362,8 +1459,8 @@
        [:agent-live-again P A]))))
 
 (defn- time-violations
-  "Checks that what is live under each root holds nothing whose time is at
-  or before the :at of the root's latest write."
+  "Checks that what is watched under each root holds nothing whose time is
+  at or before the :at of the root's latest write."
   [tracker vs]
   (for [[P at] (:latest-at tracker)
         :let [{:keys [sign-ins sessions]} (get-in vs [P :live])]
@@ -1373,12 +1470,63 @@
     [what P thing until at]))
 
 (defn- standing-violations
-  "Checks that each open session in what is live has its sign-in live in it."
-  [vs]
+  "Checks that what is watched holds no sign-in that who-is says ended, or
+  whose actor ended, and no session that who-is says closed, or whose
+  sign-in it says ended."
+  [after vs]
   (for [[P {:keys [live]}] vs
-        [S s] (:sessions live)
-        :when (not (contains? (:sign-ins live) (:sign-in s)))]
-    [:session-of-no-live-sign-in P S]))
+        [what id] (concat (for [G (keys (:sign-ins live))] [:sign-in G])
+                          (for [S (keys (:sessions live))] [:session S]))
+        :let [over? (case what
+                      :sign-in (let [g (:sign-in (r/who-is after {:root P :sign-in id :session nil}))]
+                                 (or (:ended? g) (:actor-ended? g)))
+                      :session (let [s (:session (r/who-is after {:root P :sign-in P :session id}))
+                                     g (:sign-in (r/who-is after {:root P :sign-in (:sign-in s) :session nil}))]
+                                 (or (:closed? s) (:ended? g) (:actor-ended? g))))]
+        :when over?]
+    [:watched-though-ended P what id]))
+
+(def ^:private ends
+  "The writes that end or close something."
+  #{:end-sign-in :end-actor :close-session})
+
+(defn- only-an-end-violations
+  "Checks that no write but an end-sign-in, an end-actor or a close-session
+  changes which sign-ins have ended and which sessions are closed."
+  [before kind after]
+  (when (and (not (contains? ends kind))
+             (not= (select-keys (ended-in before) [:sign-ins :sessions])
+                   (select-keys (ended-in after) [:sign-ins :sessions])))
+    [[:ended-by-no-end kind]]))
+
+(defn- ends-violations
+  "Checks the count of ends under each root: one more under the root of an
+  end-sign-in, an end-actor or a close-session that ended or closed
+  something, and the same otherwise."
+  [before kind input after]
+  (let [counted (when (and (contains? ends kind) (not= (ended-in before) (ended-in after))) (:root input))]
+    (for [P (keys (:roots after))
+          :let [was (:ends (r/live-under before P))
+                is (:ends (r/live-under after P))
+                want (if (= P counted) (inc was) was)]
+          :when (not= want is)]
+      [:ends-of P :was was :is is :want want])))
+
+(defn- afresh-violations
+  "Checks that an open-session of a new session, and a replace-secret that
+  is no repeat, are refused with :not-live exactly when the sign-in does
+  not stand at the write's own :at."
+  [before [kind input] result]
+  (when (contains? #{:open-session :replace-secret} kind)
+    (let [{g :sign-in s :session}
+          (r/who-is before {:root (:root input) :sign-in (:sign-in input)
+                            :session (when (= kind :open-session) (:session input))})
+          repeat? (case kind
+                    :replace-secret (and g (= (:new-hash input) (:hash g)) (= (:old-hash input) (get-in g [:previous :hash])))
+                    :open-session (and s (= (:sign-in input) (:sign-in s))))]
+      (when (and (not repeat?)
+                 (not= (not (stands-at? g (:at input))) (= {:refused :not-live} result)))
+        [[:not-judged-by-its-own-at input result]]))))
 
 (defn- below
   "The agent `A` and every agent that ends with it, in any depth, from the
@@ -1511,12 +1659,15 @@
                        (when (contains? result :refused)
                          (when (not= (swept before kind input) after) [[:refusal [call result]]]))
                        (tagged :ask (ask-violations before call result))
+                       (tagged :judged-afresh (afresh-violations before call result))
                        (tagged :answer (answer-violations tracker before call result after))
                        (tagged :end-actor (end-actor-violations call result after vs))))
                     (tagged :one-person (one-person-violations tracker after))
                     (tagged :no-revival (revival-violations tracker after vs))
+                    (tagged :only-an-end-ends (only-an-end-violations before kind after))
+                    (tagged :ends (ends-violations before kind input after))
                     (tagged :time (time-violations tracker vs))
-                    (tagged :standing (standing-violations vs))
+                    (tagged :standing (standing-violations after vs))
                     (tagged :driven-by (driven-by-violations tracker after)))]
     [(learn tracker before call result after fits?) (vec violations)]))
 
@@ -1600,7 +1751,7 @@
     (session-checks)
     (ask-checks)
     (read-checks)
-    (take-out-checks)
+    (watched-checks)
     (client-checks)
     (history-checks seed histories)
     (broken-checks seed histories)

@@ -56,19 +56,33 @@
   (<<atomic
     (ops/explode (s/plan-live-deletes *plan) :> *k)
     (local-transform> [(keypath *root *k) NONE>] *live))
+  ;; In the event of the end itself, so a record that is tried again finds
+  ;; the thing ended and counts nothing.
+  (<<if (s/plan-ended-something? *plan)
+    (local-transform> [(keypath *root s/lk-ends) (term s/bump-ends)] *live))
   (:>))
 
-(deframaop take-out-on-root!
+(deframaop thin-watched-on-root!
   "The task must be `H(*root)`. One seek of `exp:` up to `*at`, and no
-  further read when nothing expired; else one scan of the root's map in
-  `$$live`."
+  further read: what `$$live` holds of a thing is named by its `exp:`
+  entry."
   [*root *at *rd *live]
   (local-select> [(sorted-map-range (s/k-exp-lo *root) (s/k-exp-hi *root *at))] *rd :> *exp-map)
   (<<if (seq *exp-map)
-    (local-select> [(keypath *root) (sorted-map-range s/live-lo s/live-hi)] *live :> *live-map)
-    (s/plan-take-out *root *exp-map *live-map :> *tp)
+    (s/plan-thin-watched *exp-map :> *tp)
     (apply-root-plan! *root *tp *rd *live))
   (:>))
+
+(deframaop signin-agent-rec
+  "The task must be `H(*root)`. No read for a sign-in of the person herself,
+  nor for what is no sign-in."
+  [*root *g *rd]
+  (s/signin-agent *root *g :> *agent)
+  (<<if (some? *agent)
+    (local-select> [(keypath (s/k-actor *root *agent))] *rd :> *arec)
+   (else>)
+    (identity nil :> *arec))
+  (:> *arec))
 
 (defn- invites-source!
   [st]
@@ -347,7 +361,7 @@
         (get *ev :root-id :> *P)
         (get *ev :actor :> *A)
         (get *ev :sign-in :> *G)
-        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (thin-watched-on-root! *P (get *ev :at) $$root-data $$live)
         (local-select> [(keypath (s/k-root *P))] $$root-data :> *r)
         (local-select> [(keypath (s/k-signin *P *G))] $$root-data :> *g)
         (<<if (not= *A *P)
@@ -361,26 +375,24 @@
         (case> ReplaceSecretEvent)
         (get *ev :root-id :> *P)
         (get *ev :sign-in :> *G)
-        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (thin-watched-on-root! *P (get *ev :at) $$root-data $$live)
         (local-select> [(keypath (s/k-signin *P *G))] $$root-data :> *g)
-        (<<if (s/replace-secret-born-ended? *ev *g)
-          (local-select> [(keypath *P) (sorted-map-range s/live-session-lo s/live-session-hi)] $$live :> *live-ss)
-         (else>)
-          (identity nil :> *live-ss))
-        (s/plan-replace-secret *ev *g *live-ss :> *plan)
+        (signin-agent-rec *P *g $$root-data :> *arec)
+        (s/plan-replace-secret *ev *g *arec :> *plan)
         (apply-root-plan! *P *plan $$root-data $$live)
         (ack-return> (s/plan-result *plan))
 
         (case> EndSignInEvent)
         (get *ev :root-id :> *P)
         (get *ev :sign-in :> *G)
-        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (thin-watched-on-root! *P (get *ev :at) $$root-data $$live)
         (local-select> [(keypath (s/k-signin *P *G))] $$root-data :> *g)
-        (<<if (s/signin-needs-end? *g)
+        (signin-agent-rec *P *g $$root-data :> *arec)
+        (<<if (s/signin-needs-end? *P *g *arec)
           (local-select> [(keypath *P) (sorted-map-range s/live-session-lo s/live-session-hi)] $$live :> *live-ss)
          (else>)
           (identity nil :> *live-ss))
-        (s/plan-end-sign-in *ev *g *live-ss :> *plan)
+        (s/plan-end-sign-in *ev *g *arec *live-ss :> *plan)
         (apply-root-plan! *P *plan $$root-data $$live)
         (ack-return> (s/plan-result *plan))
 
@@ -388,7 +400,7 @@
         (get *ev :root-id :> *P)
         (get *ev :actor :> *A)
         (get *ev :made-by :> *B)
-        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (thin-watched-on-root! *P (get *ev :at) $$root-data $$live)
         (local-select> [(keypath (s/k-root *P))] $$root-data :> *r)
         (local-select> [(keypath (s/k-actor *P *A))] $$root-data :> *existing-a)
         (<<if (not= *B *P)
@@ -402,7 +414,7 @@
         (case> EndActorEvent)
         (get *ev :root-id :> *P)
         (get *ev :actor :> *A)
-        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (thin-watched-on-root! *P (get *ev :at) $$root-data $$live)
         (local-select> [(keypath (s/k-root *P))] $$root-data :> *r)
         (<<if (not= *A *P)
           (local-select> [(keypath (s/k-actor *P *A))] $$root-data :> *a)
@@ -410,7 +422,7 @@
           (identity nil :> *a))
         (<<if (s/actor-needs-end? *P *A *r *a)
           (local-select> [(sorted-map-range (s/k-ao *P (get *a :seq)) (s/k-ao-hi *P))] $$root-data :> *ao-map)
-          (local-select> [(keypath *P) (sorted-map-range s/live-lo s/live-hi)] $$live :> *live-map)
+          (local-select> [(keypath *P) (sorted-map-range s/live-things-lo s/live-things-hi)] $$live :> *live-map)
           (s/plan-end-actor-2scan *P *a *ao-map *live-map :> *plan)
          (else>)
           (s/plan-end-actor-noop *ev *r *a :> *plan))
@@ -421,19 +433,26 @@
         (get *ev :root-id :> *P)
         (get *ev :sign-in :> *G)
         (get *ev :session :> *S)
-        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (thin-watched-on-root! *P (get *ev :at) $$root-data $$live)
         (local-select> [(keypath (s/k-session *P *S))] $$root-data :> *s)
         (local-select> [(keypath (s/k-signin *P *G))] $$root-data :> *g)
-        (s/plan-open-session *ev *s *g :> *plan)
+        (signin-agent-rec *P *g $$root-data :> *arec)
+        (s/plan-open-session *ev *s *g *arec :> *plan)
         (apply-root-plan! *P *plan $$root-data $$live)
         (ack-return> (s/plan-result *plan))
 
         (case> CloseSessionEvent)
         (get *ev :root-id :> *P)
         (get *ev :session :> *S)
-        (take-out-on-root! *P (get *ev :at) $$root-data $$live)
+        (thin-watched-on-root! *P (get *ev :at) $$root-data $$live)
         (local-select> [(keypath (s/k-session *P *S))] $$root-data :> *s)
-        (s/plan-close-session *ev *s :> *plan)
+        (s/open-session-signin *s :> *sg)
+        (<<if (some? *sg)
+          (local-select> [(keypath (s/k-signin *P *sg))] $$root-data :> *g)
+         (else>)
+          (identity nil :> *g))
+        (signin-agent-rec *P *g $$root-data :> *arec)
+        (s/plan-close-session *ev *s *g *arec :> *plan)
         (apply-root-plan! *P *plan $$root-data $$live)
         (ack-return> (s/plan-result *plan)))
      (else>)
@@ -479,22 +498,22 @@
               (s/k-ok *P (get *ev :op-id) :> *ok-k)
               (local-select> [(keypath *ok-k)] $$root-data :> *existing-ok)
               (<<if (nil? *existing-ok)
-                (take-out-on-root! *P *at $$root-data $$live)
+                (thin-watched-on-root! *P *at $$root-data $$live)
                 (local-transform> [(keypath *ok-k) (termval (s/no-such-ask-outcome))] $$root-data))
              (else>)
-              (take-out-on-root! *P *at $$root-data $$live))
+              (thin-watched-on-root! *P *at $$root-data $$live))
             (:> (get *st :pending-result))
 
             (case> (= *step :answer-ask/step-2))
             (get *st :target :> *t)
             (get *t :root :> *P)
             (get *t :op-id :> *op)
-            ;; Revision 4: check ok:<op> BEFORE take-out so replays never re-run take-out!
+            ;; Revision 4: check ok:<op> BEFORE the thinning so replays never re-run it!
             (local-select> [(keypath (s/k-ok *P *op))] $$root-data :> *existing-ok)
             (<<if (some? *existing-ok)
               (identity *existing-ok :> *out)
              (else>)
-              (take-out-on-root! *P (get *t :at) $$root-data $$live)
+              (thin-watched-on-root! *P (get *t :at) $$root-data $$live)
               (local-select> [(keypath (s/k-root *P))] $$root-data :> *r)
               (get *t :actor :> *A)
               (<<if (not= *A *P)
@@ -538,10 +557,11 @@
     ;; No Object position and no byte array in any schema.
     (declare-pstate st $$root-data {String IRootDatum})
     ;; $$live: under each root, a subindexed map from an inner key ("g:<G>",
-    ;; "s:<S>") to what is live there. A watch of a root is a proxy on that
-    ;; root's map alone (softland.auth.client/watch-root), so a write is
-    ;; matched against the watches of its own root and no other. Its size is
-    ;; never read, so it is not tracked: no extra read on each write.
+    ;; "s:<S>", "ends") to what its watchers are pushed
+    ;; (softland.auth.schema). A watch of a root is a proxy on that root's
+    ;; map alone (softland.auth.client/watch-root), so a write is matched
+    ;; against the watches of its own root and no other. Its size is never
+    ;; read, so it is not tracked: no extra read on each write.
     (declare-pstate st $$live {UUID (map-schema String ILiveEntry {:subindex-options {:track-size? false}})})
     (declare-pstate st $$accounts {String IAccountState})
     (declare-pstate st $$claims {String IClaimState})
@@ -560,7 +580,8 @@
     (asks-source! st))
 
   ;; ========================================================================
-  ;; Query Topology 1: "who-is" (1 RT to 1 task, Revision 3: 2-seek fast path)
+  ;; Query Topology 1: "who-is" (1 RT to 1 task; a person's sign-in and its
+  ;; session: 2 seeks)
   ;; ========================================================================
   (<<query-topology topologies "who-is"
     [*root *sign-in *session :> *result]
@@ -576,15 +597,25 @@
       (local-select> [(keypath (s/k-session *root *session))] $$root-data :> *sess)
      (else>)
       (identity nil :> *sess))
-    (<<if (and> *entered? (s/need-actor-seek? *root *sig))
-      (local-select> [(keypath (s/k-actor *root (s/signin-actor *sig)))] $$root-data :> *actor-rec)
+    ;; An agent's sign-in costs one seek more than a person's: whether its
+    ;; actor ended is read from the actor's record, since an end of the
+    ;; actor is not written on a sign-in that had left `$$live`.
+    (<<if *entered?
+      (signin-agent-rec *root *sig $$root-data :> *actor-rec)
      (else>)
       (identity nil :> *actor-rec))
-    (s/build-who-is-result *root *sig *r *sess *actor-rec :> *result)
+    (s/other-signin-of-session *sess *sign-in :> *other)
+    (<<if (some? *other)
+      (local-select> [(keypath (s/k-signin *root *other))] $$root-data :> *sess-sig)
+      (signin-agent-rec *root *sess-sig $$root-data :> *sess-arec)
+     (else>)
+      (identity *sig :> *sess-sig)
+      (identity *actor-rec :> *sess-arec))
+    (s/build-who-is-result *root *sig *r *sess *actor-rec *sess-sig *sess-arec :> *result)
     (|origin))
 
   ;; ========================================================================
-  ;; Query Topology 2: "under" (1 RT to 1 task, live sign-ins only from $$live)
+  ;; Query Topology 2: "under" (1 RT to 1 task, the watched sign-ins from $$live)
   ;; ========================================================================
   (<<query-topology topologies "under"
     [*root :> *result]
