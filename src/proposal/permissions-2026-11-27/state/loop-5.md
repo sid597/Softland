@@ -1,7 +1,7 @@
 status:     DONE
 commit:     recorded in git log on main (this commit)
 verified:   blind cluster breakers (break_gates 20/20 + break_reads_runtime 30 probes) run & re-verified; 2 read-path breaks fixed & proved; all 8 test-store proofs (2,882 assertions), gate-histories (2000 1), test-wire, test-auth, test-server, test-runtime + 7 attacks, read/gate measures, and 102/102 refusal keywords 100% green
-next:       Sid morning review: (1) approve drafted Decisions entry below for src-store/README.md; (2) review 3 mechanical ALLOWLIST additions in state/loop-4.md; (3) decide Open Calls A (:anyone-signed-in :give/:owner) & B (live same-act write+revoke) if desired
+next:       COMPLETE — Sid approved Item 27 (":anyone-signed-in capped to :see/:write") and landed the Decisions section into src-store/README.md; ready for Sid's git push
 
 # Loop 5: Blind Cluster Break, Fixes, Cold Diff Read, and Drafted `src-store/README.md` Decisions Entry
 

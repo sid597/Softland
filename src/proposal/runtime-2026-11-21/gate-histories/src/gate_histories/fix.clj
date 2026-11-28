@@ -301,6 +301,7 @@
                     :a-permission-id-takes-one-permission :permission-not-given-by-the-acts-who
                     :permission-not-under-the-acts-own :permission-not-lent-from-the-acts-own
                     :made-under-a-lent-permission-is-lent :an-agent-or-a-run-only-borrows :anyone-only-sees
+                    :anyone-signed-in-only-sees-and-writes
                     :permission-covers-more-than-the-acts-own :permission-gives-more-than-its-giver-may
                     :permission-lent-too-deep :a-change-keeps-holder-giver-and-lender :may-not-lower-the-permission
                     :no-permission-to-end :permission-already-ended :permission-already-used

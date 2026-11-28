@@ -573,6 +573,19 @@
                         open
                         (by asha g0 (gives (g 1) (says :anyone see-write asha g0)))))
        [:anyone-only-sees :anyone-only-sees :accepted :anyone-only-sees]]
+      ["anyone signed in holds seeing and writing and nothing more, at the give and at a change: everyone holds no right to give and never owns"
+       (fn [] (verdicts (by asha g0 (gives (g 1) (says :anyone-signed-in member asha g0)))
+                        (by asha g0 (gives (g 1) (says :anyone-signed-in owner asha g0)))
+                        (by asha g0 (gives (g 1) (says :anyone-signed-in {:write :all} asha g0)))
+                        (by asha g0 (gives (g 1) (says :anyone-signed-in see-write asha g0)))
+                        (by asha g0 (gives (g 1) (says :anyone-signed-in member asha g0)))
+                        (by asha g0 (gives (g 1) (says :anyone-signed-in owner asha g0)))))
+       [:anyone-signed-in-only-sees-and-writes
+        :anyone-signed-in-only-sees-and-writes
+        :accepted
+        :accepted
+        :anyone-signed-in-only-sees-and-writes
+        :anyone-signed-in-only-sees-and-writes]]
       ["anyone signed in writes: a person acts under that permission as one who holds it, one who is not signed in does not see by it, and an agent is not everyone"
        (fn [] [(verdicts open-to-write
                          (by zed (g 2) (note :thing-1 "a stranger writes"))

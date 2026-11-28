@@ -385,6 +385,7 @@
   [lane says]
   (boolean (and says
                 (:owner (:allows says))
+                (not (contains? act/everyone (:holder says)))
                 (nil? (:lent-from says))
                 (= [:default-group lane] (:covers says))
                 (nil? (:session says)))))
@@ -474,8 +475,9 @@
   give to an agent or a run is always lent: so every chain ends at a
   permission that a person, the system or everyone holds, and only a
   permission that stands on its own makes another that does. Anyone at all
-  holds seeing and nothing more: an act needs an author, so writing by
-  everyone is a give to anyone signed in. A give covers no more than the
+  holds seeing and nothing more, and anyone signed in holds seeing and
+  writing and nothing more: everyone holds no right to give and never owns.
+  A give covers no more than the
   permission that it is made under, and allows no more than that one
   allows at this moment (`may-pass?`). A chain of lent permissions is no
   longer than `softland.store.gate.chain/max-lent-depth`."
@@ -489,6 +491,7 @@
       (and (:lent-from (:says acts-own)) (nil? lent-from)) :made-under-a-lent-permission-is-lent
       (and (act/borrower? (:holder says)) (nil? lent-from)) :an-agent-or-a-run-only-borrows
       (and (= :anyone (:holder says)) (not= {:see true} (:allows says))) :anyone-only-sees
+      (and (= :anyone-signed-in (:holder says)) (not-every? #{:see :write} (keys (:allows says)))) :anyone-signed-in-only-sees-and-writes
       (not (within-scope? says (:says acts-own))) :permission-covers-more-than-the-acts-own
       (not (may-pass? (:allows acts-own) (:allows says) (:holder says))) :permission-gives-more-than-its-giver-may
       (and lent-from (<= chain/max-lent-depth (:depth acts-own))) :permission-lent-too-deep
@@ -533,6 +536,9 @@
 
       (and (= :anyone (:holder says)) (not= {:see true} (:allows says)))
       :anyone-only-sees
+
+      (and (= :anyone-signed-in (:holder says)) (not-every? #{:see :write} (keys (:allows says))))
+      :anyone-signed-in-only-sees-and-writes
 
       (and (takes-away? target fact) (not (may-end? act acts-own (:e fact) target rows)))
       :may-not-lower-the-permission

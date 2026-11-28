@@ -644,6 +644,10 @@
     {#'reference/rules
      (fn [rules]
        (mapv #(if (= :anyone-only-sees (:word %)) (assoc % :of :give) %) rules))}]
+   ["item 27: anyone signed in is held to seeing and writing where the give is made and not at a change"
+    {#'reference/rules
+     (fn [rules]
+       (mapv #(if (= :anyone-signed-in-only-sees-and-writes (:word %)) (assoc % :of :give) %) rules))}]
    ["BUILD 1.4 (bug 4): a holder who may only see cannot end her own give"
     {#'reference/ends-as-holder?
      (fn [real]

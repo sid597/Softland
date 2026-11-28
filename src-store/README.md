@@ -1173,3 +1173,162 @@ What one gate puts in order, and shows to its members, is a lane. "Layer"
 stays Sid's word, for a group of acts of any size; the store gives it no
 meaning. In the entries above, where "layer" means what one gate puts in
 order, read "lane".
+
+## Decisions of 26 to 28 November 2026 — a permission has an id, what is lent or stands, owners, and everyone
+
+Sid made these on 26 to 28 November 2026 across three passes: in the
+permissions working session, in the design-pitfalls review session of the same
+night, and in the permissions build orchestrator session on 27 and 28 November
+(where he approved landing this section: "yes tighten anyone signed in and land
+readme", item 27). The page that holds his words and the session readings built
+on them is `src/proposal/permissions-2026-11-27/PERMISSIONS.md` (section 6,
+items 1 to 27; section 12), with its four-batch build sheet in
+`src/proposal/permissions-2026-11-27/BUILD.md` and its frozen stored shapes in
+`src/proposal/permissions-2026-11-27/CONTRACT.md`. Words in quotation marks
+with an id of the record are lines that he typed; replies from the working and
+orchestrator sessions whose record ids had not yet been indexed when
+`PERMISSIONS.md` was written are given word for word as recorded there. What a
+session drew from an answer is marked as a session's, and what stays open is
+named. All of the first slice is built across `src-store/` and its callers, and
+the tenth making of `test-store/softland/store/run_again_fixture/` was made for
+it.
+
+1. **A permission is a give on an id of its own, an act names the give it acts
+   under, and a holder can have any number of permissions in a lane.** Sid
+   decided: on multiple permissions per holder, "each instance can have
+   different permisiion based on different uses it has or work so yes"
+   (‹95754ddf›, item 1; entry 6 of 20 and 21 November); on an act naming the
+   give's id instead of carrying the permission written out inside its digest,
+   "5. yeah" (‹d0f62e81›, item 5). It replaces the written-out vector
+   permission of 6 October and 20–21 November, the one-permission-per-holder
+   place `(lane, holder)`, and the separate keys
+   `:softland.store/run-permission` and `:softland.store/act-permission`. What
+   comes with it, in the stored form (`CONTRACT.md` sections 2.1 to 2.4):
+   - A give is a fact under `:softland.store/permission` whose entity `:e` is a
+     UUID that its giver makes (and for a lane's first owner permission and its
+     first `:anyone` permission, a deterministic version-8 UUID derived from
+     the lane's id in `softland.store.gate.first-act`). Its value holds
+     `:holder`, `:allows`, `:covers` (`[:default-group lane]` or
+     `[:exact-act digest]`), `:given-by`, and when present `:session`, `:under`
+     and `:lent-from`.
+   - An act carries `:permission` as an optional UUID: omitted (`nil`) on a
+     lane's making act and on an act that only ends permissions its author
+     holds, and one UUID on every other act today. Each row of a fact holds the
+     36-character text of that UUID, or no `:permission` when `nil`.
+   - An id takes one permission for good: a permission never given, one that
+     ended, and one for an exact act that was used are answered apart, and
+     giving again after an end or a use is a new permission on a new UUID.
+   - Each gate keeps a seventh table, `permissions-by-holder` (copied to every
+     task in the base's gate), mapping each standing or changed default-group
+     permission's `[lane, holder, session-or-*, id]` key to the stamp of its
+     latest grant or change, and removing it on end.
+
+2. **A party's id in the store says what kind of party it is.** Sid decided:
+   "1a" (item 22), choosing visible party prefixes in the store while Auth
+   keeps plain UUIDs and login `:session` is not renamed into a run. An author
+   or an asker is `:person.<id>`, `:agent.<id>`, `:run.<id>`, or `:system`; a
+   permission's `:holder` is one of those or everyone (`:anyone`,
+   `:anyone-signed-in`), and everyone holds and never acts or asks.
+
+3. **See and write are the two rights; passing to another person needs the
+   right to give, while lending what you hold to an agent or a run comes with
+   holding it.** Sid decided: on see and write as the two atoms, with what may
+   be given on composed inside the permission, "2. yeah this makes sense to me"
+   (‹d0f62e81›, item 2); on splitting lending to one's own agents and runs from
+   sharing with another person, "1. agree with your 2 split" (item 19); on
+   keeping `Auth` `made-by` out of the gate and `seam` in this slice, "yeah
+   confirm all 4 ..." and "yes" (item 24); on separating inviting named people
+   from publishing to `:anyone` or `:anyone-signed-in`, "I go with option b as
+   stated" (item 26). What comes with it:
+   - `:allows` holds some of `:see true`, `:write :all`, `:give #{...}`, and
+     `:owner true` (which requires all rights, `:everyone` in `:give` included).
+   - Whoever holds `:see` or `:write` may lend it (`:lent-from` naming the give
+     acted under) to an `:agent.<id>` or `:run.<id>` without holding `:give`.
+     Passing a right to a `:person.<id>` requires that right inside `:give`;
+     granting or raising for `:anyone` or `:anyone-signed-in` also requires
+     `:everyone` inside `:give`, passed on only when the giver's `:give` holds
+     both `:give` and `:everyone`.
+   - Not built in this slice: runs as declared parties with start/end acts
+     (items 8 and 11), write narrowed by kind of act, and checking whose agent
+     an agent is at the store boundary. Today's login sitting stays on
+     `:session` until runs land.
+
+4. **A give to a person stands on its own unless lent; a give to an agent or a
+   run is always lent, is capped at each moment by what its lenders hold, and
+   falls when any lender above it ends.** Sid decided: "5. yeah" (‹d0f62e81›,
+   item 5). It replaces entry 1 of 20 and 21 November for people invited into a
+   lane: a person whose permission stands on its own (`:lent-from nil`) stays
+   when the one who let her in loses hers, whereas a lent permission (`:lent-from`
+   set, mandatory for `:agent.<id>` and `:run.<id>`, bounded at 32 in
+   `softland.store.gate.chain`) never allows or covers more than every
+   permission above it allows right now, and falls when any of them ends. What
+   is made under a lent permission, or raised on a lent permission, is lent
+   from it.
+
+5. **Four parties may end a give, and a change in place keeps a give's id.**
+   Sid decided: on who may end a give that is not their own, "2 yes,"
+   (‹b09854a6›, item 18), and on demoted givers, "1. agree" (item 26). A
+   permission is ended by: (a) its `:holder` (including a see-only holder, in
+   an act naming that permission or `nil`); (b) its `:given-by`, in an act
+   under the `:under` permission she gave it with, while that permission still
+   stands and still lets her pass what the target holds to its holder; (c) the
+   `:holder` of a permission it is `:lent-from`, directly or further up with no
+   ended link between; or (d) an owner of what it covers, under her owner
+   permission. Being covered by `:anyone` or `:anyone-signed-in` makes nobody
+   its `:holder` for ending another person's borrow (item 24). A session's
+   derivation (`PERMISSIONS.md` section 12, point 2; `BUILD.md` batch 3):
+   writing a new `:allows` at an existing permission's UUID changes it in place
+   without ending what was lent from it, requiring what giving needs for rights
+   added and what ending needs for rights taken away.
+
+6. **Several permission changes in one act pass or fail as one; owning is a
+   give apart from the maker; a lane always keeps a standing owner and can be
+   handed over in one act.** Sid decided: on atomic multi-change acts and
+   one-act transfer, "7. yes" (‹d0f62e81›, item 7); on separating owner from
+   maker, "6. yes this was mistake, glad we caught it" (‹d0f62e81›, item 6); on
+   multiple owners acting alone, keeping at least one owner, and handing over a
+   lane in one act, "4. both yes" (‹e17932a7›) and "4. your recommendation"
+   (item 21). It replaces entry 3 of 20 and 21 November ("only the layer's root
+   holder writes its settings") and the rule that a lane's first permission
+   never ends:
+   - Each change in one act is checked against what its author held just before
+     the act, and the result is checked as a whole: no permission named twice,
+     no new permission left `:lent-from` one the same act ends, and at least
+     one non-lent, non-sitting default-group `:owner` permission remaining in
+     the gate's `:owners` set.
+   - Any owner writes the lane's settings (`:softland.store/builds-on`,
+     `:softland.store/marked-keys`, `:softland.store/who-may-read-acts`).
+   - One owner may end or lower another owner's permission while at least one
+     standing owner remains (`PERMISSIONS.md` section 12, open question 4;
+     flagged and kept on 28 November, item 27).
+
+7. **"Seen by everyone" is a permission in the log to `:anyone` or
+   `:anyone-signed-in`, and live views read permissions as one atomic unit.**
+   Sid decided: on everyone as a holder in the log rather than a lane setting
+   or a constant in code, "3. yes" (‹e17932a7›) and "3 yes" (item 20); on
+   capping `:anyone-signed-in` to seeing and writing only, "yes tighten anyone
+   signed in and land readme" (item 27); on leaving
+   `:softland.store/who-may-read-acts` in place for now (written by any owner),
+   "yes" (item 25); on reading permissions as one atomic unit on the lane's task
+   and validating live views against the read set's stamps after the adversarial
+   caching examination (`Loop 0d`), "2. can't we do them as a single atomic
+   unit?", "go", and "1. agree" (items 23 and 26). What comes with it:
+   - `:softland.store/who-may-see` is gone, and no value in code opens `:base`
+     or any other lane; `:base` stays owned initially by `:system` and is
+     opened by granting `{:see true}` to `:anyone` in the log. `:anyone` holds
+     seeing only (`:anyone-only-sees`), and `:anyone-signed-in` holds seeing
+     and writing only, never the right to give or owning
+     (`:anyone-signed-in-only-sees-and-writes`); neither counts as an owner of
+     a lane, and neither covers agents or runs directly (though a person may
+     lend everyone's permission to an agent or a run under item 24).
+   - Each gate exposes the single-turn query topology `"lane-rights"`, which
+     returns `{:standing ... :read-set ...}` (and `:who-may-read-acts` for a
+     read of `:acts`). A live read holds that standing only while its open Rama
+     pushes match `:read-set` entry for entry (`:not-known-yet` otherwise), so
+     a one-act permission transfer never shows a live viewer an intermediate
+     `:may-not-see` state, on a streaming lane or on `:base` read from another
+     task.
+   - Open (`PERMISSIONS.md` section 9 and section 12): groups smaller than a
+     lane, runs as parties and taking `:session` off the act, `refer`, conflict
+     raising on two replacements of one fact (item 10), and who sees refused
+     acts and the store's own facts (items 11 and 12 of section 12).

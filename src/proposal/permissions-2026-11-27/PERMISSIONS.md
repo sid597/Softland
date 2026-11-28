@@ -670,6 +670,20 @@ validate standing against `read-set` stamps; ending/lowering another's
 permission as `:given-by` requires still holding what `may-pass?` needs for
 the target.
 
+**27. Capping `:anyone-signed-in` to seeing and writing, and landing the
+Decisions section in `src-store/README.md`.**
+Asked (28 November 2026, after Wave 2 and Loop 5 finished): (1) tighten
+`:anyone-signed-in` so it holds only `:see` and `:write` (never `:give` or
+`:owner`, closing the path where granting `:owner` to `:anyone-signed-in` and
+leaving lets any visitor claim sole ownership in 1 act), while keeping
+co-owner removal while an owner remains as built; and (2) land the drafted
+Decisions section into `src-store/README.md`.
+Sid: "yes tighten anyone signed in and land readme".
+Stands as: `:anyone-signed-in` holds only `:see` and `:write` at grant and at
+change (`:anyone-signed-in-only-sees-and-writes`), neither `:anyone` nor
+`:anyone-signed-in` counts as an owner of a lane, and the Decisions section is
+landed in `src-store/README.md`.
+
 ## 7. The solution as discussed (A SESSION'S, built on section 6)
 
 Second pass: for the first slice, section 12 replaces three things below:

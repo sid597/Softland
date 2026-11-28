@@ -66,6 +66,8 @@ holder-party = author-party | :anyone | :anyone-signed-in
 ;;   member    = {:see true :write :all :give #{:see :write :give}}  ;; invites named parties, not :anyone
 ;;   publisher = {:see true :write :all :give #{:see :write :give :everyone}}
 ;;   owner     = {:see true :write :all :give #{:see :write :give :owner :everyone} :owner true}.
+;; Collective holder caps: :anyone allows {:see true} only (:anyone-only-sees);
+;;   :anyone-signed-in allows #{:see :write} only (:anyone-signed-in-only-sees-and-writes; never :give or :owner).
 ;; Explicit end: {:e perm-uuid :k :softland.store/permission :v nil} (fact-row with :value nil & :by-index).
 ;; Exact-act use: rows/use-row at (lane, perm-uuid, :softland.store/permission) (:value nil, no :by-index).
 ;; Chain depth bound: max-lent-depth = 32 (<= 31 :lent-from hops, cycle-free).

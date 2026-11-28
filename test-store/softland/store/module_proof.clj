@@ -4838,8 +4838,11 @@
                      (:word (decide! (thing b4 ben b4-ben-mem [(perm/permission-fact (perm/given-permission cal b4 b4-ben-mem {:allows :publisher :lent-from nil}))])))
                      (:word (decide! (thing b4 dee b4-dee-ev-only [(perm/permission-fact (perm/given-permission :anyone b4 b4-dee-ev-only {:allows :see :lent-from nil}))])))
                      (:word (decide! (thing b4 asha b4-g0 [(perm/permission-fact (perm/given-permission :anyone b4 b4-g0 {:allows {:see true :write :all} :lent-from nil}))])))
+                     (:word (decide! (thing b4 asha b4-g0 [(perm/permission-fact (perm/given-permission :anyone-signed-in b4 b4-g0 {:allows perm/member-allows :lent-from nil}))])))
+                     (:word (decide! (thing b4 asha b4-g0 [(perm/permission-fact (perm/given-permission :anyone-signed-in b4 b4-g0 {:allows perm/owner-allows :lent-from nil}))])))
                      (:word (decide! (thing b4 ben b4-ben-pub [(perm/permission-fact b4-p-anyone)])))
-                     (:word (decide! (thing b4 ben b4-ben-pub [(perm/permission-fact b4-p-signed-in)])))]
+                     (:word (decide! (thing b4 ben b4-ben-pub [(perm/permission-fact b4-p-signed-in)])))
+                     (:word (decide! (thing b4 asha b4-g0 [(perm/permission-fact (assoc-in b4-p-signed-in [:value :allows] perm/owner-allows))])))]
         b4-open-sees [(sees-on b4 nil) (sees-on b4 zed) (sees-on b4 ada) (sees-on b4 :system)
                       (acts-on b4 asha) (acts-on b4 zed) (acts-on b4 nil) (acts-on b4 ada)]
         b4-signed-in-acts [(:word (decide! (thing b4 zed b4-p-signed-in [(value-fact :public-write :text "by zed")])))
@@ -4901,7 +4904,10 @@
              :permission-gives-more-than-its-giver-may
              :permission-gives-more-than-its-giver-may
              :anyone-only-sees
-             :accepted :accepted]
+             :anyone-signed-in-only-sees-and-writes
+             :anyone-signed-in-only-sees-and-writes
+             :accepted :accepted
+             :anyone-signed-in-only-sees-and-writes]
             [:yes :yes :may-not-see :may-not-see :holder :visitor :visitor :outside]
             [:accepted :who-not-the-permissions-holder :who-not-a-party :who-not-a-party]
             [:accepted :accepted :accepted :accepted] :yes

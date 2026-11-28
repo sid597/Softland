@@ -311,10 +311,11 @@
 (defn has-owner?
   "True when the lane has an owner's give that stands on its own: one that
   allows owning, covers the lane's default group for any sitting, is lent
-  from nothing, and stands."
+  from nothing, is not held by everyone, and stands."
   [state lane]
   (boolean (some (fn [[id g]]
                    (and (:owner (:allows g))
+                        (not (contains? everyone (:holder g)))
                         (nil? (:lent-from g))
                         (= [:default-group lane] (:covers g))
                         (nil? (:session g))
@@ -480,6 +481,12 @@
     :from "BUILD batch 4, line 1 (item 20): anyone at all, for reading"
     :says "A give to anyone at all allows seeing and nothing more, where it is made and at every change of it. Writing by everyone is a give to anyone signed in, because an act needs an author."
     :refuses? (fn [{:keys [v]}] (and (= :anyone (:holder v)) (not= {:see true} (:allows v))))}
+   {:of #{:give :change} :word :anyone-signed-in-only-sees-and-writes
+    :from "P section 6, items 20 and 27: anyone signed in, for writing; never give or owner"
+    :says "A give to anyone signed in allows seeing and writing, and nothing more, where it is made and at every change of it: everyone holds no right to give and never owns."
+    :refuses? (fn [{:keys [v]}]
+                (and (= :anyone-signed-in (:holder v))
+                     (not-every? #{:see :write} (keys (:allows v)))))}
    {:of #{:give :raise} :word :covers-more-than-the-give-above
     :from "BUILD batch 2, line 4; for a raise, batch 3, line 2, and the review of the kernel (state/loop-2b.md, item 1)"
     :says "A give never covers more than the give it is made under: the same lane; the same sitting, when that give is good for one; the same exact act, when that give covers one. A give is raised only under a give that covers all that it covers: nothing is added to a give good in every sitting under a give good for one."

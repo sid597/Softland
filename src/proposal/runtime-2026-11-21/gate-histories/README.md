@@ -29,7 +29,7 @@ against every order in which its pushes and its answers can come.
 - **The rules** ([reference.clj](src/gate_histories/reference.clj)): the
   plainest code that says batches 1 to 4. Each rule of the gate is one entry
   of a table: a word, the sentence in plain words, where the sentence comes
-  from, and the test. `clojure -M:run sentences` prints the 42 sentences.
+  from, and the test. `clojure -M:run sentences` prints the 43 sentences.
   Where the batches say nothing the rule is today's, by batch 1's "everything
   else is as today".
 - **The statement to prove** ([statement.clj](src/gate_histories/statement.clj)):
@@ -443,8 +443,9 @@ not a break.
    and all else that a give of it would need (turned on 28 November, above).
    Where giving the whole give after the raise would need more than giving
    what is added, the thing is not sent.
-6. **Anyone at all holds see and nothing more**, at a give and at a change
-   (turned on 28 November). `:anyone-signed-in` holds what it is given.
+6. **Anyone at all holds see and nothing more, and anyone signed in holds
+   see and write and nothing more**, at a give and at a change (turned on
+   28 November, item 27). Everyone holds no right to give and never owns.
 7. **An agent or a run is not anyone at all for reading either.**
 8. **A person acts under everyone's give as one who holds it**: she writes
    under a give of write to anyone signed in, and lends everyone's give to an
