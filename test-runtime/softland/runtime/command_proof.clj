@@ -111,15 +111,16 @@
             signed (sign-in! home url cookie nil)
             who (:who (:out signed))
             lane (:own-lane (:out signed))
-            own (perm/first-permission who lane)
+            own (perm/lent-at-yes (:out signed) lane)
             file (io/file home "sign-in.edn")]
         (check "The command line's own classpath holds no Rama: the program that a person runs can open no cluster."
                (let [cmd (into (into ["clojure"] (command-sdeps)) ["-Spath" "-A:command"])
                      path (:lines (ended (.start (ProcessBuilder. ^java.util.List cmd))))]
                  (and (seq path) (not (str/includes? (str/join path) "rama")))))
-        (check "`sign-in` shows a link and a code and waits; after her yes at the page it prints who it is, with its session and her own lane, and ends with 0."
+        (check "`sign-in` shows a link and a code and waits; after her yes at the page it prints who it is, an agent of hers and not she, with its session and her own lane, and ends with 0."
                (and (:code signed) (str/includes? (:shown signed) (str url "/yes?code="))
-                    (= 0 (:exit signed)) (= (perm/person (:root (:out signed))) who) (uuid? lane) (uuid? (:session (:out signed))))
+                    (= 0 (:exit signed)) (str/starts-with? (str who) ":agent.") (not= (perm/person (:root (:out signed))) who)
+                    (uuid? lane) (uuid? (:session (:out signed))))
                (dissoc signed :shown))
         (check "It keeps one file, which its owner alone can read, and the file holds the runtime's address, the credential and the session, and nothing of who she is."
                (and (= "rw-------" (PosixFilePermissions/toString (Files/getPosixFilePermissions (.toPath file) (make-array java.nio.file.LinkOption 0))))
@@ -131,7 +132,7 @@
               wrote-big (soft home "write" ":ledger" ":total" big)
               read-big (soft home "read" ":ledger" ":total")
               word (soft home "write" ":chair-7" ":label" "oak")]
-          (check "`write` sends one fact into her own lane and ends with 0 when a gate accepted it; `read` gives it back."
+          (check "`write` sends one fact into her own lane, under what her yes lent it, and ends with 0 when a gate accepted it; `read` gives it back."
                  (and (= 0 (:exit wrote)) (= :accepted (get-in wrote [:out :answer :answer]))
                       (= :green (get-in read [:out :place :value])))
                  [wrote read])
@@ -178,13 +179,12 @@
                  (and (= 0 (:exit made)) (uuid? agent) (not= who agent-who)
                       (= agent-who (:who as-agent)) (= (:root (:out signed)) (:root as-agent)))
                  [(:out made) as-agent])
-          (check "An agent's write is refused by a gate before she gives it a permission, and accepted after `give`."
+          (check "An agent's write is refused by a gate before it is given a permission, and accepted after the command line's `give`, which lends it from what her yes lent the command line."
                  (and (= 3 (:exit before)) (= 0 (:exit gave)) (= 0 (:exit after))
                       (= :accepted (get-in after [:out :answer :answer])))
                  [(:out before) (:out gave) (:out after)])
-          (check "`under` lists the agent with its name, and `agent end` ends it: its file then signs in as nobody, and the command ends with 1."
-                 (and (some (fn [actor] (= "importer" (:label actor))) (:actors (:out (soft home "under"))))
-                      (= 0 (:exit (soft home "agent" "end" (str agent))))
+          (check "`agent end` ends the agent: its file then signs in as nobody, and the command ends with 1."
+                 (and (= 0 (:exit (soft home "agent" "end" (str agent))))
                       (= 1 (:exit (soft agent-home "who"))))))
         (let [acts (io/file home "acts.edn")
               _ (spit acts (str/join "\n" (for [n (range 3)]
@@ -197,12 +197,18 @@
                       (every? (fn [r] (= :accepted (get-in r [:answer :answer]))) (:results (:out first-run)))
                       (= (map :answer (:results (:out first-run))) (map :answer (:results (:out second-run)))))
                  [(:out first-run) (:out second-run)]))
-        (let [invited (soft home "invite")
-              code (second (re-find #"invited=([A-Za-z0-9_-]+)" (str (:link (:out invited)))))
-              guest (drive/sign-in url {:sub "3000001" :email "guest@example.com" :name "A Guest" :invited code})]
-          (check "`invite` prints the id of a person who waits and a link; the account that opens the link becomes that person."
-                 (and (= 0 (:exit invited)) code (= (:invited (:out invited)) (:person guest)))
-                 [(:out invited) (dissoc guest :cookie)]))
+        (let [said {:invite (soft home "invite")
+                    :invite-by-email (soft home "invite" "--email" "guest@example.com")
+                    :under (soft home "under")
+                    :end-sign-in (soft home "end-sign-in" (str (:sign-in (:out signed))))}
+              guest (drive/sign-in url {:sub "3000001" :email "guest@example.com" :name "A Guest"})]
+          (check "No program is a person: `invite`, `under` and `end-sign-in`, which only she may say at a browser, are in the command line's list and get the runtime's refusal, as said by an agent; each ends with 1, prints no link, and invites nobody, so the address that it named does not enter; and the command line's sign-in stands."
+                 (and (every? (fn [run] (and (= 1 (:exit run)) (= :do-that-as-an-agent (:could-not (:out run)))
+                                             (nil? (:link (:out run)))))
+                              (vals said))
+                      (= 403 (:status guest))
+                      (= 0 (:exit (soft home "who"))))
+                 [(update-vals said :out) (dissoc guest :body)]))
         (check "A command that it does not know ends with 2, and `sign-out` ends the sign-in: the next command ends with 1 and says to sign in."
                (and (= 2 (:exit (soft home "fly")))
                     (= 0 (:exit (soft home "sign-out")))

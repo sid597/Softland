@@ -52,7 +52,7 @@
                                (contains? defaults :max-visitor-watches))
                 url-a (:url copy-a)
                 url-b (:url copy-b)
-                ;; Person 1 + an agent beneath Person 1 (same `:root`).
+                ;; Person 1's program, an agent of hers, + an agent beneath it (same `:root`).
                 p1-in (drive/sign-in url-a (assoc h/first-person :call-her "Sid"))
                 p1-prog (drive/program url-a "p1" (fn [c] (drive/yes url-a (:cookie p1-in) c {})))
                 p1-conn-a (h/line url-a (:credential p1-prog) nil)
@@ -67,15 +67,18 @@
                 agent-conn-a (h/line url-a agent-cred nil)
                 ;; Person 2 (a second `:root`).
                 inv-code (credential/make-secret)
-                _ (h/say p1-conn-a {:word :invite :uuid (UUID/randomUUID)
-                                    :claim {:by :code :hash (credential/hash-of inv-code)}})
+                ;; She invites at her browser: no program may.
+                _ (let [at-browser (drive/browser-line url-a (:cookie p1-in))]
+                    (h/say at-browser {:word :invite :uuid (UUID/randomUUID)
+                                       :claim {:by :code :hash (credential/hash-of inv-code)}})
+                    (h/close-line! at-browser))
                 p2-in (drive/sign-in url-a {:sub "2000002" :email "second@example.com"
                                             :name "Second" :invited inv-code :call-her "Asha"})
                 p2-prog (drive/program url-a "p2" (fn [c] (drive/yes url-a (:cookie p2-in) c {})))
                 p2-conn-a (h/line url-a (:credential p2-prog) nil)
                 p2-who (:who (:hello p2-conn-a))
                 p2-lane (:own-lane (:hello p2-conn-a))
-                ;; Root 1 opens 2 watches as herself + 2 watches as her agent on copy-a (= 4).
+                ;; Root 1 opens 2 watches as her program + 2 watches as its agent on copy-a (= 4).
                 r1-w1 (open-watch! p1-conn-a {:asks [:place :e1 :k] :asker p1-who :lanes [p1-lane]})
                 r1-w2 (open-watch! p1-conn-a {:asks [:place :e2 :k] :asker p1-who :lanes [p1-lane]})
                 r1-w3 (open-watch! agent-conn-a {:asks [:place :e3 :k] :asker (:who (:hello agent-conn-a)) :lanes [p1-lane]})

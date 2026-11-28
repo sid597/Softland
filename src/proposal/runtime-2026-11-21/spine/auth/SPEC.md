@@ -57,6 +57,17 @@ each is marked "28 November, later". Not part of it: `:driven-by` leaving
 Auth, whether a program may act under a person's own id, a block on a
 person, a person's name.
 
+**28 November 2026, a program's sign-in.** Sid said yes, in the same answer,
+to a question that a session put to him (F15 of the review of 26 November):
+"when the command line signs in, your browser shows three choices … With 'as
+myself', every act the program writes is stored as written by you … A.
+Remove 'as myself' for programs; only you at a browser are you." He took A.
+So a sign-in of kind `:program` is never the person's: `begin-sign-in` of
+that kind for her, and a yes that names her, are refused with
+`:is-a-person`, the word that `end-actor` already says. The word and its
+place in the order are a session's, and his to turn. Whether what only a
+person may say can be lent to a program is not decided and not part of it.
+
 ## What Auth is
 
 Auth is a Rama module of its own beside the module `Store`. It holds what
@@ -259,7 +270,9 @@ own-lane-made     {:person P :at t}
 begin-sign-in     {:root P :actor A :sign-in G :kind K :hash H :until t1
                    :label text-or-nil :at t}
                   -> {:begun G}
-                     {:refused :no-such-actor}   {:refused :ended}
+                     {:refused :no-such-actor}
+                     {:refused :is-a-person}     K is :program and A is P
+                     {:refused :ended}
                      {:refused :in-use}          G is another sign-in already
 
 replace-secret    {:root P :sign-in G :old-hash H :new-hash H' :until t1
@@ -299,7 +312,9 @@ answer-ask        {:code U :yes? bool :root P :actor A :new-agent {:label text}-
                   -> {:yes {:root P :actor A :sign-in G}}
                      {:no U}
                      {:refused :no-such-ask}   {:refused :over}
-                     {:refused :no-such-actor} {:refused :ended}
+                     {:refused :no-such-actor}
+                     {:refused :is-a-person}   a yes whose A is P
+                     {:refused :ended}
                      {:refused :in-use}        the new agent's id or the
                                                sign-in's id is another's
 
@@ -526,7 +541,11 @@ actor `A`, until `t1`. `A` is under the root `P` and is live. A sign-in id is
 bound once: the same id with the same parts again changes nothing; with
 other parts it is refused. A sign-in whose `t1` is at or before the begin's
 own `:at` is taken, with that time: it is not watched, and nobody has ended
-it (question 9, as turned on 28 November).
+it (question 9, as turned on 28 November). A sign-in of kind `:program` is
+never the person's: one whose `A` is the root `P` is refused with
+`:is-a-person`, after `:no-such-actor`. No program acts under her own id;
+only she, at a browser, is she (Sid's yes of 28 November, F15 of the review
+of 26 November).
 
 **replace-secret.** The sign-in's secret becomes the one whose hash is `H'`,
 with a new end `t1`. `H` is the sign-in's hash now; or it is the same
@@ -595,10 +614,10 @@ ask stands. Auth keeps the second with the ask in every state, gives it in
 `ask-of`, and makes it no sign-in's hash; it does not compare the two. A
 person answers once:
 
-- yes, as herself: a sign-in of kind `:program` begins for her, with the
-  ask's hash;
 - yes, as a new agent: the agent `A` is made under her, with the label, and
-  the sign-in begins for it;
+  a sign-in of kind `:program` begins for it, with the ask's hash;
+- yes, as a live agent of hers that exists: the sign-in begins for that
+  agent, and its other sign-ins stand;
 - no: the ask is refused for good.
 
 The first answer stands. Once an ask has an answer, every answer that fits
@@ -611,12 +630,14 @@ Two persons who answer one ask at the same moment: one answer stands, and
 both are told which; what of that the runtime shows the other person is the
 runtime's.
 
-A yes names the actor that the program becomes: the person herself; a new
+A yes names the actor that the program becomes, and it is an agent: a new
 agent, which is made by her and ends with her; or a live agent of hers that
 exists, which is
 any live agent of her root, in any depth. (Question 24: Sid let the
-reference's reading stand on 22 November, and it stays his to turn.) The
-sign-in that a yes begins has the ask's `:asks` as its label. A no needs a
+reference's reading stand on 22 November, and it stays his to turn.) A yes
+that names the person herself is refused with `:is-a-person` (Sid's yes of
+28 November): no sign-in of kind `:program` is hers, so every program is an
+agent. The sign-in that a yes begins has the ask's `:asks` as its label. A no needs a
 person who has entered, and judges no other part; its other parts must fit
 all the same (Sid's call of 22 November). `ask-of` judges no time:
 it says `:waiting` for an ask that nobody answered, and the runtime holds

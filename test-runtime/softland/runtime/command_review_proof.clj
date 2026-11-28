@@ -86,9 +86,9 @@
            (seen nowhere))))
 
 (defn- a-file-edited-and-sent-again
-  [{:keys [home who lane]}]
+  [{:keys [home hello lane]}]
   (let [file (io/file home "review-acts.edn")
-        perm-id (perm/permission-id (perm/first-permission who lane))
+        perm-id (perm/permission-id (perm/lent-at-yes hello lane))
         act (fn [n v] (pr-str {:version 1 :lane lane :permission perm-id
                                :facts [{:e :review-shelf :k (keyword (str "slot-" n)) :v v}]}))
         _ (spit file (str/join "\n" [(act 0 0) (act 1 1) (act 2 2)]))
@@ -110,9 +110,9 @@
            {:first (answers first-run) :second (answers second-run)})))
 
 (defn- a-file-sent-again-in-another-session
-  [{:keys [home who lane]}]
+  [{:keys [home hello lane]}]
   (let [file (io/file home "review-acts-two.edn")
-        perm-id (perm/permission-id (perm/first-permission who lane))
+        perm-id (perm/permission-id (perm/lent-at-yes hello lane))
         _ (spit file (str/join "\n" (for [n (range 2)]
                                       (pr-str {:version 1 :lane lane :permission perm-id
                                                :facts [{:e :review-crate :k (keyword (str "slot-" n)) :v n}]}))))
@@ -176,7 +176,7 @@
           (let [cookie (:cookie (drive/sign-in url h/first-person))
                 signed (sign-in! home url cookie nil)
                 with {:home home :url url :cookie cookie :file (io/file home "sign-in.edn")
-                      :who (:who (:out signed)) :lane (:own-lane (:out signed))}]
+                      :hello (:out signed) :lane (:own-lane (:out signed))}]
             (an-argument-left-out with)
             (a-file-edited-and-sent-again with)
             (a-file-sent-again-in-another-session with)

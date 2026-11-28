@@ -515,6 +515,13 @@ agent alone.
 **Stands as taken, by Sid's call of 22 November, and stays his to turn.** The
 spec now says it at answer-ask.
 
+Since Sid's yes of 28 November (F15: "only you at a browser are you"), the
+first of the three is gone: a yes that names the person herself is refused
+with `:is-a-person`, and so is `begin-sign-in` of kind `:program` for her. A
+yes names a new agent or a live agent of hers, and (a) and (b) are still the
+reading of the second. The broken copies `:yes-names-the-person` and
+`:person-begins-a-program` take each refusal away.
+
 **25. A yes whose sign-in id is a sign-in already, with the parts that the yes
 would bind.** "`{:refused :in-use}` the new agent's id or the sign-in's id is
 another's." A sign-in that `begin-sign-in` began with that id, for that actor,

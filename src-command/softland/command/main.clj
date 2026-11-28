@@ -344,8 +344,10 @@
 
 (defn- act-of
   "With no `--permission`, the act names the permission that her yes lent
-  this sign-in, which covers her own lane alone. A sign-in that `agent new`
-  began was lent nothing at a yes, and names one with `--permission`."
+  this sign-in, which covers her own lane alone. A sign-in that her yes
+  lent nothing (an agent signed in again with no box ticked, which holds
+  what it held) and one that `agent new` began name one with
+  `--permission`."
   [hello flags facts]
   (let [lane (if (contains? flags :lane) (:lane flags) (:own-lane hello))]
     {:version 1

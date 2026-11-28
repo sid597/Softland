@@ -234,7 +234,7 @@
                 (parallel-run! 8 (range 500)
                                (fn [i]
                                  (client/begin-sign-in c {:root P :actor P :sign-in (UUID/randomUUID)
-                                                          :kind :program :hash (h-of (+ 1000 i))
+                                                          :kind :browser :hash (h-of (+ 1000 i))
                                                           :until 100 :label "hist-g" :at 200})))
                 (parallel-run! 8 (range 9990)
                                (fn [_]

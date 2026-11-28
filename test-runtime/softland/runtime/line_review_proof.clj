@@ -90,10 +90,11 @@
   {:id id :word :watch :query {:asks [:place e :k] :asker who :lanes [lane]}})
 
 (defn- write-word
-  [{:keys [who session own-lane]} e v]
+  "A write in the hello's own lane, under what her yes lent the program."
+  [{:keys [who session own-lane] :as hello} e v]
   {:word :send
    :act {:version 1 :who who :session session :lane own-lane
-         :permission (perm/permission-id (perm/first-permission who own-lane))
+         :permission (perm/permission-id (perm/lent-at-yes hello own-lane))
          :facts [{:e e :k :k :v v}]}
    :act-id (UUID/randomUUID)})
 
@@ -397,7 +398,8 @@
           (h/setup-first-person! copy)
           (let [cookie (:cookie (drive/sign-in url (assoc h/first-person :call-her "Sid")))
                 program (drive/program url "the proof of the line's answers" (fn [code] (drive/yes url cookie code {})))
-                me (h/line url (:credential program) nil)
+                ;; What only she may say, she says at her browser.
+                me (drive/browser-line url cookie)
                 with {:url url :small (:url small) :the-seam (:the-seam copy) :cookie cookie
                       :credential (:credential program) :me me :home home}]
             (a-number-in-use with)

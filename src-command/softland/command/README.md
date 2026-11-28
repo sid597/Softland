@@ -26,7 +26,9 @@ Each is a session's, kept and not decided.
 - **With no `--permission`, an act names the permission that her yes lent
   this sign-in,** whose id the program makes from its root and its sign-in
   (`softland.wire.credential/lent-at-yes`): the command line is an agent of
-  hers, and that lend is what it holds in her own lane.
+  hers, and that lend is what it holds in her own lane. A sign-in that her
+  yes lent nothing, an agent of hers signed in again with no box ticked or
+  one that `agent new` made, names what it holds with `--permission`.
 - **`send` keeps the UUIDs of a file's acts before it sends any,** so that a
   run that was cut off is sent again as the same acts.
 - **The JVM stops at its first compiler** (`-XX:TieredStopAtLevel=1`, on the

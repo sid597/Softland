@@ -153,11 +153,12 @@
       {:line connection :hello (client/hello connection)})))
 
 (defn- act-of
-  "Builds one act of one fact in the hello's own lane."
+  "Builds one act of one fact in the hello's own lane, under what her yes
+  lent the program."
   [hello e k v]
   (let [lane (:own-lane hello)]
     {:version 1 :who (:who hello) :session (:session hello) :lane lane
-     :permission (perm/permission-id (perm/first-permission (:who hello) lane))
+     :permission (perm/permission-id (perm/lent-at-yes hello lane))
      :facts [{:e e :k k :v v}]}))
 
 (defn- arguments

@@ -153,8 +153,8 @@
 (def ^:private who-says
   "For each word of the wire, what the seam answers before it does anything
   of the word: nil when the caller may say it, or the runtime's word. In
-  order: a visitor; an agent in a session; a person in no session; a person
-  in a session. Written out here as literals, a second time beside the
+  order: a visitor; an agent in a session; a person at a browser in no
+  session; a person at a browser in a session. Written out here as literals, a second time beside the
   wire's table, so that a change of who may say a word is made in two
   places on purpose."
   {:who-am-i       [nil               nil                  nil               nil]
@@ -180,10 +180,12 @@
 (defn- who-says-checks []
   (let [root (UUID/randomUUID)
         agent (UUID/randomUUID)
-        made (fn [actor session]
+        made (fn [actor session kind]
                (#'seam/->Caller (keyword (str (if (= actor root) "person." "agent.") actor))
-                                actor root (UUID/randomUUID) session :program (atom "") 0 root nil nil))
-        callers [(seam/visitor) (made agent (UUID/randomUUID)) (made root nil) (made root (UUID/randomUUID))]
+                                actor root (UUID/randomUUID) session kind (atom "") 0 root nil nil))
+        callers [(seam/visitor) (made agent (UUID/randomUUID) :program) (made root nil :browser) (made root (UUID/randomUUID) :browser)]
+        ;; Auth begins no sign-in of kind `:program` for her; the seam holds it too.
+        her-root-as-a-program (made root (UUID/randomUUID) :program)
         answered (into {}
                        (map (fn [word] [word (mapv (fn [caller] (:could-not (seam/word-fault caller word))) callers)]))
                        (keys words/words))
@@ -192,6 +194,12 @@
     (check "For each word of the wire's table, the seam answers a visitor, an agent in a session, a person in no session and a person in a session as the list of this proof says: `:find-her-sign-in` for a visitor at each word but `:who-am-i`, `:read`, `:watch` and `:leave`; `:do-that-as-an-agent` for an agent at `:invite`, `:take-back-invite`, `:accounts`, `:unlink-account`, `:under` and `:end-sign-in`; `:find-her-session` for a caller in no session at `:send`, `:send-all`, `:close-session`, `:take-back-invite`, `:accounts` and `:unlink-account`."
            (= who-says answered)
            (into {} (remove (fn [[word got]] (= got (get who-says word)))) answered))
+    (check "No program is a person: a caller in a session whose actor is her root, on a sign-in of a program's, is answered at each word of the table as an agent in a session is, so `:do-that-as-an-agent` at each word that the table gives to a person alone; `person?` says no of it, and yes of her at a browser."
+           (let [as-it (into {} (map (fn [word] [word (:could-not (seam/word-fault her-root-as-a-program word))])) (keys words/words))]
+             (and (= (update-vals who-says second) as-it)
+                  (not (seam/person? her-root-as-a-program))
+                  (seam/person? (nth callers 3))))
+           (into {} (map (fn [word] [word (:could-not (seam/word-fault her-root-as-a-program word))])) (keys words/words)))
     (check "A word that the table does not hold is held back by nothing here: the seam's `call` then says that it does not know the word."
            (nil? (seam/word-fault (seam/visitor) :no-such-word)))
     (check "The seam holds a word against its caller in one place: each of its three tests of a caller is named twice in its code, where it is defined and in the one function that reads the table, and no word of `call` names one."

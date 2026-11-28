@@ -37,9 +37,9 @@
             [softland.runtime.permissions :as perm]
             [softland.wire.credential :as credential]
             [softland.wire.frame :as frame]
-            [softland.wire.proof :refer [check]])
-  (:import [java.net URI]
-           [java.net.http HttpClient WebSocket]
+            [softland.wire.proof :refer [check]]
+            [softland.wire.words :as words])
+  (:import [java.net.http WebSocket]
            [java.util UUID]
            [java.util.concurrent CompletableFuture]))
 
@@ -78,22 +78,6 @@
     (if (:could-not connection)
       connection
       {:line connection :hello (client/hello connection)})))
-
-(defn- browser-line
-  "Opens the line at an address as a browser does, with the cookie and the
-  runtime's own `Origin`: past the library's `connect`, which carries a
-  credential in a header alone, and onto the library's own listener, so
-  that `say` speaks on it. Gives what `line` gives."
-  [url cookie]
-  (let [state (atom {:hello (promise) :next 0 :waits {} :watches {}})
-        socket (.join ^CompletableFuture
-                      (-> (.newWebSocketBuilder (HttpClient/newHttpClient))
-                          (.header "Cookie" (str credential/cookie-name "=" cookie))
-                          (.header "Origin" url)
-                          (.buildAsync (URI/create (str (str/replace url #"^http" "ws") "/line"))
-                                       (#'client/listener state))))
-        connection (client/->Connection socket state)]
-    {:line connection :hello (client/hello connection)}))
 
 (defn- close-line!
   "Closes a line that `line` opened; nothing for one that did not open.
@@ -181,7 +165,7 @@
             foreign (drive/program a "a program whose yes comes from another site"
                                    (fn [code] (drive/yes a cookie code {:origin "http://evil.example"})))
             mine (drive/program a "the proof's command line"
-                                (fn [code] (drive/yes b cookie code {})))
+                                (fn [code] (drive/yes b cookie code {:agent "the proof's command line"})))
             poll (fn [form] (second (frame/read-one (:body (drive/request :post (str a "/sign-in/program/poll") {:edn form})))))
             wrong (poll {:code "ABCD2345" :asking-secret (credential/make-secret)})
             ;; An ask that nobody answers, by the two requests themselves.
@@ -201,9 +185,25 @@
                (= {:state :no} refused) refused)
         (check "Her yes is taken only from this runtime's own page: a post from another site leaves the program waiting."
                (= :waiting (:state foreign)) foreign)
-        (check "A program whose ask she answers with yes, at another copy than the one it asked, is told the three parts of its credential, and its actor is she."
-               (and (:credential mine) (= (:person first-in) (:root mine) (:actor mine)))
+        (check "A program whose ask she answers with yes, at another copy than the one it asked, is told the three parts of its credential, and its actor is an agent of hers and not she: no program is a person."
+               (and (:credential mine) (= (:person first-in) (:root mine)) (uuid? (:actor mine)) (not= (:root mine) (:actor mine)))
                (dissoc mine :credential))
+        (let [code (atom nil)
+              posted (atom nil)
+              as-her (drive/program a "a program that asks to be she"
+                                    (fn [shown]
+                                      (reset! code shown)
+                                      (reset! posted [(drive/request :post (str a "/yes")
+                                                                     {:cookie cookie :origin a :form (drive/yes-form shown {:as-herself true})})
+                                                      (drive/request :post (str a "/yes")
+                                                                     {:cookie cookie :origin a :form (drive/yes-form shown {:mine (:person first-in)})})])))
+              [as-me as-her-id] @posted]
+          (check "A yes that names her for a program is refused, at the page and in Auth: the page does not take a yes as herself, nor offers one, and a yes that names her own id as an agent of hers is refused by Auth as a person's; the program still waits."
+                 (and (= 400 (:status as-me))
+                      (= 409 (:status as-her-id)) (str/includes? (:body as-her-id) "never signed in as you")
+                      (= :waiting (:state as-her))
+                      (not (str/includes? (:body (drive/request :get (str a "/yes?code=" @code) {:cookie cookie})) "value=\"me\"")))
+                 [(select-keys as-me [:status :body]) (select-keys as-her-id [:status :body]) as-her]))
         (check "A program that asks about a code with a secret that is not the ask's learns nothing: no ask is found."
                (= :find-the-ask (:could-not wrong)) wrong)
         (check "A program that waits is answered against its secret for asking alone: with it the ask is said to wait; with the secret that becomes its credential in that place, the answer is the one that a wrong secret and an unknown code get, :find-the-ask."
@@ -221,7 +221,7 @@
                  (= :waiting (:state other))))
 
         ;; ------------------------------------- what a program is lent at her yes
-        (let [her (browser-line a cookie)
+        (let [her (drive/browser-line a cookie)
               her-who (:who (:hello her))
               her-lane (:own-lane (:hello her))
               lend-of (fn [p] (:permission (credential/lent-at-yes (:root p) (:sign-in p))))
@@ -286,11 +286,11 @@
                         (str/includes? (:body two) "lent to see and to write")
                         (= :accepted (:wrote (try-it twice 5)))))
                  (mapv #(select-keys % [:status :body]) (:twice @pages)))
-          (let [asked (drive/request :post (str a "/sign-in/program")
-                                     {:edn {:hash (credential/hash-of (credential/make-secret))
-                                            :asking-hash (credential/hash-of (credential/make-secret))
-                                            :asks "a program that she looks at"}})
-                looked-at (:code (second (frame/read-one (:body asked))))
+          (let [looked-at (let [shown (atom nil)]
+                            ;; An ask that waits, which she only looks at; the
+                            ;; driver waits while the runtime paces this address.
+                            (drive/program a "a program that she looks at" (fn [code] (reset! shown code)))
+                            @shown)
                 page (:body (drive/request :get (str a "/yes?code=" looked-at) {:cookie cookie}))
                 again (signed "the agent that was lent both, again" {:mine (:actor both)})
                 woken (signed "the idle agent, again, lent to see" {:mine (:actor idle) :see true})
@@ -322,15 +322,16 @@
               hello (:hello me)
               who (:who hello)
               lane (:own-lane hello)
-              own (perm/first-permission who lane)]
-          (check "The line says hello with who the program is, her root, a new session and her own lane; and a connection with no credential is a visitor."
-                 (and (= (perm/person (:person first-in)) who) (= (:person first-in) (:root hello)) (uuid? (:session hello)) (uuid? lane)
+              own (perm/lent-at-yes hello lane)
+              she (perm/person (:person first-in))]
+          (check "The line says hello with who the program is, the agent of hers that her yes made, her root, a new session and her own lane; and a connection with no credential is a visitor."
+                 (and (= (perm/agent (:actor mine)) who) (= (:person first-in) (:root hello)) (uuid? (:session hello)) (uuid? lane)
                       (= {:visitor true} (:hello (line a nil nil))))
                  hello)
           (check "Her name is a fact on her own id in her own lane, and she is its writer: the box's act was hers, and the runtime wrote no who into it."
-                 (let [answer (place me lane who :person/name)]
-                   (and (= "Sid" (:value (:place answer))) (= who (:writer (:place answer)))))
-                 (place me lane who :person/name))
+                 (let [answer (place me lane she :person/name)]
+                   (and (= "Sid" (:value (:place answer))) (= she (:writer (:place answer)))))
+                 (place me lane she :person/name))
 
           ;; ------------------------------------------------------- an act
           (let [uuid (UUID/randomUUID)
@@ -428,7 +429,10 @@
                      (left))))
 
           ;; ------------------------------------------------------- an agent
+          ;; `me` is the proof's command line, an agent of hers; what only she
+          ;; may say is said at her browser, `her`.
           (let [me (line a (:credential mine) nil)
+                her (drive/browser-line a cookie)
                 hello (:hello me)
                 secret (credential/make-secret)
                 uuid (UUID/randomUUID)
@@ -448,14 +452,14 @@
                               :act-id (UUID/randomUUID)})
                 after (say agent {:word :send :act (act-of agent-hello lane given :crate-1 :packed true)
                                   :act-id (UUID/randomUUID)})]
-            (check "An agent that she makes has a who of its own, which is neither her id nor the UUID that her program sent, and the same UUID again makes the same agent."
-                   (and (uuid? (:made made)) (not= (:root hello) (:made made)) (not= uuid (:made made))
+            (check "An agent that her program makes has a who of its own, which is neither her id, nor the program's, nor the UUID that her program sent, and the same UUID again makes the same agent."
+                   (and (uuid? (:made made)) (not= (:root hello) (:made made)) (not= (:actor mine) (:made made)) (not= uuid (:made made))
                         (= (:made made) (:made made-again)) (= (:root hello) (:root made)))
                    made)
             (check "The agent signs in as a program with its own credential: the line says that it is the agent, beneath her as its root, and gives it her own lane's id."
                    (and (= (perm/agent (:made made)) (:who agent-hello)) (= (:root hello) (:root agent-hello)) (= lane (:own-lane agent-hello)))
                    agent-hello)
-            (check "An agent acts only under what it was given: before she gives it a permission a gate refuses its act, and after, a gate accepts it and the fact names the agent as its writer."
+            (check "An agent acts only under what it was given: before her program lends it a permission, from what her yes lent the program, a gate refuses its act, and after, a gate accepts it and the fact names the agent as its writer."
                    (and (= :refused (get-in before [:answer :answer]))
                         (= :accepted (get-in gave [:answer :answer]))
                         (= :accepted (get-in after [:answer :answer]))
@@ -465,14 +469,29 @@
                    (= [:do-that-as-an-agent :do-that-as-an-agent]
                       [(:could-not (say agent {:word :invite :uuid (UUID/randomUUID) :claim {:by :email :email (:email (account 5 "nobody"))}}))
                        (:could-not (say agent {:word :under}))]))
-            (let [listed (say me {:word :under})]
+            (let [claim {:by :email :email (:email (account 5 "nobody"))}
+                  said (into {} (map (fn [[k word]] [k (:could-not (say me word))]))
+                             {:invite {:word :invite :uuid (UUID/randomUUID) :claim claim}
+                              :invite-herself {:word :invite :uuid (UUID/randomUUID) :claim claim :herself true}
+                              :take-back-invite {:word :take-back-invite :claim claim}
+                              :accounts {:word :accounts}
+                              :unlink-account {:word :unlink-account :account [:google (str tag "-5")] :link (UUID/randomUUID)}
+                              :under {:word :under}
+                              :end-sign-in {:word :end-sign-in :sign-in (:sign-in mine)}})
+                  only-hers (set (for [[word {:keys [who]}] words/words :when (= :a-person who)] word))]
+              (check "A command line says none of the words that only a person may say: signed in at her yes, through the command line's own client, each word that the wire's table gives to a person alone, and `:invite` with `:herself`, is refused as said by an agent, and its sign-in stands."
+                     (and (= (conj only-hers :invite-herself) (set (keys said)))
+                          (every? #{:do-that-as-an-agent} (vals said))
+                          (= who (:who (say me {:word :who-am-i}))))
+                     said))
+            (let [listed (say her {:word :under})]
               (check "She sees what is under her: the agent, with who made it, whose ending ends it, which is its maker, and its name, and her sign-ins that Auth watches, the agent's among them."
-                     (and (some (fn [actor] (and (= (:made made) (:actor actor)) (= (:root hello) (:made-by actor) (:ends-with actor))
+                     (and (some (fn [actor] (and (= (:made made) (:actor actor)) (= (:actor mine) (:made-by actor) (:ends-with actor))
                                                  (= "importer" (:label actor))))
                                 (:actors listed))
                           (some (fn [sign-in] (= (:sign-in made) (:sign-in sign-in))) (:sign-ins listed)))
                      listed))
-            (check "An agent that she ends, through another copy than the one it is connected to, is told that its sign-in ended, and its credential then stands for nobody."
+            (check "An agent that her program ends, through another copy than the one it is connected to, is told that its sign-in ended, and its credential then stands for nobody."
                    (and (= {:ended (:made made)} (say me {:word :end-agent :agent (:made made)}))
                         (wait-for (fn [] (= :find-her-sign-in (:could-not (client/bye (:line agent))))) 10000)
                         (= 401 (:status (line a agent-credential nil))))
@@ -482,9 +501,9 @@
 
             ;; ---------------------------------------------- an invitation
             (let [code (credential/make-secret)
-                  invited (say me {:word :invite :uuid (UUID/randomUUID) :claim {:by :code :hash (credential/hash-of code)}})
+                  invited (say her {:word :invite :uuid (UUID/randomUUID) :claim {:by :code :hash (credential/hash-of code)}})
                   asha (account 2 "asha")
-                  by-email (say me {:word :invite :uuid (UUID/randomUUID)
+                  by-email (say her {:word :invite :uuid (UUID/randomUUID)
                                     :claim {:by :email :email (str/upper-case (:email asha))}})
                   ;; Both sign-ins are let go at one moment, each on a thread of its
                   ;; own, and the time that each was in flight is kept, so that
@@ -526,9 +545,9 @@
                   work (account 7 "bea-work")
                   never (account 8 "bea-never")
                   bea-uuid (UUID/randomUUID)
-                  invited-bea (say me {:word :invite :uuid bea-uuid :claim {:by :email :email (:email bea)}})
+                  invited-bea (say her {:word :invite :uuid bea-uuid :claim {:by :email :email (:email bea)}})
                   bea-in (drive/sign-in a bea)
-                  at-browser (browser-line b (:cookie bea-in))
+                  at-browser (drive/browser-line b (:cookie bea-in))
                   her-program (let [p (drive/program a "bea's program" (fn [code] (drive/yes a (:cookie bea-in) code {})))]
                                 (line a (:credential p) nil))
                   from-a-program (say her-program {:word :invite :uuid (UUID/randomUUID) :herself true
@@ -539,9 +558,9 @@
                   waiting (say at-browser {:word :invite :uuid (UUID/randomUUID) :herself true
                                            :claim {:by :email :email (:email never)}})
                   listed (say at-browser {:word :accounts})]
-              (check "Two accounts enter as one person: at a browser she names herself under the address of a second account, and that account then signs in as she; the same word from a program that holds her sign-in is refused, and her accounts are the two, in the order in which they were linked, each with its link."
+              (check "Two accounts enter as one person: at a browser she names herself under the address of a second account, and that account then signs in as she; the same word from a program that she signed in is refused, since no program is she, and her accounts are the two, in the order in which they were linked, each with its link."
                      (and (= (:invited invited-bea) (:person bea-in))
-                          (= :do-that-at-a-browser (:could-not from-a-program))
+                          (= :do-that-as-an-agent (:could-not from-a-program))
                           (= {:invited (:person bea-in)} herself waiting)
                           (= (:person bea-in) (:person work-in))
                           (= [[:google (:sub bea)] [:google (:sub work)]] (mapv :account (:accounts listed)))
@@ -550,9 +569,9 @@
 
               (let [other (account 9 "not-bea")
                     again (account 10 "bea-again")
-                    named-anew (say me {:word :invite :uuid bea-uuid :claim {:by :email :email (:email other)}})
+                    named-anew (say her {:word :invite :uuid bea-uuid :claim {:by :email :email (:email other)}})
                     other-in (drive/sign-in b other)
-                    said-again (say me {:word :invite :uuid bea-uuid :claim {:by :email :email (:email bea)}})
+                    said-again (say her {:word :invite :uuid bea-uuid :claim {:by :email :email (:email bea)}})
                     again-in (drive/sign-in b (assoc again :email (:email bea)))]
                 (check "A person cannot name another person who has entered: the UUID of Bea's invitation under another claim names another person, whose account does not enter as she; and the same word as her invitation, said again after she entered by it, gives her and writes nothing, so no account of her address that is not hers enters as she."
                        (and (:invited named-anew) (not= (:person bea-in) (:invited named-anew))
@@ -562,10 +581,10 @@
                        [named-anew (dissoc other-in :cookie) said-again (dissoc again-in :body)]))
 
               (let [cleo (account 11 "cleo")
-                    invited-cleo (say me {:word :invite :uuid (UUID/randomUUID) :claim {:by :email :email (:email cleo)}})
+                    invited-cleo (say her {:word :invite :uuid (UUID/randomUUID) :claim {:by :email :email (:email cleo)}})
                     by-another (say at-browser {:word :take-back-invite :claim {:by :email :email (:email cleo)}})
-                    by-inviter (say me {:word :take-back-invite :claim {:by :email :email (:email cleo)}})
-                    once-more (say me {:word :take-back-invite :claim {:by :email :email (:email cleo)}})
+                    by-inviter (say her {:word :take-back-invite :claim {:by :email :email (:email cleo)}})
+                    once-more (say her {:word :take-back-invite :claim {:by :email :email (:email cleo)}})
                     cleo-in (drive/sign-in a cleo)]
                 (check "Only whoever invited takes an invitation back: another person is told that no invitation of hers waits under the claim, the inviter takes it back, and then none waits; an invitation that was taken back lets nobody in."
                        (and (:invited invited-cleo)
@@ -579,7 +598,7 @@
               (let [dora (account 12 "dora")
                     dora-uuid (UUID/randomUUID)
                     dora-word {:word :invite :uuid dora-uuid :claim {:by :email :email (:email dora)}}
-                    at-c (line c (:credential mine) nil)
+                    at-c (drive/browser-line c cookie)
                     invited-dora (say at-c dora-word)
                     _ (Thread/sleep (+ 500 (long (:invitation-ms short-numbers))))
                     dora-in (drive/sign-in a dora)
@@ -594,14 +613,14 @@
                        [invited-dora renewed (dissoc dora-again :cookie :body)]))
 
               (let [[first-link work-link] (:accounts listed)
-                    not-hers (say me {:word :unlink-account :account (:account first-link) :link (:link first-link)})
+                    not-hers (say her {:word :unlink-account :account (:account first-link) :link (:link first-link)})
                     unlinked (mapv (fn [{:keys [account link]}]
                                      (say at-browser {:word :unlink-account :account account :link link}))
                                    [first-link work-link])
                     taken-back (say at-browser {:word :take-back-invite :claim {:by :email :email (:email never)}})
                     after (say at-browser {:word :accounts})
                     never-in (drive/sign-in b never)
-                    anew (say me {:word :invite :uuid (UUID/randomUUID) :claim {:by :email :email (:email bea)}})
+                    anew (say her {:word :invite :uuid (UUID/randomUUID) :claim {:by :email :email (:email bea)}})
                     bea-again (drive/sign-in b bea)]
                 (check "After she unlinks each of her accounts and takes back the invitation that she named, she has no account, the address of that invitation lets nobody in, and her first address can be invited as another person, as whom her first account then enters; the connection that she unlinked through stays, and nobody else unlinks her account."
                        (and (= [:take-that :another-persons] [(:could-not not-hers) (:why not-hers)])
@@ -684,7 +703,6 @@
             (let [out (drive/program a "a program that signs out" (fn [code] (drive/yes a cookie code {})))
                   here (line a (:credential out) nil)
                   there (line b (:credential out) nil)
-                  listed (say me {:word :under})
                   third (drive/program a "a program that she ends" (fn [code] (drive/yes a cookie code {})))
                   resting (line b (:credential third) nil)]
               (check "A sign-out through one copy of the runtime ends the connection that another copy holds for the same sign-in, and the credential then stands for nobody at either."
@@ -692,9 +710,9 @@
                           (wait-for (fn [] (= :find-her-sign-in (:could-not (client/bye (:line there))))) 10000)
                           (= [401 401] [(:status (line a (:credential out) nil)) (:status (line b (:credential out) nil))])))
               (check "She ends one of her sign-ins by its id, and the program that rested on it is told; a sign-in that is not hers is not found."
-                     (and (= {:ended (:sign-in third)} (say me {:word :end-sign-in :sign-in (:sign-in third)}))
+                     (and (= {:ended (:sign-in third)} (say her {:word :end-sign-in :sign-in (:sign-in third)}))
                           (wait-for (fn [] (= :find-her-sign-in (:could-not (client/bye (:line resting))))) 10000)
-                          (= :find-the-sign-in (:could-not (say me {:word :end-sign-in :sign-in (UUID/randomUUID)}))))
+                          (= :find-the-sign-in (:could-not (say her {:word :end-sign-in :sign-in (UUID/randomUUID)}))))
                      (client/bye (:line resting))))
 
             ;; ------------------------------------------------------ the bounds
@@ -722,6 +740,8 @@
                      (do (raw-frame! visitor {:id 900000 :word :read :query {:asks [:place :x (apply str (repeat 70000 "x"))]
                                                                              :not-signed-in true :lanes [lane]}})
                          (wait-for (fn [] (:gone @(:state (:line visitor)))) 5000))))
+
+            (close-line! her)
 
             ;; ----------------------------------------------- the pages' sign-out
             (check "A sign-out at the pages from another site's page is not taken, and one from the runtime's own page ends the browser's sign-in and takes the cookie away."

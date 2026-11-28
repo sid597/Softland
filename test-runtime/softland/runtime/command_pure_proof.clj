@@ -1,7 +1,8 @@
 (ns softland.runtime.command-pure-proof
   "The proof of the command line's parts that need no runtime: how each
   command is typed, which plain arguments and flags it takes, under which
-  UUID an act of a file is sent, the exit status of a result, and what the
+  UUID an act of a file is sent, which permission an act names when none
+  is given, the exit status of a result, and what the
   library posts while a program waits to be signed in. One command, from
   the repository root:
 
@@ -205,6 +206,20 @@
              (and (whole? got 3) (empty? (filter (set uuids) (:uuids got))))
              got))))
 
+;; ------------------------------------------- the permission that an act names
+
+(defn- permission-checks []
+  (let [hello {:who (keyword (str "agent." (UUID/randomUUID))) :root (UUID/randomUUID) :sign-in (UUID/randomUUID)
+               :session (UUID/randomUUID) :own-lane (UUID/randomUUID)}
+        named (UUID/randomUUID)
+        by-default (command 'act-of hello {} [])
+        by-flag (command 'act-of hello {:permission named} [])]
+    (check "With no `--permission`, an act of the command line names the permission that her yes lent this sign-in, whose id is made from her root and the sign-in, and goes into her own lane; with the flag, it names the permission that the flag gives."
+           (and (= (:permission (credential/lent-at-yes (:root hello) (:sign-in hello))) (:permission by-default))
+                (= (:own-lane hello) (:lane by-default))
+                (= named (:permission by-flag)))
+           [by-default by-flag])))
+
 ;; ------------------------------------------------------------ the exit status
 
 (defn- status-checks []
@@ -296,6 +311,7 @@
   [& _]
   (argument-checks)
   (journal-checks)
+  (permission-checks)
   (status-checks)
   (sign-in-checks)
   (finish))
