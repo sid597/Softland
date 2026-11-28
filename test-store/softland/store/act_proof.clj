@@ -116,7 +116,7 @@
   "The one form of `act-of` for facts that are in their one form."
   [& facts]
   {:version 1 :who (person :alice) :lane :alice :permission (perm/permission-id alice-own) :session :alice-s1
-   :based-on {} :because-of nil :claimed-when nil :subjects #{} :facts (vec facts)})
+   :based-on {} :because-of nil :facts (vec facts)})
 
 (def ^:private good
   "An act with version, who, lane, permission, session and one fact. Each
@@ -132,11 +132,6 @@
   "A sequence that throws when it is read."
   []
   (lazy-seq (throw (ex-info "this sequence throws when it is read" {}))))
-
-(defn- subjects
-  "A set of n subjects."
-  [n]
-  (set (map #(keyword (str "p" %)) (range n))))
 
 (defn- deep-permission
   "A permission in Alice's lane at depth n."
@@ -157,8 +152,6 @@
          [:session :id {:absent :no-session}]
          [:based-on [:map-of :fact-id :carried-stamp] {:optional true :default {}}]
          [:because-of :act-id {:optional true}]
-         [:claimed-when :int {:optional true}]
-         [:subjects [:set-of :id {:max 256}] {:optional true :default #{}}]
          [:facts [:seq-of :fact] {:empty :empty-act}]]
    :fact [:parts
           [:e :id]
@@ -176,9 +169,12 @@
     (fn [] act/shapes) declared]
    ["the maker's act has no rule: what a permission id holds is a gate's question"
     (fn [] act/rules) []]
-   ["the ten parts of an act"
+   ["the eight parts of an act"
     (fn [] act/act-parts)
-    #{:version :who :lane :permission :session :based-on :because-of :claimed-when :subjects :facts}]
+    #{:version :who :lane :permission :session :based-on :because-of :facts}]
+   ["whom an act is about and a maker's own clock are no parts: an act that carries :subjects or :claimed-when is refused as any act with a part that the form does not name"
+    (fn [] (mapv #(act/parse (assoc (act-of a-fact) %1 %2)) [:subjects :claimed-when] [#{(person :alice)} 1700000]))
+    [{:refuse :unknown-part} {:refuse :unknown-part}]]
    ["the four parts of a fact"
     (fn [] act/fact-parts) #{:e :k :v :replaces}]
    ["the door's three additions and the seal are no parts: no act-id, depot or time of the door on an act; no seal, lock id, lane or mark on a fact"
@@ -189,9 +185,9 @@
    ["the seven reason words, read from the two declarations"
     (fn [] act/reasons)
     #{:malformed :unknown-part :unknown-version :who-not-a-party :permission-not-an-id :no-session :empty-act}]
-   ["the version that this code knows, and the two limits: subjects, collections. A carried stamp has no limit of its own: no gate reads it, so its form is its one bound"
-    (fn [] [act/version act/max-subjects act/max-depth])
-    [1 256 32]]
+   ["the version that this code knows, and the one limit: collections. A carried stamp has no limit of its own: no gate reads it, so its form is its one bound"
+    (fn [] [act/version act/max-depth])
+    [1 32]]
    ["no shape of the maker's declaration holds itself"
     (fn [] @#'act/nesting)
     {}]])
@@ -208,8 +204,6 @@
    :session :alice-s1
    :based-on {[(subvec (into [:x] earlier-act-id) 1) (int 0)] (int 41)}
    :because-of (subvec (into [:x] earlier-act-id) 1)
-   :claimed-when (int 1700000)
-   :subjects #{(person :alice) (person :bob)}
    :facts (list {:e :note-1 :k :note :v {:count (int 2) :path (subvec [0 1 2] 1)}
                  :replaces [earlier-act-id (short 0)]}
                 {:e :note-2 :k :note})})
@@ -223,8 +217,6 @@
    :session :alice-s1
    :based-on {[earlier-act-id 0] 41}
    :because-of earlier-act-id
-   :claimed-when 1700000
-   :subjects #{(person :alice) (person :bob)}
    :facts [{:e :note-1 :k :note :v {:count 2 :path [1 2]} :replaces [earlier-act-id 0]}
            {:e :note-2 :k :note :v nil :replaces nil}]})
 
@@ -245,11 +237,11 @@
       (one-form {:e :note-1 :k :note :v "a text" :replaces nil}
                 {:e :alice-s1 :k :tally :v {:count 1} :replaces nil}
                 {:e :note-2 :k :link :v (uuid 5) :replaces nil})]
-     ["an act whose party is a person with a UUID, and whose lane, permission, session, entity and subject are UUIDs"
-      {:version 1 :who w :lane l :permission p :session s :subjects #{(uuid 11)}
+     ["an act whose party is a person with a UUID, and whose lane, permission, session and entity are UUIDs"
+      {:version 1 :who w :lane l :permission p :session s
        :facts [{:e e :k :note :v 1}]}
       {:version 1 :who w :lane l :permission p :session s :based-on {} :because-of nil
-       :claimed-when nil :subjects #{(uuid 11)} :facts [{:e e :k :note :v 1 :replaces nil}]}]
+       :facts [{:e e :k :note :v 1 :replaces nil}]}]
      ["an act under the id of a given permission"
       (assoc good :who (person :bob) :permission (perm/permission-id (perm/given-permission (person :bob) :alice alice-own)))
       (assoc (one-form {:e :note-1 :k :note :v "a text" :replaces nil})
@@ -277,7 +269,7 @@
         fact (first (:facts ok))]
     (mapv #(.getSimpleName (class %))
           [(:version ok) (:because-of ok)
-           fact-id (first fact-id) (second fact-id) stamp (:claimed-when ok)
+           fact-id (first fact-id) (second fact-id) stamp
            (:replaces fact) (second (:replaces fact))
            (get-in fact [:v :count]) (get-in fact [:v :path]) (:facts ok)])))
 
@@ -287,7 +279,7 @@
         [["in the one form of the act with each optional part, each vector is plain and each number is a long"
           (fn [] (classes-of (:ok (act/parse whole))))
           ["Long" "PersistentVector" "PersistentVector" "PersistentVector" "Long"
-           "Long" "Long" "PersistentVector" "Long" "Long" "PersistentVector" "PersistentVector"]]
+           "Long" "PersistentVector" "Long" "Long" "PersistentVector" "PersistentVector"]]
          ["to parse a one form again gives the same"
           (fn [] (mapv (fn [[_ x _]] (let [ok (:ok (act/parse x))] (= {:ok ok} (act/parse ok)))) passing-rows))
           (vec (repeat (count passing-rows) true))]]))
@@ -331,14 +323,10 @@
    [":based-on that is no map" (assoc good :based-on [[earlier-act-id 0] 1]) :malformed]
    ["a key of :based-on that is no fact id" (assoc good :based-on {[:alice 0] 1}) :malformed]
    ["a carried stamp that is a double" (assoc good :based-on {[earlier-act-id 0] 1.5}) :malformed]
-   ;; because of, claimed when, subjects
+   ;; because of
    ["a :because-of that is no act-id" (assoc good :because-of [:alice 0]) :malformed]
    ["a :because-of with a scheme word, four slots" (assoc good :because-of [:alice :streaming :act (uuid 2)]) :malformed]
    ["a :because-of with no depot" (assoc good :because-of [:alice nil (uuid 2)]) :malformed]
-   ["a :claimed-when that is a double" (assoc good :claimed-when 1.5) :malformed]
-   ["a :claimed-when that is a big integer" (assoc good :claimed-when 1N) :malformed]
-   ["subjects that are no set" (assoc good :subjects [:bob]) :malformed]
-   ["a subject that is a string" (assoc good :subjects #{"bob"}) :malformed]
    ;; the facts
    ["no facts" (dissoc good :facts) :malformed]
    ["facts that are a map" (assoc good :facts a-fact) :malformed]
@@ -383,7 +371,7 @@
    ["a permission that is no id, and no session"
     (-> good (assoc :permission :not-an-id) (dissoc :session)) :permission-not-an-id]
    ["no session, and no fact" (-> good (dissoc :session) (assoc :facts [])) :no-session]
-   ["257 subjects, and no fact" (assoc good :subjects (subjects 257) :facts []) :malformed]
+   ["a :based-on that is no map, and no fact: based-on comes before facts" (assoc good :based-on [] :facts []) :malformed]
    ["no lane, and a permission that is no id: lane comes before permission"
     (-> good (dissoc :lane) (assoc :permission :not-an-id)) :malformed]
    ["a permission that is no id, and no fact: permission comes before facts"
@@ -436,9 +424,7 @@
 
 (def ^:private limit-rows
   "Each limit at its edge."
-  [["256 subjects" (assoc good :subjects (subjects 256)) :ok]
-   ["257 subjects" (assoc good :subjects (subjects 257)) :malformed]
-   ["a value inside 32 collections" (act-of (assoc a-fact :v (nested 32))) :ok]
+  [["a value inside 32 collections" (act-of (assoc a-fact :v (nested 32))) :ok]
    ["a value inside 33 collections" (act-of (assoc a-fact :v (nested 33))) :malformed]
    ["a carried stamp of zero" (assoc good :based-on {[earlier-act-id 0] 0}) :ok]
    ["a carried stamp of -1" (assoc good :based-on {[earlier-act-id 0] -1}) :malformed]
@@ -460,7 +446,6 @@
   [["who as a raw UUID is no party" (assoc good :who (uuid 7)) :who-not-a-party]
    ["the lane as a UUID, with a permission UUID" (assoc good :lane (uuid 8) :permission (perm/permission-id (perm/first-permission (person :alice) (uuid 8)))) :ok]
    ["the session as a UUID" (assoc good :session (uuid 9)) :ok]
-   ["a subject as a UUID" (assoc good :subjects #{(uuid 10)}) :ok]
    ["an entity as a UUID" (act-of (assoc a-fact :e (uuid 9))) :ok]
    ["who as a string" (assoc good :who "alice") :who-not-a-party]
    ["an entity as a string" (act-of (assoc a-fact :e "note-1")) :malformed]
@@ -543,7 +528,7 @@
   (shown "the rules:" (pr-str act/rules))
   (shown "read from the declarations:" (count act/act-parts) "parts on an act," (count act/fact-parts)
          "on a fact," (count act/reasons) "reason words | version" act/version
-         "| limits:" (pr-str [act/max-subjects act/max-depth])
+         "| limit:" (pr-str [act/max-depth])
          "| how often a shape may hold itself:" (pr-str @#'act/nesting)))
 
 (deftest the-declaration-drives-the-check

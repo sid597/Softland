@@ -90,10 +90,10 @@
 
 (defn- making-act
   "The act that makes a lane, in the form of
-  `softland.store.gate.first-act/making-act?`. When the holder is a person,
-  the act names her as its subject, so that what the log holds of her can
-  be found by her id. When the lane is `first-act/base`, opens it to
-  `:anyone` for reading in the making act."
+  `softland.store.gate.first-act/making-act?`. Whom the lane is for is what
+  its first permission says, its holder: a making act holds nothing else of
+  her. When the lane is `first-act/base`, opens it to `:anyone` for reading
+  in the making act."
   [lane holder session]
   (let [permission (first-permission holder lane first-act/system)
         facts (cond-> [{:e lane :k :softland.store/depot :v (first-act/depot-at-making lane)}
@@ -106,12 +106,11 @@
                            :covers [:default-group lane]
                            :given-by first-act/system
                            :under (permission-id permission)}}))]
-    (cond-> {:version 1
-             :who first-act/system
-             :session session
-             :lane lane
-             :facts facts}
-      (not= first-act/system holder) (assoc :subjects #{holder}))))
+    {:version 1
+     :who first-act/system
+     :session session
+     :lane lane
+     :facts facts}))
 
 (defn- accepted?
   [sent]
@@ -199,7 +198,6 @@
                            :session (seam/session-of caller)
                            :lane lane
                            :permission (permission-id (first-permission who lane))
-                           :subjects #{who}
                            :facts [{:e who :k name-key :v name}]}
                      :act-id uuid
                      :wait-ms answer-wait-ms}))))
@@ -335,7 +333,6 @@
                         :session give-session
                         :lane base
                         :permission above
-                        :subjects #{her-party}
                         :facts [{:e give-perm-id
                                  :k declaration/permission-key
                                  :v {:holder her-party

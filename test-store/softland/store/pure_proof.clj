@@ -274,7 +274,7 @@
   [n & facts]
   {:act-id (act-id n) :depot :streaming declaration/time-part now
    :version 1 :who (person :alice) :lane :alice :permission (perm/permission-id alice-own) :session :alice-s1
-   :based-on {} :because-of nil :claimed-when nil :subjects #{}
+   :based-on {} :because-of nil
    :facts (vec facts)})
 
 (def ^:private good
@@ -478,7 +478,7 @@
      ["a thing that differs in anything else has another digest, with the same time on it: another value, another act-id, another who, a part more that holds the same number as the time"
       (fn [] (mapv (fn [x] (= (digest/hex-of good) (digest/hex-of x)))
                    [(arrived 1 (value-at :note-1 :text "a text.")) (arrived 2 (value-at :note-1 :text))
-                    (assoc good :who (person :bob)) (assoc good :claimed-when now)]))
+                    (assoc good :who (person :bob)) (assoc good :a-part-more now)]))
       [false false false false]]
      ["a time deeper than the top level is not left out: two things that differ only in a time inside a value, inside a fact, or inside a vector have two digests, by `hex-of` and by `readable-hex-of`; the digest of the vector is the SHA-256 of its whole text"
       (fn [] (let [in-value (fn [t] (arrived 1 (value-at :note-1 :text {declaration/time-part t})))
@@ -524,8 +524,6 @@
     [:session :id {:absent :no-session}]
     [:based-on [:map-of :fact-id :carried-stamp] {:optional true :default {}}]
     [:because-of :act-id {:optional true}]
-    [:claimed-when :int {:optional true}]
-    [:subjects [:set-of :id {:max 256}] {:optional true :default #{}}]
     [:facts [:seq-of :fact] {:empty :empty-act}]]
    :depot-word [:enum :streaming :microbatch]
    :who-may-read-acts-word [:enum :members :everyone]
@@ -705,8 +703,6 @@
    :session :alice-s1
    :based-on {[(act-id 2) (int 0)] (int 41)}
    :because-of (act-id 2)
-   :claimed-when (int 1700000)
-   :subjects #{(person :alice) (person :bob)}
    :facts (list {:e :note-1 :k :text :v (sorted-map :b 1.50M :a (subvec [0 (int 1) 2N] 1))
                  :replaces [(act-id 2) (short 0)]}
                 {:e :note-2 :k :text}
@@ -717,8 +713,7 @@
   "The one form on arrival of `whole`."
   {:act-id (act-id 9) :depot :streaming declaration/time-part 1700001
    :version 1 :who (person :alice) :lane :alice :permission (perm/permission-id alice-own) :session :alice-s1
-   :based-on {[(act-id 2) 0] 41} :because-of (act-id 2) :claimed-when 1700000
-   :subjects #{(person :alice) (person :bob)}
+   :based-on {[(act-id 2) 0] 41} :because-of (act-id 2)
    :facts [{:e :note-1 :k :text :v nil :replaces [(act-id 2) 0] :text "{:a [1 2] :b 1.5M}"}
            {:e :note-2 :k :text :v nil :replaces nil :text nil}
            (assoc (perm/permission-fact bobs) :replaces nil
@@ -755,11 +750,11 @@
                  [fact-id carried] (first (:based-on form))]
              (mapv #(.getSimpleName (class %))
                    [(:act-id form) (:permission form) (:facts form) fact-id (second fact-id) carried
-                    (:claimed-when form) (second (:replaces (first (:facts form))))
+                    (second (:replaces (first (:facts form))))
                     (:v (nth (:facts form) 2)) (:text (first (:facts form)))
                     (get whole declaration/time-part) (get form declaration/time-part)])))
     ["PersistentVector" "UUID" "PersistentVector" "PersistentVector" "Long" "Long"
-     "Long" "Long" "PersistentArrayMap" "String" "Integer" "Long"]]
+     "Long" "PersistentArrayMap" "String" "Integer" "Long"]]
    ["the text of a value under a plain key is the one text of its normal form, and the one form keeps no value beside it: an Integer, a decimal with a trailing zero, a sorted map, a UUID, a keyword, a string with a quote and a character of three bytes"
     (fn [] (mapv (fn [v] (let [fact (first (:facts (act-of (arrived 1 (value-at :note-1 :text v)))))]
                            [(:v fact) (:text fact)]))
@@ -945,7 +940,6 @@
         long-who (perm/long-person 257)]
     [["who" (assoc good :who long-who)]
      ["the session" (assoc good :session long)]
-     ["a subject" (assoc good :subjects #{long})]
      ["an entity" (arrived 1 (value-at long :text))]
      ["a fact's key" (arrived 1 (value-at :note-1 long))]
      ["the sitting, in a permission that is given"
@@ -1038,7 +1032,7 @@
         perm-id (perm/permission-id (perm/first-permission who id))]
     {:act-id [id :streaming (uuid 1)] :depot :streaming declaration/time-part now
      :version 1 :who who :lane id :permission perm-id :session :alice-s1
-     :based-on {} :because-of nil :claimed-when nil :subjects #{}
+     :based-on {} :because-of nil
      :facts (mapv (fn [i] {:e (keyword (str "note-" i)) :k :text :replaces nil
                            :v (cond (< i 286) at-the-bound
                                     (= i 286) (text-of-bytes 30000)
@@ -1256,7 +1250,7 @@
         {:keys [e k v]} (perm/permission-fact permission)
         depot (first-act/depot-at-making lane)]
     {:act-id [lane depot (uuid 1)] :depot depot declaration/time-part now :version 1 :who who :lane lane
-     :permission nil :session :s1 :based-on {} :because-of nil :claimed-when nil :subjects #{}
+     :permission nil :session :s1 :based-on {} :because-of nil
      :facts [(arrived-fact lane :softland.store/depot depot)
              (arrived-fact e k v)]}))
 
@@ -1326,7 +1320,7 @@
      [:system :base]]
     ["the making acts of these cases are in the one form on arrival: each is what the declaration's check gives for the same act as its maker sends it"
      (fn [] (mapv (fn [form] (= form (act-of (-> form
-                                                 (dissoc :permission :based-on :because-of :claimed-when :subjects)
+                                                 (dissoc :permission :based-on :because-of)
                                                  (update :facts (fn [facts] (mapv #(select-keys % [:e :k :v]) facts)))))))
                   [(making :alice :system (person :alice)) (making :team (person :alice) (person :alice)) (making :base :system :system)]))
      [true true true]]
@@ -1937,9 +1931,10 @@
    ["an act with no time gets the declaration's word, whatever stamp it carries: no act goes on without a time"
     (fn [] (verdict (declaration/check (without-time (assoc good :based-on {[(act-id 2) 0] Long/MAX_VALUE})))))
     :no-door-time]
-   ["claimed-when far ahead is a claim: no refusal"
-    (fn [] (verdict (declaration/check (assoc good :claimed-when Long/MAX_VALUE))))
-    :ok]])
+   ["an act holds no clock of its maker's: a thing that carries :claimed-when, or :subjects, is refused as any thing with a part that the form does not name"
+    (fn [] (mapv #(verdict (declaration/check %))
+                 [(assoc good :claimed-when Long/MAX_VALUE) (assoc good :subjects #{(person :alice)})]))
+    [:unknown-part :unknown-part]]])
 
 (defn- row-by
   "The row that the fact `index` of the act `(act-id n)` wrote: a value at
@@ -2650,7 +2645,7 @@
   depot that its lane starts with."
   [form depot]
   (-> form
-      (dissoc :permission :based-on :because-of :claimed-when :subjects)
+      (dissoc :permission :based-on :because-of)
       (assoc :act-id (assoc (:act-id form) 1 depot) :depot depot)
       (update :facts (fn [facts] (mapv #(select-keys % [:e :k :v]) facts)))))
 
@@ -2881,8 +2876,8 @@
         bobs-2 (perm/given-permission (person :bob) :alice alice-own {:salt 2})
         dans (perm/given-permission (person :dan) :alice bobs)
         x (maker (person :erin) :run-x {:e :experiment-3 :k :dose :v 5})
-        x-another-way {:version 1 :who (person :erin) :lane :alice :session :run-x :subjects #{} :based-on {}
-                       :because-of nil :claimed-when nil :facts (list {:e :experiment-3 :k :dose :v 5N :replaces nil})}
+        x-another-way {:version 1 :who (person :erin) :lane :alice :session :run-x :based-on {}
+                       :because-of nil :facts (list {:e :experiment-3 :k :dose :v 5N :replaces nil})}
         x-changed (maker (person :erin) :run-x {:e :experiment-3 :k :dose :v 50})
         x-in-another-run (maker (person :erin) :run-y {:e :experiment-3 :k :dose :v 5})
         end-of-dans (maker (person :erin) :run-x (perm/end-fact dans))
@@ -2965,11 +2960,11 @@
       (fn [] [(= (digest/act-for-a-yes x) (dissoc (:ok (act/parse (assoc x :permission (perm/permission-id ya)))) :permission))
               (= (digest/act-for-a-yes x-another-way) (digest/act-for-a-yes x))])
       [true true]]
-     ["another act has another digest: another value, another who, another session, another lane, a time that its maker claims, an act that it is because of, a subject"
+     ["another act has another digest: another value, another who, another session, another lane, an act that it is because of, a fact that it is based on"
       (fn [] (mapv #(= hex (digest/hex-for-a-yes %))
-                   [x-changed (assoc x :who (person :bob)) x-in-another-run (assoc x :lane :other) (assoc x :claimed-when 5)
-                    (assoc x :because-of (act-id 1)) (assoc x :subjects #{:experiment-3})]))
-      [false false false false false false false]]
+                   [x-changed (assoc x :who (person :bob)) x-in-another-run (assoc x :lane :other)
+                    (assoc x :because-of (act-id 1)) (assoc x :based-on {[(act-id 1) 0] 3})]))
+      [false false false false false false]]
      ["no digest of what is no act: no map, a part that the form does not name, a fact that is wrong"
       (fn [] (mapv digest/hex-for-a-yes [nil 5 (assoc x :sealed 1) (assoc x :facts [{:e :x :k "no key"}])]))
       [nil nil nil nil]]
@@ -3091,7 +3086,7 @@
                    (:thing (additions/thing-to-append (additions/reading (assoc an-act :permission (perm/permission-id permission)) door-id)
                                                       door-id now)))
         a1 {:version 1 :who (person :ben) :lane :lab :session :s1 :facts [{:e :x :k :n :v 5}]}
-        a2 {:version 1 :who (person :ben) :lane :lab :session :s1 :subjects #{} :based-on {} :facts (list {:e :x :k :n :v 5N})}]
+        a2 {:version 1 :who (person :ben) :lane :lab :session :s1 :because-of nil :based-on {} :facts (list {:e :x :k :n :v 5N})}]
     [["probe 1A, a yes given again after an end and a refused try: the try under the ended yes is refused and uses nothing; a give at the ended yes's id is refused, a yes's id taking one give; a yes on an id of its own, given by Cal beneath his permission, is taken, and so is Ben's act under it"
       (fn [] (words :lab history-1a))
       [:accepted :accepted :accepted :permission-ended :accepted :a-permission-id-takes-one-permission :accepted :accepted]]
@@ -4230,17 +4225,17 @@
                [(same? three) (same? (apply list three)) (same? lazy) @walked (realized? lazy)]))
       [true true true 0 false]]
      ["the thing is the maker's map with three parts more: each part that the maker gave is the maker's own object, a part that the form does not know too, and nothing is filled in"
-      (fn [] (let [act (assoc (mixed three) :subjects #{:bob} :based-on {[(act-id 5) 0] 7} :note {:a 1})
+      (fn [] (let [act (assoc (mixed three) :because-of (act-id 6) :based-on {[(act-id 5) 0] 7} :note {:a 1})
                    thing (:thing (built act))]
                [(every? (fn [part] (identical? (get act part) (get thing part)))
-                        [:version :who :lane :permission :session :subjects :based-on :note :facts])
+                        [:version :who :lane :permission :session :because-of :based-on :note :facts])
                 (sort (remove (set (keys act)) (keys thing)))
                 (select-keys thing doors-parts)
-                (sort (remove (set (keys (:thing (built (maker value-fact))))) [:based-on :because-of :claimed-when :subjects]))]))
+                (sort (remove (set (keys (:thing (built (maker value-fact))))) [:based-on :because-of]))]))
       [true (sort doors-parts) {:act-id (act-id 70) :depot :streaming declaration/time-part now}
-       [:based-on :because-of :claimed-when :subjects]]]
+       [:based-on :because-of]]]
      ["the thing to append is the maker's map with the three parts added and nothing else changed: with the three taken off again it is equal to the maker's map; the depot is the depot slot of the act-id; the time is the number that the door hands, under the name that the declaration holds. No clock is read: two calls with one time give one thing, and a call with another time gives a thing that differs in that part alone"
-      (fn [] (let [act (assoc (mixed three) :subjects #{:bob} :note {:a 1})
+      (fn [] (let [act (assoc (mixed three) :because-of (act-id 6) :note {:a 1})
                    reading (additions/reading act nil)
                    made (additions/thing-to-append reading (given :microbatch) 1234)
                    thing-at (fn [t] (:thing (additions/thing-to-append reading (given :microbatch) t)))]
@@ -4518,7 +4513,7 @@
   optional parts, a thing that is no act, one with a run of bytes and a time,
   one with no time, and values of each kind."
   [good
-   (assoc good :based-on {[(act-id 9) 0] 3} :subjects #{:bob} :claimed-when 5 :because-of (act-id 8))
+   (assoc good :based-on {[(act-id 9) 0] 3} :because-of (act-id 8))
    {:act-id (act-id 2) :lane :alice}
    {:act-id (act-id 3) :lane :alice :bytes (byte-array [1 2 3]) declaration/time-part 7}
    (without-time good)
@@ -4539,12 +4534,11 @@
 
 (defn- at-the-limits
   "An act at the declaration's limits: 256 facts, each a value at the bound
-  of one value's text, 1,024 entries of based-on and 256 subjects."
+  of one value's text, and 1,024 entries of based-on."
   []
   (let [value (text-of-bytes 65000)]
     (assoc (apply arrived 77 (map (fn [i] (value-at (keyword (str "e" i)) :text value)) (range 256)))
-           :based-on (into {} (map (fn [i] [[(act-id i) 0] i])) (range 1024))
-           :subjects (into #{} (map #(keyword (str "subject-" %))) (range 256)))))
+           :based-on (into {} (map (fn [i] [[(act-id i) 0] i])) (range 1024)))))
 
 (def ^:private weight-cases
   "The weight of a thing, counted in the walk of its digest
@@ -4589,7 +4583,7 @@
     (fn [] (let [w (weight-of good)]
              [(:weight (digest/weighed good (dec w))) (= w (:weight (digest/weighed good w)))]))
     [:too-heavy true]]
-   ["an act at the declaration's limits, 256 values at the bound of one value, 1,024 entries of based-on and 256 subjects, passes the declaration and weighs less than the bound on what is kept with standing"
+   ["an act at the declaration's limits, 256 values at the bound of one value and 1,024 entries of based-on, passes the declaration and weighs less than the bound on what is kept with standing"
     (fn [] (let [x (at-the-limits)]
              [(verdict (declaration/check x)) (< (long (weight-of x)) decision/max-kept-weight)]))
     [:ok true]]])

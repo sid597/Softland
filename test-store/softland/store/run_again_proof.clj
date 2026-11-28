@@ -927,17 +927,14 @@
 
 (defn- with-each-optional-part!
   "Sends by the hand, to the depot of the gate given, one act that holds
-  each part that an act can leave out: what it is because of, when its
-  maker claims it was made, its subjects, and what it is based on, with a
-  carried stamp. Takes the gate, a lane that it has
+  each part that an act can leave out: what it is because of, and what it
+  is based on, with a carried stamp. Takes the gate, a lane that it has
   made, a maker, her permission, and the key of the fact. Waits for the
   microbatch gate when the thing is its. Gives the thing with no time."
   [gate lane who permission k]
   (let [another [lane gate (UUID/randomUUID)]
         thing (assoc (arrived gate lane who permission [{:e :each-part :k k :v "an act with each optional part"}])
                      :because-of another
-                     :claimed-when 1700000000000
-                     :subjects #{:each-part :another-subject}
                      :based-on {[another 0] 1})]
     (by-hand! gate thing)
     (when (= :microbatch gate) (settle!))

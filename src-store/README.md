@@ -115,7 +115,8 @@ session read the photographs and wrote down a mark for each question
    `:claimed-when` optional.** Sid decided. The version is the edition of this
    list of parts, and the code knows 1. `:because-of` is an act-id.
    `:claimed-when` is an integer, the maker's own clock, a claim. Expected
-   versions are not a part: `:based-on` and `:replaces` carry them.
+   versions are not a part: `:based-on` and `:replaces` carry them. On
+   28 November 2026 `:claimed-when` left the act (entry 2 of that day).
 5. **The class and the act-id are not parts of the act.** Sid decided. The
    door reads the layer and adds the class; an act that the store places
    itself always carries the class. The door makes act-ids. An act-id is
@@ -187,7 +188,8 @@ session read the photographs and wrote down a mark for each question
     from today's code, not decided: the part is optional, and empty when absent.
 12. **A carried stamp is an integer.** Sid decided. Kept from today's code, not
     decided: a carried stamp is below 2^62, an act names 256 subjects at most,
-    and a value is inside 32 collections at most. A fact, checked on
+    and a value is inside 32 collections at most. On 28 November 2026
+    `:subjects` left the act, and its limit with it (entry 2 of that day). A fact, checked on
     12 October: the rig's code holds the same three numbers
     (`src/proposal/rig-2026-09-25/src/rig/store/envelope.clj`, lines 74 to
     87). He asked on 6 October "is 2^62 big enough" (‹61dbaec7›); the record
@@ -382,7 +384,8 @@ chose, and the fourth waits for two words.
    and not the link; and nothing that is written plain in an act is made from
    the person, her own layer's id and a session's id too, or the record names
    her there. Acts about her carry the same id in `:subjects`, so forgetting
-   a person meets this at H11. No code makes a person yet. Open, for sign-in:
+   a person meets this at H11. Since 28 November 2026 an act has no
+   `:subjects`: an act about her names her in a fact (entry 2 of that day). No code makes a person yet. Open, for sign-in:
    the queue, K7 to K10.
 2. **One lock seals one value.** Sid decided (H1 A): "I think my stance is A.
    Because given A, any tool user layer group can decide by themselves what
@@ -1337,3 +1340,41 @@ it.
      lane, runs as parties and taking `:session` off the act, `refer`, conflict
      raising on two replacements of one fact (item 10), and who sees refused
      acts and the store's own facts (items 11 and 12 of section 12).
+
+## Decisions of 28 November 2026 — the form of an act
+
+Sid made these on 28 November 2026, in the chat of a Claude Code session, to
+questions that the session put to him in one text («59efa1cb»), numbered 4a,
+4b and 4c there. His answers are in one line (‹b8e1bdaf›), which begins "Yes
+to all that i dont explicitly comment below". Words in quotation marks after
+"his answer" are his, as he typed them; each question is given as the session
+put it. His yes covers each change as the question said it. What a session
+drew from an answer, and every name and shape inside a change, is marked as a
+session's and is his to turn. The three were built as one change, since each
+changes the bytes that a digest is taken of: the eleventh making of
+`test-store/softland/store/run_again_fixture/` was made for it.
+
+2. **`:subjects` and `:claimed-when` are no parts of an act.** The question
+   (4b): "The change: both slots go. When needed, the same thing is said as
+   an ordinary fact about the act, which reads can already find. Asked: yes
+   to removing them? I say yes." His answer: "4b yes but then to get what we
+   are removing how would this work? Ok we can do it as ordinary fact as you
+   mention". What comes with it, a session's:
+   - An act that carries either part is refused `:unknown-part`, as any act
+     with a part that the form does not name. The form has eight parts.
+   - Nothing read either part. `:subjects` was written in four places: the
+     making act of a person's own lane, the act that writes her name, the
+     give of the setup command (`softland/runtime/sign_in.clj` under
+     `src-runtime/`), and the command line's `give`
+     (`softland/command/main.clj` under `src-command/`). Each of those acts
+     already names her in a fact of its own: the making act and the two
+     gives in the `:holder` of the permission that they write, and the act
+     of her name in the `:e` of its fact. So none of the four writes a fact
+     more, and what the part held is still in the act.
+   - Where an act's own facts do not say whom it is about, its maker says it
+     as a fact of the act: `{:e <the act's own uuid> :k :subjects :v #{…}}`.
+     `:subjects` there is a maker's key and no store key: no gate reads it.
+     No code writes such a fact today. A fact is read by whoever may see the
+     lane, where the part of an act was read only by whoever may read the
+     lane's acts whole; and a fact under a plain key needs a permission that
+     allows writing.

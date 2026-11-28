@@ -1772,8 +1772,9 @@
         value-over-logged (record-of-act records-then (:act-id (:thing value-over)))
         act-over-logged (record-of-act records-then (:act-id (:thing act-over)))
         long-entity (decide! (alice [{:e long :k :text}]))
-        ;; What an act carries is no measure of its stamp: a claim far
-        ;; ahead, and the greatest stamp there is in `:based-on`.
+        ;; What an act carries is no measure of its stamp: the greatest
+        ;; stamp there is in `:based-on`. Before it, an act with a part that
+        ;; the form named until 28 November 2026, a maker's own clock.
         last-before-the-carried (last-stamp :alice)
         fact-id [[:alice :streaming (UUID. 0 1)] 0]
         claim (decide! (alice [{:e :note-33 :k :text}] {:claimed-when Long/MAX_VALUE}))
@@ -1815,8 +1816,8 @@
             (:ack act-over) (:word act-over) (:mine? act-over) (= (:thing act-over) act-over-logged)
             (count (:facts act-over-logged)) (fact-row :alice :over-0 :text) (fact-row :alice :over-255 :text)])
     (check "an id that prints to more than 256 characters is refused, and the refusal is recorded under the act-id" :id-too-long (:word long-entity))
-    (check "claimed-when far ahead is a claim: the act is accepted, and its stamp does not follow it: it is the lane's last stamp plus one"
-           [:accepted (inc last-before-the-carried)] [(:word claim) (:stamp (:answer claim))])
+    (check "an act holds no clock of its maker's: one that carries :claimed-when is refused as any act with a part that the form does not name, and its stamp is the lane's last stamp plus one"
+           [:unknown-part (inc last-before-the-carried)] [(:word claim) (:stamp (:answer claim))])
     (check "an act that carries the greatest stamp there is, 2^63 less one, in `:based-on`, based on a fact and because of an act that the record does not hold, is accepted with the lane's last stamp plus one: a gate raises no act's stamp above the stamps that it carries"
            [:accepted (+ 2 last-before-the-carried)] [(:word carries-the-greatest) (:stamp (:answer carries-the-greatest))])
     (check "and the next stamp of the lane is one more; it is the lane's last stamp"
@@ -1830,7 +1831,7 @@
     (shown "the bound on an act, through the streaming gate: 256 full values with a 256-char who and UUID permission =" act-over-bytes "bytes <=" declaration/max-act-bytes ":"
            (told act-over) "| in the log whole, with" (count (:facts act-over-logged)) "values plain")
     (shown "what an act carries is no measure of its stamp: the lane's last stamp before" last-before-the-carried
-           "| claimed-when far ahead:" (told claim) "| carried the greatest stamp, 2^63 less one:" (told carries-the-greatest)
+           "| an act that carries :claimed-when:" (told claim) "| carried the greatest stamp, 2^63 less one:" (told carries-the-greatest)
            "| the next stamp of the lane:" (:stamp (:answer next-one)))))
 
 (deftest the-reads-take-anything
@@ -2284,7 +2285,7 @@
         another-act (decide! (in-run (person :joe) ya :run-1 [(value-fact :experiment-5 :dose "5 mg")]))
         x-in-another-run (decide! (in-run (person :joe) ya :run-2 (:facts maker-x)))
         written-another-way (decide! (assoc (x-under ya) :facts (list (value-fact :experiment-3 :dose "5 mg"))
-                                            :subjects #{} :based-on {}))
+                                            :because-of nil :based-on {}))
         the-yes-row (fact-row :studio y1 :softland.store/permission)
         the-row (fact-row :studio :experiment-3 :dose)
         same-act-id-other-value (decide! (assoc (:thing written-another-way)
@@ -3047,8 +3048,9 @@
                   (act-at :time-no-integer 1.5)]
         unknown-part (at-time (assoc (system-act [(value-fact :unknown-part :text "x")]) :a-part-that-no-form-names 1) (+ t hour))
         bad-permission (at-time (assoc (system-act [(value-fact :another-fault :text "x")]) :permission :not-a-uuid) (+ t hour))
-        ;; What an act carries is no measure of its stamp: a claim far
-        ;; ahead, and the greatest stamp there is in `:based-on`.
+        ;; What an act carries is no measure of its stamp: the greatest
+        ;; stamp there is in `:based-on`. Before it, an act with a part that
+        ;; the form named until 28 November 2026, a maker's own clock.
         fact-id [[:base :microbatch (UUID. 0 1)] 0]
         claim (system-act [{:e :ahead-1 :k :text}] {declaration/time-part t :claimed-when Long/MAX_VALUE})
         carries-the-greatest (system-act [{:e :ahead-2 :k :text}]
@@ -3105,8 +3107,8 @@
     (check "d. a refused thing keeps the time that it carried, as a label, and its stamp holds nothing of it: a thing with a usable time one hour ahead that the declaration refuses for another fault, one with a part that no form names and one whose permission is no UUID, gets the base's last stamp plus one, and its answer holds the time one hour ahead"
            [[:unknown-part (at 11) (+ t hour)] [:permission-not-an-id (at 12) (+ t hour)]]
            [[(nth words 10) (nth stamps 10) (nth times 10)] [(nth words 11) (nth stamps 11) (nth times 11)]])
-    (check "claimed-when far ahead is a claim: the act is accepted, and its stamp does not follow it: it is the base's last stamp plus one"
-           [:accepted (at 13)] [(nth words 12) (nth stamps 12)])
+    (check "an act holds no clock of its maker's: one that carries :claimed-when is refused as any act with a part that the form does not name, and its stamp is the base's last stamp plus one"
+           [:unknown-part (at 13)] [(nth words 12) (nth stamps 12)])
     (check "an act that carries the greatest stamp there is, 2^63 less one, in `:based-on`, based on a fact and because of an act that the record does not hold, is accepted with the base's last stamp plus one: a gate raises no act's stamp above the stamps that it carries"
            [:accepted (at 14)] [(nth words 13) (nth stamps 13)])
     (check "e. no time is too far ahead: an act with a time one hour after the chosen one, one with a time in the year 3084, 2^45 milliseconds, and one with the greatest fixed-width integer, 2^63 less one, are each accepted with the base's last stamp plus one; the answer of each holds its own time, and so does the row of its fact on every task"
@@ -3132,7 +3134,7 @@
            "| a later time, a time 5 s earlier, and the time 0, as [word stamp time]:" (as-told 3 6))
     (shown "in the base a thing with no usable time is refused, with the last stamp plus one and no time in its answer: no time, nil, below zero, no integer:"
            (as-told 6 10) "| refused for another fault, with a time one hour ahead, which its answer keeps:" (as-told 10 12))
-    (shown "in the base, what an act carries is no measure of its stamp: claimed-when far ahead:" (told (nth results 12))
+    (shown "in the base, what an act carries is no measure of its stamp: an act that carries :claimed-when:" (told (nth results 12))
            "| carried the greatest stamp:" (told (nth results 13))
            "| times far ahead, accepted: an hour, the year 3084, 2^63 less one:" (as-told 14 17)
            "| behind them, an act at the chosen time:" (told (nth results 17)) "| one that carries its stamp and replaces its fact:" (told names-it))))

@@ -31,9 +31,6 @@
   "The edition of the list of parts. This code knows this one version only."
   1)
 
-(def max-subjects
-  256)
-
 (def max-depth
   "How many collections a value can be inside."
   32)
@@ -68,8 +65,6 @@
     [:session      :id                                {:absent :no-session}]
     [:based-on     [:map-of :fact-id :carried-stamp]  {:optional true :default {}}]
     [:because-of   :act-id                            {:optional true}]
-    [:claimed-when :int                               {:optional true}]
-    [:subjects     [:set-of :id {:max max-subjects}]  {:optional true :default #{}}]
     [:facts        [:seq-of :fact]                    {:empty :empty-act}]]
 
    ;; A fact with no value is a retract.
@@ -417,8 +412,8 @@
   An act that carries an act-id, a depot or a time is refused
   `:unknown-part`: those three are the door's.
 
-  Limits. It reads no clock and gives `:claimed-when` no default. It has no
-  rule about a session beyond its shape. Of the permission that the act
+  Limits. It reads no clock. It has no rule about a session beyond its
+  shape. Of the permission that the act
   names it examines that it is an id, and nothing of what that id holds.
   Facts that are a sequence with no end do not come back from it."
   [x]

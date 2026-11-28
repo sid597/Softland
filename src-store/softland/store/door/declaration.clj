@@ -220,7 +220,7 @@
 (def shapes
   "The door's map of shapes: each entry of `softland.store.act/shapes`, and
   more in the same language. `:arrived-act` is the three parts that the
-  door adds and then the ten parts of the maker's `:act`, read from
+  door adds and then the eight parts of the maker's `:act`, read from
   `act.clj`'s map in its order and with its options. `:lane-list` and
   `:key-set` say no limit: a rule holds each, with a word of its own. A
   value is never a list, so what fits `:lane-list` is a vector.
@@ -433,7 +433,6 @@
   [act]
   (let [lane-of (fn [act-id] (when act-id [(nth act-id 0)]))]
     (concat [(:who act) (:lane act) (:session act)]
-            (:subjects act)
             (lane-of (:act-id act))
             (lane-of (:because-of act))
             (mapcat (fn [[act-id _]] (lane-of act-id)) (keys (:based-on act)))

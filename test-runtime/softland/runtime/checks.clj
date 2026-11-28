@@ -305,7 +305,6 @@
                 given (perm/given-permission (:who agent-hello) lane own :see-and-act)
                 gave (say me {:word :send
                               :act {:version 1 :who who :session (:session hello) :lane lane :permission (perm/permission-id own)
-                                    :subjects #{(:who agent-hello)}
                                     :facts [(perm/permission-fact given)]}
                               :act-id (UUID/randomUUID)})
                 after (say agent {:word :send :act (act-of agent-hello lane given :crate-1 :packed true)

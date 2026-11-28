@@ -1164,7 +1164,7 @@
         another-told (answer! d id (:digest another-under-id))
         give-yes-2 (decide! d (act-of :alice [(perm/permission-fact yes-2)]))
         another-act (decide! d (assoc the-act :permission (perm/permission-id yes-2) :facts [(value :w-3 "another value")]))
-        written-another-way (decide! d (assoc the-act :permission (perm/permission-id yes-2) :subjects #{} :based-on {}
+        written-another-way (decide! d (assoc the-act :permission (perm/permission-id yes-2) :because-of nil :based-on {}
                                               :facts (list (value :w-3 "the act said yes to"))))
         [yes-1-row yes-2-row] (map #(let [{:keys [e k]} (perm/permission-fact %)] (row-of :alice e k)) [yes-1 yes-2])]
     (check "through the door, Alice gives Will a permission for his run; his act in that run is taken, and in another run refused"
