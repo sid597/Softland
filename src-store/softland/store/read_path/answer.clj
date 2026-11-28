@@ -76,13 +76,24 @@
   (when (some? (:by-index row))
     [[lane (first-act/depot-at-making lane) (:by-act row)] (:by-index row)]))
 
+(def no-fact-given
+  "What an answer says of a place at which the read gives no fact: no lane
+  of the read that the asker may see holds a row there, or, under
+  `:points-at`, the row that wins does not hold the thing. It does not say
+  that no fact was ever accepted at the place. That is the record's
+  `:no-fact` (`softland.store.record.rows/read-value`), which is the same
+  for every asker; this word is worked out at each read, from who asks and
+  through which lanes, so that she is told nothing of a lane that she may
+  not see. In a change of a read of many places it takes the place out."
+  {:holds :no-fact-given})
+
 (defn place-answer
   "A row that no fact wrote gives no `:fact`: it names no fact that a writer
   could replace or a reader find in its act. It never throws on a row."
   [query lane row]
   (let [[kind v] (rows/read-value row)]
     (if (= :no-fact kind)
-      {:holds :no-fact}
+      no-fact-given
       (with-asked-parts
         query row
         (cond-> {:holds kind :lane lane :stamp (:stamp row)}
@@ -231,7 +242,7 @@
                :holds? holds-fact-row?
                :gives :place}
    :entity    {:walk walk-facts :places places-of-runs :holds? holds-fact-row? :gives :places}
-   :run       {:walk walk-facts :places places-of-runs :holds? holds-fact-row? :gives :places}
+   :range     {:walk walk-facts :places places-of-runs :holds? holds-fact-row? :gives :places}
    :points-at {:walk walk-orders :places places-of-orders :holds? holds-order-or-check-row? :gives :places}})
 
 (defn- word-of
@@ -241,7 +252,7 @@
 ;; ------------------------------------------------------------ what is given
 
 (defn of-places
-  "A place that the read does not give holds {:holds :no-fact}. A place that
+  "A place that the read does not give holds `no-fact-given`. A place that
   still waits is not in the map."
   [query reading known places]
   (let [walk (:walk (word-of query))]
@@ -250,7 +261,7 @@
                   (let [[outcome place-answer] (walk query reading known place)]
                     (case outcome
                       :given [place place-answer]
-                      :none  [place {:holds :no-fact}]
+                      :none  [place no-fact-given]
                       nil))))
           places)))
 
@@ -271,7 +282,7 @@
                                             (lanes/left-out lane why)))))
                                 lanes)}]
     (cond-> (if (= :place gives)
-              (assoc answer :place (or (given (first (places query reading known))) {:holds :no-fact}))
+              (assoc answer :place (or (given (first (places query reading known))) no-fact-given))
               (assoc answer :places (into {}
                                           (keep (fn [place] (when-let [place-answer (given place)]
                                                               [place place-answer])))

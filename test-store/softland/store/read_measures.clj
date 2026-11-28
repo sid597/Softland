@@ -33,7 +33,7 @@
         table under one routing id, so of 1,000 such reads 898 open and
         the others are turned away with its own word; the line says how
         many opened
-    M3  the opening of a canvas of 5,000 facts: asked as the run across the
+    M3  the opening of a canvas of 5,000 facts: asked as the range across the
         5,000 entities and as what points at the canvas, once and kept
         live, through one lane and through three; with a streaming lane
         as the farthest, and with the base as the farthest. Through one
@@ -283,7 +283,7 @@
                          rp
                          {:asks (if (= :places shape)
                                   [:place (keyword (str "unwritten-" j)) :text]
-                                  [:run [:p] [(keyword (str "q" (+ 100000 j)))]])
+                                  [:range [:p] [(keyword (str "q" (+ 100000 j)))]])
                           :asker asker :lanes [lane]}
                          (fn [change] (when (:changed change) (swap! told inc))))))
           opening-took (- (System/nanoTime) opening-began)
@@ -355,14 +355,14 @@
   [near mid far])
 
 (defn- m3-shapes
-  "The eight shapes of M3 for one canvas: asked as the run across the
+  "The eight shapes of M3 for one canvas: asked as the range across the
   entities and as what points at the canvas; once and kept live; through
   the farthest lane alone and through the three. Each shape is run `runs`
   times, of which the first `dropped` are not counted."
   [what [_ _ far :as three] asker {:keys [canvas runs dropped]}]
   (let [rp (:patient @round)
         last-block (block (dec canvas))]
-    (doseq [[asked asks] [["the run across the entities" [:run [(block 0)] [last-block]]]
+    (doseq [[asked asks] [["the range across the entities" [:range [(block 0)] [last-block]]]
                           ["what points at the canvas" [:points-at :parent :canvas-1]]]
             [through lanes] [["one lane" [far]] ["three lanes" three]]
             live? [false true]]

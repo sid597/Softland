@@ -118,7 +118,7 @@
            [from to] (rows/entity-run lane entity)]
        [(run-source (lanes/home query) lane from to)]))
 
-   :run
+   :range
    (fn [query lane _own-rows]
      (let [[_ first-end last-end] (:asks query)]
        (if-let [[from to] (rows/run-of-ends lane first-end last-end)]
@@ -508,7 +508,7 @@
 
 (defn places-of
   "The places, `[entity key]`, that keys of a source's table are for this
-  query. The lane's own rows are no run of `:entity` or `:run`: a place of
+  query. The lane's own rows are no run of `:entity` or `:range`: a place of
   them is told by the run that holds it."
   [query source ks]
   (let [[word a b] (:asks query)
@@ -522,7 +522,7 @@
        (and (= :place word) facts-row?)
        (filter #(= [a b] %) (keep of-fact-key ks))
 
-       (and (contains? #{:entity :run} word) facts-run?)
+       (and (contains? #{:entity :range} word) facts-run?)
        (keep of-fact-key ks)
 
        (and (= :points-at word) order?)

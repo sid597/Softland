@@ -211,11 +211,11 @@
   [^Random random]
   (let [places [[:a :k] [:b :k] [:c :k] [:d :k]]
         place-answer (fn [] (if (zero? (.nextInt random 4))
-                              {:holds :no-fact}
+                              {:holds :no-fact-given}
                               {:holds :value :value (.nextInt random 100) :stamp (.nextInt random 1000)}))
         whole (fn [] {:anew {:lanes [:l] :left-out []
                              :places (into {} (keep (fn [place] (let [pa (place-answer)]
-                                                                  (when-not (= :no-fact (:holds pa)) [place pa]))))
+                                                                  (when-not (= :no-fact-given (:holds pa)) [place pa]))))
                                            places)}})
         change (fn [] {:changed (into {} (map (fn [_] [(nth places (.nextInt random 4)) (place-answer)]))
                                       (range (inc (.nextInt random 3))))})
@@ -242,10 +242,10 @@
   (check "A change of a read of many places puts a place in, and takes a place out that says no fact."
          (= {:places {[:b :k] {:holds :value :value 2}}}
             (watching/answer-after {:places {[:a :k] {:holds :value :value 1}}}
-                                   {:changed {[:a :k] {:holds :no-fact} [:b :k] {:holds :value :value 2}}})))
+                                   {:changed {[:a :k] {:holds :no-fact-given} [:b :k] {:holds :value :value 2}}})))
   (check "A change of a read of one place puts its place-answer under :place."
          (= {:place {:holds :value :value 2}}
-            (watching/answer-after {:place {:holds :no-fact}} {:changed {[:a :k] {:holds :value :value 2}}})))
+            (watching/answer-after {:place {:holds :no-fact-given}} {:changed {[:a :k] {:holds :value :value 2}}})))
   (let [random (Random. 20261120)
         runs (repeatedly 500 (fn [] (random-messages random)))
         slow-ok? (fn [messages]

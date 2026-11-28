@@ -621,7 +621,7 @@
                     (reduce (fn [screen [place place-answer]]
                               (cond
                                 (contains? screen :place) (assoc screen :place place-answer)
-                                (= :no-fact (:holds place-answer)) (update screen :places dissoc place)
+                                (= :no-fact-given (:holds place-answer)) (update screen :places dissoc place)
                                 :else (assoc-in screen [:places place] place-answer)))
                             screen
                             (:changed tell))))))
@@ -1269,11 +1269,11 @@
         good {:asks [:place :note-41 :text] :asker (person :alice) :lanes [:team]}
         forms {"a place"                 {:asks [:place :note-41 :text] :asker (person :alice) :lanes [:team]}
                "an entity"               {:asks [:entity :note-41] :asker (agent :ada) :from-lane :team}
-               "a run of keys"           {:asks [:run [:e :a] [:e :m]] :asker (run :r1) :lanes [:team]}
-               "a run of entities"       {:asks [:run [:e1] [:e2]] :asker :system :lanes [:team]}
-               "a run from an entity on" {:asks [:run [:e] :last] :asker (person :alice) :lanes [:team]}
-               "a whole lane"           {:asks [:run :first :last] :not-signed-in true :lanes [:base]}
-               "a run to a place"        {:asks [:run :first [:e :k]] :asker (person (UUID. 1 2)) :lanes '(:team)}
+               "a run of keys"           {:asks [:range [:e :a] [:e :m]] :asker (run :r1) :lanes [:team]}
+               "a run of entities"       {:asks [:range [:e1] [:e2]] :asker :system :lanes [:team]}
+               "a run from an entity on" {:asks [:range [:e] :last] :asker (person :alice) :lanes [:team]}
+               "a whole lane"           {:asks [:range :first :last] :not-signed-in true :lanes [:base]}
+               "a run to a place"        {:asks [:range :first [:e :k]] :asker (person (UUID. 1 2)) :lanes '(:team)}
                "what points at a thing"  {:asks [:points-at :parent (UUID. 0 7)] :asker (person :alice) :lanes [:team]
                                           :with #{:writer :permission} :stores-own-facts true}
                "a place, with each part of a row" {:asks [:place :note-41 :text] :asker (person :alice) :lanes [:team]
@@ -1288,8 +1288,8 @@
                 ["an :asks that is no vector"      (assoc good :asks :place)                        [:asks-no-word-known :asks]]
                 ["a place with no key"             (assoc good :asks [:place :note-41])             [:place-not-named :asks]]
                 ["an entity that is no id"         (assoc good :asks [:entity "note"])              [:entity-not-named :asks]]
-                ["a run with one end"              (assoc good :asks [:run [:e]])                   [:run-not-named :asks]]
-                ["a run whose end is no end"       (assoc good :asks [:run [:e] :middle])           [:run-not-named :asks]]
+                ["a run with one end"              (assoc good :asks [:range [:e]])                   [:range-not-named :asks]]
+                ["a run whose end is no end"       (assoc good :asks [:range [:e] :middle])           [:range-not-named :asks]]
                 ["what points at, with no thing"   (assoc good :asks [:points-at :parent])          [:points-at-not-named :asks]]
                 ["what points at nil"              (assoc good :asks [:points-at :parent nil])      [:points-at-not-named :asks]]
                 ["a read of acts from below 0"     (assoc good :asks [:acts -1 5])                  [:acts-not-named :asks]]
@@ -1305,7 +1305,7 @@
                 ["an asker, and not signed in"     (assoc good :not-signed-in true)                 [:no-one-asker :asker]]
                 ["not signed in, said with false"  (assoc (dissoc good :asker) :not-signed-in false) [:no-one-asker :not-signed-in]]
                 ["a session that is no id"         (assoc good :session "run-7")                    [:session-is-no-id :session]]
-                ["a session, and not signed in"    (assoc (dissoc good :asker) :not-signed-in true :session :run-7) [:run-with-no-asker :session]]
+                ["a session, and not signed in"    (assoc (dissoc good :asker) :not-signed-in true :session :run-7) [:session-with-no-asker :session]]
                 ["lanes that are no list"         (assoc good :lanes :team)                       [:lanes-not-a-list-of-lanes :lanes]]
                 ["a lane that is no id"           (assoc good :lanes [:team "base"])              [:lanes-not-a-list-of-lanes :lanes]]
                 ["a start lane that is no id"     (assoc (dissoc good :lanes) :from-lane 7)      [:from-lane-is-no-lane :from-lane]]
@@ -1319,11 +1319,11 @@
                 ["a lane of 300 characters"       (assoc good :lanes [(keyword (apply str (repeat 300 "l")))]) [:id-over-the-limit :lanes]]
                 ["an entity of 300 characters"     (assoc good :asks [:entity (keyword (apply str (repeat 300 "e")))]) [:id-over-the-limit :asks]]
                 ["a key of 300 characters"         (assoc good :asks [:place :e (keyword (apply str (repeat 300 "k")))]) [:id-over-the-limit :asks]]
-                ["a run whose ends are out of order" (assoc good :asks [:run [:e2] [:e1]])         [:run-ends-out-of-order :asks]]
-                ["a run that starts at :last"      (assoc good :asks [:run :last [:e]])             [:run-ends-out-of-order :asks]]
-                ["a run that ends at :first"       (assoc good :asks [:run [:e] :first])            [:run-ends-out-of-order :asks]]
-                ["a run whose end holds a letter outside the first plane" (assoc good :asks [:run [:e] [(keyword (str "x" (String. (Character/toChars 0x1D49C))))]]) [:run-end-not-ordered :asks]]
-                ["a run whose end holds a letter from U+E000 on" (assoc good :asks [:run [(keyword "x\uFB00") :k] :last]) [:run-end-not-ordered :asks]]
+                ["a run whose ends are out of order" (assoc good :asks [:range [:e2] [:e1]])         [:range-ends-out-of-order :asks]]
+                ["a run that starts at :last"      (assoc good :asks [:range :last [:e]])             [:range-ends-out-of-order :asks]]
+                ["a run that ends at :first"       (assoc good :asks [:range [:e] :first])            [:range-ends-out-of-order :asks]]
+                ["a run whose end holds a letter outside the first plane" (assoc good :asks [:range [:e] [(keyword (str "x" (String. (Character/toChars 0x1D49C))))]]) [:range-end-not-ordered :asks]]
+                ["a run whose end holds a letter from U+E000 on" (assoc good :asks [:range [(keyword "x\uFB00") :k] :last]) [:range-end-not-ordered :asks]]
                 ["a place under a store key, not asked for" (assoc good :asks [:place :team :softland.store/depot]) [:store-key-not-asked-for :asks]]
                 ["what points at, under a store key" (assoc good :asks [:points-at :softland.store/permission :x] :stores-own-facts true) [:store-key-not-asked-for :asks]]
                 ["a :stores-own-facts that is no true or false" (assoc good :stores-own-facts "yes") [:not-a-query :stores-own-facts]]]
@@ -1341,7 +1341,7 @@
     (doseq [[what thing] forms]
       (check (str "a query is taken: " what) true (some? (q thing))))
     (check "the one form of a query: each part there, an asker of nil for a person who is not signed in, one of the two ways of naming lanes nil, a set, true or false"
-           {:asks [:run :first :last] :asker nil :not-signed-in true :session nil :lanes [:base] :from-lane nil :with #{} :stores-own-facts false}
+           {:asks [:range :first :last] :asker nil :not-signed-in true :session nil :lanes [:base] :from-lane nil :with #{} :stores-own-facts false}
            (q (get forms "a whole lane")))
     (check "a :with that asks for each of the three parts of a row, the writer, the permission and the time, is a known query, and its one form keeps the three"
            #{:writer :permission :time} (:with (q (get forms "a place, with each part of a row"))))
@@ -1379,7 +1379,7 @@
 
 (deftest a-word-is-declared-in-three-places
   (check "the words of a query that read facts, what each reads in one lane, and how its rows are put together have the same keys; the word of a lane's acts is in the first map alone, since `softland.store.read-path.acts` reads it and puts it together"
-         [#{:place :entity :run :points-at :acts} true true false false]
+         [#{:place :entity :range :points-at :acts} true true false false]
          (let [of-facts (disj (set (keys query/words)) :acts)]
            [(set (keys query/words)) (= of-facts (set (keys sources/of-word))) (= of-facts (set (keys answer/of-word)))
             (contains? sources/of-word :acts) (contains? answer/of-word :acts)]))
@@ -1415,7 +1415,7 @@
     (check "the home is read from the query alone: it is the same for each word of a query, for a person who is not signed in, and for a start lane that is not made or that she may not see, where the list is the lane alone"
            [[:team :team :team :team] :team [:nowhere [:nowhere]] [:alice-notes [:alice-notes]]]
            [(mapv #(lanes/home (q {:asks % :asker (person :bob) :lanes [:team :base]}))
-                  [[:place :e :k] [:entity :e] [:run :first :last] [:points-at :parent :canvas-1]])
+                  [[:place :e :k] [:entity :e] [:range :first :last] [:points-at :parent :canvas-1]])
             (lanes/home (q {:asks [:place :e :k] :not-signed-in true :lanes [:team :base]}))
             (let [nowhere (q {:asks [:place :e :k] :asker (person :bob) :from-lane :nowhere})]
               [(lanes/home nowhere) (lanes/in-order nowhere {} :not-made)])
@@ -1626,8 +1626,8 @@
               lane (own-rows lane)))
         read-in (fn [query lane] (set (filter #(= lane (:lane %)) (keys (:known (play-once traces query))))))
         held-in (fn [query lane] (set (filter #(= lane (:lane %)) (:held (open-live traces [] query)))))
-        asks-of-each-word [[:place :note-41 :text] [:entity :note-41] [:run [:note-41 :a] [:note-41 :z]]
-                           [:run [:block-1] [:note-9]] [:run :first :last] [:points-at :parent :canvas-1]]]
+        asks-of-each-word [[:place :note-41 :text] [:entity :note-41] [:range [:note-41 :a] [:note-41 :z]]
+                           [:range [:block-1] [:note-9]] [:range :first :last] [:points-at :parent :canvas-1]]]
     (check "the lane's own rows: one run of the lane's own entity under the store's namespace. A streaming lane's routing id is the lane, whatever the home; the base's is the home"
            [{:gate :streaming :table :facts :lane :team :routing-id :team
              :path [:own-rows ":team :team :softland.store/" ":team :team :softland.store0"]}
@@ -1661,21 +1661,21 @@
             [{:gate :microbatch :table :facts :lane :base :routing-id :team :path [:run ":base :note-41 " ":base :note-41!"]}]
             [{:gate :microbatch :table :facts :lane :base :routing-id :base :path [:run ":base :note-41 " ":base :note-41!"]}]]
            [(of [:entity :note-41] :team :team) (of [:entity :note-41] :team :base) (of [:entity :note-41] :base :base)])
-    (check "a run of keys of one entity, a run across entities and a whole lane are each one source in the base, under the home; in a streaming lane each is one source under the lane"
+    (check "a run of keys of one entity, a range across entities and a whole lane are each one source in the base, under the home; in a streaming lane each is one source under the lane"
            [[[:team] [[:run ":base :note-41 :a" ":base :note-41 :z "]]]
             [[:team] [[:run ":base :a " ":base :b!"]]]
             [[:team] [[:run ":base " ":base!"]]]
             [[:base] [[:run ":base :a " ":base :b!"]]]
             [[:team] [[:run ":team :a " ":team :b!"]]]]
            (mapv (fn [[asks home lane]] ((juxt #(mapv :routing-id %) #(mapv :path %)) (of asks home lane)))
-                 [[[:run [:note-41 :a] [:note-41 :z]] :team :base]
-                  [[:run [:a] [:b]] :team :base]
-                  [[:run :first :last] :team :base]
-                  [[:run [:a] [:b]] :base :base]
-                  [[:run [:a] [:b]] :alice-notes :team]]))
+                 [[[:range [:note-41 :a] [:note-41 :z]] :team :base]
+                  [[:range [:a] [:b]] :team :base]
+                  [[:range :first :last] :team :base]
+                  [[:range [:a] [:b]] :base :base]
+                  [[:range [:a] [:b]] :alice-notes :team]]))
     (check "the ends of a run: a place is in the run that ends at it; a whole lane is a run and no table"
            [[:run ":team :e :a" ":team :e :m "] [:run ":team " ":team!"] [:run ":team :e " ":team!"]]
-           (mapv #(:path (first (of % :team :team))) [[:run [:e :a] [:e :m]] [:run :first :last] [:run [:e] :last]]))
+           (mapv #(:path (first (of % :team :team))) [[:range [:e :a] [:e :m]] [:range :first :last] [:range [:e] :last]]))
     (check "what points at a thing: the thing's run in the facts by value, by the stamp of the mark, one source; in the base under the home, and never under the value's digest; a lane that does not mark the key reads nothing"
            [[{:gate :streaming :table :facts-by-value :lane :team :routing-id :team
               :path [:run (str ":team :parent 700 " digest " ") (str ":team :parent 700 " digest "!")]}]
@@ -1784,7 +1784,7 @@
         place-1 (q (merge alice {:asks [:place :note-41 :text] :lanes [:team]}))
         place-from (q (merge alice {:asks [:place :note-41 :text] :from-lane :alice-notes}))
         entity-base (q (merge alice {:asks [:entity :note-41] :lanes [:base]}))
-        run-base (q (merge alice {:asks [:run [:block-1] [:block-9]] :lanes [:base]}))
+        run-base (q (merge alice {:asks [:range [:block-1] [:block-9]] :lanes [:base]}))
         points-3 (q (merge alice {:asks [:points-at :parent :canvas-1] :lanes [:alice-notes :team :base]}))
         points-from (q (merge alice {:asks [:points-at :parent :canvas-1] :from-lane :alice-notes}))
         once (fn [query] (let [{:keys [rounds calls rights-calls]} (play-once traces query)] [rounds calls rights-calls]))
@@ -1792,13 +1792,13 @@
     (check "asked once: a place in one lane is one select call and then one rights query; through three lanes three of each; from a lane one and then two"
            [[1 [1] [1]] [1 [3] [3]] [2 [1 2] [1 2]]]
            (mapv once [place-1 place-3 place-from]))
-    (check "asked once: an entity of the base is one select call, for its own rows and the run, followed by one rights query; a run across entities and a whole lane are the same"
+    (check "asked once: an entity of the base is one select call, for its own rows and the run, followed by one rights query; a range across entities and a whole lane are the same"
            [[1 [1] [1]] [1 [1] [1]] [1 [1] [1]]]
-           (mapv once [entity-base run-base (q (merge alice {:asks [:run :first :last] :lanes [:base]}))]))
-    (check "asked once through her own lane: the base is one select call and one rights query more, both under her lane's routing id, for a place, an entity, a run across entities and a whole lane"
+           (mapv once [entity-base run-base (q (merge alice {:asks [:range :first :last] :lanes [:base]}))]))
+    (check "asked once through her own lane: the base is one select call and one rights query more, both under her lane's routing id, for a place, an entity, a range across entities and a whole lane"
            [[1 [2] [2]] [1 [2] [2]] [1 [2] [2]] [1 [2] [2]]]
            (mapv #(once (q (merge alice {:asks % :lanes [:team :base]})))
-                 [[:place :note-41 :text] [:entity :note-41] [:run [:block-1] [:block-9]] [:run :first :last]]))
+                 [[:place :note-41 :text] [:entity :note-41] [:range [:block-1] [:block-9]] [:range :first :last]]))
     (check "asked once: what points at a thing through three lanes is three select rounds, own rows, orders, checks, with lane-rights asked after each lane's last select; from a lane four select rounds"
            [[3 [3 2 2] [3 2 2]] 4]
            [(once points-3) (first (once points-from))])
@@ -1997,8 +1997,8 @@
                                                    (apply hash-map more))))))
         place (fn [& args] (:place (apply ask args)))
         uuid (fn [stamp] (UUID. 0 (long stamp)))]
-    (check "the four things that a place can hold, told apart: no fact; nothing here; a value as its maker gave it; a String that is no value of the form, in a row that the proof puts in the table by hand, since no write of a gate gives one"
-           [{:holds :no-fact}
+    (check "the four things that a place can hold, told apart: no fact given; nothing here; a value as its maker gave it; a String that is no value of the form, in a row that the proof puts in the table by hand, since no write of a gate gives one"
+           [{:holds :no-fact-given}
             {:holds :nothing-here :lane :alice-notes :fact [[:alice-notes :streaming (uuid 20)] 0] :stamp 20}
             {:holds :value :value "from the base" :lane :base :fact [[:base :microbatch (uuid 310)] 0] :stamp 310}
             {:holds :not-a-value :lane :base :fact [[:base :microbatch (uuid 9)] 0] :stamp 331}]
@@ -2013,7 +2013,7 @@
             ((juxt :holds :lane) (place (person :alice) [:place :note-41 :title] [:alice-notes :team :base]))])
     (check "a run through lanes: each place from the nearest lane that holds it"
            {[:note-41 :text] :alice-notes [:note-41 :title] :base [:note-9 :text] :team [:note-9 :size] :base [:note-9 :raw] :base}
-           (into {} (map (fn [[p a]] [p (:lane a)])) (:places (ask (person :alice) [:run [:note-41] [:note-9]] [:alice-notes :team :base]))))
+           (into {} (map (fn [[p a]] [p (:lane a)])) (:places (ask (person :alice) [:range [:note-41] [:note-9]] [:alice-notes :team :base]))))
     (check "a lane that she may not see, and one that is not made, are named with why, and nothing of them is given: the answer is that of the same query without them"
            [[{:lane :alice-notes :why :may-not-see} {:lane :nowhere :why :not-made}]
             [:alice-notes :team :nowhere :base]
@@ -2022,7 +2022,7 @@
                  without (ask (person :bob) [:place :note-41 :text] [:team :base])]
              [(:left-out with) (:lanes with) (= (:place with) (:place without))]))
     (check "a start lane that she may not see: that one lane is left out, and its list is not used"
-           {:lanes [:alice-notes] :left-out [{:lane :alice-notes :why :may-not-see}] :place {:holds :no-fact}}
+           {:lanes [:alice-notes] :left-out [{:lane :alice-notes :why :may-not-see}] :place {:holds :no-fact-given}}
            (:answer (play-once tables (q {:asks [:place :note-41 :text] :asker (person :bob) :from-lane :alice-notes}))))
     (check "a person who is not signed in sees the base, and no members lane"
            [[:value :base] [{:lane :team :why :may-not-see}]]
@@ -2045,8 +2045,8 @@
            [{[:note-41 :text] (time-of 20) [:note-41 :title] (time-of 311) [:note-9 :text] (time-of 713)
              [:note-9 :size] (time-of 330) [:note-9 :raw] (time-of 331)}
             true true true]
-           (let [with-time (:places (ask (person :alice) [:run [:note-41] [:note-9]] [:alice-notes :team :base] :with #{:time}))
-                 without (:places (ask (person :alice) [:run [:note-41] [:note-9]] [:alice-notes :team :base]))
+           (let [with-time (:places (ask (person :alice) [:range [:note-41] [:note-9]] [:alice-notes :team :base] :with #{:time}))
+                 without (:places (ask (person :alice) [:range [:note-41] [:note-9]] [:alice-notes :team :base]))
                  row-of (fn [[e k] {:keys [lane]}]
                           (get (table tables (first-act/depot-at-making lane) :facts) (rows/place-key lane e k)))]
              [(into {} (map (fn [[p a]] [p (:time a)])) with-time)
@@ -2067,7 +2067,7 @@
            [(answer/counts? (q {:asks [:entity :e] :asker (person :a) :lanes [:l]}) :softland.store/permission)
             (answer/counts? (q {:asks [:entity :e] :asker (person :a) :lanes [:l] :stores-own-facts true}) :softland.store/permission)
             (answer/counts? (q {:asks [:entity :e] :asker (person :a) :lanes [:l]}) :text)])
-    (check "a run across entities of the base, read through her own lane, gives each place of the base once, from its row, and the nearer lane's place where it holds one"
+    (check "a range across entities of the base, read through her own lane, gives each place of the base once, from its row, and the nearer lane's place where it holds one"
            [{[:block-1 :parent] [:team :canvas-2 711] [:block-2 :parent] [:base :canvas-1 321] [:block-3 :parent] [:team :canvas-1 710]
              [:note-41 :text] [:team "from the team" 712] [:note-41 :title] [:base "a title" 311]
              [:note-9 :text] [:team "only the team" 713] [:note-9 :size] [:base 9 330] [:note-9 :raw] [:base nil 331]}
@@ -2075,19 +2075,19 @@
              [:note-41 :text] [:base "from the base" 310] [:note-41 :title] [:base "a title" 311]
              [:note-9 :size] [:base 9 330] [:note-9 :raw] [:base nil 331]}]
            (let [of-run (fn [lanes] (into {} (map (fn [[p a]] [p ((juxt :lane :value :stamp) a)]))
-                                           (:places (ask (person :alice) [:run [:block-1] [:note-9 :text]] lanes))))]
+                                           (:places (ask (person :alice) [:range [:block-1] [:note-9 :text]] lanes))))]
              [(of-run [:team :base]) (of-run [:base])]))
     (check "the answer of a read of the base does not differ by its home: the same place, entity, run and what points at a thing, from the base itself and through a lane that is not made"
            [true true true true]
            (mapv (fn [asks]
                    (= (dissoc (ask (person :alice) asks [:base]) :lanes :left-out)
                       (dissoc (ask (person :alice) asks [:nowhere :base]) :lanes :left-out)))
-                 [[:place :note-41 :text] [:entity :note-41] [:run :first :last] [:points-at :parent :canvas-1]]))
+                 [[:place :note-41 :text] [:entity :note-41] [:range :first :last] [:points-at :parent :canvas-1]]))
     (check "what points at a thing says, for each lane that she may see, since which stamp its order is level, or that it marks nothing"
            [{:lane :alice-notes :not-marked true} {:lane :team :level-since 700} {:lane :base :level-since 300}]
            (:orders (ask (person :alice) [:points-at :parent :canvas-1] [:alice-notes :team :base])))
     (shown "what a read gives: the four things that a place can hold are told apart; the nearest lane that holds a fact wins, also with nothing here; each place of a run comes from the nearest lane that holds it; a lane that is left out is named with why and nothing of it is given")
-    (shown "a place-answer holds no writer, no permission and no time unless asked; the store's own facts are in no answer that did not ask for them; a run across entities of the base gives each place once, and a read of the base gives the same from the base itself and through another home")))
+    (shown "a place-answer holds no writer, no permission and no time unless asked; the store's own facts are in no answer that did not ask for them; a range across entities of the base gives each place once, and a read of the base gives the same from the base itself and through another home")))
 
 (deftest which-changes-reach-an-asker
   (let [tables (reduce write traces [[:fact :alice-notes (person :alice) :note-41 :text "from her notes" 20]])
@@ -2165,10 +2165,10 @@
                  beside-ended (table-value (write t [:end :lab (person :dov) 20]) beside)]
              [(answer/meanings query snapshots known above (get known above) ended)
               (apply = (answer/meanings query snapshots known beside (table-value t beside) beside-ended))]))
-    (check "the places that a change of the base names, for a read through her own lane: the asked place from its row; each key of a run across entities; the entity of each key of the order by value"
+    (check "the places that a change of the base names, for a read through her own lane: the asked place from its row; each key of a range across entities; the entity of each key of the order by value"
            [#{[:note-41 :text]} #{[:block-1 :parent] [:note-41 :title]} #{[:block-2 :parent]}]
            (let [digest (rows/value-digest-of :canvas-1)
-                 run (q (merge alice {:asks [:run :first :last] :lanes [:team :base]}))
+                 run (q (merge alice {:asks [:range :first :last] :lanes [:team :base]}))
                  points (q (merge alice {:asks [:points-at :parent :canvas-1] :lanes [:team :base]}))]
              [(sources/places-of alice-3 (sources/place-source :alice-notes :base :note-41 :text) [":base :note-41 :text"])
               (sources/places-of run (sources/run-source :team :base ":base " ":base!") [":base :block-1 :parent" ":base :note-41 :title"])
@@ -2329,7 +2329,7 @@
                                  [:give-act :near yes (person :ann) (person :bea) 4] [:fact :near (person :maker) :p :text "n0" 10]])
         asks [{:asks [:place :p :text] :asker (person :ann) :lanes [:near]}
               {:asks [:place :p :text] :asker (person :ann) :session yes :lanes [:near]}]
-        left-out {:lanes [:near] :left-out [{:lane :near :why :may-not-see}] :place {:holds :no-fact}}
+        left-out {:lanes [:near] :left-out [{:lane :near :why :may-not-see}] :place {:holds :no-fact-given}}
         yes-row (get (table tables :streaming :facts) (chain/place :near yes))]
     (check "the yes is where the gate keeps it: on its own id under the permission key, out of permissions-by-holder, covering one exact act for the asker"
            [(person :ann) :exact-act {:write :all} {} false]
@@ -2441,7 +2441,7 @@
                                   :what (str "the base is " where " lane; " what))))
         base-place (every-small-standing base-world [:mine :base] 3 [:place :p :text] nil)
         base-entity (every-small-standing base-world [:mine :base] 2 [:entity :p] nil)
-        base-run (every-small-standing base-world [:mine :base] 2 [:run :first :last] nil)
+        base-run (every-small-standing base-world [:mine :base] 2 [:range :first :last] nil)
         list-world (fn [asks]
                      (let [tables (reduce write {} [[:make :home 1] [:make :near 1] [:make :far 1]
                                                     [:open :home 2] [:open :near 2] [:open :far 2]
@@ -2451,7 +2451,7 @@
                                   [[:list :home [:far] 100] [:fact :near (person :maker) :p :text "n1" 101]
                                    [:list :home [:near :far] 102] [:fact :far (person :maker) :p :text "f1" 103]]
                                   (q {:asks asks :asker (person :ann) :from-lane :home}))))
-        lists (mapv #(every-order (list-world %) nil) [[:place :p :text] [:entity :p] [:run :first :last]])
+        lists (mapv #(every-order (list-world %) nil) [[:place :p :text] [:entity :p] [:range :first :last]])
         chain-place (every-small-chain 3 [:place :p :text] nil)
         chain-entity (every-small-chain 2 [:entity :p] nil)
         chain-points (every-small-chain 2 [:points-at :parent :canvas-1] nil)
@@ -2659,7 +2659,7 @@
     (check "an entity whose id holds such a letter is taken as an entity, and so is a run whose ends hold letters outside ASCII and below U+D800"
            [true true]
            [(some? (q {:asks [:entity (keyword (str "x" (String. (Character/toChars 0x1D49C))))] :asker (person :alice) :lanes [:team]}))
-            (some? (q {:asks [:run [(keyword "x\u00E4")] [(keyword "x\u6C34")]] :asker (person :alice) :lanes [:team]}))])
+            (some? (q {:asks [:range [(keyword "x\u00E4")] [(keyword "x\u6C34")]] :asker (person :alice) :lanes [:team]}))])
     (check "the keys of a run whose end holds such a letter are held to the run's two ends, so a key that a range gave from outside them is dropped; the keys of any other run are taken as they came"
            [[":l :x\uFB00 :n"] 2]
            (let [wide (String. (Character/toChars 0x1D49C))

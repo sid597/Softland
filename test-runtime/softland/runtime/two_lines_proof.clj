@@ -72,7 +72,7 @@
         anew (:anew last-msg)]
     (and (some? anew)
          (not-any? #(contains? % :ended) seen)
-         (= :no-fact (get-in anew [:place :holds]))
+         (= :no-fact-given (get-in anew [:place :holds]))
          (boolean (some #(and (= lane (:lane %)) (= :may-not-see (:why %)))
                         (:left-out anew))))))
 

@@ -363,8 +363,8 @@ over the store, `softland.store.line-statements`.
 
 | Word | What it is |
 |---|---|
-| `:asks`, with `:place`, `:entity`, `:run`, `:points-at`, `:acts` | What is asked, and its five words |
-| `:first`, `:last` | The two ends of a lane, as ends of a run |
+| `:asks`, with `:place`, `:entity`, `:range`, `:points-at`, `:acts` | What is asked, and its five words. A range is every place of one lane between two ends; the word is not "run", which is a party, and in this page the neighbouring rows of one table that a source reads |
+| `:first`, `:last` | The two ends of a lane, as ends of a range |
 | `:asker`, `:not-signed-in` | Who asks |
 | `:session` | The run that the read is asked in, as an act names its `:session`. With an asker only. The asker then sees a lane that is open to its members under her permission for the lane, or under that run's when it names her as its holder; another holder's permission for a run of that id gives her nothing, and the read reads nothing above it |
 | `:lanes`, `:from-lane` | Through which lanes; the lane to take the list from |
@@ -373,12 +373,12 @@ over the store, `softland.store.line-statements`.
 
 **The words with which the check turns a thing away**, each named for what is
 wrong: `:not-a-query`, `:part-not-known`, `:asks-no-word-known`,
-`:place-not-named`, `:entity-not-named`, `:run-not-named`,
+`:place-not-named`, `:entity-not-named`, `:range-not-named`,
 `:points-at-not-named`, `:asker-is-no-id`, `:no-one-asker`,
-`:session-is-no-id`, `:run-with-no-asker`, `:acts-not-named`,
+`:session-is-no-id`, `:session-with-no-asker`, `:acts-not-named`,
 `:lanes-not-a-list-of-lanes`, `:from-lane-is-no-lane`, `:acts-not-of-one-lane`,
 `:lanes-not-named-one-way`, `:too-many-lanes`, `:part-of-a-row-not-known`,
-`:id-over-the-limit`, `:run-ends-out-of-order`, `:run-end-not-ordered`,
+`:id-over-the-limit`, `:range-ends-out-of-order`, `:range-end-not-ordered`,
 `:store-key-not-asked-for`. The rule names are in
 [query.clj](query.clj).
 
@@ -391,7 +391,7 @@ wrong: `:not-a-query`, `:part-not-known`, `:asks-no-word-known`,
 | `:left`, `:not-open` | What `leave` gives |
 | `:lanes`, `:left-out`, with `:lane`, `:why`, `:may-not-see`, `:not-made` | The lanes of an answer, and what it says of a lane that gave nothing |
 | `:place`, `:places`, `:orders`, with `:level-since` and `:not-marked` | The parts of an answer |
-| `:holds`, `:value`, `:lane`, `:fact`, `:stamp`, `:writer`, `:permission`, `:time` | The parts of a place-answer. `:no-fact`, `:nothing-here`, `:value` and `:not-a-value` under `:holds` are the record's own |
+| `:holds`, `:value`, `:lane`, `:fact`, `:stamp`, `:writer`, `:permission`, `:time` | The parts of a place-answer. `:nothing-here`, `:value` and `:not-a-value` under `:holds` are the record's own. `:no-fact-given` is the read's: the read gives no fact at the place, which does not say that none was ever written there ([answer.clj](answer.clj), `no-fact-given`) |
 | `:could-not` | The name under which a result holds one of the read path's own words |
 
 **The read path's ten words.** Each reads after "the read path could not":
@@ -452,8 +452,8 @@ others are.
 | `:put`, `:out`, `:all` | What a diff names: a key that was put, a key that went out, or no key |
 | `:own-close`, `:ended-by-the-store`, `:anew`, `:change` | The kind of a diff: the last call of a push that the read path closed; Rama ending a push; a whole value sent anew; a change |
 | `:push`, `:word`; `:late`, `:no-path`; `:returned`, `:threw` | What an opening ended in; two outcomes of a wait and of a call that was not made; and whether an asker's function returned or threw |
-| `:lanes-within-the-limit`, `:names-one-asker`, `:names-its-lanes-one-way`, `:ids-within-the-limit`, `:run-ends-in-order`, `:run-ends-are-ordered`, `:points-at-names-a-thing`, `:store-key-is-asked-for` | The eight rules of a query, each named for what it holds |
-| `:run-end` | The shape of one end of a run, in the query's map of shapes |
+| `:lanes-within-the-limit`, `:names-one-asker`, `:names-its-lanes-one-way`, `:ids-within-the-limit`, `:range-ends-in-order`, `:range-ends-are-ordered`, `:points-at-names-a-thing`, `:store-key-is-asked-for` | The eight rules of a query, each named for what it holds |
+| `:range-end` | The shape of one end of a range, in the query's map of shapes |
 | `:from`, with `:open`, `:read-once`, `:read-live`, `:the-askers-function`; `:says` | In the table of the ten words: which call gives a word, and what it says |
 | `:shape`, beside `:reason` | In the table of the five words of a query: the shape that `:asks` must have under that word, and the word when it does not fit |
 | `:line`, `:things`, `:task`; `:window`, `:last-stamp`, `:by-who` | The three tables that a read of acts reads beside the facts, and the three kinds of path of its sources |

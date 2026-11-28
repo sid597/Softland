@@ -12,12 +12,15 @@
   `:agent.<id>`, `:run.<id>` or `:system`), when the asker is signed in: who
   asks is what the caller says.
 
-  A run is every place of one lane from one end to the other, both ends in
-  the run, in the order in which the table keeps its keys: the printed text
-  of the entity, then the printed text of the key. So two entities are
+  A range is every place of one lane from one end to the other, both ends
+  in the range, in the order in which the table keeps its keys: the printed
+  text of the entity, then the printed text of the key. So two entities are
   neighbours only if their ids print as neighbours. An end is `[entity]`,
   `[entity key]`, `:first` (from the lane's first place) or `:last` (to the
   lane's last place). The same two ends are read in each lane of the list.
+  The word is not \"run\": a run is a party (`softland.store.act`), and
+  inside the read path a run is the neighbouring rows of one table that a
+  source reads, which an `:entity` asks for too.
 
   The thing of a `:points-at` is a value as a maker gives it: for a thing
   whose id is a UUID, the UUID itself.
@@ -117,7 +120,7 @@
   holds that the three have the same keys, but for `:acts`."
   {:place     {:shape [:tuple [:enum :place] :id :key]        :reason :place-not-named}
    :entity    {:shape [:tuple [:enum :entity] :id]            :reason :entity-not-named}
-   :run       {:shape [:tuple [:enum :run] :run-end :run-end] :reason :run-not-named}
+   :range     {:shape [:tuple [:enum :range] :range-end :range-end] :reason :range-not-named}
    :points-at {:shape [:tuple [:enum :points-at] :key :value] :reason :points-at-not-named}
    :acts      {:shape [:tuple [:enum :acts] [:int {:min 0}] [:int {:min 1}]] :reason :acts-not-named}})
 
@@ -137,31 +140,32 @@
                    [:with             [:set-of [:enum :writer :permission :time] {:max 3}]
                     {:optional true :default #{} :reason :part-of-a-row-not-known}]
                    [:stores-own-facts [:enum true false] {:optional true :default false}]]
-         :run-end [:or [:enum :first :last] [:tuple :id] [:tuple :id :key]]))
+         :range-end [:or [:enum :first :last] [:tuple :id] [:tuple :id :key]]))
 
 (def rules
   "What a query must also keep, with the reason word for each, in the order
   in which they are examined.
 
-  `:a-run-has-an-asker`: a run is somebody's. `:acts-of-one-lane`: two lines
+  `:a-session-has-an-asker`: a login sitting is somebody's.
+  `:acts-of-one-lane`: two lines
   have no order between them. `:store-key-is-asked-for`: a `:points-at`
   under one of the store's own keys is turned away either way, since no lane
   can mark it.
 
-  `:run-ends-are-ordered`: no id and no key of an end of a run holds a
+  `:range-ends-are-ordered`: no id and no key of an end of a range holds a
   letter from U+E000 on, or one outside the first plane. A range of Rama's
   between two such ends was seen, on the store's own table, to give fewer
   places than the table holds, so the read path reads none. An entity whose
-  id holds such a letter is read as `[:entity entity]`, whose run cannot
-  lose a place."
+  id holds such a letter is read as `[:entity entity]`, whose run of rows
+  cannot lose a place."
   [[:lanes-within-the-limit  :too-many-lanes]
    [:names-one-asker          :no-one-asker]
-   [:a-run-has-an-asker       :run-with-no-asker]
+   [:a-session-has-an-asker   :session-with-no-asker]
    [:names-its-lanes-one-way :lanes-not-named-one-way]
    [:acts-of-one-lane        :acts-not-of-one-lane]
    [:ids-within-the-limit     :id-over-the-limit]
-   [:run-ends-in-order        :run-ends-out-of-order]
-   [:run-ends-are-ordered     :run-end-not-ordered]
+   [:range-ends-in-order      :range-ends-out-of-order]
+   [:range-ends-are-ordered   :range-end-not-ordered]
    [:points-at-names-a-thing  :points-at-not-named]
    [:store-key-is-asked-for   :store-key-not-asked-for]])
 
@@ -201,7 +205,7 @@
   (case word
     :place     (and (declaration/usable-id? a) (usable-key? b))
     :entity    (declaration/usable-id? a)
-    :run       (and (end-usable? a) (end-usable? b))
+    :range     (and (end-usable? a) (end-usable? b))
     :points-at (usable-key? a)
     :acts      true
     false))
@@ -226,7 +230,7 @@
    :names-one-asker
    (fn [q] (when (= (some? (:asker q)) (some? (:not-signed-in q))) :asker))
 
-   :a-run-has-an-asker
+   :a-session-has-an-asker
    (fn [q] (when (and (some? (:session q)) (nil? (:asker q))) :session))
 
    :names-its-lanes-one-way
@@ -251,19 +255,19 @@
    ;; The order of the two ends is the same in every lane, since each text
    ;; begins with the lane's own; so it is asked with one lane id, which
    ;; names no lane of the store.
-   :run-ends-in-order
+   :range-ends-in-order
    (fn [q]
      (let [[word first-end last-end] (:asks q)]
-       (when (and (= :run word)
+       (when (and (= :range word)
                   (or (= :last first-end)
                       (= :first last-end)
                       (nil? (rows/run-of-ends :any-lane first-end last-end))))
          :asks)))
 
-   :run-ends-are-ordered
+   :range-ends-are-ordered
    (fn [q]
      (let [[word first-end last-end] (:asks q)]
-       (when (and (= :run word) (not (and (end-ordered? first-end) (end-ordered? last-end))))
+       (when (and (= :range word) (not (and (end-ordered? first-end) (end-ordered? last-end))))
          :asks)))
 
    :points-at-names-a-thing
@@ -334,7 +338,7 @@
   default that its shape gives. `:asks` is a plain vector in the shape of
   its word, its thing in its one normal form. `:asker` is nil for a person
   who is not signed in. `:session` is nil for a read that is asked in no
-  run. One of `:lanes`, a plain vector, and `:from-lane` is nil.
+  login sitting. One of `:lanes`, a plain vector, and `:from-lane` is nil.
 
   It is the test that must come before any key is made
   (`softland.store.record.rows`): after it, each id that a caller gave is an

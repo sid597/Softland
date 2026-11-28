@@ -58,9 +58,9 @@
 
 (defn answer-after
   "`answer` is an answer of the read path, or nil. A change of a read of
-  many places takes a place out whose place-answer says `:no-fact`: the
-  whole answer holds a place only where a lane that she may see holds a
-  fact (`softland.store.read-path.answer`)."
+  many places takes a place out whose place-answer says `:no-fact-given`:
+  the whole answer holds a place only where the read gives a fact
+  (`softland.store.read-path.answer/no-fact-given`)."
   [answer message]
   (cond
     (contains? message :anew) (:anew message)
@@ -70,7 +70,7 @@
               answer
               (:changed message))
       (reduce (fn [answer [place place-answer]]
-                (if (= :no-fact (:holds place-answer))
+                (if (= :no-fact-given (:holds place-answer))
                   (update answer :places dissoc place)
                   (update answer :places assoc place place-answer)))
               answer
