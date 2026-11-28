@@ -2,11 +2,12 @@
   "Attack 2: the yes page (`POST /yes`) when one ask is answered twice.
 
   Tests both remaining falsehoods of `POST /yes`:
-  1. A second `yes` that names another actor than the one that stands (an
-     agent after `as=me`, or `as=me` after an agent) must not say \"Done\".
-  2. A person who says `no` after her own `yes` (as herself) must be told
-     that the program is signed in as her, rather than only that it was
-     answered before."
+  1. A second `yes` that names another actor than the one that stands (a
+     new agent after a new agent of another name, either way round) must
+     not say \"Done\".
+  2. A person who says `no` after her own `yes` must be told that the
+     program is signed in as an agent of hers, rather than only that it was
+     answered before. No yes names her: a program is always an agent."
   (:require [clojure.string :as str]
             [softland.runtime.attacks.harness :as h]
             [softland.runtime.drive :as drive]
@@ -30,10 +31,7 @@
    (drive/request :post (str url "/yes")
                   {:cookie cookie
                    :origin url
-                   :form (cond-> {:code code
-                                  :say (or say "yes")
-                                  :as (if agent "agent" "me")}
-                           agent (assoc :label agent))})
+                   :form (drive/yes-form code {:say say :agent agent})})
    [:status :body]))
 
 (defn- strip-html
@@ -53,20 +51,20 @@
           (h/setup-first-person! copy)
           (let [url (:url copy)
                 cookie (:cookie (drive/sign-in url (assoc h/first-person :call-her "Sid")))
-                ;; 1a. First yes as herself, second yes as an agent.
-                code-1 (ask-code! url "prog-me-then-agent")
+                ;; 1a. First yes as the agent the page names by default, second yes as another.
+                code-1 (ask-code! url "prog-default-then-agent")
                 first-1 (post-yes url cookie code-1 {:say "yes"})
                 second-1 (post-yes url cookie code-1 {:say "yes" :agent "helper"})
-                ;; 1b. First yes as an agent, second yes as herself.
-                code-2 (ask-code! url "prog-agent-then-me")
+                ;; 1b. First yes as an agent, second yes as the one by default.
+                code-2 (ask-code! url "prog-agent-then-default")
                 first-2 (post-yes url cookie code-2 {:say "yes" :agent "helper"})
                 second-2 (post-yes url cookie code-2 {:say "yes"})
-                ;; 2. First yes as herself, then no after her own yes.
+                ;; 2. First yes as an agent, then no after her own yes.
                 code-3 (ask-code! url "prog-yes-then-no")
                 first-3 (post-yes url cookie code-3 {:say "yes"})
                 no-after-yes (post-yes url cookie code-3 {:say "no"})
                 no-text (str/lower-case (strip-html (:body no-after-yes)))]
-            (check "The yes page tells the truth: a second answer that names another actor than the one that stands is not told \"Done\"; a person who says no after her own yes is told that the program is signed in as her."
+            (check "The yes page tells the truth: a second answer that names another actor than the one that stands is not told \"Done\"; a person who says no after her own yes is told that the program is signed in as an agent of hers."
                    (and (= 200 (:status first-1))
                         (= 200 (:status first-2))
                         (= 200 (:status first-3))
@@ -78,9 +76,9 @@
                         (not (str/includes? (:body no-after-yes) "Done"))
                         (not (str/includes? no-text "not signed in"))
                         (str/includes? no-text "signed in")
-                        (str/includes? no-text "you"))
-                   {:me-then-agent {:status (:status second-1) :text (strip-html (:body second-1))}
-                    :agent-then-me {:status (:status second-2) :text (strip-html (:body second-2))}
+                        (str/includes? no-text "an agent of yours"))
+                   {:default-then-agent {:status (:status second-1) :text (strip-html (:body second-1))}
+                    :agent-then-default {:status (:status second-2) :text (strip-html (:body second-2))}
                     :no-after-yes  {:status (:status no-after-yes) :text (strip-html (:body no-after-yes))}}))
           (finally
             (h/stop-copy! copy))))))

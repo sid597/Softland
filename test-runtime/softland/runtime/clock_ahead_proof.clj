@@ -39,11 +39,13 @@
           (let [url-a (:url copy-a)
                 url-b (:url copy-b)
                 cookie (:cookie (drive/sign-in url-a (assoc h/first-person :call-her "Sid")))
-                as-her (fn [url asks] (drive/program url asks (fn [code] (drive/yes url cookie code {}))))
-                admin (as-her url-b "the one that ends")
-                kept (as-her url-a "a program that is kept")
-                ended (as-her url-a "a program that is ended")
-                admin-line (h/line url-b (:credential admin) nil)
+                ;; Her programs are agents of hers; what only she may say, she says
+                ;; at her browser, at the copy b.
+                of-hers (fn [url asks] (drive/program url asks (fn [code] (drive/yes url cookie code {}))))
+                kept (of-hers url-a "a program that is kept")
+                ended (of-hers url-a "a program that is ended")
+                admin-line (drive/browser-line url-b cookie)
+                admin (:hello admin-line)
                 kept-line (h/line url-a (:credential kept) nil)
                 ended-line (h/line url-a (:credential ended) nil)
                 root (:root (:hello kept-line))
@@ -57,7 +59,7 @@
                 ended-early? (h/wait-for (fn [] (or (client/bye (:line kept-line)) (client/bye (:line ended-line)))) 1500)
                 still (h/say kept-line {:word :who-am-i} 5000)
                 read (auth/who-is auth-client {:root root :sign-in (:sign-in kept) :session (:session (:hello kept-line))})]
-            (check "The write from the clock that is ahead thinned what Auth watches under her root: her three sign-ins were listed before it, and none is listed after it."
+            (check "The write from the clock that is ahead thinned what Auth watches under her root: her three sign-ins, her browser's and two of programs, were listed before it, and none is listed after it."
                    (and (= {:refused :no-such-session} wrote)
                         (every? before (map :sign-in [admin kept ended]))
                         (empty? after))

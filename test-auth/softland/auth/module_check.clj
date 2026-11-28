@@ -55,7 +55,7 @@
     to one id for one, and sends an unlink the module's id of the link that
     the reference names. Every enter that links is followed by a read of
     its person's accounts, so each link is paired before an unlink names it.
-  - Two rules of Sid's calls of 22 November are met in every run, not only
+  - Two rules of a session's defaults of 22 November, Sid's to turn, are met in every run, not only
     now and then: after an `own-lane-made`, a copy of the person's first
     enter is sent again, now and then; and after a replacement whose new hash
     is the one before the present one, the replacement before it
@@ -432,8 +432,7 @@
             [w {:op :write :call (hs/from-a-clock-far-ahead w call)}]))))))
 
 (defn- follow-ups
-  "Steps that a write calls for next, as the runtime sends them, so that two
-  rules of Sid's calls of 22 November are met in every run and not only now
+  "Steps that a write calls for next, as the runtime sends them, so that two rules of a session's defaults of 22 November, Sid's to turn, are met in every run and not only now
   and then: after an `own-lane-made` that was taken, half the time a copy of
   the person's first enter, which must say the flag as it stands; after a
   replacement whose new hash is the hash before the present one, half the

@@ -171,8 +171,14 @@
   (.-own-lane caller))
 
 (defn person?
+  "True for the person herself, signed in at a browser: a caller whose actor
+  is its root, on a sign-in of kind `:browser`. No program is a person:
+  Auth begins no sign-in of kind `:program` for her, `caller` makes no
+  caller of one that a store kept from before, and this holds it too."
   [^Caller caller]
-  (and (some? (.-actor caller)) (= (.-actor caller) (.-root caller))))
+  (and (some? (.-actor caller))
+       (= (.-actor caller) (.-root caller))
+       (= :browser (.-kind caller))))
 
 (defn about
   "What a face may tell the system that holds the credential. It is data,
@@ -359,6 +365,10 @@
                                (:own-lane got) session-driven-by from))]
           (cond
             (= :not verdict) (no-sign-in until-or-why)
+            ;; No program is a person. Auth begins no such sign-in since 28
+            ;; November; one that a store kept from before is ended here, at
+            ;; every word, and is not ended in Auth.
+            (and (= :program kind) (= actor root)) (no-sign-in :ended)
             (some? session) (or (session-fault got sign-in (now-ms))
                                 (do (moved-on! seam root sign-in session (:until (:session got)))
                                     (made session (get-in got [:session :driven-by]))))
@@ -734,21 +744,20 @@
   back she is invited anew as the same person, and after she entered by
   the claim Auth writes nothing beside her links, since an invite there
   that is not her own adds no account. `:herself` names the caller's own
-  root, to add an account, and only she may, at a browser: a program that
-  holds her sign-in cannot give her an account. The end is this copy's:
-  `:invitation-ms` from now."
+  root, to add an account. The table gives the word to a person alone
+  (`person?`), so the caller is she, at a browser, and `:invited-by` is her
+  own id only for her own invite: no program holds her id. The end is this
+  copy's: `:invitation-ms` from now."
   [^Seam seam ^Caller caller {:keys [uuid claim herself]}]
-  (if (and herself (not= :browser (.-kind caller)))
-    (words/could-not :do-that-at-a-browser nil)
-    (let [root (.-root caller)
-          claim (claim-of claim)
-          parts [(name (:by claim)) (:hash claim)]
-          person (if herself root (apply derived :person root uuid parts))
-          now (now-ms)]
-      (from-auth (auth/invite (.-client seam)
-                              {:person person :claim claim :invited-by (.-actor caller)
-                               :at now :ends (+ now (long (:invitation-ms (.-numbers seam))))
-                               :op-id (UUID/randomUUID)})))))
+  (let [root (.-root caller)
+        claim (claim-of claim)
+        parts [(name (:by claim)) (:hash claim)]
+        person (if herself root (apply derived :person root uuid parts))
+        now (now-ms)]
+    (from-auth (auth/invite (.-client seam)
+                            {:person person :claim claim :invited-by (.-actor caller)
+                             :at now :ends (+ now (long (:invitation-ms (.-numbers seam))))
+                             :op-id (UUID/randomUUID)}))))
 
 (defn- take-back-now
   "Takes back the invitation that waits under the claim, by the op that

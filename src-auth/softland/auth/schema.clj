@@ -1174,7 +1174,8 @@
 
 (defn plan-begin-sign-in
   "On H(P), after the thinning. A sign-in whose `until` is at or before the
-  `:at` of its begin is taken, not watched and not ended."
+  `:at` of its begin is taken, not watched and not ended. A sign-in of kind
+  `:program` is never the person's: no program acts under her own id."
   [^BeginSignInEvent ev r g actor-rec]
   (let [P (:root-id ev)
         A (:actor ev)
@@ -1194,6 +1195,9 @@
       (or (not (instance? RootEntered r))
           (and (not= A P) (nil? actor-rec)))
       {:result {:refused :no-such-actor}}
+
+      (and (= A P) (= :program kind))
+      {:result {:refused :is-a-person}}
 
       (and (not= A P) (:ended? actor-rec))
       {:result {:refused :ended}}
@@ -1572,7 +1576,9 @@
   "Step 2, on H(P_target), after the caller confirmed that `ok:<op>` is
   absent and thinned what is watched under P_target at `target.at`. The
   sign-in that a yes begins is taken, not watched and not ended when its
-  `until` is at or before the answer's `:at`."
+  `until` is at or before the answer's `:at`. A yes names an agent, new or
+  live, never the person: one whose actor is the root is refused
+  `:is-a-person`, so no sign-in of kind `:program` is hers."
   [code target r actor-rec g]
   (let [{:keys [op-id yes? root actor new-agent-label sign-in until at hash asks]} target
         ok-key (k-ok root op-id)]
@@ -1592,6 +1598,10 @@
         (cond
           missing-actor?
           (let [out (->AskOutcomeRefused :no-such-actor)]
+            {:rd-upserts [[ok-key out]] :outcome out})
+
+          (= actor root)
+          (let [out (->AskOutcomeRefused :is-a-person)]
             {:rd-upserts [[ok-key out]] :outcome out})
 
           ended-actor?

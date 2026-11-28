@@ -62,6 +62,12 @@
                 (= text (credential/of-header (str "bearer   " text)))
                 (nil? (credential/of-header (str "Basic " text)))
                 (nil? (credential/of-header "Bearer nothing"))))
+    (check "The ids of what her yes lends are made from her root and the sign-in that the yes begins, and from nothing else: the same two give the same ids, another sign-in or another root other ones, and the permission's id is not the act's."
+           (let [ids (credential/lent-at-yes root sign-in)]
+             (and (= ids (credential/lent-at-yes root sign-in))
+                  (uuid? (:permission ids)) (uuid? (:act ids)) (not= (:permission ids) (:act ids))
+                  (not= ids (credential/lent-at-yes root (UUID/randomUUID)))
+                  (not= ids (credential/lent-at-yes (UUID/randomUUID) sign-in)))))
     (check "A credential is read from the runtime's cookie among others, and a header that holds the cookie twice gives none."
            (and (= text (credential/of-cookie (str "a=1; " credential/cookie-name "=" text "; b=2")))
                 (nil? (credential/of-cookie (str credential/cookie-name "=" text "; " credential/cookie-name "=" text)))

@@ -55,7 +55,7 @@
   `:next-link`, in the module the op that the client makes. The reference
   keeps no log of events, and a refused enter leaves nothing. A result comes
   from what
-  stands, never from a memory of calls (Sid's calls of 22 November): a
+  stands, never from a memory of calls (a session's defaults of 22 November, Sid's to turn): a
   link keeps one `:says`, an ask keeps the answer that stands, and a
   sign-in keeps its present hash and the one before it, with no history of
   its replacements. A sign-in keeps, as `:first-hash`, the hash that its
@@ -94,7 +94,7 @@
   Where the spec does not say what happens, or says two things, the
   reference takes the reading that refuses more or changes less.
   `QUESTIONS.md`, beside this file, names each place and the reading, and
-  says which of them Sid's calls of 22 November settled.
+  says which of them a session's defaults of 22 November, Sid's to turn, settled.
 
   Broken copies. `step` takes a third argument, a key of `breaks`, which
   breaks the one rule that `breaks` says; nil breaks none; and
@@ -175,7 +175,7 @@
 
 (defn- provider?
   "Whether `x` is a provider: a keyword whose name, with its namespace when
-  it has one, is at most 256 characters (Sid's call of 22 November), and can
+  it has one, is at most 256 characters (a session's default of 22 November, Sid's to turn), and can
   be carried by UTF-8."
   [x]
   (and (keyword? x)
@@ -259,8 +259,7 @@
 (def ^:private forms
   "The form of each write's map: every part, with its test. A part that the
   contract writes `-or-nil` must be there, and may be nil; a part that the
-  contract does not name does not fit; `:own-lane` is a UUID (Sid's call
-  of 22 November)."
+  contract does not name does not fit; `:own-lane` is a UUID (a session's default of 22 November, Sid's to turn)."
   {:invite {:person id? :claim claim? :invited-by maker-or-system? :at time? :ends time? :op-id id?}
    :enter {:account account? :says says? :email-hash (or-nil hash?) :code-hash (or-nil hash?)
            :own-lane id? :making making? :at time?}
@@ -584,8 +583,7 @@
 (defn- entered
   "What an enter of an account that is linked to the person `P` gives: her
   id, the own lane and the `:making` that her first enter fixed, and
-  whether her lane is marked as made, as it stands at that enter (Sid's
-  call of 22 November)."
+  whether her lane is marked as made, as it stands at that enter (a session's default of 22 November, Sid's to turn)."
   [state P]
   (let [p (get-in state [:persons P])]
     {:person P :own-lane (:own-lane p) :making (:making p) :own-lane-made? (boolean (:own-lane-made? p))}))
@@ -610,8 +608,7 @@
   becomes one more of hers. One that proves no claim is `:not-invited`,
   and nothing of it is kept. The link keeps the `:says` of the enter with
   the latest `:at`, with that `:at`: an enter whose `:at` is not later
-  leaves it. Nothing remembers what an enter gave (Sid's call of 22
-  November), so an enter that runs again after its account was unlinked is
+  leaves it. Nothing remembers what an enter gave (a session's default of 22 November, Sid's to turn), so an enter that runs again after its account was unlinked is
   judged as a new enter at its old `:at`: only an invitation made at or
   before it, that still waits, lets it in (QUESTIONS.md, 42). The broken copy `:enter-repeats-what-it-gave` keeps that
   memory, under `:decided`, as the reading that the call set aside did;
@@ -678,7 +675,9 @@
   hash. The same id with the same actor, kind and hash (the hash it began
   with) is a repeat, whose other parts are dropped. Else an actor that is
   not of this root is `:no-such-actor`, one that is not live is `:ended`,
-  and an id that is another sign-in already is `:in-use`."
+  and an id that is another sign-in already is `:in-use`. A sign-in of kind
+  `:program` is never the person's: one for the root herself is
+  `:is-a-person`, after `:no-such-actor`."
   [state {:keys [root actor sign-in kind hash until label at]} broken]
   (let [g (get-in state [:roots root :sign-ins sign-in])]
     (cond
@@ -694,6 +693,7 @@
         [(update-in state [:roots root :sign-ins sign-in] assoc :until until :label label) {:begun sign-in}]
         [state {:begun sign-in}])
       (nil? (actor-of state root actor)) (refuse state :no-such-actor)
+      (and (= :program kind) (= actor root) (not= broken :person-begins-a-program)) (refuse state :is-a-person)
       (not (actor-live? state root actor)) (refuse state :ended)
       (some? g) (refuse state :in-use)
       :else [(begin state root sign-in {:actor actor :kind kind :hash hash :until until :label label} at broken)
@@ -706,7 +706,7 @@
   now and the old one is the one before it) is a repeat. Else a sign-in
   that is not live is `:not-live`, and an old hash that is not the hash now
   is `:wrong-secret`. A replacement is judged by the present hash and the
-  one before it alone (Sid's call of 22 November): one that arrives after
+  one before it alone (a session's default of 22 November, Sid's to turn): one that arrives after
   a newer one is refused, and one whose hash has come back is taken when
   its old hash is the hash now. No session changes. A sign-in whose time is
   at or before the replacement's own `:at` is not live at it, whatever an
@@ -916,9 +916,9 @@
 
 (defn- same-answer?
   "The broken copy `:answered-ask-judged-first`, which keeps under
-  `:answered` the parts of the answer that stands, as the reading that Sid's
-  call of 22 November set aside did: whether `input` is that answer, by the
-  same yes or no, the same root, and for a yes the same actor and sign-in,
+  `:answered` the parts of the answer that stands, as the reading did that
+  a session set aside on 22 November (its default, Sid's to turn): whether
+  `input` is that answer, by the same yes or no, the same root, and for a yes the same actor and sign-in,
   with a new agent or with none as that one."
   [k {:keys [yes? root actor new-agent sign-in]}]
   (let [given (:answered k)]
@@ -934,9 +934,10 @@
   "The refusal that applies to the answer `input` after `:no-such-ask` and
   `:over`, or nil. A no needs a person who has entered, and judges no other
   part. A yes needs its actor, or the person who makes the new agent, of
-  the root and live; and a new agent's id and the sign-in's id that are no
+  the root and live; an actor that is not the person herself, who is
+  `:is-a-person`; and a new agent's id and the sign-in's id that are no
   other's of the root."
-  [state {:keys [yes? root actor new-agent sign-in]}]
+  [state {:keys [yes? root actor new-agent sign-in]} broken]
   (let [sign-in-taken? (some? (get-in state [:roots root :sign-ins sign-in]))]
     (cond
       (not yes?) (when-not (entered? state root) :no-such-actor)
@@ -944,19 +945,20 @@
                               (some? (actor-of state root actor)) :in-use
                               sign-in-taken? :in-use)
       :else (cond (nil? (actor-of state root actor)) :no-such-actor
+                  (and (= actor root) (not= broken :yes-names-the-person)) :is-a-person
                   (not (actor-live? state root actor)) :ended
                   sign-in-taken? :in-use))))
 
 (defn- write-answer-ask
   "answer-ask: a person answers an ask once. An ask that is not there is
   `:no-such-ask`. Once an ask has an answer, every answer gives what
-  stands, before any refusal, and changes nothing (Sid's call of 22
-  November). An answer to an ask that waits is `:over` at or after the
+  stands, before any refusal, and changes nothing (a session's default of 22 November, Sid's to turn). An answer to an ask that waits is `:over` at or after the
   ask's `:ends`, or when the ask was over when it was made, and then come
-  the refusals of `answer-refusal`. A yes makes the new agent when there is
-  one, made by the person, and begins a sign-in of kind `:program` for the
-  actor, with the ask's hash and the ask's `:asks` as its label; a no
-  refuses the ask for good."
+  the refusals of `answer-refusal`. A yes names an agent, new or live, and
+  never the person. It makes the new agent when there is one, made by the
+  person, and begins a sign-in of kind `:program` for the actor, with the
+  ask's hash and the ask's `:asks` as its label; a no refuses the ask for
+  good."
   [state {:keys [code yes? root actor new-agent sign-in until at] :as input} broken]
   (let [k (get-in state [:asks code])
         judged-first? (= broken :answered-ask-judged-first)]
@@ -970,7 +972,7 @@
       [state (what-stands k code)]
       (over? k at broken) (refuse state :over)
       :else
-      (if-let [word (answer-refusal state input)]
+      (if-let [word (answer-refusal state input broken)]
         (refuse state word)
         (cond
           (and (answered? k) judged-first?) [state (what-stands k code)]
@@ -1013,9 +1015,9 @@
 
 (def breaks
   "The broken copies of the rules. Each key, given to `step`, breaks one
-  rule, and its value says how. Eight take, each, a reading that Sid's
-  calls of 22 November set aside or let stand against another, and two the
-  rules that his yes of 28 November turned (`:person-has-one-claim`,
+  rule, and its value says how. Eight take, each, a reading that a session,
+  by its defaults of 22 November (Sid's to turn), set aside or let stand
+  against another, and two the rules that his yes of 28 November turned (`:person-has-one-claim`,
   `:one-account-a-person`); a module built on that reading is one of them."
   {:link-moves
    "an enter of an account that has a link, which proves another invitation that waits, moves the link to that invitation's person"
@@ -1073,6 +1075,10 @@
    "end-actor ends the agent and the agents that end with it itself, and none further down"
    :end-actor-leaves-sessions-open
    "end-actor ends the actors and their sign-ins, and leaves the sessions of those open"
+   :person-begins-a-program
+   "begin-sign-in of kind :program for the person herself is taken"
+   :yes-names-the-person
+   "a yes that names the person herself as the actor begins a sign-in of kind :program for her"
    :later-answer-stands
    "a later answer to an ask takes the place of the answer that stands"
    :answer-at-the-end-taken

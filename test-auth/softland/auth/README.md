@@ -16,7 +16,7 @@ call. It reads no clock, opens no cluster and requires nothing outside Clojure.
 | [module_check.clj](module_check.clj) | The run that holds a module against the reference through the contract alone: every result, every read and what every watch came to, compared call by call. | It writes to the module that it is given. Run on the reference, nothing outside its process. |
 | [module_harness.clj](module_harness.clj) | The launcher of the real module that `module_check.clj` is given (`launch-module`), and the checks of the module that the contract cannot show: `:says` as stored, the slices of the build with carbon's concurrent scenarios, a watch's `:not-reached`, a proxy that opens after its wait (`late-open`), a partial outage (`partial-outage`), a depot record that does not have the client's form (`unfit-record`), that the plan of `end-actor` follows whose ending ends an agent and not who made it (`ends-with`, which needs no cluster), two writes of invitations and accounts at one moment with the three cases of the yes of 28 November read from Auth's tables and the records of its depots (`invitations`), and the steps of a record that runs again, called by hand (`reruns`, which needs no cluster). | It launches in-process clusters and writes to them. |
 | [full_life_measure.clj](full_life_measure.clj) | The measures of the real module at full life: what a `who-is` reads, writes under 20,000 watched roots, a heavy `end-actor`, an `end-actor` over a long ended history, and that no person's calls go through a shared task. | It launches in-process clusters and writes to them. |
-| [QUESTIONS.md](QUESTIONS.md) | Each place where the spec does not say what happens, or says two things, with the reading that the reference takes, and which of them Sid's calls of 22 November settled. | None. |
+| [QUESTIONS.md](QUESTIONS.md) | Each place where the spec does not say what happens, or says two things, with the reading that the reference takes, and which of them a session's defaults of 22 November, Sid's to turn, settled. | None. |
 
 The docstrings of `reference.clj` and the sentences of `reference_proof.clj`
 cite `QUESTIONS.md` where a rule or a check stands on one of its readings. A
@@ -100,7 +100,7 @@ What a real module needs of it, and what the run does:
   has written to.
 - A quarter of the histories make 32 agents in a line, then one more under the
   deepest, which is `:too-deep`, and a sign-in for the deepest. Two rules of
-  Sid's calls are met in every run: after an `own-lane-made`, a copy of the
+  a session's defaults of 22 November, Sid's to turn, are met in every run: after an `own-lane-made`, a copy of the
   person's first enter is sent again, now and then; and after a replacement
   whose new hash is the one before the present one, the replacement before it.
 - A watch that says `:softland.auth.client/not-reached` differs: in a run on one
@@ -150,8 +150,9 @@ argument.
 
 ## The build of 22 November 2026
 
-Asked for in a prompt that Sid pasted: bring Auth's spec and its reference to
-his two calls of 22 November, then a third on question 12, and write the run
+Asked for in a prompt that Sid pasted, which a session wrote in his first
+person: bring Auth's spec and its reference to two calls of 22 November, then a
+third on question 12, each a session's default, Sid's to turn, and write the run
 that holds a module against the reference. Three commits:
 `234960bd` (the spec), `7cebbac2` (the spec and the reference brought to the
 calls, with question 12), and the commit that holds this section (the run).
@@ -259,7 +260,8 @@ be, since no result and no read gives `:says`.
 - Question 17 bears on the runtime. Another session's review of the runtime's
   spine (`177d252a`) says: "the seam reads a repeat's {:open S} as moved on; a
   closed session is then kept only when its close is never pushed, up to half a
-  span." The reference keeps question 17 as Sid let it stand.
+  span." The reference keeps question 17 as a session let it stand on 22
+  November, as its default, Sid's to turn.
 - Question 28 of `QUESTIONS.md`, named and not changed: `:sign-in-order`
   keeps every sign-in that ever began, which only a read of live ones uses, and
   a cluster's atom keeps in `:closed` every client that was ever closed.

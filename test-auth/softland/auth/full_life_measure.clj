@@ -234,7 +234,7 @@
                 (parallel-run! 8 (range 500)
                                (fn [i]
                                  (client/begin-sign-in c {:root P :actor P :sign-in (UUID/randomUUID)
-                                                          :kind :program :hash (h-of (+ 1000 i))
+                                                          :kind :browser :hash (h-of (+ 1000 i))
                                                           :until 100 :label "hist-g" :at 200})))
                 (parallel-run! 8 (range 9990)
                                (fn [_]
@@ -676,7 +676,7 @@
                 (client/open-session c {:root P :sign-in G :session S :until 99999 :at 36})
                 (client/ask c {:code U :hash (h-of (+ 1000 idx)) :asking-hash (h-of (+ 2000 idx)) :asks "cli"
                                :ends 99999 :at 40})
-                (client/answer-ask c {:code U :yes? true :root P :actor P :new-agent nil
+                (client/answer-ask c {:code U :yes? true :root P :actor A :new-agent nil
                                       :sign-in G2 :until 99999 :at 45})
                 (client/who-is c {:root P :sign-in G :session S})
                 (client/under c P)

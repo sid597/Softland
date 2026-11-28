@@ -1,7 +1,8 @@
 (ns softland.runtime.drive
   "What the runtime's proofs share to drive a runtime as a browser and as a
-  program would, over real requests. It requires the JDK's HTTP client and
-  the wire's forms. It is no check: it holds none.
+  program would, over real requests. It requires the JDK's HTTP client,
+  the wire's forms and the command line's client. It is no check: it holds
+  none.
 
   A browser here is a cookie that the proof carries, and each post names
   the `Origin` that it is told to: what a real browser writes is not held
@@ -19,14 +20,20 @@
     program    the address, what the program says, and a function that
                answers the ask -> the credential's text, or what went wrong
 
+    browser-line  the address and her cookie -> {:line :hello}: the line
+               opened as her browser opens it, for what only she may say
+               there; the command line's client speaks on it
+
   State. None."
   (:require [clojure.string :as str]
+            [softland.command.client :as client]
             [softland.wire.credential :as credential]
             [softland.wire.frame :as frame])
   (:import [java.net URI URLEncoder]
            [java.net.http HttpClient HttpClient$Redirect HttpRequest HttpRequest$BodyPublishers
             HttpResponse HttpResponse$BodyHandlers]
-           [java.time Duration]))
+           [java.time Duration]
+           [java.util.concurrent CompletableFuture]))
 
 (defn- encoded
   "Takes a map of fields. Gives the body of a form's post."
@@ -66,6 +73,24 @@
                (subs (first (str/split set-cookie #";")) (inc (count credential/cookie-name))))
      :body (.body response)}))
 
+(defn- paced
+  "Makes a post to `/sign-in/*` again while the runtime paces this address:
+  a page of 429, or a word `:take-more`. A proof posts many sign-ins from
+  one address within the runtime's window, as a person behind one network
+  could; the runtime says to wait, and the driver waits, as the command
+  line does, for at most a minute. Gives the last answer."
+  [post! paced?]
+  (let [ends (+ (System/currentTimeMillis) 60000)]
+    (loop []
+      (let [got (post!)]
+        (if (and (paced? got) (< (System/currentTimeMillis) ends))
+          (do (Thread/sleep 1000) (recur))
+          got)))))
+
+(defn- take-more?
+  [response]
+  (= :take-more (:could-not (second (frame/read-one (:body response))))))
+
 (defn- hidden
   "Takes a page's HTML and a field's name. Gives the value of the hidden
   field of that name, or nil."
@@ -83,10 +108,11 @@
   the box, :offered what the box offered}; with no `:cookie` when the
   sign-in was not taken."
   [url {:keys [sub email name invited call-her]}]
-  (let [signed (request :post (str url "/sign-in/stand-in?next=%2F" (when invited (str "&invited=" invited)))
-                        {:origin url :form (cond-> {:sub sub}
-                                             email (assoc :email email)
-                                             name (assoc :name name))})
+  (let [signed (paced #(request :post (str url "/sign-in/stand-in?next=%2F" (when invited (str "&invited=" invited)))
+                                 {:origin url :form (cond-> {:sub sub}
+                                                      email (assoc :email email)
+                                                      name (assoc :name name))})
+                       (fn [got] (= 429 (:status got))))
         cookie (:cookie signed)]
     (if-not (seq cookie)
       {:status (:status signed) :body (:body signed)}
@@ -103,17 +129,35 @@
             {:status (:status signed) :cookie cookie :person person :named? true
              :offered offered :name-status (:status posted)}))))))
 
+(def default-agent
+  "The name of the new agent that a yes makes when the proof names none."
+  "a program")
+
+(defn yes-form
+  "The fields of her post on the yes page. Takes the code and a map:
+  `:say`, \"yes\" or \"no\"; `:agent`, the name of a new agent; `:mine`,
+  the id of an agent of hers to sign in again; `:as-herself`, true to post
+  a yes as herself, which the page no longer offers and refuses; with none
+  of the three, a new agent called `default-agent`, as the page offers
+  first. `:see` and `:write` say whether each box is ticked: both for a new
+  agent and neither for one of hers when left out, as the page shows them."
+  [code {:keys [say agent mine as-herself see write]}]
+  (let [ticked? (fn [given by-default] (if (some? given) given by-default))
+        agent (when-not (or mine as-herself) (or agent default-agent))]
+    (cond-> {:code code :say (or say "yes") :as (cond agent "new-agent" mine "my-agent" :else "me")}
+      agent (assoc :label agent)
+      mine (assoc :agent (str mine))
+      (ticked? see (some? agent)) (assoc :see "yes")
+      (ticked? write (some? agent)) (assoc :write "yes"))))
+
 (defn yes
   "Answers a program's ask as a signed-in person. Takes the runtime's
-  address; her cookie; the code; and a map: `:say`, \"yes\" or \"no\";
-  `:agent`, the name of a new agent, or nil to sign the program in as
-  herself; `:origin`, the `Origin` to write, the runtime's own when left
-  out. Gives the page's status."
-  [url cookie code {:keys [say agent origin]}]
+  address; her cookie; the code; and a map, as `yes-form` takes it, with
+  `:origin`, the `Origin` to write, the runtime's own when left out. Gives
+  the page's status."
+  [url cookie code {:keys [origin] :as answer}]
   (:status (request :post (str url "/yes")
-                    {:cookie cookie :origin (or origin url)
-                     :form (cond-> {:code code :say (or say "yes") :as (if agent "agent" "me")}
-                             agent (assoc :label agent))})))
+                    {:cookie cookie :origin (or origin url) :form (yes-form code answer)})))
 
 (defn program
   "Signs a program in, by the two requests themselves and not through the
@@ -124,15 +168,34 @@
   [url asks answer!]
   (let [secret (credential/make-secret)
         asking-secret (credential/make-secret)
-        asked (:body (request :post (str url "/sign-in/program")
-                              {:edn {:hash (credential/hash-of secret)
-                                     :asking-hash (credential/hash-of asking-secret) :asks asks}}))
+        asked (:body (paced #(request :post (str url "/sign-in/program")
+                                      {:edn {:hash (credential/hash-of secret)
+                                             :asking-hash (credential/hash-of asking-secret) :asks asks}})
+                            take-more?))
         [_ asked] (frame/read-one asked)]
     (if-not (:code asked)
       asked
       (do (answer! (:code asked))
-          (let [[_ got] (frame/read-one (:body (request :post (str url "/sign-in/program/poll")
-                                                        {:edn {:code (:code asked) :asking-secret asking-secret}})))]
+          (let [[_ got] (frame/read-one (:body (paced #(request :post (str url "/sign-in/program/poll")
+                                                                {:edn {:code (:code asked) :asking-secret asking-secret}})
+                                                      take-more?)))]
             (if (= :yes (:state got))
               (assoc got :credential (credential/text (:root got) (:sign-in got) secret))
               got))))))
+
+(defn browser-line
+  "Opens the line at an address as a browser does, with the cookie and the
+  runtime's own `Origin`: past the library's `connect`, which carries a
+  credential in a header alone, and onto the library's own listener, so
+  that the library's `say` speaks on it. Gives {:line the connection
+  :hello what the runtime said first}."
+  [url cookie]
+  (let [state (atom {:hello (promise) :next 0 :waits {} :watches {}})
+        socket (.join ^CompletableFuture
+                      (-> (.newWebSocketBuilder (HttpClient/newHttpClient))
+                          (.header "Cookie" (str credential/cookie-name "=" cookie))
+                          (.header "Origin" url)
+                          (.buildAsync (URI/create (str (str/replace url #"^http" "ws") "/line"))
+                                       (#'client/listener state))))
+        connection (client/->Connection socket state)]
+    {:line connection :hello (client/hello connection)}))

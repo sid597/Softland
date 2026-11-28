@@ -231,9 +231,13 @@
                 [w [:unlink {:account account :link L :person P :at now}]])
       :own-lane-made [w [:own-lane-made {:person (a-root w state) :at now}]]
       :begin-sign-in (let [P (a-root w state)
-                           [w H] (fresh-hash w)]
-                       [w [:begin-sign-in {:root P :actor (one-of w (conj (agents-of state P) P) 0.9 (:agents w))
-                                           :sign-in (pick rnd (:sign-ins w)) :kind (pick rnd [:browser :program])
+                           [w H] (fresh-hash w)
+                           A (one-of w (conj (agents-of state P) P) 0.9 (:agents w))]
+                       ;; A program's sign-in for the person herself is refused; now
+                       ;; and then one is tried, and her own are mostly a browser's.
+                       [w [:begin-sign-in {:root P :actor A
+                                           :sign-in (pick rnd (:sign-ins w))
+                                           :kind (if (= A P) (pick rnd [:browser :browser :browser :program]) (pick rnd [:browser :program]))
                                            :hash H :until (end-after w) :label (pick rnd [nil "laptop" "phone"])
                                            :at now}]])
       :replace-secret (let [P (a-signed-in-root w state)
@@ -296,8 +300,9 @@
                         U (pick rnd (:codes w))
                         yes? (chance? rnd 0.8)
                         how (.nextInt rnd 3)
+                        ;; A yes that names the person herself is refused; now and then one is tried.
                         actor (case how
-                                0 P
+                                0 (if (chance? rnd 0.3) P (one-of w (agents-of state P) 0.85 (:agents w)))
                                 1 (pick rnd (:agents w))
                                 (one-of w (agents-of state P) 0.85 (:agents w)))
                         ends (get-in state [:asks U :ends])]

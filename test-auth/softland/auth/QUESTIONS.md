@@ -8,12 +8,15 @@ For each: the sentences, the readings, and the reading that the reference takes.
 That is the reading that refuses more or changes less, unless it is said why
 not. A turn changes `reference.clj` and the check that cites the question.
 
-**22 November 2026.** Sid's calls of that day, in the prompts that he pasted to
-the build of the reference, settled questions 1 to 7, 12, 20 and 23, and let
-10, 17 and 24 stand as the reference took them, which stay his to turn. Each
-says so under it, and the spec now says each where it belongs. The calls are
-two rules: what fits, and that a repeat's result comes from what stands, never
-from a memory of calls. The others are his to turn. Question 28 is new: what in
+**22 November 2026.** A session's defaults of that day, Sid's to turn, settled
+questions 1 to 7, 12, 20 and 23, and let 10, 17 and 24 stand as the reference
+took them. Until 28 November this page called them "Sid's calls": a session
+proposed them and wrote them into prompts in his first person, which he pasted
+to the build of the reference, and he typed no line on them (the review of 26
+November, run 5, break 2). Each says so under it, and the spec now says each
+where it belongs. The defaults are two rules: what fits, and that a repeat's
+result comes from what stands, never from a memory of calls. They stay as they
+are built. Question 28 is new: what in
 the reference's state grows with the number of calls.
 
 **28 November 2026.** Sid's yes to three changes of what Auth stores (the
@@ -45,7 +48,7 @@ The reference takes (a), with `:driven-by` free to be left out. So `who-is`
 needs `:session nil` when no session is asked for, an `enter` needs
 `:email nil` and `:code-hash nil`, and an `answer-ask` needs `:new-agent nil`.
 
-**Settled by Sid's call of 22 November: (a).** Every part that the contract
+**Settled by a session's default of 22 November, Sid's to turn: (a).** Every part that the contract
 names is there, nil where the contract says `-or-nil`, each in its stated form,
 and nothing that the contract does not name. `:driven-by` alone may be left
 out. The broken copy `:loose-form` takes (b).
@@ -65,7 +68,7 @@ and the brief, which asks the reference to hold only the order of refusals from
 that section. A provider must still be a keyword, and `:own-lane` must be there
 (1).
 
-**Turned by Sid's call of 22 November, to (a).** A provider's length and
+**Turned by a session's default of 22 November, Sid's to turn, to (a).** A provider's length and
 `:own-lane` being a UUID are forms, and Auth checks them: an input that breaks
 either does not fit. The spec moved both, with the other sentences that Auth
 keeps, out of that heading. A provider's name is counted with its namespace
@@ -86,7 +89,7 @@ so an enter of an account that has a link, with such an email, is not let in,
 though "an account that has a link gives its person, whatever claim came with
 it".
 
-**Stands, by Sid's call of 22 November.** The spec now says it as form. The
+**Stands, by a session's default of 22 November, Sid's to turn.** The spec now says it as form. The
 broken copy `:capital-email-fits` takes (b).
 
 **Turned on 28 November, later, by the design that came with Sid's yes.**
@@ -105,7 +108,7 @@ persons, actors, sign-ins and sessions are UUIDs."
 - (b) The session's id is the store's, of any form, since that session is no
   session of Auth's.
 
-The reference takes (a). **Stands, by Sid's call of 22 November.**
+The reference takes (a). **Stands, by a session's default of 22 November, Sid's to turn.**
 
 **5. A call whose client is no client.** "No call throws for what a caller
 gave", and "a call that could not be made gives `{:could-not <word> ...}`". The
@@ -113,7 +116,7 @@ contract's words are `:read-the-event`, `:reach-the-module`, `:closed` and
 `:find-the-module`, and none is for this.
 
 The reference gives `{:could-not :read-the-event}`, and `close!` of a thing that
-is no client gives nil. **Stands, by Sid's call of 22 November**, and the spec
+is no client gives nil. **Stands, by a session's default of 22 November, Sid's to turn**, and the spec
 now says it.
 
 `open` itself has the contract's form since 22 November: it takes what stands
@@ -165,7 +168,7 @@ The reference took (b), which held all three sentences, and neither reading
 refuses more. A copy that was run again after `own-lane-made` said false, so
 its runtime sent the act once more.
 
-**Turned by Sid's call of 22 November, to (a).** A repeat's result comes from
+**Turned by a session's default of 22 November, Sid's to turn, to (a).** A repeat's result comes from
 what stands, never from a memory of calls. An enter of an account that has a
 link gives its person, the fixed own lane and making, and `:own-lane-made?` as
 it stands at that enter, a copy of the first enter among them. The spec's rule
@@ -190,7 +193,7 @@ The reference took (b), which changes less and holds both sentences. A copy was
 the same input whole, its `:at` among the rest. The reading cost the link a
 memory of each enter that it decided, with what it gave (`:decided`).
 
-**Turned by Sid's call of 22 November, to (c).** `:says` is kept from the enter
+**Turned by a session's default of 22 November, Sid's to turn, to (c).** `:says` is kept from the enter
 with the latest `:at`, and an enter whose `:at` is not later leaves it. The link
 keeps no memory of each enter: at full life that grows with every sign-in. The
 reference no longer keeps `:decided`, and "the same state as once" holds of an
@@ -261,7 +264,7 @@ replacement: the sessions close because their sign-in's time passed, as by
 `end-sign-in`, and not because its secret was replaced. The checks of both
 sentences say so.
 
-**Stood as taken, by Sid's call of 22 November.** The spec said it at
+**Stood as taken, by a session's default of 22 November, Sid's to turn.** The spec said it at
 replace-secret.
 
 **Turned on 28 November,** by Sid's yes that a time which passes ends
@@ -297,8 +300,8 @@ the order of 11), which refuses more and changes less. A sign-in kept the pairs
 of hashes of the replacements that it took (`:replaced`). The reference takes
 the second case, as the first sentence says, since no sentence refuses it.
 
-**Turned by Sid's call of 22 November, under his call that a repeat's result
-comes from what stands.** A sign-in keeps its present hash and the one before
+**Turned by a session's default of 22 November, Sid's to turn, under the
+default of that day that a repeat's result comes from what stands.** A sign-in keeps its present hash and the one before
 it, and no history of its replacements: `:replaced` grew with every
 replacement, a memory of calls. A replacement is judged by the present hash and
 the one before it alone. The first case is taken, since H1 is the hash now; a
@@ -355,7 +358,7 @@ said of the sign-in, which may still be live. What follows for the runtime: one
 that keeps a session in use by calling `open-session` again reads `{:open S}`
 for a session that has closed. Only `who-is` tells it so.
 
-**Stood as taken, by Sid's call of 22 November.** The spec said it at
+**Stood as taken, by a session's default of 22 November, Sid's to turn.** The spec said it at
 open-session.
 
 **Turned in part on 28 November.** (a) stands for a session that someone
@@ -436,7 +439,7 @@ sentence. The first says that the ask is never live.
 
 The reference refuses every answer to such an ask with `:over`. `ask-of` says
 `:waiting`, since it judges no time. Such an ask never has an answer, so
-Sid's call on question 20 leaves this as it was: an answer to an ask that waits
+the default of 22 November on question 20 leaves this as it was: an answer to an ask that waits
 is judged as before.
 
 **20. Where "another answer gives what stands" falls, and what is "the same
@@ -463,7 +466,7 @@ when it came again after `:ends`; and when the clocks of two copies fell on
 either side of `:ends`, the second person was told `:over`, not which answer
 stands.
 
-**Turned by Sid's call of 22 November, to (a).** Once an ask has an answer,
+**Turned by a session's default of 22 November, Sid's to turn, to (a).** Once an ask has an answer,
 every answer that fits gives what stands, before any refusal, and changes
 nothing but what its time takes out. An answer to an ask that still waits is
 judged as before: `:no-such-ask`, `:over`, then the refusals of the actor and
@@ -480,7 +483,7 @@ refused with `:over`."
 - (a) A no is an answer, and a late one is `:over`.
 - (b) A no judges no time either, and is taken.
 
-The reference takes (a), which refuses more. Since Sid's call on question 20,
+The reference takes (a), which refuses more. Since the default of 22 November on question 20,
 this is of an ask that waits: a no to an ask that has an answer is told what
 stands.
 
@@ -488,7 +491,7 @@ stands.
 entered." The contract's refusals of `answer-ask` have no word for it.
 
 The reference refuses it with `:no-such-actor`, the word for "no actor of this
-root". Since Sid's call on question 20, this is of an ask that waits.
+root". Since the default of 22 November on question 20, this is of an ask that waits.
 
 **23. The other parts of a no.** "Judges no other part", and an input that "does
 not fit gives `{:could-not :read-the-event}`".
@@ -497,7 +500,7 @@ not fit gives `{:could-not :read-the-event}`".
   and are not judged.
 - (b) They may be anything.
 
-The reference takes (a). **Stands, by Sid's call of 22 November**, which the
+The reference takes (a). **Stands, by a session's default of 22 November, Sid's to turn**, which the
 spec now says under "What fits". The broken copy `:no-takes-any-parts` takes
 (b).
 
@@ -512,8 +515,15 @@ that exists."
 agents of the root" (`under`), and the sentence keeps "made by her" for the new
 agent alone.
 
-**Stands as taken, by Sid's call of 22 November, and stays his to turn.** The
+**Stands as taken, by a session's default of 22 November, Sid's to turn.** The
 spec now says it at answer-ask.
+
+Since Sid's yes of 28 November (F15: "only you at a browser are you"), the
+first of the three is gone: a yes that names the person herself is refused
+with `:is-a-person`, and so is `begin-sign-in` of kind `:program` for her. A
+yes names a new agent or a live agent of hers, and (a) and (b) are still the
+reading of the second. The broken copies `:yes-names-the-person` and
+`:person-begins-a-program` take each refusal away.
 
 **25. A yes whose sign-in id is a sign-in already, with the parts that the yes
 would bind.** "`{:refused :in-use}` the new agent's id or the sign-in's id is
@@ -522,7 +532,7 @@ of kind `:program`, with the ask's hash, holds exactly what the yes would bind.
 `begin-sign-in` would take the same as a repeat.
 
 The reference refuses it with `:in-use`, which refuses more: the id is a
-sign-in already, and no answer made it. Since Sid's call on question 20, this
+sign-in already, and no answer made it. Since the default of 22 November on question 20, this
 is of an ask that waits.
 
 **26. `ask-of`'s `:answer` for a no.** "`:answer {:root P :actor A :sign-in G}-or-nil`".
@@ -566,7 +576,7 @@ The reference reads these as follows:
 ## Invitations and accounts
 
 **35. An invite that runs again, and a result that comes from a memory.**
-Sid's call of 22 November: a repeat's result "comes from what stands, never
+a session's default of 22 November, Sid's to turn: a repeat's result "comes from what stands, never
 from a memory of calls". The spec of 28 November, later: an invite carries
 an op-id, "an invite whose op has a record changes nothing and gives the
 answer it gave", so that an invite that the module runs again, after its
@@ -588,7 +598,7 @@ leans on it (that nobody gives a person who has entered another account is
 41's, held where the claim's links are). It is the one
 place where a result comes from a memory of a call, and it grows by one
 answer for each invite (28). **A session's reading, for Sid to see beside
-his call of 22 November.** The broken copy `:invite-op-forgotten` takes
+a session's default of 22 November, Sid's to turn.** The broken copy `:invite-op-forgotten` takes
 (b).
 
 **36. An invitation whose end is at or before its own time.** "One whose
@@ -672,13 +682,14 @@ The reference takes (a), as the module does, and so does the spec, which
 says it as the rule that holds and as not closed: (b) is each of three
 things that are Sid's. A failed mark under the op of the enter that linked
 closes one of the two cases and is not built, for the reason that a memory
-of what an enter gave was not (Sid's call of 22 November). **A session's
+of what an enter gave was not (a session's default of 22 November, Sid's to turn). **A session's
 reading, for Sid to see.**
 
 ## What the state keeps
 
 **28. What grows with the number of calls.** Asked in the prompt that Sid pasted
-on 22 November, after his call on question 12: what in the whole state grows
+on 22 November, after the default on question 12 (a session's, Sid's to turn):
+what in the whole state grows
 with the number of calls and is not history that the spec asks to keep.
 
 Since the calls, a repeat, a refusal and an input that does not fit add nothing

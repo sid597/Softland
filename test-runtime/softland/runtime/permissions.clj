@@ -4,7 +4,8 @@
   (:require [clojure.string :as str]
             [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
-            [softland.store.gate.first-act :as first-act])
+            [softland.store.gate.first-act :as first-act]
+            [softland.wire.credential :as credential])
   (:import [java.nio ByteBuffer]
            [java.nio.charset StandardCharsets]
            [java.security MessageDigest]
@@ -129,6 +130,24 @@
          perm-id (or (:id opts)
                      (id-from-text (str "softland/runtime-run-permission/" (pr-str [val (:salt opts)]))))]
      {:id perm-id :value val})))
+
+(defn lent-at-yes
+  "The permission that her yes lends a program in her own lane, as the yes
+  page writes it (`softland.runtime.sign-in/lend!`), with its id made from
+  her root and the program's sign-in (`softland.wire.credential/lent-at-yes`).
+  Takes what names the sign-in, a hello or what `drive/program` gives
+  (`:root`, `:sign-in`, and `:who` or `:actor`), her lane, and what it
+  allows, `{:see true :write :all}` (both boxes) when left out."
+  ([signed lane] (lent-at-yes signed lane {:see true :write :all}))
+  ([{:keys [root sign-in who actor]} lane allows]
+   (let [first-id (first-act/first-permission-id lane)]
+     {:id (:permission (credential/lent-at-yes root sign-in))
+      :value {:holder (or who (agent actor))
+              :allows allows
+              :covers [:default-group lane]
+              :given-by (person root)
+              :under first-id
+              :lent-from first-id}})))
 
 ;; ---------------------------------------------------- act slot & store facts
 

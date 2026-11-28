@@ -20,7 +20,8 @@
                 url-b (:url copy-b)
                 signed (drive/sign-in url-a (assoc h/first-person :call-her "Sid"))
                 cookie (:cookie signed)
-                me-b (h/line url-b (:credential (drive/program url-b "admin" (fn [c] (drive/yes url-b cookie c {})))) nil)
+                ;; She ends the sign-ins of her programs at her browser.
+                me-b (drive/browser-line url-b cookie)
                 p1 (drive/program url-a "prog-1" (fn [c] (drive/yes url-a cookie c {})))
                 p2 (drive/program url-a "prog-2" (fn [c] (drive/yes url-a cookie c {})))
                 p3 (drive/program url-a "prog-3" (fn [c] (drive/yes url-a cookie c {})))
