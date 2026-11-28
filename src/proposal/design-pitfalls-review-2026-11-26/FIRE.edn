@@ -1,5 +1,5 @@
 {:track      "design-pitfalls-review-2026-11-26"
  :summary    "26 Nov review fixes F1-F34: of section 7.1 all are built but F14 and F15; 7.2 and 7.3 are not started"
  :status     "OPEN"
- :waiting-on "Sid's answers: F2, F14-F18, F22-F26, F28, F30, F32, and the three questions of HANDOFF-fixes-2026-11-27.md section 3.1. Nothing waits on the permissions rebuild any more"
+ :waiting-on "Sid's answers: F2, F14-F18, F22-F26, F28, F30, F32, and the two questions left of HANDOFF-fixes-2026-11-27.md section 3.1 (a file sent again in another session; the secret before her yes). Nothing waits on the permissions rebuild any more"
  :next       "A fresh session reviews the build of 28 November from its diff (HANDOFF-fixes-2026-11-28.md, section 1); then each fix that Sid answers"}
