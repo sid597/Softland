@@ -5,6 +5,9 @@
   No program is a person: the commands that only she may say, at a browser
   (`invite`, `under`, `end-sign-in`), are in the list and get the runtime's
   refusal, since whether one of them can be lent to a program is open.
+  `give` to a person is refused by a gate today: passing to a person needs
+  `:give`, what her yes lends holds none, and no page lends it. To an agent
+  or a run it lends beneath what this program holds.
 
   The commands are the entries of `commands`, the one list of them: for
   each, how it is typed, the flags that it takes, what it does, and the
@@ -647,7 +650,7 @@
    ["send"           {:args [(text "file")] :does send!
                       :says "the acts of a file, sent in order, each once"}]
    ["give"           {:args [(value "who") (value "lane") (text "see|act")] :flags {:permission (value "uuid")} :does give!
-                      :says "gives a permission beneath the one that this program acts under"}]
+                      :says "gives a permission beneath the one that this program acts under; to a person, refused while it holds no :give"}]
    ["invite"         {:args [] :flags {:email (text "address")} :does invite!
                       :says "makes a person who waits for an account; prints the link for her, or names the email. Today only a person at a browser may say it: the runtime refuses it to a program"}]
    ["agent new"      {:args [(text "name")] :flags {:out (text "file")} :does agent-new!

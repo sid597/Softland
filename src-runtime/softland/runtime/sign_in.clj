@@ -261,19 +261,23 @@
   "The caller is the person herself, signed in at a browser. For a yes,
   `:label` is the name of a new agent, `:agent` the id of a live agent of
   hers. A yes with neither names her, and Auth refuses it `:is-a-person`:
-  no program acts under her own id."
+  no program acts under her own id. A new agent's id is made from her root
+  and the code, so that her page posted twice names one agent. Gives what
+  Auth gave, with `:actor-named`, the actor that this answer named: Auth
+  gives the answer that stands, which can be an earlier one."
   [the-seam caller code {:keys [yes? label agent]}]
   (if-not (seam/person? caller)
     (words/could-not :do-that-as-an-agent nil)
     (let [root (seam/root-of caller)
           now (seam/now-ms)
+          actor (cond (and yes? label) (id-from-text (str "softland/new-agent-at-yes/" root "/" code))
+                      (and yes? agent) agent
+                      :else root)
           got (auth/answer-ask (seam/auth-of the-seam)
                                {:code code
                                 :yes? (boolean yes?)
                                 :root root
-                                :actor (cond (and yes? label) (UUID/randomUUID)
-                                             (and yes? agent) agent
-                                             :else root)
+                                :actor actor
                                 :new-agent (when (and yes? label) {:label label})
                                 :sign-in (UUID/randomUUID)
                                 :until (+ now (long (:secret-ms (seam/numbers-of the-seam))))
@@ -281,7 +285,7 @@
       (cond
         (:could-not got) (words/could-not :reach-auth {:got got})
         (:refused got) (words/could-not :take-that {:why (:refused got)})
-        :else got))))
+        :else (assoc got :actor-named actor)))))
 
 (defn- agent-party
   "The store's party ID for an agent UUID (`CONTRACT.md` §2.1: `:agent.<id>`)."

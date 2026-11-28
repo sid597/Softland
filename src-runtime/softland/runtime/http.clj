@@ -497,7 +497,11 @@
                    "<input name=\"label\" maxlength=\"" words/max-text "\" placeholder=\"a name\"></p>"
                    "<p>It is lent, in your own lane: " (lend-boxes true) "</p>"
                    "<button name=\"say\" value=\"yes\">Yes, as a new agent</button></form>"
-                   (if (seq agents)
+                   (cond
+                     (nil? agents)
+                     "<p>Your agents could not be read, so none is shown here to sign in again. Load this page again to see them.</p>"
+
+                     (seq agents)
                      (str form-start
                           "<input type=\"hidden\" name=\"as\" value=\"my-agent\">"
                           "<p>As this agent of yours, signed in again:</p>"
@@ -507,6 +511,8 @@
                                           agents))
                           "<p>It keeps what it holds. It is lent besides, in your own lane: " (lend-boxes false) "</p>"
                           "<button name=\"say\" value=\"yes\">Yes, as this agent</button></form>")
+
+                     :else
                      "<p>You have no agent yet that a program could sign in as again.</p>")
                    form-start
                    "<button name=\"say\" value=\"no\">No</button></form>"))))))
@@ -575,10 +581,8 @@
             listed (when mine? (live-agents the-seam caller))
             named (or (some (fn [a] (when (= (:actor standing) (:actor a)) (:label a))) listed)
                       (when new? label))
-            actor-matches? (and mine? yes?
-                                (if new?
-                                  (or (nil? listed) (= label named))
-                                  (= agent (:actor standing))))]
+            ;; Auth gives the answer that stands: this one, or an earlier one.
+            actor-matches? (and mine? yes? (= (:actor-named got) (:actor standing)))]
         (cond
           (and actor-matches? allows)
           (let [ids (credential/lent-at-yes (:root standing) (:sign-in standing))
@@ -642,6 +646,8 @@
           (= :over (:why got)) (page 409 "<p>This program waited too long. Start its sign-in again.</p>")
           (= :is-a-person (:why got))
           (page 409 "<p>That was not taken: a program is never signed in as you. Choose an agent of yours, new or one that you have.</p>")
+          (and mine-agent? (contains? #{:no-such-actor :ended} (:why got)))
+          (page 409 "<p>That agent cannot be signed in: it has ended, or it is not one of yours. The program still waits: go back and choose again.</p>")
           (= :take-that (:could-not got)) (page 409 "<p>That was not taken. Start the program's sign-in again.</p>")
           :else (page 503 "<p>That could not be written. Try again.</p>"))))))
 

@@ -29,6 +29,9 @@ Each is a session's, kept and not decided.
   hers, and that lend is what it holds in her own lane. A sign-in that her
   yes lent nothing, an agent of hers signed in again with no box ticked or
   one that `agent new` made, names what it holds with `--permission`.
+- **`give` to a person is refused by a gate today.** Passing a permission to
+  a person needs `:give`; what her yes lends holds none, and no page lends
+  it. A `give` to an agent or a run lends beneath what the program holds.
 - **`send` keeps the UUIDs of a file's acts before it sends any,** so that a
   run that was cut off is sent again as the same acts.
 - **The JVM stops at its first compiler** (`-XX:TieredStopAtLevel=1`, on the

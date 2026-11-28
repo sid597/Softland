@@ -327,8 +327,36 @@
                 again (signed "the agent that was lent both, again" {:mine (:actor both)})
                 woken (signed "the idle agent, again, lent to see" {:mine (:actor idle) :see true})
                 tried-again (try-it again 6 (lend-of both))
-                first-stands (line a (:credential both) nil)]
+                first-stands (line a (:credential both) nil)
+                named-lent-both (fn [] (count (filter #(= "lent both" (:label %)) (:actors (say her {:word :under})))))
+                before (named-lent-both)
+                answered-as-mine (drive/program a "a program answered as an agent of hers, then by the form of a new agent of that name"
+                                                (fn [code]
+                                                  (swap! pages assoc :answered-as-mine
+                                                         [(post-yes code {:mine (:actor both)}) (post-yes code {:agent "lent both"})])))
+                _ended (say her {:word :end-agent :agent (:actor writer)})
+                cannot (drive/program a "a program answered as an agent that ended, then as one that is not hers"
+                                      (fn [code]
+                                        (swap! pages assoc :cannot
+                                               [(post-yes code {:mine (:actor writer) :see true})
+                                                (post-yes code {:mine (UUID/randomUUID) :see true})])))]
             (close-line! first-stands)
+            (check "A yes is judged by the actor that it named, not by a name: on one page, a yes as an agent of hers with no box ticked, then the form of a new agent of that agent's name with both boxes, is answered 409, answered before; it makes no agent and lends nothing."
+                   (let [[as-mine as-new] (:answered-as-mine @pages)
+                         lend (say her {:word :read :query {:asks [:place (lend-of answered-as-mine) :softland.store/permission]
+                                                            :asker her-who :lanes [her-lane] :stores-own-facts true}})]
+                     (and (= [200 409] (mapv :status [as-mine as-new]))
+                          (str/includes? (:body as-new) "already answered before")
+                          (= (:actor both) (:actor answered-as-mine))
+                          (= before (named-lent-both))
+                          (nil? (:value (:place lend)))))
+                   (mapv #(select-keys % [:status :body]) (:answered-as-mine @pages)))
+            (check "A yes by hand as an agent of hers that ended, or as an agent that is not hers, is answered 409: that agent cannot be signed in, and she can choose again; the program still waits."
+                   (and (= [409 409] (mapv :status (:cannot @pages)))
+                        (every? #(and (str/includes? (:body %) "cannot be signed in") (str/includes? (:body %) "choose again"))
+                                (:cannot @pages))
+                        (= :waiting (:state cannot)))
+                   [(mapv #(select-keys % [:status :body]) (:cannot @pages)) cannot])
             (check "The yes page lists her live agents by name, each to be signed in again, with both boxes unticked, and says that such an agent keeps what it holds."
                    (and (str/includes? page (str "value=\"" (:actor both) "\""))
                         (str/includes? page "lent both")
