@@ -67,11 +67,13 @@
     [:because-of   :act-id                            {:optional true}]
     [:facts        [:seq-of :fact]                    {:empty :empty-act}]]
 
-   ;; A fact with no value is a retract.
+   ;; A fact with no value is a retract. Its key is an id, as its entity
+   ;; is: a readable keyword, or a UUID, for a key that is a thing of its
+   ;; maker's with a name of its own.
    :fact
    [:parts
     [:e        :id]
-    [:k        :key]
+    [:k        :id]
     [:v        :value   {:optional true}]
     [:replaces :fact-id {:optional true}]]
 
@@ -233,7 +235,6 @@
   a shape is code and not data. Each takes a thing and gives [:ok, its
   normal form], or nil when the thing does not fit."
   {:id    (fn [x] (when (or (readable-keyword? x) (uuid? x)) [:ok x]))
-   :key   (fn [x] (when (readable-keyword? x) [:ok x]))
    :uuid  (fn [x] (when (uuid? x) [:ok x]))
    :int   (fn [x] (when (int? x) [:ok (long x)]))
    :value (fn [x] (when (value? x) [:ok (normal-value x)]))

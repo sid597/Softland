@@ -528,7 +528,7 @@
    :depot-word [:enum :streaming :microbatch]
    :who-may-read-acts-word [:enum :members :everyone]
    :lane-list [:seq-of :id]
-   :key-set [:set-of :key]
+   :key-set [:set-of :id]
    :permission-value
    [:parts
     [:holder :holder-party]
@@ -782,6 +782,13 @@
    ["a retract under a plain key: no value"
     (fn [] (verdict (declaration/check (arrived 1 {:e :note-1 :k :text}))))
     :ok]
+   ["a fact's key is an id, a UUID as well as a keyword: a fact under a key that is a UUID passes, with a value and with none, and its one form holds the key as given and the text of its value; such a key is a plain key, so the one form keeps no value beside the text"
+    (fn [] (let [k (uuid 77)]
+             [(verdict (declaration/check (arrived 1 (value-at :note-1 k))))
+              (verdict (declaration/check (arrived 1 {:e :note-1 :k k})))
+              (select-keys (first (:facts (act-of (arrived 1 (value-at :note-1 k))))) [:k :v :text])
+              (declaration/store-key? k)]))
+    [:ok :ok {:k (uuid 77) :v nil :text "\"a text\""} false]]
    ["each of the five store keys is known: a fact under each, with a right value, passes; a permission sits on its own uuid, whether for the lane's default group, for one sitting, or for one exact act"
     (fn [] [(verdict (declaration/check (arrived 1 {:e :alice :k :softland.store/depot :v :streaming})))
             (verdict (declaration/check (arrived 1 (perm/permission-fact bobs))))
@@ -794,6 +801,10 @@
             (verdict (declaration/check (arrived 1 {:e :alice :k :softland.store/builds-on :v [:base (uuid 7)]})))
             (verdict (declaration/check (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on :tool/parent}})))])
     [:ok :ok :ok :ok :ok :ok :ok]]
+   ["a lane marks a key that is a UUID like any other: the set passes with a UUID in it, which is in no namespace and so never one of the store's own; its text holds the UUID as the one text writes it"
+    (fn [] (let [thing (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on (uuid 3)}})]
+             [(verdict (declaration/check thing)) (:text (first (:facts (act-of thing))))]))
+    [:ok "#{#uuid \"00000000-0000-0000-0000-000000000003\" :on}"]]
    ["the text of a set under a store key is sorted: the marked keys, with the set beside it"
     (fn [] ((juxt :v :text) (first (:facts (act-of (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on :tool/parent :b :a}}))))))
     [#{:on :tool/parent :b :a} "#{:a :b :on :tool/parent}"]]
@@ -924,7 +935,7 @@
    ["what a lane builds on, 65 lanes" (arrived 1 {:e :alice :k :softland.store/builds-on :v (mapv #(keyword (str "lane-" %)) (range 65))}) :builds-on-too-many-lanes]
    ["the marked keys of a lane, as a vector" (arrived 1 {:e :alice :k :softland.store/marked-keys :v [:on]}) :marked-keys-fact-not-a-set-of-keys]
    ["the marked keys of a lane, as one key" (arrived 1 {:e :alice :k :softland.store/marked-keys :v :on}) :marked-keys-fact-not-a-set-of-keys]
-   ["the marked keys of a lane, with a UUID in the set: a key is a keyword" (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on (uuid 3)}}) :marked-keys-fact-not-a-set-of-keys]
+   ["the marked keys of a lane, with a string in the set: a key is an id" (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on "on"}}) :marked-keys-fact-not-a-set-of-keys]
    ["the marked keys of a lane, 33 keys" (arrived 1 {:e :alice :k :softland.store/marked-keys :v (set (map #(keyword (str "key-" %)) (range 33)))}) :too-many-marked-keys]
    ["a mark of a key of the store's own namespace" (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:on :softland.store/permission}}) :marked-key-in-the-stores-namespace]
    ["a mark of a key in the store's namespace that the store does not know" (arrived 1 {:e :alice :k :softland.store/marked-keys :v #{:softland.store/owner}}) :marked-key-in-the-stores-namespace]
@@ -1513,6 +1524,9 @@
        {:value "String" :by-act "UUID" :by-index "Long" :stamp "Long" :time "Long" :who "String" :permission "String" :level-since "String"}
        {:on 100 :tool/parent 140} #{:on :tool/parent}
        {} {} {} {} {} {}]]
+     ["the stamps of the marked keys read back with a key that is a UUID among them"
+      (fn [] (record/marked-keys-of (record/with-level-since plain-row {(uuid 3) 120 :on 100})))
+      {(uuid 3) 120 :on 100}]
      ["the value digest: the SHA-256 of a row's value bytes, 64 hex characters; of a value, the digest of the UTF-8 of its one text"
       (fn [] [(record/value-digest (utf8 ":c1")) (count (record/value-digest (byte-array 0)))
               (record/value-digest-of :c1) (record/value-digest-of (uuid 9)) (record/value-digest-of "a string with spaces")
@@ -1565,7 +1579,8 @@
       (fn [] [(mapv record/id-of-text [":alice" ":tool/on" "00000000-0000-0000-0000-000000000005" "alice" ":a b" ":" "" "5-5-5-5-5" nil 7])
               (record/place-of-key (record/place-key :alice (uuid 2) :tool/text))
               (record/place-of-key (record/place-key :base :base :softland.store/marked-keys))
-              (mapv record/place-of-key [":alice :note-1" ":alice :note-1 :text :more" ":alice :note-1 00000000-0000-0000-0000-000000000005" "" nil])
+              (mapv record/place-of-key [":alice :note-1" ":alice :note-1 :text :more" ":alice :note-1 text" "" nil])
+              (record/place-of-key (record/place-key :alice :note-1 (uuid 5)))
               (record/by-value-entity (record/by-value-key :alice :on 100 d-c1 (uuid 2)))
               (record/by-value-entity (record/by-value-key :alice :on 100 d-c1 :b1))
               (mapv record/by-value-entity [":alice :on 100" "" nil])])
@@ -1573,6 +1588,7 @@
        [:alice (uuid 2) :tool/text]
        [:base :base :softland.store/marked-keys]
        [nil nil nil nil nil]
+       [:alice :note-1 (uuid 5)]
        (uuid 2) :b1
        [nil nil nil]]]
      ["the head of the read by act-id: the depot and the key; nothing for what is no act-id of the lane"
@@ -2453,6 +2469,24 @@
        #{}
        [[:fact ":alice :b1 :on" true] [:by-value (entry-key 100 :c9 :b1) true]]
        #{(entry-key 100 :c9 :b1)}]]
+     ["a key that is a UUID, marked: its place's key ends with the UUID's text and reads back to the UUID; a fact under it comes into the order by value under that text, a second fact on the place takes the first's entry out, and a retract takes out the last"
+      (fn [] (let [k (uuid 77)
+                   place (record/place-key :alice :b1 k)
+                   entry (fn [v] (record/by-value-key :alice k 100 (record/value-digest-of v) :b1))
+                   u1 (streaming-step empty-record 401 100 (marks #{k :on}))
+                   u2 (streaming-step u1 402 110 (value-at :b1 k :c1))
+                   u3 (streaming-step u2 403 120 (assoc (value-at :b1 k :c2) :replaces [(act-id 402) 0]))
+                   u4 (streaming-step u3 404 130 {:e :b1 :k k})]
+               [place (record/place-of-key place) (stamps-of u1)
+                (= (which-keys u2) [[:fact place true] [:by-value (entry :c1) true]])
+                (record/read-value (get-in u2 [:facts place]))
+                (= (which-keys u3) [[:fact place true] [:by-value (entry :c1) false] [:by-value (entry :c2) true]])
+                (record/read-value (get-in u3 [:facts place]))
+                (= (which-keys u4) [[:fact place true] [:by-value (entry :c2) false]])
+                (record/read-value (get-in u4 [:facts place])) (keys-of u4)
+                (.startsWith ^String (entry :c1) ":alice 00000000-0000-0000-0000-00000000004d 100 ")]))
+      [":alice :b1 00000000-0000-0000-0000-00000000004d" [:alice :b1 (uuid 77)] {(uuid 77) 100 :on 100}
+       true [:value :c1] true [:value :c2] true [:nothing-here] #{} true]]
      ["a retract on a place that holds no fact, under a marked key: nothing in the order"
       (fn [] (let [retracted (streaming-step m 203 120 {:e :b7 :k :on})]
                [(which-keys retracted) (keys-of retracted)]))

@@ -1278,6 +1278,9 @@
                                           :with #{:writer :permission} :stores-own-facts true}
                "a place, with each part of a row" {:asks [:place :note-41 :text] :asker (person :alice) :lanes [:team]
                                                    :with #{:writer :permission :time}}
+               "a place under a key that is a UUID" {:asks [:place :note-41 (UUID. 0 9)] :asker (person :alice) :lanes [:team]}
+               "a run between two keys of one entity, a UUID and a keyword" {:asks [:range [:e (UUID. 0 9)] [:e :m]] :asker (person :alice) :lanes [:team]}
+               "what points at a thing under a key that is a UUID" {:asks [:points-at (UUID. 0 9) :chair-7] :asker (person :alice) :lanes [:team]}
                "a lane's acts by stamp"  {:asks [:acts 0 100] :asker (person :alice) :from-lane :team}
                "a lane's acts, named as a list of one" {:asks [:acts 7 1] :not-signed-in true :lanes [:base]}}
         faults [["no map"                          5                                                [:not-a-query nil]]
@@ -1287,6 +1290,8 @@
                 ["a word that is not known"        (assoc good :asks [:find "text"])                [:asks-no-word-known :asks]]
                 ["an :asks that is no vector"      (assoc good :asks :place)                        [:asks-no-word-known :asks]]
                 ["a place with no key"             (assoc good :asks [:place :note-41])             [:place-not-named :asks]]
+                ["a place whose key is a string: a key is an id" (assoc good :asks [:place :note-41 "text"]) [:place-not-named :asks]]
+                ["a run from a keyword key to a UUID key that begins with a digit: out of order" (assoc good :asks [:range [:e :m] [:e (UUID. 0 9)]]) [:range-ends-out-of-order :asks]]
                 ["an entity that is no id"         (assoc good :asks [:entity "note"])              [:entity-not-named :asks]]
                 ["a run with one end"              (assoc good :asks [:range [:e]])                   [:range-not-named :asks]]
                 ["a run whose end is no end"       (assoc good :asks [:range [:e] :middle])           [:range-not-named :asks]]
@@ -2630,6 +2635,14 @@
            [[":l :e :a" ":l :e :m "] [":l " ":l!"] [":l :e " ":l :f!"] nil nil]
            [(rows/run-of-ends :l [:e :a] [:e :m]) (rows/run-of-ends :l :first :last) (rows/run-of-ends :l [:e] [:f])
             (rows/run-of-ends :l [:f] [:e]) (rows/run-of-ends :l [:e :m] [:e :a])])
+    (check "a key is a keyword or a UUID, and a range goes by the printed text, where the two kinds are not apart: of one entity, a key that is a UUID beginning with a digit comes before every keyword key, and one beginning with a letter comes after them all; a run from the first to the second holds the keyword keys between them"
+           [true true [":l :e 00000000-0000-0000-0000-000000000009" ":l :e f0000000-0000-0000-0000-000000000009 "] nil]
+           (let [digit-first (UUID. 0 9)
+                 letter-first (UUID/fromString "f0000000-0000-0000-0000-000000000009")]
+             [(rows/before? (rows/place-key :l :e digit-first) (rows/place-key :l :e :a))
+              (rows/before? (rows/place-key :l :e :zebra/z) (rows/place-key :l :e letter-first))
+              (rows/run-of-ends :l [:e digit-first] [:e letter-first])
+              (rows/run-of-ends :l [:e letter-first] [:e digit-first])]))
     (check "two rows are the same when each field is equal: a value that is an equal String and not one object; nil and nil; a row and nil; rows that differ in one field; a field that one row has not; no field of a row is a byte array"
            [true false true false false false false true]
            [(rows/same-row? (row a 5) (row b 5)) (identical? a b) (rows/same-row? nil nil) (rows/same-row? (row a 5) nil)

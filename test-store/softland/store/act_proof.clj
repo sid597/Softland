@@ -155,7 +155,7 @@
          [:facts [:seq-of :fact] {:empty :empty-act}]]
    :fact [:parts
           [:e :id]
-          [:k :key]
+          [:k :id]
           [:v :value {:optional true}]
           [:replaces :fact-id {:optional true}]]
    :act-id [:tuple :id [:enum :streaming :microbatch] :uuid]
@@ -237,11 +237,11 @@
       (one-form {:e :note-1 :k :note :v "a text" :replaces nil}
                 {:e :alice-s1 :k :tally :v {:count 1} :replaces nil}
                 {:e :note-2 :k :link :v (uuid 5) :replaces nil})]
-     ["an act whose party is a person with a UUID, and whose lane, permission, session and entity are UUIDs"
+     ["an act whose party is a person with a UUID, and whose lane, permission, session and entity are UUIDs; its second fact is under a key that is a UUID, which is in the one form as it was given"
       {:version 1 :who w :lane l :permission p :session s
-       :facts [{:e e :k :note :v 1}]}
+       :facts [{:e e :k :note :v 1} {:e e :k (uuid 16) :v 2}]}
       {:version 1 :who w :lane l :permission p :session s :based-on {} :because-of nil
-       :facts [{:e e :k :note :v 1 :replaces nil}]}]
+       :facts [{:e e :k :note :v 1 :replaces nil} {:e e :k (uuid 16) :v 2 :replaces nil}]}]
      ["an act under the id of a given permission"
       (assoc good :who (person :bob) :permission (perm/permission-id (perm/given-permission (person :bob) :alice alice-own)))
       (assoc (one-form {:e :note-1 :k :note :v "a text" :replaces nil})
@@ -344,7 +344,7 @@
    ["a fact with no key" (act-of (dissoc a-fact :k)) :malformed]
    ["an entity that is a string" (act-of (assoc a-fact :e "note-1")) :malformed]
    ["a key that is a string" (act-of (assoc a-fact :k "note")) :malformed]
-   ["a key that is a UUID" (act-of (assoc a-fact :k (uuid 9))) :malformed]
+   ["a key that is a symbol" (act-of (assoc a-fact :k 'note)) :malformed]
    ["a value that is a list" (act-of (assoc a-fact :v '(1 2))) :malformed]
    ["a value that is a ratio" (act-of (assoc a-fact :v 1/3)) :malformed]
    ["a value that is a byte array" (act-of (assoc a-fact :v (byte-array [1 2 3]))) :malformed]
@@ -442,7 +442,7 @@
 
 (def ^:private id-rows
   "Ids and keys in an act. An author is an author-party; an id is a readable
-  keyword or a UUID; a key is a readable keyword only."
+  keyword or a UUID, and a fact's key is an id."
   [["who as a raw UUID is no party" (assoc good :who (uuid 7)) :who-not-a-party]
    ["the lane as a UUID, with a permission UUID" (assoc good :lane (uuid 8) :permission (perm/permission-id (perm/first-permission (person :alice) (uuid 8)))) :ok]
    ["the session as a UUID" (assoc good :session (uuid 9)) :ok]
@@ -451,7 +451,7 @@
    ["an entity as a string" (act-of (assoc a-fact :e "note-1")) :malformed]
    ["an id as a keyword that does not read back" (assoc good :session (keyword "a b")) :malformed]
    ["a key as a keyword" (act-of (assoc a-fact :k :note)) :ok]
-   ["a key as a UUID" (act-of (assoc a-fact :k (uuid 9))) :malformed]
+   ["a key as a UUID: a fact's key is an id, as its entity is" (act-of (assoc a-fact :k (uuid 9))) :ok]
    ["a key as a string" (act-of (assoc a-fact :k "note")) :malformed]
    ["a key as a keyword that does not read back" (act-of (assoc a-fact :k (keyword "a b"))) :malformed]])
 

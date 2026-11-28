@@ -46,9 +46,9 @@ store, with one total order in each lane and overlay reads, built on Rama.
 | the base | The one lane that everyone subscribes to. | |
 | the system | The id that makes the base, and each personal lane for its person. | |
 
-An id (an entity, a who, a lane, a session) is a readable keyword or
-a UUID, and a key is a readable keyword only ([act.clj](softland/store/act.clj),
-`leaves`). A value is nil, a boolean, a string, a readable keyword, a UUID, an
+An id (an entity, a who, a lane, a session, a fact's key) is a readable
+keyword or a UUID ([act.clj](softland/store/act.clj), `leaves`). The store's
+own keys are keywords. A value is nil, a boolean, a string, a readable keyword, a UUID, an
 integer of any width, a finite double, a big integer, a decimal, or a plain map,
 vector or set of these ([act.clj](softland/store/act.clj), `value?`). "Act" and
 "depot" are Sid's words. "Key" is the key of a fact; an encryption key would be

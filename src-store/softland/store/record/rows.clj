@@ -25,8 +25,8 @@
   the two ends of a run, test nothing of what they are given. A thing that
   is no id can print with a space in it, and a key made of it can name a row
   of another place. So a caller that holds what somebody gave it tests
-  first: each id with `softland.store.door.declaration/usable-id?`, a fact's
-  key as a readable keyword within the limit, a value with
+  first: each id, a fact's key among them, with
+  `softland.store.door.declaration/usable-id?`, a value with
   `softland.store.act/value?`. A gate makes keys only of an act that passed
   the declaration."
   (:require [clojure.edn :as edn]
@@ -267,7 +267,7 @@
   [row]
   (let [held (when-let [text (:level-since row)] (first-form text))]
     (if (and (map? held)
-             (every? (fn [[k since]] (and (act/readable-keyword? k) (int? since))) held))
+             (every? (fn [[k since]] (and (or (act/readable-keyword? k) (uuid? k)) (int? since))) held))
       held
       {})))
 
@@ -351,7 +351,7 @@
   [place-key-text]
   (try
     (let [parts (mapv id-of-text (parts-of-key place-key-text))]
-      (when (and (= 3 (count parts)) (every? some? parts) (keyword? (nth parts 2)))
+      (when (and (= 3 (count parts)) (every? some? parts))
         parts))
     (catch Throwable _ nil)))
 

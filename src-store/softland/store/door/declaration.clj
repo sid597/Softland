@@ -123,8 +123,8 @@
 (def store-namespace
   "The store owns the whole of it: a fact whose key has this namespace is
   under one of `store-keys`, or a gate refuses it (the rule
-  `:store-key-is-known`). A key with another namespace, and a key with
-  none, is a plain key and a tool's own."
+  `:store-key-is-known`). A key with another namespace, a key with none,
+  and a key that is a UUID, is a plain key and a tool's own."
   "softland.store")
 
 (def store-keys
@@ -211,9 +211,9 @@
 
 (defn- in-store-namespace?
   "The namespace is taken exactly: a key with no namespace is not in it, and
-  `softland.store.x` is another namespace."
+  `softland.store.x` is another namespace. A key that is a UUID has none."
   [k]
-  (= store-namespace (namespace k)))
+  (and (keyword? k) (= store-namespace (namespace k))))
 
 ;; ------------------------------------------------------- the declared shape
 
@@ -258,7 +258,7 @@
          :depot-word   [:enum :streaming :microbatch]
          :who-may-read-acts-word [:enum :members :everyone]
          :lane-list   [:seq-of :id]
-         :key-set      [:set-of :key]
+         :key-set      [:set-of :id]
          :permission-value
          [:parts
           [:holder    :holder-party]

@@ -176,7 +176,8 @@ session read the photographs and wrote down a mark for each question
    confirm" on a form of ten questions that a session built; it was the
    option that the form marked as the session's own lean (the rulings file,
    its last section). He has not ruled between the two. Until he
-   does, the code holds a key to a readable keyword (the queue, K5).
+   does, the code holds a key to a readable keyword (the queue, K5). On
+   28 November 2026 he ruled: both (entry 1 of that day).
 10. **The microbatch hash entity is no part.** Sid decided. The depot derives
     it. On 13 October he decided that every act is placed by its layer key,
     the base too (entry 3 of that day): the microbatch depot derives no entity,
@@ -493,7 +494,9 @@ Open, and built to a working answer until Sid decides:
 
 - **What a key is (K5).** The code holds a key to a readable keyword, with a
   namespace or without one. The rulings file of September says that a key is
-  an id, and that its word and its grammar are facts about it.
+  an id, and that its word and its grammar are facts about it. Closed on
+  28 November 2026 (entry 1 of that day): a key is an id, a readable keyword
+  or a UUID.
 
 5. **Beside the four: what Sid said on 9 October that no box asked.** Positions in his
    words, kept here because the reads sheet asks about each; none is a tick on a row.
@@ -1354,6 +1357,26 @@ session's and is his to turn. The three were built as one change, since each
 changes the bytes that a digest is taken of: the eleventh making of
 `test-store/softland/store/run_again_fixture/` was made for it.
 
+1. **A fact's key is an id: a readable keyword or a UUID.** The question
+   (4a): "What happens today: a fact is thing, key, value, like (note-17,
+   `:title`, "Groceries"). The key must be a plain word like `:title`. The
+   change: a key may also be an id, pointing at a thing in the store. Why you
+   would want it: you could define "priority" as a thing in your lane, with
+   its own name and description, and use it as a key. Two people's "priority"
+   would not clash, and renaming it touches no fact. Asked: confirm "both"?"
+   His answer is the first sentence of the line: "Yes to all that i dont
+   explicitly comment below"; he commented on 4b and 4c and not on 4a. It
+   closes entry 9 of 6 October and K5. What comes with it, a session's:
+   - `:k` has the shape of `:e`. A key that is a UUID is a plain key: the
+     store's own keys stay keywords of the namespace `softland.store`. A lane
+     marks such a key like any other, and a read names it in a place, at the
+     end of a range and under `:points-at`.
+   - No gate holds a key that is a UUID to being a thing of the lane: that it
+     has a name and a description is its maker's to write, as facts on it.
+   - The order of a range goes by the printed text of an id, where a keyword
+     and a UUID are not apart: a UUID that begins with a digit comes before
+     every keyword, and one that begins with a letter after them all
+     (`softland/store/read_path/query.clj`).
 2. **`:subjects` and `:claimed-when` are no parts of an act.** The question
    (4b): "The change: both slots go. When needed, the same thing is said as
    an ordinary fact about the act, which reads can already find. Asked: yes
