@@ -85,7 +85,7 @@
   A whole answer anew is the answer. A change of a read of one place puts
   its place-answer under `:place`. A change of a read of many places puts
   each place-answer under its place in `:places`, and takes a place out
-  whose place-answer says `:no-fact`: the whole answer holds a place only
+  whose place-answer says `:no-fact-given`: the whole answer holds a place only
   where a lane that she may see holds a fact
   (`softland.store.read-path.answer`). An end changes nothing."
   [answer message]
@@ -97,7 +97,7 @@
               answer
               (:changed message))
       (reduce (fn [answer [place place-answer]]
-                (if (= :no-fact (:holds place-answer))
+                (if (= :no-fact-given (:holds place-answer))
                   (update answer :places dissoc place)
                   (update answer :places assoc place place-answer)))
               answer
