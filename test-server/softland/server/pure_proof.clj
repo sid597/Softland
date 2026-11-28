@@ -13,7 +13,8 @@
   token (`softland.server.google`) against tokens that a stand-in signs.
 
   Then it reads the source under src-server and holds what the build's page
-  asks of it: one function calls the door's `send-act`; the server opens no
+  asks of it: one function calls the door's `send-act`, and one its
+  `send-acts`; the server opens no
   table of the store; nothing requires Electric, the rig, the old server or
   Inland; and `softland.server.sign-in` is the one caller of the seam's
   `system`.
@@ -399,9 +400,9 @@
            (= #{"door/open" "read-path/open"}
               (set (re-seq #"(?<![\w.-])(?:door|read-path)/[\w!?*-]+" (code-of (slurp "src-server/softland/server/main.clj")))))
            (set (re-seq #"(?<![\w.-])(?:door|read-path)/[\w!?*-]+" (code-of (slurp "src-server/softland/server/main.clj")))))
-    (check "The seam calls the door's send-act in one place: no act reaches a depot but through the one function that writes the actor's who."
-           (= 1 (count (re-seq #"door/send-act" (code-of (slurp "src-server/softland/server/seam.clj")))))
-           (count (re-seq #"door/send-act" (code-of (slurp "src-server/softland/server/seam.clj")))))
+    (check "The seam calls the door's send-act in one place and its send-acts in one place: no act reaches a depot but through the two functions that write the actor's who, one act or a series."
+           (= {"door/send-act" 1 "door/send-acts" 1} (frequencies (re-seq #"door/send-acts?\b" (code-of (slurp "src-server/softland/server/seam.clj")))))
+           (frequencies (re-seq #"door/send-acts?\b" (code-of (slurp "src-server/softland/server/seam.clj")))))
     (check "The server opens no table and no depot of Rama's but in the client of its own module: what it reads of the store, it reads through the read path."
            (= ["src-server/softland/server/sessions.clj"]
               (holding #"foreign-pstate|foreign-select|foreign-proxy|foreign-depot|foreign-append|foreign-query|foreign-invoke"))
