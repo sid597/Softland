@@ -25,7 +25,8 @@ second note of that day: several accounts for a person, an email that is
 free again once it is erased or unlinked, an invitation that ends and can be
 taken back) turns question 3, and adds 35 to 40, which are a session's
 readings and his to turn. The rules that came with them, the steps of the
-module and every name are a session's too (the spec says each).
+module and every name are a session's too (the spec says each). A review of
+that build added 41, a session's reading too.
 
 ## Forms
 
@@ -579,8 +580,12 @@ cannot bring it back.
 The reference takes (a), with the spec, and keeps the answer under the op
 alone: an op given again with another person or another claim gives the
 answer of the first (the module keeps it at the claim's task, so there an
-op given again under another claim of another task is judged afresh; the
-runtime makes an op fresh for each call, and neither happens). It is the one
+op given again under another claim of another task is judged afresh). The
+spec says that such an op is not defined: the runtime makes an op fresh, at
+random, for each word that reaches it, and the setup for each run, so
+neither happens. The answer is a retry's memory and nothing else: no rule
+leans on it (that nobody gives a person who has entered another account is
+41's, held where the claim's links are). It is the one
 place where a result comes from a memory of a call, and it grows by one
 answer for each invite (28). **A session's reading, for Sid to see beside
 his call of 22 November.** The broken copy `:invite-op-forgotten` takes
@@ -625,6 +630,26 @@ nothing of "over": the caller holds `:ends` against its own time."
 The reference gives an invitation that is over as it gives one that waits,
 with its `:ends`, until it is taken back or the claim is invited again. Its
 person is the claim's `:person` though the claim names nobody.
+
+**41. An invitation beside her links.** The spec of 28 November, later, wrote
+an invitation of `P` "beside her links if she has some", whoever made it.
+Then a person who has entered could be given another account by whoever
+invited her, or by a setup run again, until the invitation's end, and
+nobody could close it.
+
+- (a) Beside her links, only her own invite is written: one whose
+  `:invited-by` is `P`. Another's gives `{:invited P}` and changes nothing.
+- (b) Any invite is written beside her links, and who may make one is the
+  runtime's alone.
+
+The reference takes (a), and so does the spec: the rule sits where the fact
+is, the claim's links, and leans on no memory of answers. "Her own" is read
+from what the event holds: the runtime's `:invited-by` for her own word is
+her person id. After she unlinked every account, an invite of her by anyone
+is written again, which is the owner's way back in through the setup.
+**A session's reading, for Sid to see**, with the question it leaves:
+whether the first inviter may bring back a person who unlinked everything.
+The broken copy `:anyone-invites-beside-links` takes (b).
 
 ## What the state keeps
 

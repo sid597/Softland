@@ -946,6 +946,9 @@
         lane (UUID. 3 1)
         mk (UUID. 3 2) ms (UUID. 3 3)
         invite (fn [op who ck at] (s/->InviteEvent op who ck :system nil (+ at 100000) at))
+        ;; She invites herself, as she adds an account: beside her links,
+        ;; only this is written.
+        her-invite (fn [op who ck at] (s/->InviteEvent op who ck :actor who (+ at 100000) at))
         enter (fn [op ak at & {:keys [email code]}]
                 (s/->EnterEvent op ak (if (= ak A2) :github :google) "a" {"name" "A"} email code lane mk ms at))
         unlink (fn [ak L who at] (s/->UnlinkEvent ak L who at))
@@ -1083,7 +1086,7 @@
                  (nil? (get-in t [:accounts A])))
             [rE rH1 (get-in t [:claims C]) (get-in t [:root-data (s/k-account P A)]) (get-in t [:accounts A])]])
          ;; C
-         (let [[t _] (invited t-in (invite i2 P C 30))
+         (let [[t _] (invited t-in (her-invite i2 P C 30))
                [t r-2] (result-of (run-until t (enter e2 A2 40 :email (h 1))))
                [t u1] (result-of (run-until t (unlink A e1 P 50)))
                names-after-1 (get-in t [:claims C :person])

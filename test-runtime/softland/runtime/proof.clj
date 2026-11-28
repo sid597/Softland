@@ -10,7 +10,8 @@
   copies of what a runtime holds (`softland.runtime.main/start`), two with
   the seam's default numbers and one with short times, and serves each. It
   holds what a store that is not born is told, runs the setup, and a setup
-  whose invitation is over before she comes, and then runs the checks that both proofs of the runtime share
+  whose invitation is over before she comes, run again for her and once
+  more after she has entered, and then runs the checks that both proofs of the runtime share
   (`softland.runtime.checks`).
 
   What a pass shows, and what it does not. The copies share nothing but
@@ -81,12 +82,18 @@
             _ (Thread/sleep (+ 500 (max 0 (- (long (or (:ends done) 0)) (System/currentTimeMillis)))))
             late (drive/sign-in (:url a) owner)
             again (sign-in/setup! (:the-seam c) {:email (:email owner) :person (:person done)})
-            in-time (drive/sign-in (:url b) owner)]
+            in-time (drive/sign-in (:url b) owner)
+            after-in (sign-in/setup! (:the-seam c) {:email (:email owner) :person (:person done)})
+            stranger (drive/sign-in (:url a) {:sub "1000010" :email (:email owner) :name "Not the Owner"})]
         (check "The first person who comes after the setup's invitation is over is turned away as not invited, and the setup run again with her id invites her anew: she then enters as that id."
                (and (uuid? (:person done)) (= 403 (:status late))
                     (= (:person done) (:person again)) (< (long (:ends done)) (long (:ends again)))
                     (= (:person done) (:person in-time)))
-               [done (dissoc late :body) again (dissoc in-time :cookie)]))
+               [done (dissoc late :body) again (dissoc in-time :cookie)])
+        (check "The setup run again with her id after she has entered writes no invitation: it says that she has entered, none waits under her email, and another account of her address is turned away as not invited."
+               (and (= (:person done) (:person after-in)) (true? (:entered? after-in)) (nil? (:ends after-in))
+                    (= 403 (:status stranger)))
+               [after-in (dissoc stranger :body)]))
       (checks/run! {:a (:url a) :b (:url b) :c (:url c)
                     :tag "one"
                     :first first-person

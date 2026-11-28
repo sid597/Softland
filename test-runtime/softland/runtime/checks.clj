@@ -456,7 +456,7 @@
                     other-in (drive/sign-in b other)
                     said-again (say me {:word :invite :uuid bea-uuid :claim {:by :email :email (:email bea)}})
                     again-in (drive/sign-in b (assoc again :email (:email bea)))]
-                (check "A person cannot name another person who has entered: the UUID of Bea's invitation under another claim names another person, whose account does not enter as she; and the same word as her invitation again gives its answer and lets in no account of her address that is not hers."
+                (check "A person cannot name another person who has entered: the UUID of Bea's invitation under another claim names another person, whose account does not enter as she; and the same word as her invitation, said again after she entered by it, gives her and writes nothing, so no account of her address that is not hers enters as she."
                        (and (:invited named-anew) (not= (:person bea-in) (:invited named-anew))
                             (= (:invited named-anew) (:person other-in))
                             (= invited-bea said-again)
@@ -479,14 +479,21 @@
 
               ;; The copy `c` makes invitations that last seconds.
               (let [dora (account 12 "dora")
+                    dora-uuid (UUID/randomUUID)
+                    dora-word {:word :invite :uuid dora-uuid :claim {:by :email :email (:email dora)}}
                     at-c (line c (:credential mine) nil)
-                    invited-dora (say at-c {:word :invite :uuid (UUID/randomUUID) :claim {:by :email :email (:email dora)}})
+                    invited-dora (say at-c dora-word)
                     _ (Thread/sleep (+ 500 (long (:invitation-ms short-numbers))))
-                    dora-in (drive/sign-in a dora)]
+                    dora-in (drive/sign-in a dora)
+                    renewed (say at-c dora-word)
+                    dora-again (drive/sign-in a dora)]
                 (close-line! at-c)
                 (check "An invitation that is over lets nobody in: the account of its address, signing in after the invitation's end, is turned away."
                        (and (:invited invited-dora) (= 403 (:status dora-in)))
-                       [invited-dora (dissoc dora-in :body)]))
+                       [invited-dora (dissoc dora-in :body)])
+                (check "An invitation that is over is renewed by the same word, for the same person, and she enters as that person."
+                       (and (= invited-dora renewed) (= (:invited invited-dora) (:person dora-again)))
+                       [invited-dora renewed (dissoc dora-again :cookie :body)]))
 
               (let [[first-link work-link] (:accounts listed)
                     not-hers (say me {:word :unlink-account :account (:account first-link) :link (:link first-link)})

@@ -315,13 +315,16 @@
   so; the owner runs the setup again with `:person` and she has as long
   again. A run then with no `:person` would make another person, given a
   permission in the base too, and the first id would stay a holder whom
-  nobody becomes. A run with her id after she has entered lets another
-  account of her address in as her, until its end. Her own lane is made at
-  her first sign-in, as everybody's is.
+  nobody becomes. A run with her id after she has entered writes no
+  invitation: the system's invite is not her own, and Auth writes only
+  hers beside her links. A run after she unlinked every account invites her
+  anew, which is the owner's way back in. Her own lane is made at her first
+  sign-in, as everybody's is.
 
-  Gives `{:person :ends :base :gave}`: `:ends` is the end of the
+  Gives `{:person :ends :entered? :base :gave}`: `:ends` is the end of the
   invitation that waits under her email after the run, nil when none does
-  or when the read failed."
+  or when the read failed; `:entered?` is true when none waits and a link
+  of hers stands under her email."
   [the-seam {:keys [email person]}]
   (let [client (seam/auth-of the-seam)
         person (or person (UUID/randomUUID))
@@ -372,9 +375,13 @@
                        answer-wait-ms)]
             (if (:could-not given)
               given
-              {:person person
-               ;; Not `ends`: a run while her invitation waits changes
-               ;; nothing, and the end that stands is the first run's.
-               :ends (get-in (auth/invitation-of client claim) [:invitation :ends])
-               :base (if (= :was-made made) :was-made :made)
-               :gave (:answer given)})))))))
+              ;; Not `ends`: a run while her invitation waits changes
+              ;; nothing, and the end that stands is the first run's.
+              (let [stands (auth/invitation-of client claim)
+                    read? (and (map? stands) (not (:could-not stands)))
+                    waits (when read? (:invitation stands))]
+                {:person person
+                 :ends (:ends waits)
+                 :entered? (boolean (and read? (nil? waits) (pos? (long (or (:links stands) 0)))))
+                 :base (if (= :was-made made) :was-made :made)
+                 :gave (:answer given)}))))))))

@@ -479,6 +479,24 @@
                 (= [asha-google bo-google] (map :account (:accounts (r/accounts-of state asha))))
                 (= 2 (:links (r/invitation-of state asha-code))))))
 
+  (let [by-another (fn [by] (run (conj asha-in (c :invite :invited-by by :at 200)
+                                       (c :enter :account bo-google :at 210 :own-lane lane-2 :making making-2))))
+        {:keys [state results]} (by-another bo)
+        by-system (by-another :system)]
+    (check "Nobody but she invites a person who has entered beside her links (a session's reading, QUESTIONS.md, 41): an invite of her under the claim of her link by another, or by the system, gives {:invited P}, writes no invitation, and lets no other account of the claim in as her."
+           (and (= {:invited asha} (nth results 2))
+                (= {:refused :not-invited} (nth results 3))
+                (= {:person asha :invitation nil :links 1} (r/invitation-of state asha-code))
+                (= [{:invited asha} {:refused :not-invited}] (take-last 2 (:results by-system)))
+                (= [asha-google] (map :account (:accounts (r/accounts-of state asha)))))
+           [results (:results by-system)]))
+
+  (let [{:keys [results]} (run (conj asha-in (c :unlink) (c :invite :at 200)
+                                     (c :enter :account bo-google :at 210 :own-lane lane-2 :making making-2)))]
+    (check "After she unlinked every account, an invite of her by another than her under the claim is written again: she waits, and the account that proves it enters as her."
+           (= [{:unlinked asha} {:invited asha} asha] [(nth results 2) (nth results 3) (:person (nth results 4))])
+           results))
+
   (let [{:keys [state results]} (run [(c :invite :ends 150) (c :invite :person bo :at 150 :ends 1000)
                                       (c :enter :at 160)])]
     (check "An invitation has an end: at or after its :ends it lets nobody in and names nobody, so that an invite of another person under the claim is taken in its place, and the account that proves the claim becomes his."
@@ -1432,7 +1450,7 @@
   [[:no-throw "no step throws"]
    [:links "an account has one link at most; each link stands under the claim that it was made by proving, as a link of that claim's person, who has entered; each link under a claim is the link of an account; a claim that has a record has an invitation that waits or a link; and no two links have one id"]
    [:let-in "an enter that links an account that had no link proves an invitation that waited under its claim for the person that it gives, made at or before the enter's :at and ending after it, which then waits no longer; and one that is refused with :not-invited proves no such invitation, whoever it names"]
-   [:invite "an invite whose op was answered gives that answer again and changes nothing; any other is refused with :claim-in-use exactly when the claim names another person at its :at, by a link or an invitation that is not over, and its op's answer is kept"]
+   [:invite "an invite whose op was answered gives that answer again and changes nothing; any other is refused with :claim-in-use exactly when the claim names another person at its :at, by a link or an invitation that is not over, and its op's answer is kept; and one of a person whose links stand under the claim, while no invitation of hers waits that is not over, made by another than her, gives {:invited P} and changes no claim"]
    [:take-back "a take-back gives {:taken-back P}, leaves no invitation of its op waiting under its claim, and changes nothing else: no link and no other invitation"]
    [:unlink "an unlink gives {:unlinked P}, after which the link that it names does not stand on the account, or {:refused :another-persons} when that link stands there for another person, which changes nothing"]
    [:repeat "a write that arrives twice gives the result of the first, by the parts that bind, an enter with :own-lane-made? as it stands, and leaves the state as once, but for what its own time thins from what is watched, the time that a repeat of open-session moves on while the session and its sign-in stand at the repeat's :at, and the :says of an enter whose :at is later than the kept one's; a replacement that arrives after a newer one is no repeat: it is refused when its sign-in is not live or its old hash is not the hash now, and taken when that hash has come back"]
@@ -1521,14 +1539,20 @@
           done (get-in before [:invite-ops op-id])
           c (get-in before [:claims claim])
           other? (boolean (and c (not= person (:person c))
-                               (or (seq (:links c)) (and (:waiting c) (< at (get-in c [:waiting :ends]))))))]
+                               (or (seq (:links c)) (and (:waiting c) (< at (get-in c [:waiting :ends]))))))
+          beside-hers? (boolean (and c (= person (:person c)) (seq (:links c))
+                                     (not (and (:waiting c) (< at (get-in c [:waiting :ends]))))
+                                     (not= (:invited-by input) person)))]
       (cond
         done (cond-> []
                (not= result (if (= :invited done) {:invited person} {:refused :claim-in-use})) (conj [:not-the-answer-given input result])
                (not= before after) (conj [:answered-op-changed-the-state input]))
         :else (cond-> []
                 (not= other? (= {:refused :claim-in-use} result)) (conj [:claim-in-use-not-as-named input result])
-                (nil? (get-in after [:invite-ops op-id])) (conj [:answer-not-kept input]))))))
+                (nil? (get-in after [:invite-ops op-id])) (conj [:answer-not-kept input])
+                (and beside-hers? (not (and (= {:invited person} result)
+                                            (= (:claims before) (:claims after)))))
+                (conj [:another-invited-beside-her-links input result]))))))
 
 (defn- take-back-violations
   "Checks a take-back: what it gives, that its op's invitation waits no

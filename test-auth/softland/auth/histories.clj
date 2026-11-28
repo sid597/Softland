@@ -178,15 +178,20 @@
                     fresh-claims (vec (remove #(contains? (:claims state) %) claims))
                     fresh? (and (seq fresh-persons) (seq fresh-claims) (chance? rnd 0.5))
                     ;; Now and then a person who has entered, under a claim that
-                    ;; names her already, as she adds an account.
+                    ;; names her already: mostly she herself, as she adds an
+                    ;; account, and else another, who writes nothing beside
+                    ;; her links.
                     own (vec (sort-by str (keep (fn [[claim c]] (when (contains? (:persons state) (:person c)) [(:person c) claim]))
                                                 (:claims state))))
-                    [P claim] (if (and (seq own) (chance? rnd 0.2))
+                    own? (and (seq own) (chance? rnd 0.2))
+                    [P claim] (if own?
                                 (pick rnd own)
                                 [(pick rnd (if fresh? fresh-persons (:persons w))) (pick rnd (if fresh? fresh-claims claims))])]
                 [w [:invite {:person P
                              :claim claim
-                             :invited-by (if (chance? rnd 0.5) :system (uuid-of rnd))
+                             :invited-by (cond (and own? (chance? rnd 0.7)) P
+                                               (chance? rnd 0.5) :system
+                                               :else (uuid-of rnd))
                              :at now
                              :ends (invitation-end w)
                              :op-id (uuid-of rnd)}]])

@@ -33,9 +33,10 @@
   No system chooses an id. A session's id is random. The id of an agent, of
   its sign-in and of an invited person is a hash of the caller's root and a
   UUID that the system sent (`derived`), and of the claim too for an
-  invited person and for the op of an invite: the same UUID gives the same
-  id, so a word said twice is one making, and no UUID that a system can
-  pick gives the id of a thing that is not its own. The UUID is kept nowhere,
+  invited person: the same UUID gives the same id, so a word said twice is
+  one making, and no UUID that a system can pick gives the id of a thing
+  that is not its own. The op of an invite is fresh at each word, and Auth
+  judges the invite again by what stands. The UUID is kept nowhere,
   not by the runtime, not in Auth and in no act, so a derived id cannot be
   worked back to its root. A person's id says nothing (src-store/README.md,
   9 October 2026, entry 1), and neither does an id made from it. Auth
@@ -723,16 +724,17 @@
     {:by :code :hash hash}))
 
 (defn- invite-now
-  "The person and the invite's op are derived from the root, the UUID and
-  the claim, so the word said again is the same invite, which Auth answers
-  as it did, and no UUID names a person whom an invitation made under any
-  other claim: a person who was invited, and has entered, cannot be given
-  another account by whoever invited her. That rests on Auth keeping the
-  answer of each invite under its op; a sweep of those answers, which is
-  not built, would need a read here of whether the person has entered.
-  `:herself` names the caller's own root, to add an account, and only she
-  may, at a browser: a program that holds her sign-in cannot give her an
-  account. The end is this copy's: `:invitation-ms` from now."
+  "The person is derived from the inviter's root, the UUID and the claim,
+  so no caller can form the id of a person whom another invited, or of one
+  under another claim. The invite's op is fresh for each word that reaches
+  the runtime, so the same word said again is judged by what stands: while
+  her invitation waits it changes nothing, after it is over or was taken
+  back she is invited anew as the same person, and after she entered by
+  the claim Auth writes nothing beside her links, since an invite there
+  that is not her own adds no account. `:herself` names the caller's own
+  root, to add an account, and only she may, at a browser: a program that
+  holds her sign-in cannot give her an account. The end is this copy's:
+  `:invitation-ms` from now."
   [^Seam seam ^Caller caller {:keys [uuid claim herself]}]
   (if (and herself (not= :browser (.-kind caller)))
     (words/could-not :do-that-at-a-browser nil)
@@ -744,7 +746,7 @@
       (from-auth (auth/invite (.-client seam)
                               {:person person :claim claim :invited-by (.-actor caller)
                                :at now :ends (+ now (long (:invitation-ms (.-numbers seam))))
-                               :op-id (apply derived :invite root uuid person parts)})))))
+                               :op-id (UUID/randomUUID)})))))
 
 (defn- take-back-now
   "Takes back the invitation that waits under the claim, by the op that

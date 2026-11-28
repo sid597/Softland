@@ -201,6 +201,8 @@
                                          (str ". She signs in before " (java.time.Instant/ofEpochMilli (long ends))
                                               "; later, her sign-in is turned away as not invited, and this command, run again with --person "
                                               (:person done) ", invites her anew"))
+                                       (when (:entered? done)
+                                         ". She has entered: no invitation waits under her email, and this run wrote none")
                                        ". If this command was cut off, run it again with --person " (:person done)
                                        ". The base: " (name (:base done)) ". Her permission in it: "
                                        (pr-str (:gave done)) ".")))))]

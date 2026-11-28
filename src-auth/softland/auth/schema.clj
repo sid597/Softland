@@ -525,7 +525,10 @@
 (defn invite-step
   "On H(C), one step, no hop. `c` is the claim's record and `done` the
   record of this invite's op. An op that has a record changes nothing and
-  gives the answer it gave. Every other case writes the op's record in the
+  gives the answer it gave. Beside her links, only her own invite (its
+  `invited-by` is she) is written: another's gives `{:invited P}` and
+  changes nothing, since adding an account to a person who has entered is
+  her act alone. Every case but the first writes the op's record in the
   same event."
   [^InviteEvent ev c done]
   (let [P (:person ev)
@@ -540,6 +543,10 @@
       {:result {:refused :claim-in-use} :op-v (->InviteOpDone :claim-in-use at)}
 
       (and (= named P) (not-over? (:waiting c) at))
+      {:result {:invited P} :op-v (->InviteOpDone :invited at)}
+
+      (and (= named P) (seq (:links c))
+           (not (and (= :actor (:invited-by-kind ev)) (= P (:invited-by-id ev)))))
       {:result {:invited P} :op-v (->InviteOpDone :invited at)}
 
       :else

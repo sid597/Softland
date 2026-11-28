@@ -169,7 +169,10 @@ Rules for every call:
   and the same for each try of one call, and an invite whose op was
   answered gives that answer again and changes nothing, whatever stands
   now, so that an invite that runs again after its invitation was taken
-  back, or after the link that it let in was removed, cannot bring it back. A refusal binds nothing: the same write after the state changed
+  back, or after the link that it let in was removed, cannot bring it back.
+  The same op given again with another person or another claim is not
+  defined: the runtime makes the op where it takes the word and cannot
+  send it so. A refusal binds nothing: the same write after the state changed
   can be taken, and so can the same write with another `:at`, when it was
   refused for a time that had passed at the first one.
 - Where two refusals apply to one write, a repeat is recognised first, then
@@ -379,14 +382,27 @@ changes nothing. Else a claim that names another person at the invite's
 `:at`, by a link or by an invitation that is not over, is `:claim-in-use`.
 An invitation of `P` that waits under `C` and is not over makes the invite a
 repeat, which changes nothing; its `:invited-by` and `:ends` are dropped.
-Otherwise her invitation is written, with this `:at` and `:ends`, in the
-place of any invitation that waited and is over, and beside her links under
-the claim when she has some. An invitation whose `:ends` is at or before its
-own `:at` is taken and lets nobody in. A person may wait under several
+When links of `P` stand under `C` and no invitation of hers waits that is
+not over, an invite that is not her own (its `:invited-by` is not `P`)
+changes nothing and gives `{:invited P}`: she is in by this claim, and
+adding an account to a person who has entered is her act alone (a
+session's reading, QUESTIONS.md, 41). Otherwise her invitation is written,
+with this `:at` and `:ends`, in the place of any invitation that waited and
+is over, and beside her links under the claim when she has some, which is
+only when she invites herself. An invitation whose `:ends` is at or before
+its own `:at` is taken and lets nobody in. A person may wait under several
 claims, and may be invited after she has entered: that is how she adds an
-account, an invitation that names herself, proven by her other account. Who
-may make such an invitation is the runtime's: only the person herself, at a
-browser, may name herself; nobody may name another person who has entered.
+account, an invitation that names herself, proven by her other account.
+Under a claim of hers, Auth holds that rule itself; under another claim,
+the runtime does: only the person herself, at a browser, may name herself,
+and the id of a person is made from the inviter's root, a UUID and the
+claim, so that no caller can form the id of a person whom another invited,
+or of one under another claim. So the same invite made again, with a fresh
+op: while her invitation waits, nothing changes; after it is over or was
+taken back, she is invited anew under the same id; after she entered by
+it, nothing changes; after she unlinked every account, she is invited anew
+(whether the first inviter may bring back a person who unlinked everything
+is Sid's).
 A person who waits has no sign-in and is no actor yet. `:invited-by` is
 kept as given and not checked: who may invite is the runtime's. Nothing is
 written when a time passes: an invitation that is over keeps its record,

@@ -482,8 +482,11 @@
   whose op has an answer gives it again and changes nothing (QUESTIONS.md,
   35). Else a claim that names another person at the invite's `:at` is
   `:claim-in-use`; an invitation of this person that waits and is not over
-  is a repeat, whose `:invited-by` and `:ends` are dropped; and otherwise
-  her invitation is written, with this `:at` and `:ends`, beside her links
+  is a repeat, whose `:invited-by` and `:ends` are dropped; an invite of a
+  person whose links stand under the claim, made by anyone but her, gives
+  `{:invited P}` and writes nothing, since adding an account to a person
+  who has entered is her act alone (QUESTIONS.md, 41); and otherwise her
+  invitation is written, with this `:at` and `:ends`, beside her links
   under the claim when she has some. An invitation whose `:ends` is at or
   before its own `:at` is taken and never lets anyone in (QUESTIONS.md,
   36). A person may wait
@@ -493,8 +496,9 @@
   `:person-has-one-claim` refuses with `:person-in-use` a person whom
   another claim names, `:used-claim-names-another` lets another person be
   invited under a claim that a link stands under, which takes the place of
-  the claim's links, and `:invite-op-forgotten` judges an op that has an
-  answer again."
+  the claim's links, `:invite-op-forgotten` judges an op that has an
+  answer again, and `:anyone-invites-beside-links` writes the invitation of
+  anyone beside her links."
   [state {:keys [person claim invited-by at ends op-id]} broken]
   (let [c (get-in state [:claims claim])
         named (names c at broken)
@@ -513,6 +517,10 @@
       [state {:refused :person-in-use}]
 
       (and (= named person) (:waiting c) (not (passed? (get-in c [:waiting :ends]) at broken)))
+      (answered state {:invited person})
+
+      (and (= person (:person c)) (seq (:links c)) (not= invited-by person)
+           (not= broken :anyone-invites-beside-links))
       (answered state {:invited person})
 
       :else
@@ -1023,6 +1031,8 @@
    "an invitation that is over still names its person, so that an invite of another person under its claim is :claim-in-use"
    :invite-op-forgotten
    "an invite whose op has an answer is judged again"
+   :anyone-invites-beside-links
+   "an invite of a person whose links stand under the claim, made by another than her, writes her invitation beside them"
    :take-back-of-any
    "take-back takes back whichever invitation waits under the claim, not only the one that its op made"
    :take-back-takes-links
