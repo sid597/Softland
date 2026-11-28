@@ -78,7 +78,9 @@
 (def words
   "`:carries` is the part that carries a form of the store's, nil for none.
   `:who` is who may say the word: `:anybody`, a visitor too; `:an-actor`,
-  whoever is signed in; `:a-person`, a person herself and no agent.
+  whoever is signed in; `:a-person`, a person herself, signed in at a
+  browser, and no agent: no program is a person, so a program says none of
+  these. Whether one of them can be lent to a program is not decided.
   `:in-a-session` marks a word that only a caller who is in a session
   says. The two are the rule itself and not a second telling of it: the
   runtime reads them to hold a word against its caller
@@ -109,7 +111,7 @@
                     :carries nil :who :an-actor}
    :close-session  {:says "closes the session of this connection"
                     :carries nil :who :an-actor :in-a-session true :can-end-its-connection true}
-   :invite         {:says "makes a person who waits, until the invitation's end, for an account that proves the claim; with `:herself`, said at a browser, the caller herself waits, to add an account"
+   :invite         {:says "makes a person who waits, until the invitation's end, for an account that proves the claim; with `:herself`, the caller herself waits, to add an account"
                     :carries nil :who :a-person}
    :take-back-invite
                    {:says "takes back the invitation that waits under the claim, when the caller made it"
@@ -381,10 +383,7 @@
    {:says "the act or the query names another who, session or asker than the caller's; `:at` is the part. Nobody acts for another"
     :status 403}
    :do-that-as-an-agent
-   {:says "the word is a person's own, and the caller is an agent"
-    :status 403}
-   :do-that-at-a-browser
-   {:says "the word, as it was said, is the person's own at a browser, and the caller is a program: only she, signed in at a browser, adds an account to herself"
+   {:says "the word is a person's own, said at a browser, and the caller is an agent: every program is one"
     :status 403}
    :find-the-agent
    {:says "the agent that was named is not beneath the caller; `:why` is `:not-known` or `:not-beneath`"

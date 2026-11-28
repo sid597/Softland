@@ -260,7 +260,8 @@
 (defn answer!
   "The caller is the person herself, signed in at a browser. For a yes,
   `:label` is the name of a new agent, `:agent` the id of a live agent of
-  hers; with neither, the program is signed in as herself."
+  hers. A yes with neither names her, and Auth refuses it `:is-a-person`:
+  no program acts under her own id."
   [the-seam caller code {:keys [yes? label agent]}]
   (if-not (seam/person? caller)
     (words/could-not :do-that-as-an-agent nil)

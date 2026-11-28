@@ -678,7 +678,9 @@
   hash. The same id with the same actor, kind and hash (the hash it began
   with) is a repeat, whose other parts are dropped. Else an actor that is
   not of this root is `:no-such-actor`, one that is not live is `:ended`,
-  and an id that is another sign-in already is `:in-use`."
+  and an id that is another sign-in already is `:in-use`. A sign-in of kind
+  `:program` is never the person's: one for the root herself is
+  `:is-a-person`, after `:no-such-actor`."
   [state {:keys [root actor sign-in kind hash until label at]} broken]
   (let [g (get-in state [:roots root :sign-ins sign-in])]
     (cond
@@ -694,6 +696,7 @@
         [(update-in state [:roots root :sign-ins sign-in] assoc :until until :label label) {:begun sign-in}]
         [state {:begun sign-in}])
       (nil? (actor-of state root actor)) (refuse state :no-such-actor)
+      (and (= :program kind) (= actor root) (not= broken :person-begins-a-program)) (refuse state :is-a-person)
       (not (actor-live? state root actor)) (refuse state :ended)
       (some? g) (refuse state :in-use)
       :else [(begin state root sign-in {:actor actor :kind kind :hash hash :until until :label label} at broken)
@@ -934,9 +937,10 @@
   "The refusal that applies to the answer `input` after `:no-such-ask` and
   `:over`, or nil. A no needs a person who has entered, and judges no other
   part. A yes needs its actor, or the person who makes the new agent, of
-  the root and live; and a new agent's id and the sign-in's id that are no
+  the root and live; an actor that is not the person herself, who is
+  `:is-a-person`; and a new agent's id and the sign-in's id that are no
   other's of the root."
-  [state {:keys [yes? root actor new-agent sign-in]}]
+  [state {:keys [yes? root actor new-agent sign-in]} broken]
   (let [sign-in-taken? (some? (get-in state [:roots root :sign-ins sign-in]))]
     (cond
       (not yes?) (when-not (entered? state root) :no-such-actor)
@@ -944,6 +948,7 @@
                               (some? (actor-of state root actor)) :in-use
                               sign-in-taken? :in-use)
       :else (cond (nil? (actor-of state root actor)) :no-such-actor
+                  (and (= actor root) (not= broken :yes-names-the-person)) :is-a-person
                   (not (actor-live? state root actor)) :ended
                   sign-in-taken? :in-use))))
 
@@ -953,10 +958,11 @@
   stands, before any refusal, and changes nothing (Sid's call of 22
   November). An answer to an ask that waits is `:over` at or after the
   ask's `:ends`, or when the ask was over when it was made, and then come
-  the refusals of `answer-refusal`. A yes makes the new agent when there is
-  one, made by the person, and begins a sign-in of kind `:program` for the
-  actor, with the ask's hash and the ask's `:asks` as its label; a no
-  refuses the ask for good."
+  the refusals of `answer-refusal`. A yes names an agent, new or live, and
+  never the person. It makes the new agent when there is one, made by the
+  person, and begins a sign-in of kind `:program` for the actor, with the
+  ask's hash and the ask's `:asks` as its label; a no refuses the ask for
+  good."
   [state {:keys [code yes? root actor new-agent sign-in until at] :as input} broken]
   (let [k (get-in state [:asks code])
         judged-first? (= broken :answered-ask-judged-first)]
@@ -970,7 +976,7 @@
       [state (what-stands k code)]
       (over? k at broken) (refuse state :over)
       :else
-      (if-let [word (answer-refusal state input)]
+      (if-let [word (answer-refusal state input broken)]
         (refuse state word)
         (cond
           (and (answered? k) judged-first?) [state (what-stands k code)]
@@ -1073,6 +1079,10 @@
    "end-actor ends the agent and the agents that end with it itself, and none further down"
    :end-actor-leaves-sessions-open
    "end-actor ends the actors and their sign-ins, and leaves the sessions of those open"
+   :person-begins-a-program
+   "begin-sign-in of kind :program for the person herself is taken"
+   :yes-names-the-person
+   "a yes that names the person herself as the actor begins a sign-in of kind :program for her"
    :later-answer-stands
    "a later answer to an ask takes the place of the answer that stands"
    :answer-at-the-end-taken

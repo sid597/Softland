@@ -18,10 +18,11 @@
   that becomes its credential, and one only for asking. It posts the hash
   of each with what it says of itself. It gets a code, and shows the code
   and a link. She opens the link where she is signed in, sees the code
-  again, and says yes, as a new agent with a name, as an agent of hers
-  signed in again, or as herself; or no. For an agent she ticks what it is
-  lent in her own lane, to see and to write: both for a new agent, neither
-  for one of hers, which keeps what it holds. The
+  again, and says yes, as a new agent with a name or as an agent of hers
+  signed in again, or no. A yes never names her: only she, at a browser,
+  is she. She ticks what the agent is lent in her own lane, to see and to
+  write: both for a new agent, neither for one of hers, which keeps what it
+  holds. The
   program asks for the ask's state with its code and its secret for asking
   until she has answered, and puts its credential together from what it is
   told and the other secret, which it has sent nowhere until then. An ask
@@ -500,9 +501,6 @@
                           "<button name=\"say\" value=\"yes\">Yes, as this agent</button></form>")
                      "<p>You have no agent yet that a program could sign in as again.</p>")
                    form-start
-                   "<input type=\"hidden\" name=\"as\" value=\"me\">"
-                   "<button name=\"say\" value=\"yes\">Yes, it acts as me</button></form>"
-                   form-start
                    "<button name=\"say\" value=\"no\">No</button></form>"))))))
 
 (defn- lent
@@ -547,8 +545,9 @@
       (not (and caller code (seam/person? caller)))
       (page 400 "<p>That was not taken.</p>")
 
-      (and yes? (not (contains? #{"new-agent" "my-agent" "me"} as)))
-      (page 400 "<p>That was not taken.</p>")
+      ;; No yes signs a program in as herself.
+      (and yes? (not (contains? #{"new-agent" "my-agent"} as)))
+      (page 400 "<p>That was not taken: a program is signed in as an agent of yours, new or one that you have.</p>")
 
       (and yes? (= "new-agent" as) (not (words/text? label)))
       (page 400 "<p>An agent needs a name. Go back and give it one.</p>")
@@ -564,16 +563,15 @@
                                                        :agent (when mine-agent? agent)})
             standing (:yes got)
             mine? (and standing (= (seam/root-of caller) (:root standing)))
-            as-me? (and mine? (= (seam/root-of caller) (:actor standing)))
-            listed (when (and mine? (not as-me?)) (live-agents the-seam caller))
+            listed (when mine? (live-agents the-seam caller))
             named (or (some (fn [a] (when (= (:actor standing) (:actor a)) (:label a))) listed)
                       (when new? label))
             actor-matches? (and mine? yes?
-                                (cond new? (and (not as-me?) (or (nil? listed) (= label named)))
-                                      mine-agent? (= agent (:actor standing))
-                                      :else as-me?))]
+                                (if new?
+                                  (or (nil? listed) (= label named))
+                                  (= agent (:actor standing))))]
         (cond
-          (and actor-matches? (not as-me?) allows)
+          (and actor-matches? allows)
           (let [ids (credential/lent-at-yes (:root standing) (:sign-in standing))
                 ;; The session is left open: the same post again must find it,
                 ;; to send the same act. It ends when its time passes.
@@ -586,19 +584,17 @@
                              "lent: it holds nothing of it. Send this page again to lend it, or lend it later.</p>"))))
 
           actor-matches?
-          (page 200 (cond as-me? "<p>Done. The program is signed in as you; go back to it.</p>"
-                          new? (str "<p>Done. The program is signed in as " (escaped named)
-                                    ", and it holds nothing; go back to it.</p>")
-                          :else (str "<p>Done. The program is signed in as " (escaped named)
-                                     ", which keeps what it holds; go back to it.</p>")))
+          (page 200 (if new?
+                      (str "<p>Done. The program is signed in as " (escaped named)
+                           ", and it holds nothing; go back to it.</p>")
+                      (str "<p>Done. The program is signed in as " (escaped named)
+                           ", which keeps what it holds; go back to it.</p>")))
 
           mine?
           (page 409
-                (if as-me?
-                  (str "<p>This program was already answered before: the program is signed in as you (sign-in <code>"
-                       (escaped (:sign-in standing)) "</code>). End that sign-in if you did not mean to allow it.</p>")
-                  (str "<p>This program was already answered before: the program is signed in as an agent of yours (sign-in <code>"
-                       (escaped (:sign-in standing)) "</code>). End that sign-in if you did not mean to allow it.</p>")))
+                (str "<p>This program was already answered before: the program is signed in as an agent of yours, "
+                     (escaped named) " (sign-in <code>" (escaped (:sign-in standing))
+                     "</code>). End that sign-in if you did not mean to allow it.</p>"))
 
           standing
           (page 409 "<p>This program was already answered before.</p>")
@@ -610,6 +606,8 @@
           (page 409 "<p>This program was already refused before.</p>")
 
           (= :over (:why got)) (page 409 "<p>This program waited too long. Start its sign-in again.</p>")
+          (= :is-a-person (:why got))
+          (page 409 "<p>That was not taken: a program is never signed in as you. Choose an agent of yours, new or one that you have.</p>")
           (= :take-that (:could-not got)) (page 409 "<p>That was not taken. Start the program's sign-in again.</p>")
           :else (page 503 "<p>That could not be written. Try again.</p>"))))))
 

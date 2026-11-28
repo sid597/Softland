@@ -250,7 +250,7 @@
                  [:own-lane-made {:person P :at 30}]
                  [:begin-sign-in {:root P :actor P :sign-in G-exp :kind :browser :hash (h 2)
                                   :until 1000 :label "exp" :at 35}]
-                 [:begin-sign-in {:root P :actor P :sign-in G-live :kind :program :hash (h 3)
+                 [:begin-sign-in {:root P :actor P :sign-in G-live :kind :browser :hash (h 3)
                                   :until 9000 :label nil :at 40}]
                  [:open-session {:root P :sign-in G-exp :session S-short :until 900 :driven-by {:kind :person} :at 45}]
                  [:open-session {:root P :sign-in G-exp :session S-long :until 5000 :driven-by {:kind :model :model "opus"} :at 46}]
@@ -265,7 +265,7 @@
                  [:replace-secret {:root P :sign-in G-live :old-hash (h 3) :new-hash (h 4)
                                    :until 9999 :previous-until 9999 :at 1001}]
                  ;; Repeat of begin-sign-in after replace-secret (checks immutable :initial-hash)
-                 [:begin-sign-in {:root P :actor P :sign-in G-live :kind :program :hash (h 3)
+                 [:begin-sign-in {:root P :actor P :sign-in G-live :kind :browser :hash (h 3)
                                   :until 1234 :label "ignored" :at 1002}]]
                 ;; Build 32-deep agent chain A0..A31 (depths 1..32), then A32 refused :too-deep
                 (for [i (range 33)]
@@ -379,7 +379,7 @@
                                       (when (= v :softland.auth.client/not-reached)
                                         (.countDown nr-latch))))
           ;; Confirm a live change arrives before destroy
-          _ (client/begin-sign-in c1 {:root P :actor P :sign-in G2 :kind :program :hash H2
+          _ (client/begin-sign-in c1 {:root P :actor P :sign-in G2 :kind :browser :hash H2
                                       :until 9000 :label "w2" :at 40})
           _ (Thread/sleep 150)
           t-destroy (System/nanoTime)

@@ -80,6 +80,7 @@
 (def ^:private agent-1 (id 11))
 (def ^:private agent-2 (id 12))
 (def ^:private agent-3 (id 13))
+(def ^:private agent-4 (id 14))
 (def ^:private sign-in-1 (id 21))
 (def ^:private sign-in-2 (id 22))
 (def ^:private sign-in-3 (id 23))
@@ -115,7 +116,8 @@
 (def ^:private defaults
   "One call of each write, as Asha's first day would make it: invited at
   100, in at 110, signed in at 130 until 100000, a session at 140 until
-  50000, an agent at 130, an ask at 130 that ends at 1000."
+  50000, an agent at 130, an ask at 130 that ends at 1000 and her yes to it
+  at 140, as a new agent."
   {:invite {:person asha :claim asha-code :invited-by :system :at 100 :ends 100000}
    :enter {:account asha-google :says {"name" "Asha"} :email-hash nil :code-hash (h 1)
            :own-lane lane-1 :making making-1 :at 110}
@@ -130,7 +132,7 @@
    :open-session {:root asha :sign-in sign-in-1 :session session-1 :until 50000 :at 140}
    :close-session {:root asha :session session-1 :at 150}
    :ask {:code code-1 :hash (h 201) :asking-hash (h 301) :asks "the importer on a laptop" :ends 1000 :at 130}
-   :answer-ask {:code code-1 :yes? true :root asha :actor asha :new-agent nil
+   :answer-ask {:code code-1 :yes? true :root asha :actor agent-4 :new-agent {:label "the importer"}
                 :sign-in sign-in-2 :until 100000 :at 140}
    :take-back {:person asha :claim asha-code :at 150}
    :unlink {:account asha-google :person asha :at 160}})
@@ -290,8 +292,8 @@
          (unchanged? signed-in (c :begin-sign-in :until 7 :label "another" :at 135) {:begun sign-in-1}))
 
   (check "A sign-in id is bound once: with another actor, another kind or another hash it is refused with :in-use."
-         (every? #(= {:refused :in-use} (last-of (concat with-agent [(c :begin-sign-in) %])))
-                 [(c :begin-sign-in :actor agent-1) (c :begin-sign-in :kind :program) (c :begin-sign-in :hash (h 109))]))
+         (every? #(= {:refused :in-use} (last-of (concat with-agent [(c :begin-sign-in :actor agent-1) %])))
+                 [(c :begin-sign-in) (c :begin-sign-in :actor agent-1 :kind :program) (c :begin-sign-in :actor agent-1 :hash (h 109))]))
 
   (let [{:keys [state results]} (run (conj with-agent (c :make-actor :label "another" :at 135)
                                            (c :make-actor :made-by agent-1 :at 136)))]
@@ -701,6 +703,19 @@
                                               (c :begin-sign-in :actor agent-1 :at 141)
                                               (c :begin-sign-in :actor agent-2 :at 142)))))))
 
+  (let [{:keys [state results]} (run (conj with-agent (c :begin-sign-in :kind :program)
+                                           (c :begin-sign-in :sign-in sign-in-3 :at 131)
+                                           (c :begin-sign-in :kind :program :sign-in sign-in-3 :hash (h 109) :at 132)
+                                           (c :begin-sign-in :actor agent-1 :kind :program :sign-in sign-in-2 :hash (h 110) :at 133)))]
+    (check "No program acts under her own id: begin-sign-in of kind :program for the person herself is refused with :is-a-person, also under an id that is in use, and begins nothing; of kind :browser for her, and of kind :program for her agent, it is taken."
+           (and (= [{:refused :is-a-person} {:begun sign-in-3} {:refused :is-a-person} {:begun sign-in-2}] (take-last 4 results))
+                (nil? (:sign-in (who state sign-in-1)))
+                (= [asha :browser] ((juxt :actor :kind) (:sign-in (who state sign-in-3))))
+                (= [agent-1 :program] ((juxt :actor :kind) (:sign-in (who state sign-in-2)))))))
+
+  (check "A begin-sign-in of kind :program for a root who waits is :no-such-actor: that refusal comes before :is-a-person."
+         (= {:refused :no-such-actor} (last-of [(c :invite) (c :begin-sign-in :kind :program)])))
+
   (check "begin-sign-in with an id that is another sign-in already is refused with :in-use."
          (= {:refused :in-use} (last-of (conj signed-in (c :begin-sign-in :hash (h 109) :at 131)))))
 
@@ -1030,22 +1045,23 @@
             [(last-of [(c :ask) (c :ask :hash (h 202) :at 131)])
              (last-of [(c :ask) (c :ask :hash (h 202) :at 5000 :ends 9000)])]))
 
+  (let [{:keys [state results]} (run (conj asked (c :answer-ask :actor asha :new-agent nil) (c :answer-ask :at 141)))]
+    (check "No program acts under her own id: a yes that names the person herself as the actor is refused with :is-a-person, begins no sign-in, and leaves the ask waiting, so that a yes as an agent is then taken."
+           (and (= [{:refused :is-a-person} {:yes {:root asha :actor agent-4 :sign-in sign-in-2}}] (take-last 2 results))
+                (= agent-4 (:actor (:sign-in (who state sign-in-2))))
+                (not-any? (fn [g] (= asha (:actor g))) (:sign-ins (r/under state asha))))))
+
   (let [{:keys [state last]} (run (conj asked (c :answer-ask)))]
-    (check "yes, as herself: {:yes {:root P :actor P :sign-in G}}; a sign-in of kind :program begins for her with the ask's hash, and ask-of says :yes with the answer."
-           (and (= {:yes {:root asha :actor asha :sign-in sign-in-2}} last)
-                (= {:actor asha :kind :program :hash (h 201) :until 100000 :ended? false}
+    (check "yes, as a new agent: {:yes {:root P :actor A :sign-in G}}; the agent is made under her, by her, with the label, and ends with her; a sign-in of kind :program begins for it with the ask's hash, and ask-of says :yes with the answer."
+           (and (= {:yes {:root asha :actor agent-4 :sign-in sign-in-2}} last)
+                (= [{:actor agent-4 :made-by asha :ends-with asha :label "the importer" :ended? false}]
+                   (:actors (r/under state asha)))
+                (= {:actor agent-4 :kind :program :hash (h 201) :until 100000 :ended? false}
                    (select-keys (:sign-in (who state sign-in-2)) [:actor :kind :hash :until :ended?]))
-                (= {:state :yes :answer {:root asha :actor asha :sign-in sign-in-2}}
+                (= {:state :yes :answer {:root asha :actor agent-4 :sign-in sign-in-2}}
                    (select-keys (r/ask-of state code-1) [:state :answer])))))
 
-  (let [{:keys [state last]} (run (conj asked (c :answer-ask :actor agent-1 :new-agent {:label "the importer"})))]
-    (check "yes, as a new agent: the agent is made under her, by her, with the label, and ends with her; and the sign-in begins for it."
-           (and (= {:yes {:root asha :actor agent-1 :sign-in sign-in-2}} last)
-                (= [{:actor agent-1 :made-by asha :ends-with asha :label "the importer" :ended? false}]
-                   (:actors (r/under state asha)))
-                (= agent-1 (:actor (:sign-in (who state sign-in-2)))))))
-
-  (let [{:keys [state last]} (run (conj with-agent (c :ask) (c :answer-ask :actor agent-1)))]
+  (let [{:keys [state last]} (run (conj with-agent (c :ask) (c :answer-ask :actor agent-1 :new-agent nil)))]
     (check "yes, as a live agent of hers that exists: the sign-in begins for that agent."
            (and (= {:yes {:root asha :actor agent-1 :sign-in sign-in-2}} last)
                 (= agent-1 (:actor (:sign-in (who state sign-in-2)))))))
@@ -1066,12 +1082,12 @@
 
   (check "answer-ask is refused with :no-such-actor when its actor is not of the root: an id that is nobody's, an agent of another root, and a root who waits."
          (= (repeat 3 {:refused :no-such-actor})
-            [(last-of (conj asked (c :answer-ask :actor agent-3)))
-             (last-of (concat asked bo-in [(c :make-actor :root bo :made-by bo :actor agent-2) (c :answer-ask :actor agent-2)]))
+            [(last-of (conj asked (c :answer-ask :actor agent-3 :new-agent nil)))
+             (last-of (concat asked bo-in [(c :make-actor :root bo :made-by bo :actor agent-2) (c :answer-ask :actor agent-2 :new-agent nil)]))
              (last-of [(c :invite) (c :ask) (c :answer-ask)])]))
 
   (check "answer-ask for an agent that has ended is refused with :ended."
-         (= {:refused :ended} (last-of (conj with-agent (c :ask) (c :end-actor :at 135) (c :answer-ask :actor agent-1)))))
+         (= {:refused :ended} (last-of (conj with-agent (c :ask) (c :end-actor :at 135) (c :answer-ask :actor agent-1 :new-agent nil)))))
 
   (check "answer-ask is refused with :in-use when the new agent's id or the sign-in's id is another's."
          (= [{:refused :in-use} {:refused :in-use} {:refused :in-use}]
@@ -1081,18 +1097,19 @@
 
   (let [once (conj asked (c :answer-ask))]
     (check "The first answer stands: the same answer again gives the same result and changes nothing, and another answer, a no or a yes of another sign-in, gives what stands and begins nothing."
-           (and (unchanged? once (c :answer-ask :until 7 :at 141) {:yes {:root asha :actor asha :sign-in sign-in-2}})
-                (unchanged? once (c :answer-ask :yes? false :at 142) {:yes {:root asha :actor asha :sign-in sign-in-2}})
-                (unchanged? once (c :answer-ask :sign-in sign-in-3 :at 143) {:yes {:root asha :actor asha :sign-in sign-in-2}}))))
+           (and (unchanged? once (c :answer-ask :until 7 :at 141) {:yes {:root asha :actor agent-4 :sign-in sign-in-2}})
+                (unchanged? once (c :answer-ask :yes? false :at 142) {:yes {:root asha :actor agent-4 :sign-in sign-in-2}})
+                (unchanged? once (c :answer-ask :sign-in sign-in-3 :at 143) {:yes {:root asha :actor agent-4 :sign-in sign-in-2}}))))
 
   (let [{:keys [state]} (run (conj asked (c :answer-ask)))]
     (check "The sign-in that a yes begins has the ask's :asks as its label."
            (= "the importer on a laptop" (:label (first (:sign-ins (r/under state asha)))))))
 
   (let [once (conj asha-in (c :invite :person bo :claim bo-email :at 101) (c :begin-sign-in) (c :ask) (c :answer-ask))]
-    (check "Once an ask has an answer, every answer that fits gives what stands, before any refusal, and changes nothing: a yes that asks for a new agent of her own id, a yes as an actor that is nobody's, a yes whose sign-in id is in use, a no from a root who waits, and a yes from a root that is nobody's (Sid's call of 22 November)."
-           (every? #(unchanged? once % {:yes {:root asha :actor asha :sign-in sign-in-2}})
-                   [(c :answer-ask :new-agent {:label "x"} :at 141) (c :answer-ask :actor agent-3 :at 142)
+    (check "Once an ask has an answer, every answer that fits gives what stands, before any refusal, and changes nothing: a yes that asks for a new agent of her own id, a yes as an actor that is nobody's, a yes as herself, a yes whose sign-in id is in use, a no from a root who waits, and a yes from a root that is nobody's (a session's default of 22 November, Sid's to turn)."
+           (every? #(unchanged? once % {:yes {:root asha :actor agent-4 :sign-in sign-in-2}})
+                   [(c :answer-ask :actor asha :new-agent {:label "x"} :at 141) (c :answer-ask :actor agent-3 :new-agent nil :at 142)
+                    (c :answer-ask :actor asha :new-agent nil :at 142)
                     (c :answer-ask :sign-in sign-in-1 :at 143) (c :answer-ask :yes? false :root bo :at 144)
                     (c :answer-ask :root cy :at 145)])))
 
@@ -1101,11 +1118,12 @@
 
   (check "A live agent of hers is any live agent of her root: a yes as an agent that her agent made is taken (QUESTIONS.md, 24, which Sid's call of 22 November let stand)."
          (= {:yes {:root asha :actor agent-2 :sign-in sign-in-2}}
-            (last-of (conj with-agent (c :make-actor :actor agent-2 :made-by agent-1 :at 131) (c :ask) (c :answer-ask :actor agent-2)))))
+            (last-of (conj with-agent (c :make-actor :actor agent-2 :made-by agent-1 :at 131) (c :ask) (c :answer-ask :actor agent-2 :new-agent nil)))))
 
   (check "A yes whose sign-in id is a sign-in of the root already is :in-use, also when that sign-in has the very parts that the yes would bind (QUESTIONS.md, 25)."
          (= {:refused :in-use}
-            (last-of (conj asked (c :begin-sign-in :sign-in sign-in-2 :kind :program :hash (h 201) :at 135) (c :answer-ask)))))
+            (last-of (conj with-agent (c :ask) (c :begin-sign-in :actor agent-1 :sign-in sign-in-2 :kind :program :hash (h 201) :at 135)
+                           (c :answer-ask :actor agent-1 :new-agent nil)))))
 
   (check "A no needs a person who has entered, and judges no other part: a no with an actor and a sign-in that are nobody's is taken, and a no from a root who waits is :no-such-actor (QUESTIONS.md, 22)."
          (and (= {:no code-1} (last-of (conj asked (c :answer-ask :yes? false :actor agent-3 :sign-in sign-in-1))))
@@ -1125,13 +1143,13 @@
 
   (check "After the ask's end, every answer to an ask that has an answer gives what stands and changes nothing: the same answer again, and another answer, a no (Sid's call of 22 November)."
          (let [once (conj asked (c :answer-ask))]
-           (and (unchanged? once (c :answer-ask :at 2000) {:yes {:root asha :actor asha :sign-in sign-in-2}})
-                (unchanged? once (c :answer-ask :yes? false :at 2000) {:yes {:root asha :actor asha :sign-in sign-in-2}}))))
+           (and (unchanged? once (c :answer-ask :at 2000) {:yes {:root asha :actor agent-4 :sign-in sign-in-2}})
+                (unchanged? once (c :answer-ask :yes? false :at 2000) {:yes {:root asha :actor agent-4 :sign-in sign-in-2}}))))
 
   (check "An answer that was told what stands is told it again when it comes again, before the ask's end or after: its result comes from what stands (Sid's call of 22 November)."
          (let [once (conj asked (c :answer-ask) (c :answer-ask :yes? false :at 141))]
-           (and (= {:yes {:root asha :actor asha :sign-in sign-in-2}} (last-of once))
-                (= {:yes {:root asha :actor asha :sign-in sign-in-2}} (last-of (conj once (c :answer-ask :yes? false :at 2000))))))))
+           (and (= {:yes {:root asha :actor agent-4 :sign-in sign-in-2}} (last-of once))
+                (= {:yes {:root asha :actor agent-4 :sign-in sign-in-2}} (last-of (conj once (c :answer-ask :yes? false :at 2000))))))))
 
 ;; -------------------------------------------------------------------- reads
 
@@ -1341,7 +1359,7 @@
                     (let [[a b] (two-clients)]
                       (through! a (concat asha-in bo-in [(c :ask)]))
                       [(at-once [#(r/answer-ask a (second (c :answer-ask)))
-                                 #(r/answer-ask b (second (c :answer-ask :root bo :actor bo :sign-in sign-in-3)))])
+                                 #(r/answer-ask b (second (c :answer-ask :root bo :actor agent-3 :sign-in sign-in-3)))])
                        (r/ask-of a code-1)])))]
     (check "Two persons who answer one ask through two copies at one moment: one answer stands, and both are told which; so in 100 tries."
            (every? (fn [[[x y] k]] (and (= x y) (some? (:yes x)) (= (:yes x) (:answer k)))) runs)))
@@ -1470,6 +1488,7 @@
    [:ask "an ask under a code that is bound is the same write when its two hashes are the ask's, and gives {:asked U}; with another of either it is refused with :in-use"]
    [:answer "the first answer to an ask stands, and the ask keeps its two hashes, :asks and :ends; every answer to an ask that has an answer gives what stands; and an answer to an ask that waits, at or after its :ends or to an ask that was over when it was made, is refused with :over"]
    [:driven-by "who-is of a session gives the :driven-by that it was opened with"]
+   [:no-program-of-hers "no sign-in of kind :program is the person's own: each that a begin or a yes began is an agent's"]
    [:fit "an input that does not fit gives {:could-not :read-the-event} and changes nothing, and an input that fits is judged"]])
 
 (def ^:private empty-tracker
@@ -1705,6 +1724,15 @@
         :when (<= until at)]
     [what P thing until at]))
 
+(defn- program-violations
+  "Checks that no sign-in of kind :program, ended or not, has the root
+  herself as its actor."
+  [after]
+  (for [[P root] (:roots after)
+        [G g] (:sign-ins root)
+        :when (and (= :program (:kind g)) (= P (:actor g)))]
+    [:a-program-of-hers P G]))
+
 (defn- standing-violations
   "Checks that what is watched holds no sign-in that who-is says ended, or
   whose actor ended, and no session that who-is says closed, or whose
@@ -1909,7 +1937,8 @@
                     (tagged :ends (ends-violations before kind input after))
                     (tagged :time (time-violations tracker vs))
                     (tagged :standing (standing-violations after vs))
-                    (tagged :driven-by (driven-by-violations tracker after)))]
+                    (tagged :driven-by (driven-by-violations tracker after))
+                    (tagged :no-program-of-hers (program-violations after)))]
     [(learn tracker before call result after fits?) (vec violations)]))
 
 (defn- steps-of
