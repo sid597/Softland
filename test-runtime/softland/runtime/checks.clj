@@ -164,8 +164,21 @@
                                    (fn [code] (drive/yes a cookie code {:origin "http://evil.example"})))
             mine (drive/program a "the proof's command line"
                                 (fn [code] (drive/yes b cookie code {})))
-            [_ wrong] (frame/read-one (:body (drive/request :post (str a "/sign-in/program/poll")
-                                                            {:edn {:code "ABCD2345" :secret (credential/make-secret)}})))]
+            poll (fn [form] (second (frame/read-one (:body (drive/request :post (str a "/sign-in/program/poll") {:edn form})))))
+            wrong (poll {:code "ABCD2345" :asking-secret (credential/make-secret)})
+            ;; An ask that nobody answers, by the two requests themselves.
+            secret (credential/make-secret)
+            asking-secret (credential/make-secret)
+            ask (fn [form] (second (frame/read-one (:body (drive/request :post (str a "/sign-in/program") {:edn form})))))
+            waiting (ask {:hash (credential/hash-of secret) :asking-hash (credential/hash-of asking-secret)
+                          :asks "a program that nobody answers"})
+            with-the-credential's (poll {:code (:code waiting) :asking-secret secret})
+            with-another (poll {:code (:code waiting) :asking-secret (credential/make-secret)})
+            with-its-own (poll {:code (:code waiting) :asking-secret asking-secret})
+            in-the-old-form (poll {:code (:code waiting) :secret secret})
+            one-secret (ask {:hash (credential/hash-of secret) :asking-hash (credential/hash-of secret)
+                             :asks "a program with one secret"})
+            one-hash (ask {:hash (credential/hash-of secret) :asks "a program of before"})]
         (check "A program whose ask she answers with no is told no, and has no credential."
                (= {:state :no} refused) refused)
         (check "Her yes is taken only from this runtime's own page: a post from another site leaves the program waiting."
@@ -175,6 +188,15 @@
                (dissoc mine :credential))
         (check "A program that asks about a code with a secret that is not the ask's learns nothing: no ask is found."
                (= :find-the-ask (:could-not wrong)) wrong)
+        (check "A program that waits is answered against its secret for asking alone: with it the ask is said to wait; with the secret that becomes its credential in that place, the answer is the one that a wrong secret and an unknown code get, :find-the-ask."
+               (and (= :waiting (:state with-its-own))
+                    (= [:find-the-ask :find-the-ask] [(:could-not with-the-credential's) (:could-not with-another)])
+                    (= with-the-credential's with-another wrong))
+               [with-its-own with-the-credential's with-another])
+        (check "The runtime takes no ask that would put the credential's secret on the wire before her yes, and no poll that carries a secret under the name of before: an ask whose two hashes are one, an ask with one hash, and a poll in the form {:code :secret} are each not read."
+               (= [:read-the-word :read-the-word :read-the-word]
+                  [(:could-not one-secret) (:could-not one-hash) (:could-not in-the-old-form)])
+               [one-secret one-hash in-the-old-form])
         (check "A program's credential in a browser's cookie stands for nobody: with it she is not signed in at the pages, and it says no yes."
                (let [other (drive/program a "a program that waits"
                                           (fn [code] (drive/yes a (:credential mine) code {})))]

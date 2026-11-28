@@ -643,7 +643,8 @@
                 (client/begin-sign-in c {:root P :actor A :sign-in G :kind :program :hash (h-of (+ 1 idx))
                                          :until 99999 :label "g" :at 35})
                 (client/open-session c {:root P :sign-in G :session S :until 99999 :at 36})
-                (client/ask c {:code U :hash (h-of (+ 1000 idx)) :asks "cli" :ends 99999 :at 40})
+                (client/ask c {:code U :hash (h-of (+ 1000 idx)) :asking-hash (h-of (+ 2000 idx)) :asks "cli"
+                               :ends 99999 :at 40})
                 (client/answer-ask c {:code U :yes? true :root P :actor P :new-agent nil
                                       :sign-in G2 :until 99999 :at 45})
                 (client/who-is c {:root P :sign-in G :session S})

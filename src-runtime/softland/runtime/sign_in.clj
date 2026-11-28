@@ -207,16 +207,18 @@
 ;; -------------------------------------------------- a program's sign-in
 
 (defn ask!
-  "`:hash` is the hash of the secret that the program made and keeps;
-  `:asks`, what the program says of itself. A code is made here at random;
-  one that is in use is made again, five times at most."
-  [the-seam {:keys [hash asks]}]
+  "`:hash` is the hash of the secret that becomes the program's credential
+  at her yes, and `:asking-hash` the hash of the secret with which it asks
+  how its ask stands; the program made both and keeps both. `:asks` is what
+  the program says of itself. A code is made here at random; one that is in
+  use is made again, five times at most."
+  [the-seam {:keys [hash asking-hash asks]}]
   (let [client (seam/auth-of the-seam)]
     (loop [tries 5]
       (let [code (credential/make-code)
             now (seam/now-ms)
             ends (+ now ask-ms)
-            got (auth/ask client {:code code :hash hash :asks asks :ends ends :at now})]
+            got (auth/ask client {:code code :hash hash :asking-hash asking-hash :asks asks :ends ends :at now})]
         (cond
           (:could-not got) (words/could-not :reach-auth {:got got})
           (:asked got) {:code code :ends ends}
@@ -224,16 +226,20 @@
           :else (words/could-not :take-that {:why (:refused got)}))))))
 
 (defn asked
-  "What a program that waits is told. With `:state :yes` come the three
-  parts from which the program makes its credential. A code that names no
-  ask and a secret that is not the ask's give the same word,
-  `:find-the-ask`: whoever holds a wrong secret learns nothing of an ask."
-  [the-seam code secret]
+  "What a program that waits is told, against the secret for asking alone:
+  the ask's other hash, of the secret that becomes the credential, is not
+  read here, so that secret sent in this one's place is a wrong secret.
+  With `:state :yes` come the root, the actor and the sign-in, to which the
+  program adds the secret that it kept. A code that names no ask and a
+  secret that is not the ask's give the same word, `:find-the-ask`: whoever
+  holds a wrong secret learns nothing of an ask."
+  [the-seam code asking-secret]
   (let [got (auth/ask-of (seam/auth-of the-seam) code)]
     (cond
       (and (map? got) (:could-not got)) (words/could-not :reach-auth {:got got})
       (nil? got) (words/could-not :find-the-ask nil)
-      (not (credential/same-hash? (credential/hash-of secret) (:hash got))) (words/could-not :find-the-ask nil)
+      (not (credential/same-hash? (credential/hash-of asking-secret) (:asking-hash got)))
+      (words/could-not :find-the-ask nil)
       (= :yes (:state got)) (assoc (select-keys (:answer got) [:root :actor :sign-in]) :state :yes)
       (= :no (:state got)) {:state :no}
       (<= (long (:ends got)) (seam/now-ms)) {:state :over}

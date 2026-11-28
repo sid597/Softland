@@ -127,7 +127,7 @@
    :end-actor {:root asha :actor agent-1 :at 150}
    :open-session {:root asha :sign-in sign-in-1 :session session-1 :until 50000 :at 140}
    :close-session {:root asha :session session-1 :at 150}
-   :ask {:code code-1 :hash (h 201) :asks "the importer on a laptop" :ends 1000 :at 130}
+   :ask {:code code-1 :hash (h 201) :asking-hash (h 301) :asks "the importer on a laptop" :ends 1000 :at 130}
    :answer-ask {:code code-1 :yes? true :root asha :actor asha :new-agent nil
                 :sign-in sign-in-2 :until 100000 :at 140}})
 
@@ -271,8 +271,10 @@
            (= [60000 50000] [(:until (:session (who later sign-in-1 session-1)))
                              (:until (:session (who earlier sign-in-1 session-1)))])))
 
-  (check "Two asks are the same write when the hash is: a repeat with another :asks, :ends and :at gives {:asked U} and changes nothing."
-         (unchanged? [(c :ask)] (c :ask :asks "another" :ends 5000 :at 131) {:asked code-1}))
+  (check "Two asks are the same write when the two hashes are, the one of the secret that becomes the credential and the one of the secret for asking: a repeat with another :asks, :ends and :at gives {:asked U} and changes nothing; the same hash with another asking hash, and the same asking hash with another hash, are refused with :in-use and change nothing."
+         (and (unchanged? [(c :ask)] (c :ask :asks "another" :ends 5000 :at 131) {:asked code-1})
+              (unchanged? [(c :ask)] (c :ask :asking-hash (h 302) :at 131) {:refused :in-use})
+              (unchanged? [(c :ask)] (c :ask :hash (h 202) :at 131) {:refused :in-use})))
 
   (check "A refusal binds nothing: a begin-sign-in refused with :no-such-actor is taken when it comes again after the agent is made."
          (= [{:refused :no-such-actor} {:made agent-1} {:begun sign-in-1}]
@@ -828,9 +830,20 @@
   "The checks of ask, answer-ask and ask-of."
   []
   (let [{:keys [state last]} (run [(c :ask)])]
-    (check "ask gives {:asked U}, and ask-of gives its hash, its :asks, its :ends, :waiting and no answer."
+    (check "ask gives {:asked U}, and ask-of gives its two hashes, its :asks, its :ends, :waiting and no answer."
            (and (= {:asked code-1} last)
-                (= {:hash (h 201) :asks "the importer on a laptop" :ends 1000 :state :waiting :answer nil} (r/ask-of state code-1)))))
+                (= {:hash (h 201) :asking-hash (h 301) :asks "the importer on a laptop" :ends 1000 :state :waiting :answer nil}
+                   (r/ask-of state code-1)))))
+
+  (let [yes (:state (run (conj asked (c :answer-ask))))
+        no (:state (run (conj asked (c :answer-ask :yes? false))))]
+    (check "The hash of the secret for asking stays with the ask and becomes no sign-in's: ask-of gives it while the ask waits, after a yes and after a no, and the sign-in that a yes begins holds the ask's other hash."
+           (and (= [(h 301) (h 301) (h 301)]
+                   (map #(:asking-hash (r/ask-of % code-1)) [(:state (run asked)) yes no]))
+                (= (h 201) (:hash (:sign-in (who yes sign-in-2)))))))
+
+  (check "An ask whose input holds no :asking-hash, or one that is no hash, does not fit."
+         (= [unfit unfit] [(last-of [(without :ask :asking-hash)]) (last-of [(c :ask :asking-hash "abc")])]))
 
   (check "ask under a code that is bound to another hash is refused with :in-use, also when the ask is over: a code is bound for good."
          (= [{:refused :in-use} {:refused :in-use}]
@@ -1212,7 +1225,8 @@
    [:time "what is live under a root holds no sign-in and no session whose time is at or before the :at of that root's latest write"]
    [:standing "what is live under a root holds no open session whose sign-in is not live in it"]
    [:end-actor "end-actor ends every actor that ends with it, in any depth, with every sign-in and session of each, and an actor that ends with an ended one has ended"]
-   [:answer "the first answer to an ask stands, and the ask keeps its hash, :asks and :ends; every answer to an ask that has an answer gives what stands; and an answer to an ask that waits, at or after its :ends or to an ask that was over when it was made, is refused with :over"]
+   [:ask "an ask under a code that is bound is the same write when its two hashes are the ask's, and gives {:asked U}; with another of either it is refused with :in-use"]
+   [:answer "the first answer to an ask stands, and the ask keeps its two hashes, :asks and :ends; every answer to an ask that has an answer gives what stands; and an answer to an ask that waits, at or after its :ends or to an ask that was over when it was made, is refused with :over"]
    [:driven-by "who-is of a session gives the :driven-by that it was opened with"]
    [:fit "an input that does not fit gives {:could-not :read-the-event} and changes nothing, and an input that fits is judged"]])
 
@@ -1404,13 +1418,14 @@
      [:ends-with-an-ended-agent P (:actor a)])))
 
 (defn- answer-violations
-  "Checks that each ask keeps its hash, :asks and :ends; that a standing
+  "Checks that each ask keeps its two hashes, :asks and :ends; that a standing
   answer stays; that every answer to an ask that has an answer gives what
   stands; and that an answer to an ask that waits, at or after its :ends
   or to an ask that was over when made, is refused with :over."
   [tracker before [kind input] result after]
   (concat
-   (for [[U k] (:asks tracker) :when (not= k (select-keys (r/ask-of after U) [:hash :asks :ends]))] [:ask-changed U])
+   (for [[U k] (:asks tracker) :when (not= k (select-keys (r/ask-of after U) [:hash :asking-hash :asks :ends]))]
+     [:ask-changed U])
    (for [[U read] (:standing tracker) :when (not= read (select-keys (r/ask-of after U) [:state :answer]))]
      [:answer-changed U])
    (when (= kind :answer-ask)
@@ -1424,6 +1439,17 @@
          (and (or (>= (:at input) (:ends k)) (contains? (:over-when-made tracker) U))
               (not= {:refused :over} result))
          [[:not-over input result]])))))
+
+(defn- ask-violations
+  "Checks an ask under a code that is bound already: `{:asked U}` when its
+  two hashes are the bound ask's, `:in-use` when either is another."
+  [before [kind input] result]
+  (when (= kind :ask)
+    (when-let [k (r/ask-of before (:code input))]
+      (let [want (if (and (= (:hash input) (:hash k)) (= (:asking-hash input) (:asking-hash k)))
+                   {:asked (:code input)}
+                   {:refused :in-use})]
+        (when (not= want result) [[:ask-under-a-bound-code input want result]])))))
 
 (defn- driven-by-violations
   "Checks that who-is of each session that the history opened gives the
@@ -1459,7 +1485,8 @@
                 (update :claim->person first-seen (:claims after))
                 (update :person->claim first-seen (keep (fn [[P p]] (when (:claim p) [P (:claim p)])) (:persons after)))
                 (assoc :ended (ended-in after))
-                (update :asks first-seen (map (fn [[U _]] [U (select-keys (r/ask-of after U) [:hash :asks :ends])]) (:asks after))))
+                (update :asks first-seen (map (fn [[U _]] [U (select-keys (r/ask-of after U) [:hash :asking-hash :asks :ends])])
+                                              (:asks after))))
       (and new-ask? (<= (:ends input) (:at input))) (update :over-when-made conj (:code input))
       answered? (assoc-in [:standing (:code input)] (select-keys (r/ask-of after (:code input)) [:state :answer]))
       opened? (assoc-in [:driven-by [(:root input) (:session input)]]
@@ -1483,6 +1510,7 @@
                        (when repeat-of (tagged :repeat (repeat-violations w before call result after repeat-of)))
                        (when (contains? result :refused)
                          (when (not= (swept before kind input) after) [[:refusal [call result]]]))
+                       (tagged :ask (ask-violations before call result))
                        (tagged :answer (answer-violations tracker before call result after))
                        (tagged :end-actor (end-actor-violations call result after vs))))
                     (tagged :one-person (one-person-violations tracker after))

@@ -122,6 +122,20 @@
             (println "FAILED" label (str "seen=" (pr-str seen)))))
         (every? second checks)))))
 
+(defn- with-asking-hashes
+  "Carbon's scenarios were written before an ask took a second hash
+  (`:asking-hash`): without one their asks would not fit, and the scenarios
+  of an answer would meet no ask. Each ask of a scenario is given one here,
+  made from its code, so that carbon's file stays as the audit left it."
+  [scenario]
+  (let [given (fn [[kind input :as call]]
+                (if (and (= :ask kind) (map? input) (not (contains? input :asking-hash)))
+                  [kind (assoc input :asking-hash (format "%064x" (bit-and 0x7fffffff (hash (:code input)))))]
+                  call))]
+    (-> scenario
+        (update :seeds (fn [calls] (mapv given calls)))
+        (update :thread-ops (fn [threads] (mapv (fn [calls] (mapv given calls)) threads))))))
+
 (defn run-step3-scenarios!
   "Runs carbon's unchanged `auth-concurrent.step3-run/run-concurrent-batch!` over
   the scenarios whose prefix matches `allowed-prefixes` (or all scenarios when
@@ -141,7 +155,7 @@
           (do (println (format "PASSED carbon step3-run: %d rounds, %d multi-thread batches (0 failures)."
                                rounds total-batches))
               true)
-          (let [scs (cond->> (build-sc)
+          (let [scs (cond->> (map with-asking-hashes (build-sc))
                       allowed-prefixes
                       (filter (fn [sc]
                                 (some #(.startsWith ^String (:name sc) ^String %) allowed-prefixes)))
@@ -569,8 +583,9 @@
                               :own-lane (UUID/randomUUID)
                               :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 80})
           ;; *asks: an ask whose :ends is nil, on the code's partition.
-          r6 (appended "*asks" (s/->AskEvent "UNFIT001" (format "%064x" 6) "a program" nil 90))
-          w6 (client/ask c {:code "UNFIT001" :hash (format "%064x" 6) :asks "a program" :ends 999999 :at 95})
+          r6 (appended "*asks" (s/->AskEvent "UNFIT001" (format "%064x" 6) (format "%064x" 7) "a program" nil 90))
+          w6 (client/ask c {:code "UNFIT001" :hash (format "%064x" 6) :asking-hash (format "%064x" 7)
+                            :asks "a program" :ends 999999 :at 95})
           _ (client/close! c)
           checks [["A record on *root-events of Auth's own type with a field of another type, a map of no type of Auth's, and a thing that is no map are each refused with {:could-not :read-the-event}; and after each, a write of the same root on the same partition is taken."
                    (and (= unfit r1 r2 r3) (every? #(contains? % :open) [w1 w2 w3]))

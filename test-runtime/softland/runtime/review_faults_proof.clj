@@ -152,10 +152,11 @@
                    (drive/request :post (str url "/yes")
                                   {:cookie cookie :origin url :form (assoc form :code code)}))
         ask-code (fn [label]
-                   (let [secret (credential/make-secret)
-                         [_ asked] (frame/read-one
+                   (let [[_ asked] (frame/read-one
                                     (:body (drive/request :post (str url "/sign-in/program")
-                                                          {:edn {:hash (credential/hash-of secret) :asks label}})))]
+                                                          {:edn {:hash (credential/hash-of (credential/make-secret))
+                                                                 :asking-hash (credential/hash-of (credential/make-secret))
+                                                                 :asks label}})))]
                      (:code asked)))
         ;; Case 1: yes as me, then yes as agent
         c1 (ask-code "yes-me-then-agent")

@@ -34,8 +34,8 @@
                          :sign-in-order [sign-in ...]
                          :sessions {session {:sign-in :until :driven-by
                                              :opened-at :closed?}}}
-    :asks     code -> {:hash :asks :ends :asked-at :over-when-made? :state
-                       :answer}
+    :asks     code -> {:hash :asking-hash :asks :ends :asked-at
+                       :over-when-made? :state :answer}
 
   A person is in `:roots` from her first enter on. She is then an actor of
   her root, at depth 0, and is not one of its `:agents`. Nothing is ever
@@ -248,7 +248,7 @@
    :end-actor {:root id? :actor id? :at time?}
    :open-session {:root id? :sign-in id? :session id? :until time? :at time?}
    :close-session {:root id? :session id? :at time?}
-   :ask {:code code? :hash hash? :asks text? :ends time? :at time?}
+   :ask {:code code? :hash hash? :asking-hash hash? :asks text? :ends time? :at time?}
    :answer-ask {:code code? :yes? boolean? :root id? :actor id? :new-agent new-agent?
                 :sign-in id? :until time? :at time?}})
 
@@ -668,17 +668,22 @@
           :else [(assoc-in state [:roots root :sessions session :closed?] true) {:closed session}])))
 
 (defn- write-ask
-  "ask: binds the code, for good, to the hash of the program's secret. The
-  same code with the same hash is a repeat, whose other parts are dropped;
-  with another hash it is `:in-use`, also when the ask is over. An ask whose
-  end is at or before `:at` is taken and is never live: it is over from
-  its making."
-  [state {:keys [code hash asks ends at]} broken]
+  "ask: binds the code, for good, to the two hashes that the program sends:
+  `:hash`, of the secret that becomes its credential at a yes, and
+  `:asking-hash`, of the secret with which it asks how the ask stands. The
+  same code with the same two hashes is a repeat, whose other parts are
+  dropped; with another of either it is `:in-use`, also when the ask is
+  over. An ask whose end is at or before `:at` is taken and is never live:
+  it is over from its making. The broken copy `:asking-hash-not-bound`
+  takes an ask with the same `:hash` and another `:asking-hash` as a
+  repeat."
+  [state {:keys [code hash asking-hash asks ends at]} broken]
   (let [k (get-in state [:asks code])]
     (cond
-      (and k (= hash (:hash k))) [state {:asked code}]
+      (and k (= hash (:hash k)) (or (= asking-hash (:asking-hash k)) (= broken :asking-hash-not-bound)))
+      [state {:asked code}]
       (and k (not= broken :bound-code-asks-again)) (refuse state :in-use)
-      :else [(assoc-in state [:asks code] {:hash hash :asks asks :ends ends :asked-at at
+      :else [(assoc-in state [:asks code] {:hash hash :asking-hash asking-hash :asks asks :ends ends :asked-at at
                                            :over-when-made? (passed? ends at broken)
                                            :state :waiting :answer nil})
              {:asked code}])))
@@ -842,6 +847,8 @@
    "an answer whose time is the ask's end is taken"
    :bound-code-asks-again
    "an ask under a code that is bound to another hash takes the code"
+   :asking-hash-not-bound
+   "an ask under a code that is bound to the same hash and another asking hash is taken as a repeat"
    :unfit-input-takes-out
    "an input that does not fit, but names a root and a time, takes out what has passed under that root"
    :long-label-fits
@@ -923,7 +930,8 @@
   (if-not (code? code)
     {:could-not :read-the-event}
     (when-let [k (get-in state [:asks code])]
-      {:hash (:hash k) :asks (:asks k) :ends (:ends k) :state (:state k) :answer (:answer k)})))
+      {:hash (:hash k) :asking-hash (:asking-hash k) :asks (:asks k) :ends (:ends k) :state (:state k)
+       :answer (:answer k)})))
 
 (defn- live-sign-ins
   "The sign-ins of the root `P` that are live as the state holds them: not
@@ -1160,7 +1168,7 @@
   (write! client :close-session input))
 
 (defn ask
-  "ask through the client: `{:code :hash :asks :ends :at}`."
+  "ask through the client: `{:code :hash :asking-hash :asks :ends :at}`."
   [client input]
   (write! client :ask input))
 
@@ -1180,8 +1188,8 @@
   (read-with client-or-state #(who-is-in % query)))
 
 (defn ask-of
-  "Takes a client or a state, and a code. Gives `{:hash :asks :ends :state
-  :answer}`, where `:state` is `:waiting`, `:yes` or `:no` and `:answer` is
+  "Takes a client or a state, and a code. Gives `{:hash :asking-hash :asks
+  :ends :state :answer}`, where `:state` is `:waiting`, `:yes` or `:no` and `:answer` is
   `{:root :actor :sign-in}` for a yes and nil otherwise; or nil when no ask
   has the code. It judges no time."
   [client-or-state code]

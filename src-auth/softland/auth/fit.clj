@@ -160,7 +160,8 @@
    :end-actor      {:root id? :actor id? :at time-val?}
    :open-session   {:root id? :sign-in id? :session id? :until time-val? :at time-val?}
    :close-session  {:root id? :session id? :at time-val?}
-   :ask            {:code code-str? :hash hash-str? :asks text? :ends time-val? :at time-val?}
+   :ask            {:code code-str? :hash hash-str? :asking-hash hash-str? :asks text? :ends time-val?
+                    :at time-val?}
    :answer-ask     {:code code-str? :yes? boolean? :root id? :actor id? :new-agent new-agent?
                     :sign-in id? :until time-val? :at time-val?}})
 

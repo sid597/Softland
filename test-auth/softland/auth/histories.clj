@@ -228,8 +228,13 @@
                                                       (pick rnd open)
                                                       (one-of w (sessions-of state P) 0.85 (:sessions w)))
                                            :at now}]])
-      :ask (let [[w H] (fresh-hash w)]
-             [w [:ask {:code (pick rnd (:codes w)) :hash H :asks (pick rnd ["an importer" "a runner"])
+      :ask (let [U (pick rnd (:codes w))
+                 k (get-in state [:asks U])
+                 ;; Now and then the code's own hash with another asking hash,
+                 ;; which is another ask.
+                 [w H] (if (and k (chance? rnd 0.3)) [w (:hash k)] (fresh-hash w))
+                 [w H2] (fresh-hash w)]
+             [w [:ask {:code U :hash H :asking-hash H2 :asks (pick rnd ["an importer" "a runner"])
                        :ends (end-after w) :at now}]])
       :answer-ask (let [P (a-root w state)
                         U (pick rnd (:codes w))

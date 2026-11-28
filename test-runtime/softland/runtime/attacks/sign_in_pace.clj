@@ -120,6 +120,7 @@
                                       "application/edn"
                                       []
                                       (frame/write {:hash (credential/hash-of (credential/make-secret))
+                                                    :asking-hash (credential/hash-of (credential/make-secret))
                                                     :asks (str "flood-" i)})))
                           (range 10))
                     poll-resps
@@ -128,7 +129,7 @@
                                       "application/edn"
                                       []
                                       (frame/write {:code "ABCD2345"
-                                                    :secret (credential/make-secret)})))
+                                                    :asking-secret (credential/make-secret)})))
                           (range 5))
                     google-from-flood @google-calls
                     auth-from-flood @auth-calls
@@ -138,6 +139,7 @@
                               "application/edn"
                               []
                               (frame/write {:hash (credential/hash-of (credential/make-secret))
+                                            :asking-hash (credential/hash-of (credential/make-secret))
                                             :asks "other-address"}))
                     [_ other-form] (frame/read-one (:body other-addr-resp))
                     all-flood (concat forged-resps prog-resps poll-resps)

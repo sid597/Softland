@@ -622,7 +622,8 @@
      :end-actor {:root P :actor A :at 150}
      :open-session {:root P :sign-in G :session S :until 50000 :at 140}
      :close-session {:root P :session S :at 150}
-     :ask {:code (format "%08X" (bit-xor (* 4 n) 3)) :hash (hs/h 79) :asks "a program" :ends 1000 :at 130}
+     :ask {:code (format "%08X" (bit-xor (* 4 n) 3)) :hash (hs/h 79) :asking-hash (hs/h 80) :asks "a program"
+           :ends 1000 :at 130}
      :answer-ask {:code (format "%08X" (bit-xor (* 4 n) 3)) :yes? false :root P :actor P :new-agent nil
                   :sign-in (id) :until 100000 :at 140}
      :who-is {:root P :sign-in G :session nil}}))

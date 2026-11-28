@@ -29,6 +29,11 @@ turn. Each is written below where it belongs, marked "28 November".
 - Who made an agent and whose ending ends it are stored apart (F30). The
   second starts as the maker. Who may point an agent at another actor is not
   decided, and no write does it.
+- A program that waits for her yes makes a second secret only for asking,
+  and an ask stores its hash beside the hash of the secret that becomes the
+  credential (F6). The runtime answers a program that waits against the
+  second alone, so the secret of the credential crosses no wire before her
+  yes.
 
 ## What Auth is
 
@@ -76,7 +81,10 @@ Auth never reads the store, and the store never reads Auth.
   has a time of its own, which the runtime moves on while the session is in
   use.
 - **Ask.** A program's sign-in that is under way: the program has asked, and
-  a person has not yet said yes or no. It is found by a short **code**.
+  a person has not yet said yes or no. It is found by a short **code**. It
+  holds two hashes that the program sent (28 November): `:hash`, of the
+  secret that becomes the sign-in's at a yes, and `:asking-hash`, of a
+  secret that the program made only to ask how its ask stands.
 - **Standing.** Whether a thing is live now. A sign-in is live when it has
   not ended, its secret's time has not passed, its actor has not ended, and
   no actor above that one has ended. A session is live when it is not
@@ -111,7 +119,7 @@ Rules for every call:
   parts that say what is bound are the same: for `invite`, the person and
   the claim; for `begin-sign-in`, the root, the actor, the kind and the
   hash; for `make-actor`, the root and the maker; for `open-session`, the
-  root and the sign-in; for `ask`, the hash. The other parts of a repeat
+  root and the sign-in; for `ask`, the two hashes. The other parts of a repeat
   are dropped, but for `open-session`, whose repeat moves the session's
   time on. A refusal binds nothing: the same write after the state changed
   can be taken.
@@ -218,7 +226,7 @@ open-session      {:root P :sign-in G :session S :until t1 :at t
 close-session     {:root P :session S :at t}
                   -> {:closed S}   {:refused :no-such-session}
 
-ask               {:code U :hash H :asks text :ends t1 :at t}
+ask               {:code U :hash H :asking-hash H2 :asks text :ends t1 :at t}
                   -> {:asked U}   {:refused :in-use}
 
 answer-ask        {:code U :yes? bool :root P :actor A :new-agent {:label text}-or-nil
@@ -240,7 +248,8 @@ reads
                                 :driven-by D-or-nil}-or-nil
                       :own-lane L-or-nil :own-lane-made? bool}
 
-(ask-of client U) -> {:hash H :asks text :ends t1 :state :waiting|:yes|:no
+(ask-of client U) -> {:hash H :asking-hash H2 :asks text :ends t1
+                      :state :waiting|:yes|:no
                       :answer {:root P :actor A :sign-in G}-or-nil}, or nil
 
 (under client P)  -> {:actors [{:actor A :made-by B :ends-with B' :label text
@@ -383,8 +392,12 @@ closed. (Question 17: Sid let the reference's reading stand on 22 November,
 and it stays his to turn.) A session's id that is another sign-in's, open or
 not, is `:in-use`.
 
-**ask, answer-ask.** A program asks under a code, with the hash of the
-secret that it made. A person answers once:
+**ask, answer-ask.** A program asks under a code, with the hashes of two
+secrets that it made (28 November): `:hash`, of the secret that a yes makes
+the sign-in's, and `:asking-hash`, of the secret with which it asks how its
+ask stands. Auth keeps the second with the ask in every state, gives it in
+`ask-of`, and makes it no sign-in's hash; it does not compare the two. A
+person answers once:
 
 - yes, as herself: a sign-in of kind `:program` begins for her, with the
   ask's hash;
@@ -454,6 +467,12 @@ is watched for ever. So:
   depth: it reads `:ends-with` from `under`, and not who made the agent.
   While the two are the same, that is the maker and those above the maker.
 
+- A program that waits is answered against its secret for asking. The
+  runtime holds what a waiting program sends against `:asking-hash` alone,
+  and never against `:hash`: the secret of the credential sent in that
+  place is a wrong secret, told as an unknown code is. It takes no ask
+  whose two hashes are one. The page on which she answers shows and checks
+  neither hash.
 - No sign-in of a person begins before her own lane is made. That is the
   runtime's order of calls: an enter whose `own-lane-made` did not go
   through ends with no sign-in. Auth refuses nothing for a person whose

@@ -445,6 +445,21 @@ is of an ask that waits.
 The reference gives nil for a no and for a waiting ask, since a no begins no
 sign-in and names no actor.
 
+**31. Two asks that are the same write.** Until 28 November: "for `ask`, the
+hash". An ask now holds two hashes, `:hash` and `:asking-hash`.
+
+- (a) The same write when both hashes are the same; the same `:hash` with
+  another `:asking-hash`, under a code that is bound, is `:in-use`.
+- (b) The same write when `:hash` is the same; the other hash of a repeat is
+  dropped, as its `:asks` and `:ends` are.
+
+The reference takes (a), which refuses more: both hashes say what is bound,
+and under (b) a second program that knew the first hash could ask under the
+code with a secret for asking of its own and be told `{:asked U}` while its
+polls are refused. The broken copy `:asking-hash-not-bound` takes (b). Auth
+does not compare the two hashes of one ask with each other: that they differ
+is the runtime's to hold. A session's choice of 28 November, Sid's to turn.
+
 ## The client
 
 **27. A watching function: what it is, and what it does.** "`f` runs on a thread

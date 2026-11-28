@@ -60,7 +60,7 @@
                        own-lane making-uuid making-session at])
 
 ;; *asks (partitioned by :code String)
-(defrecord AskEvent [code hash asks ends at] IAskEvent)
+(defrecord AskEvent [code hash asking-hash asks ends at] IAskEvent)
 (defrecord AnswerAskEvent [op-id code yes? root actor new-agent-label sign-in until at] IAskEvent)
 
 ;; *root-events (partitioned by :root-id UUID)
@@ -123,14 +123,18 @@
   IClaimState)
 
 ;; $$asks {String -> IAskState} (partitioned by |hash code)
-(defrecord AskWaiting [hash asks ends born-over?]
+;; `hash` is of the secret that becomes the program's credential at a yes.
+;; `asking-hash` is of the secret with which the program asks how its ask
+;; stands; it is kept in every state, since the program asks after the answer
+;; too, and it never becomes a sign-in's hash.
+(defrecord AskWaiting [hash asking-hash asks ends born-over?]
   IAskState)
-(defrecord AskAnswering [hash asks ends born-over? op-id yes? root actor new-agent-label
+(defrecord AskAnswering [hash asking-hash asks ends born-over? op-id yes? root actor new-agent-label
                          sign-in until at]
   IAskState)
-(defrecord AskYes [hash asks ends root actor sign-in]
+(defrecord AskYes [hash asking-hash asks ends root actor sign-in]
   IAskState)
-(defrecord AskNo [hash asks ends]
+(defrecord AskNo [hash asking-hash asks ends]
   IAskState)
 
 ;; $$enter-ops {UUID -> IEnterOpState} (partitioned by |hash op-id)
@@ -311,7 +315,8 @@
           (uuid? (:own-lane ev)) (uuid? (:making-uuid ev)) (uuid? (:making-session ev)) (long-val? (:at ev)))
 
      (instance? AskEvent ev)
-     (and (string? (:code ev)) (string? (:hash ev)) (string? (:asks ev)) (long-val? (:ends ev)) (long-val? (:at ev)))
+     (and (string? (:code ev)) (string? (:hash ev)) (string? (:asking-hash ev)) (string? (:asks ev))
+          (long-val? (:ends ev)) (long-val? (:at ev)))
 
      (instance? AnswerAskEvent ev)
      (and (uuid? (:op-id ev)) (string? (:code ev)) (boolean? (:yes? ev)) (uuid? (:root ev)) (uuid? (:actor ev))
@@ -1262,10 +1267,11 @@
   [^AskEvent ev k]
   (let [U (:code ev)
         h (:hash ev)
+        ah (:asking-hash ev)
         ends (long (:ends ev))
         at (long (:at ev))]
     (cond
-      (and (instance? IAskState k) (= (:hash k) h))
+      (and (instance? IAskState k) (= (:hash k) h) (= (:asking-hash k) ah))
       {:done? true :result {:asked U}}
 
       (some? k)
@@ -1273,7 +1279,7 @@
 
       :else
       {:write-k U
-       :write-v (->AskWaiting h (:asks ev) ends (<= ends at))
+       :write-v (->AskWaiting h ah (:asks ev) ends (<= ends at))
        :done? true
        :result {:asked U}})))
 
@@ -1321,7 +1327,7 @@
         {:hop-key P
          :next-step :answer-ask/step-1b
          :next-st {:takeout-root P :takeout-at at :pending-result {:refused :over} :no-such-ask? false}}
-        (let [ans (->AskAnswering (:hash k) (:asks k) (:ends k) (:born-over? k)
+        (let [ans (->AskAnswering (:hash k) (:asking-hash k) (:asks k) (:ends k) (:born-over? k)
                                   (:op-id ev) (:yes? ev) P (:actor ev) (:new-agent-label ev)
                                   (:sign-in ev) (:until ev) at)]
           {:write-k U
@@ -1435,7 +1441,7 @@
             base (cond-> {}
                    still-op?
                    (assoc :write-k U
-                          :write-v (->AskYes (:hash k) (:asks k) (:ends k)
+                          :write-v (->AskYes (:hash k) (:asking-hash k) (:asks k) (:ends k)
                                              (:root out) (:actor out) (:sign-in out))))]
         (if helping?
           (assoc base
@@ -1450,7 +1456,7 @@
             base (cond-> {}
                    still-op?
                    (assoc :write-k U
-                          :write-v (->AskNo (:hash k) (:asks k) (:ends k))))]
+                          :write-v (->AskNo (:hash k) (:asking-hash k) (:asks k) (:ends k))))]
         (if helping?
           (assoc base
                  :hop-key (:root ev)
@@ -1463,7 +1469,8 @@
       (let [base (cond-> {}
                    still-op?
                    (assoc :write-k U
-                          :write-v (->AskWaiting (:hash k) (:asks k) (:ends k) (:born-over? k))))]
+                          :write-v (->AskWaiting (:hash k) (:asking-hash k) (:asks k) (:ends k)
+                                                 (:born-over? k))))]
         (if helping?
           (assoc base :hop-key nil :next-step :answer-ask/step-1 :next-st {})
           (assoc base :done? true :result {:refused (:reason out)}))))))
@@ -1560,12 +1567,12 @@
   (cond
     (nil? k) nil
     (or (instance? AskWaiting k) (instance? AskAnswering k))
-    {:hash (:hash k) :asks (:asks k) :ends (:ends k) :state :waiting :answer nil}
+    {:hash (:hash k) :asking-hash (:asking-hash k) :asks (:asks k) :ends (:ends k) :state :waiting :answer nil}
     (instance? AskYes k)
-    {:hash (:hash k) :asks (:asks k) :ends (:ends k) :state :yes
+    {:hash (:hash k) :asking-hash (:asking-hash k) :asks (:asks k) :ends (:ends k) :state :yes
      :answer {:root (:root k) :actor (:actor k) :sign-in (:sign-in k)}}
     (instance? AskNo k)
-    {:hash (:hash k) :asks (:asks k) :ends (:ends k) :state :no :answer nil}))
+    {:hash (:hash k) :asking-hash (:asking-hash k) :asks (:asks k) :ends (:ends k) :state :no :answer nil}))
 
 (defn project-live-entry
   [entry]

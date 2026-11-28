@@ -531,8 +531,8 @@
   [client input]
   (guarded-write
    client :ask input #(.-d-asks ^Client %)
-   (fn [{:keys [code hash asks ends at]}]
-     (s/->AskEvent code hash asks ends at))))
+   (fn [{:keys [code hash asking-hash asks ends at]}]
+     (s/->AskEvent code hash asking-hash asks ends at))))
 
 (defn answer-ask
   [client input]
