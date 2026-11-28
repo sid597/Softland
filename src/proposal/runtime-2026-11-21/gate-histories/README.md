@@ -501,7 +501,7 @@ act (`state/loop-2b.md`, finding 10).
 | `src/gate_histories/live_read.clj` | The read that stays open: the lane over time, the query, the read, the world, every order of a small history. |
 | `src/gate_histories/today.clj` | The store before the fix as a gate under test, and its excuses. |
 | `src/gate_histories/fix.clj` | The builder's: the store of the fix as a gate under test, the readings on which it differed, and its broken copies. The judge's session made one entry of its list conditional and added the test of the bound's word, on 28 November. |
-| `src/gate_histories/walk.clj`, `live.clj`, `record.clj` | As they were: the copy of today's walk, the live read through today's read path, Sid's record through the gate. `live.clj` is not the read of part 2. |
+| `src/gate_histories/walk.clj`, `live.clj`, `record.clj` | As they were: the copy of today's walk, the live read through today's read path, Sid's record through the gate. `live.clj` is not the read of part 2. `walk.clj` and `record.clj`, and so `-M:record` and `-M:run today`, hold the act in the form before 28 November 2026 (an act-id with a depot word, `:depot`, `:claimed-when`), and were out of step with the store before that too. |
 | `src/gate_histories/piece_2/` | The judge of piece 2, moved, its namespaces renamed and nothing else changed. |
 
 The section below is the builder's, as written on 27 November against the

@@ -2,7 +2,10 @@
  :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
  :deps {org.clojure/clojure {:mvn/version "1.12.4"}
         org.clojure/test.check {:mvn/version "1.1.0"}}
- :aliases {;; the judge of the permission rules of 27 November 2026
+ :aliases {;; the judge of the permission rules of 27 November 2026. Its
+           ;; `today` mode runs walk.clj, which holds the act in the form
+           ;; before 28 November 2026 and was out of step with the store
+           ;; before that too
            :run {:main-opts ["-m" "gate-histories.run"]
                  :jvm-opts ["-Xss16m"]}
            ;; the judge of the store's piece 2, as it was before the
@@ -10,6 +13,9 @@
            ;; the form of 22 November
            :piece-2 {:main-opts ["-m" "gate-histories.piece-2.run"]
                      :jvm-opts ["-Xss16m"]}
+           ;; Sid's record through the gate (record.clj over walk.clj): it
+           ;; holds the act in the form before 28 November 2026, and was out
+           ;; of step with the store before that too
            :record {:main-opts ["-m" "gate-histories.record"]
                     :jvm-opts ["-Xss16m" "-Xmx6g"]}
            ;; piece 2's smallest histories through the store's module on an
