@@ -173,7 +173,8 @@
 (defn person?
   "True for the person herself, signed in at a browser: a caller whose actor
   is its root, on a sign-in of kind `:browser`. No program is a person:
-  Auth begins no sign-in of kind `:program` for her, and this holds it too."
+  Auth begins no sign-in of kind `:program` for her, `caller` makes no
+  caller of one that a store kept from before, and this holds it too."
   [^Caller caller]
   (and (some? (.-actor caller))
        (= (.-actor caller) (.-root caller))
@@ -364,6 +365,10 @@
                                (:own-lane got) session-driven-by from))]
           (cond
             (= :not verdict) (no-sign-in until-or-why)
+            ;; No program is a person. Auth begins no such sign-in since 28
+            ;; November; one that a store kept from before is ended here, at
+            ;; every word, and is not ended in Auth.
+            (and (= :program kind) (= actor root)) (no-sign-in :ended)
             (some? session) (or (session-fault got sign-in (now-ms))
                                 (do (moved-on! seam root sign-in session (:until (:session got)))
                                     (made session (get-in got [:session :driven-by]))))

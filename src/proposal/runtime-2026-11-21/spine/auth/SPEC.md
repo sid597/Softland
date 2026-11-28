@@ -76,6 +76,12 @@ that kind for her, and a yes that names her, are refused with
 `:is-a-person`, the word that `end-actor` already says. The word and its
 place in the order are a session's, and his to turn. Whether what only a
 person may say can be lent to a program is not decided and not part of it.
+Auth makes no such sign-in since this change, and refuses none that it
+holds from before: `who-is`, `replace-secret` and `open-session` still take
+one. The runtime makes no caller of a sign-in of kind `:program` whose
+actor is its root, and answers it, at every word, as a sign-in that is
+ended. To end such sign-ins in Auth itself is a step for a store that holds
+one, and is not built: nothing is deployed.
 
 ## What Auth is
 
@@ -554,7 +560,8 @@ it (question 9, as turned on 28 November). A sign-in of kind `:program` is
 never the person's: one whose `A` is the root `P` is refused with
 `:is-a-person`, after `:no-such-actor`. No program acts under her own id;
 only she, at a browser, is she (Sid's yes of 28 November, F15 of the review
-of 26 November).
+of 26 November). One that a store kept from before stands in Auth, and the
+runtime refuses it (above, 28 November).
 
 **replace-secret.** The sign-in's secret becomes the one whose hash is `H'`,
 with a new end `t1`. `H` is the sign-in's hash now; or it is the same
