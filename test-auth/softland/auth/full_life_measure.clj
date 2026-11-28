@@ -2,10 +2,11 @@
   "STEP 4 full-life cluster measurements for `softland.auth.module/Auth` and
   `softland.auth.client`, run on live Rama 1.6.0 `InProcessCluster`s:
 
-    1. `who-is` is one round trip to one task, its seeks match the 2-seek
-       fast path (`1` seek for `S=nil`, `2` seeks for `S!=nil` live, `3` seeks
-       for ended agent `S!=nil`), and neither seek count nor latency grows
-       between 10 and 10,000 closed historical sessions.
+    1. `who-is` is one round trip to one task, its seeks are `1` for a
+       person's sign-in with `S=nil`, `2` with a session of that sign-in, and
+       one more for an agent's sign-in, live or ended, whose actor's record
+       is read (`3` with a session), and neither seek count nor latency grows
+       between 10 and 10,000 historical sessions.
     2. 20,000 distinct roots are watched simultaneously on ONE task (testing
        `pstate.proxy.limit = 20000` on `$$live`), with live updates delivered
        while all 20,000 proxies are open; and what a write under another root
@@ -36,6 +37,14 @@
   (:import [java.util UUID]
            [java.util.concurrent Callable CountDownLatch Executors TimeUnit]
            [java.util.concurrent.atomic AtomicLong]))
+
+
+(defn- eh
+  "The hash of an email, as the runtime gives it to Auth: the measures need
+  only one that is the same for the same address."
+  [^String address]
+  (let [d (java.security.MessageDigest/getInstance "SHA-256")]
+    (apply str (map #(format "%02x" (bit-and % 0xff)) (.digest d (.getBytes (str "softland/email/" address) "UTF-8"))))))
 
 (defn- h-of
   "Deterministic 64-char lower-case hex hash from integer `n`."
@@ -109,9 +118,11 @@
 (defn- trace-who-is-seeks
   "Evaluates the exact conditional seek guards of `module.clj`'s `\"who-is\"`
   query topology (`s/signin-fast-path?`, `s/root-entered?`, `some?`,
-  `s/need-actor-seek?`) against the live `$$root-data` PState of `Auth` on
-  `ipc`, returning exact per-key seek counts and verifying the result matches
-  `(client/who-is c query)` verbatim."
+  `s/signin-agent`, `s/other-signin-of-session`) against the live
+  `$$root-data` PState of `Auth` on `ipc`, returning exact per-key seek
+  counts and verifying the result matches `(client/who-is c query)`
+  verbatim. `:g` and `:a` count the reads of the session's own sign-in and
+  its agent too, when that sign-in is another than the one asked for."
   [ipc mod-name c {:keys [root sign-in session] :as query}]
   (let [p-rd (rama/foreign-pstate ipc mod-name "$$root-data")
         sel! (fn [k] (rama/foreign-select-one [(com.rpl.rama.path/keypath k)] p-rd {:pkey root}))
@@ -122,9 +133,13 @@
         entered? (or fast? (s/root-entered? r))
         sess (when (and entered? (some? session))
                (swap! s-cnt inc) (sel! (s/k-session root session)))
-        arec (when (and entered? (s/need-actor-seek? root sig))
-               (swap! a-cnt inc) (sel! (s/k-actor root (s/signin-actor sig))))
-        traced-res (s/build-who-is-result root sig r sess arec)
+        agent-rec (fn [g] (when-let [agent (s/signin-agent root g)]
+                            (swap! a-cnt inc) (sel! (s/k-actor root agent))))
+        arec (when entered? (agent-rec sig))
+        other (s/other-signin-of-session sess sign-in)
+        sess-sig (if other (do (swap! g-cnt inc) (sel! (s/k-signin root other))) sig)
+        sess-arec (if other (agent-rec sess-sig) arec)
+        traced-res (s/build-who-is-result root sig r sess arec sess-sig sess-arec)
         live-res (client/who-is c query)
         seeks {:g @g-cnt :r @r-cnt :s @s-cnt :a @a-cnt}]
     {:matches-live? (= traced-res live-res)
@@ -165,8 +180,8 @@
             A-end (UUID/randomUUID)
             G-end (UUID/randomUUID)
             S-end (UUID/randomUUID)
-            _ (client/invite c {:person P :claim {:by :email :email "m1@example.com"} :invited-by :system :at 10})
-            _ (client/enter c {:account [:google "m1-user"] :says {} :email "m1@example.com"
+            _ (client/invite c {:person P :claim {:by :email :hash (eh "m1@example.com")} :invited-by :system :at 10 :ends 1000000000 :op-id (UUID/randomUUID)})
+            _ (client/enter c {:account [:google "m1-user"] :says {} :email-hash (eh "m1@example.com")
                                :code-hash nil :own-lane L :making M :at 20})
             _ (client/own-lane-made c {:person P :at 25})
             _ (client/begin-sign-in c {:root P :actor P :sign-in G-live :kind :browser :hash (h-of 1)
@@ -179,7 +194,14 @@
             _ (client/open-session c {:root P :sign-in G-end :session S-end :until 1000000
                                       :driven-by {:kind :model :model "m"} :at 46})
             _ (client/end-actor c {:root P :actor A-end :at 50})
-            ;; Seed 10 closed historical sessions
+            A-live (UUID/randomUUID)
+            G-agent (UUID/randomUUID)
+            S-agent (UUID/randomUUID)
+            _ (client/make-actor c {:root P :actor A-live :made-by P :label "live-ag" :at 51})
+            _ (client/begin-sign-in c {:root P :actor A-live :sign-in G-agent :kind :program :hash (h-of 3)
+                                       :until 1000000 :label "live-ag-g" :at 52})
+            _ (client/open-session c {:root P :sign-in G-agent :session S-agent :until 1000000 :at 53})
+            ;; Seed 10 historical sessions whose time had passed at their opening
             _ (doseq [i (range 10)]
                 (client/open-session c {:root P :sign-in G-live :session (UUID/randomUUID)
                                         :until 50 :at (+ 60 i)}))
@@ -187,6 +209,8 @@
             q-conn    {:root P :sign-in G-live :session nil}
             q-end-s   {:root P :sign-in G-end  :session S-end}
             q-end-nil {:root P :sign-in G-end  :session nil}
+            q-agent   {:root P :sign-in G-agent :session S-agent}
+            q-other   {:root P :sign-in G-live :session S-agent}
             q-unknown {:root (UUID/randomUUID) :sign-in G-live :session S-live}
             ;; Warmup + small-history latency (200 calls)
             _ (dotimes [_ 50] (client/who-is c q-http))
@@ -194,6 +218,8 @@
                          :conn (trace-who-is-seeks ipc mod-name c q-conn)
                          :ended-agent-with-s (trace-who-is-seeks ipc mod-name c q-end-s)
                          :ended-agent-no-s (trace-who-is-seeks ipc mod-name c q-end-nil)
+                         :live-agent-with-s (trace-who-is-seeks ipc mod-name c q-agent)
+                         :session-of-another-sign-in (trace-who-is-seeks ipc mod-name c q-other)
                          :unknown-root (trace-who-is-seeks ipc mod-name c q-unknown)}
             small-ms (mapv (fn [_] (second (time-ms #(client/who-is c q-http)))) (range 200))
             ;; Now grow history to 10,000 closed sessions + 500 ended sign-ins + 100 ended agents!
@@ -219,6 +245,8 @@
                          :conn (trace-who-is-seeks ipc mod-name c q-conn)
                          :ended-agent-with-s (trace-who-is-seeks ipc mod-name c q-end-s)
                          :ended-agent-no-s (trace-who-is-seeks ipc mod-name c q-end-nil)
+                         :live-agent-with-s (trace-who-is-seeks ipc mod-name c q-agent)
+                         :session-of-another-sign-in (trace-who-is-seeks ipc mod-name c q-other)
                          :unknown-root (trace-who-is-seeks ipc mod-name c q-unknown)}
             large-ms (mapv (fn [_] (second (time-ms #(client/who-is c q-http)))) (range 200))
             _ (client/close! c)
@@ -232,6 +260,9 @@
                            (= 1 (get-in small-seeks [:conn :total]))
                            (= 3 (get-in small-seeks [:ended-agent-with-s :total]))
                            (= 2 (get-in small-seeks [:ended-agent-no-s :total]))
+                           (= 3 (get-in small-seeks [:live-agent-with-s :total]))
+                           ;; g, s, then the session's own sign-in and its agent
+                           (= 4 (get-in small-seeks [:session-of-another-sign-in :total]))
                            (= 2 (get-in small-seeks [:unknown-root :total]))
                            (= (into {} (map (fn [[k v]] [k (:seeks v)]) small-seeks))
                               (into {} (map (fn [[k v]] [k (:seeks v)]) large-seeks))))
@@ -299,9 +330,9 @@
           ;; The writer: a root that nobody watches, with a live sign-in.
           P-w (UUID/randomUUID)
           G-w (UUID/randomUUID)
-          _ (do (client/invite c {:person P-w :claim {:by :email :email "writer@example.com"}
-                                  :invited-by :system :at 10})
-                (client/enter c {:account [:google "writer"] :says {} :email "writer@example.com"
+          _ (do (client/invite c {:person P-w :claim {:by :email :hash (eh "writer@example.com")}
+                                  :invited-by :system :at 10 :ends 1000000000 :op-id (UUID/randomUUID)})
+                (client/enter c {:account [:google "writer"] :says {} :email-hash (eh "writer@example.com")
                                  :code-hash nil :own-lane (UUID/randomUUID)
                                  :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
                 (client/own-lane-made c {:person P-w :at 25})
@@ -350,9 +381,9 @@
           G0 (UUID/randomUUID)
           G-last (UUID/randomUUID)
           _ (doseq [[p g idx] [[P0 G0 1] [P-last G-last 2]]]
-              (client/invite c {:person p :claim {:by :email :email (str "w20k-" idx "@example.com")}
-                                :invited-by :system :at 10})
-              (client/enter c {:account [:google (str "w20k-" idx)] :says {} :email (str "w20k-" idx "@example.com")
+              (client/invite c {:person p :claim {:by :email :hash (eh (str "w20k-" idx "@example.com"))}
+                                :invited-by :system :at 10 :ends 1000000000 :op-id (UUID/randomUUID)})
+              (client/enter c {:account [:google (str "w20k-" idx)] :says {} :email-hash (eh (str "w20k-" idx "@example.com"))
                                :code-hash nil :own-lane (UUID/randomUUID)
                                :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
               (client/own-lane-made c {:person p :at 25})
@@ -400,8 +431,8 @@
           S-sib   (UUID/randomUUID)
           ;; Setup both roots
           _ (doseq [[p em sub] [[P-heavy "heavy@example.com" "heavy"] [P-sib "sib@example.com" "sib"]]]
-              (client/invite c1 {:person p :claim {:by :email :email em} :invited-by :system :at 10})
-              (client/enter c1 {:account [:google sub] :says {} :email em :code-hash nil
+              (client/invite c1 {:person p :claim {:by :email :hash (eh em)} :invited-by :system :at 10 :ends 1000000000 :op-id (UUID/randomUUID)})
+              (client/enter c1 {:account [:google sub] :says {} :email-hash (eh em) :code-hash nil
                                 :own-lane (UUID/randomUUID)
                                 :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
               (client/own-lane-made c1 {:person p :at 25}))
@@ -512,8 +543,8 @@
   "Invites and enters a new person through client `c`. Gives her root."
   [c tag]
   (let [P (UUID/randomUUID)]
-    (client/invite c {:person P :claim {:by :email :email (str tag "@example.com")} :invited-by :system :at 10})
-    (client/enter c {:account [:google tag] :says {} :email (str tag "@example.com") :code-hash nil
+    (client/invite c {:person P :claim {:by :email :hash (eh (str tag "@example.com"))} :invited-by :system :at 10 :ends 1000000000 :op-id (UUID/randomUUID)})
+    (client/enter c {:account [:google tag] :says {} :email-hash (eh (str tag "@example.com")) :code-hash nil
                      :own-lane (UUID/randomUUID)
                      :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
     (client/own-lane-made c {:person P :at 25})
@@ -635,15 +666,16 @@
                     S (UUID/randomUUID)
                     U (format "M4%06d" idx)
                     em (str "m4-" idx "@example.com")]
-                (client/invite c {:person P :claim {:by :email :email em} :invited-by :system :at 10})
-                (client/enter c {:account [:google (str "m4-" idx)] :says {} :email em :code-hash nil
+                (client/invite c {:person P :claim {:by :email :hash (eh em)} :invited-by :system :at 10 :ends 1000000000 :op-id (UUID/randomUUID)})
+                (client/enter c {:account [:google (str "m4-" idx)] :says {} :email-hash (eh em) :code-hash nil
                                  :own-lane L :making M :at 20})
                 (client/own-lane-made c {:person P :at 25})
                 (client/make-actor c {:root P :actor A :made-by P :label "a" :at 30})
                 (client/begin-sign-in c {:root P :actor A :sign-in G :kind :program :hash (h-of (+ 1 idx))
                                          :until 99999 :label "g" :at 35})
                 (client/open-session c {:root P :sign-in G :session S :until 99999 :at 36})
-                (client/ask c {:code U :hash (h-of (+ 1000 idx)) :asks "cli" :ends 99999 :at 40})
+                (client/ask c {:code U :hash (h-of (+ 1000 idx)) :asking-hash (h-of (+ 2000 idx)) :asks "cli"
+                               :ends 99999 :at 40})
                 (client/answer-ask c {:code U :yes? true :root P :actor P :new-agent nil
                                       :sign-in G2 :until 99999 :at 45})
                 (client/who-is c {:root P :sign-in G :session S})

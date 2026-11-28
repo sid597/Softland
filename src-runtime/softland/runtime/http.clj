@@ -14,13 +14,15 @@
   say a word, a yes or a sign-out; and a program that holds its own secret
   cannot say her yes.
 
-  A program's sign-in. The program makes a secret, keeps it, and posts its
-  hash with what it says of itself. It gets a code, and shows the code and
-  a link. She opens the link where she is signed in, sees the code again,
-  and says yes, as herself or as a new agent with a name, or no. The
-  program asks for the ask's state with its code and its secret until she
-  has answered, and puts its credential together from what it is told. An
-  ask that is answered after its end is refused.
+  A program's sign-in. The program makes two secrets and keeps both: one
+  that becomes its credential, and one only for asking. It posts the hash
+  of each with what it says of itself. It gets a code, and shows the code
+  and a link. She opens the link where she is signed in, sees the code
+  again, and says yes, as herself or as a new agent with a name, or no. The
+  program asks for the ask's state with its code and its secret for asking
+  until she has answered, and puts its credential together from what it is
+  told and the other secret, which it has sent nowhere until then. An ask
+  that is answered after its end is refused.
 
   A first sign-in. An account that proves no invitation is turned away. A
   person who has confirmed no name is sent to the box: her provider's name
@@ -336,8 +338,9 @@
                                         :code-hash (credential/hash-of (get fields "invited"))})]
             (cond
               (= :not-invited (:why person))
-              (page 403 (str "<p>This account has no invitation. Softland takes a new person by invitation: "
-                             "open the link that you were sent, or ask whoever invited you for one.</p>"
+              (page 403 (str "<p>No invitation lets this account in: it has none, or its invitation is over or was "
+                             "taken back. Softland takes a new person by invitation: open the link that you were "
+                             "sent, or ask whoever invited you for a new one.</p>"
                              "<p><a href=\"/\">Back</a></p>"))
 
               (:could-not person)
@@ -551,8 +554,12 @@
     (cond
       (= :no outcome) form
 
-      (not (and (map? form) (= #{:hash :asks} (set (keys form)))
-                (credential/hash? (:hash form)) (words/text? (:asks form))))
+      ;; Two hashes that are one would make the credential's secret the
+      ;; secret for asking: a poll would then carry it before her yes.
+      (not (and (map? form) (= #{:hash :asking-hash :asks} (set (keys form)))
+                (credential/hash? (:hash form)) (credential/hash? (:asking-hash form))
+                (not= (:hash form) (:asking-hash form))
+                (words/text? (:asks form))))
       (answered (words/could-not :read-the-word {:why :part-has-no-form :at nil}))
 
       :else
@@ -573,13 +580,13 @@
     (cond
       (= :no outcome) form
 
-      (not (and (map? form) (= #{:code :secret} (set (keys form)))
-                (credential/code? (:code form)) (credential/secret? (:secret form))))
+      (not (and (map? form) (= #{:code :asking-secret} (set (keys form)))
+                (credential/code? (:code form)) (credential/secret? (:asking-secret form))))
       (answered (words/could-not :read-the-word {:why :part-has-no-form :at nil}))
 
       :else
       (or (some-> (seam/ration-poll! the-seam (:code form)) answered)
-          (let [got (sign-in/asked the-seam (:code form) (:secret form))]
+          (let [got (sign-in/asked the-seam (:code form) (:asking-secret form))]
             (when (:state got)
               (seam/give-back-sign-in! the-seam (client-address options request)))
             (answered got))))))

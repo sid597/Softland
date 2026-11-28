@@ -1,25 +1,31 @@
 (ns softland.runtime.standing
-  "Who is told when what is live under a person changes: one watch of Auth
-  for each root that has something open in this process, shared by
+  "Who is told when what is watched under a person changes: one watch of
+  Auth for each root that has something open in this process, shared by
   everything of that root.
 
   A connection stays open for hours, and its sign-in can end at any moment,
   through any copy of the runtime. So each open thing listens here for its
-  root. Auth pushes what is live under a root to every copy that watches it
-  (`softland.auth.client/watch-root`).
+  root. Auth pushes what is watched under a root to every copy that watches
+  it (`softland.auth.client/watch-root`).
 
   What Auth pushed is a signal that something under the root changed, and
-  what the value held at the push. It is not the judge. A push can be
-  behind a write that has already returned: a session that was opened a
-  moment ago can be missing from the value that arrives next. So a listener
-  that sees itself gone reads Auth before it ends anything
-  (`softland.runtime.seam`), and a read decides. An end is never taken
-  back, so a read that says ended is final.
+  what the value held at the push. It is not the judge, for two reasons. A
+  push can be behind a write that has already returned: a session that was
+  opened a moment ago can be missing from the value that arrives next. And
+  a sign-in or a session that is not in the value has not ended for that:
+  it leaves the value when a write under its root came with a time at or
+  after its end, by the clock of the copy that wrote, which can be wrong.
+  So a listener that does not see itself in the value reads Auth before it
+  ends anything (`softland.runtime.seam`), and a read decides: ended by
+  someone, which is final, since an end is never taken back; or its time
+  held against this copy's clock. While it stands and is not in the value,
+  it reads again at each push of its root, and Auth makes every end under
+  the root a push, by a count of ends that the value carries.
 
-  A listener's function is called with what is live under the root,
-  `{:sign-ins {...} :sessions {...}}` (Auth's spec, \"The client's
+  A listener's function is called with what is watched under the root,
+  `{:sign-ins {...} :sessions {...} :ends n}` (Auth's spec, \"The client's
   contract\"), or with `not-reached` when this process can no longer say
-  what is live there. It is called on a thread of this namespace's own,
+  what is watched there. It is called on a thread of this namespace's own,
   never on Rama's. A value is handed on one call at a time for one root,
   and always the newest: a listener that is slower than two changes is
   handed the later one alone; so a listener hands a value on and does not
@@ -27,14 +33,14 @@
   thread of its own, so a listener that blocks while it ends what rests on
   it holds back no other listener of the root.
 
-  Nothing here lasts, with no loss of truth: what is live is Auth's."
+  Nothing here lasts, with no loss of truth: who stands is Auth's."
   (:require [softland.auth.client :as auth])
   (:import [java.io Writer]
            [java.util.concurrent ExecutorService Executors]))
 
 (def not-reached
   "What a listener is called with when this process can no longer say what
-  is live under its root: Auth's own word for it, handed on."
+  is watched under its root: Auth's own word for it, handed on."
   ::auth/not-reached)
 
 (deftype Standing [client roots executor]

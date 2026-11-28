@@ -374,7 +374,7 @@
           (println "  code:" (:shown asked))
           (when agent (println (str "  On that page, choose \"an agent of its own\" and call it: " agent))))
         (loop []
-          (let [got (client/waited url (:code asked) (:secret asked))]
+          (let [got (client/waited url asked)]
             (cond
               (= :waiting (:state got))
               (do (Thread/sleep 1000) (recur))

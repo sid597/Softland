@@ -116,20 +116,23 @@
                              agent (assoc :label agent))})))
 
 (defn program
-  "Signs a program in. Takes the runtime's address, what the program says
-  of itself, and a function of the ask's code that makes somebody answer
-  it. Gives {:credential text :root :actor :sign-in}, or what the runtime
-  said when the answer was no yes."
+  "Signs a program in, by the two requests themselves and not through the
+  command line's library. Takes the runtime's address, what the program
+  says of itself, and a function of the ask's code that makes somebody
+  answer it. Gives {:credential text :root :actor :sign-in}, or what the
+  runtime said when the answer was no yes."
   [url asks answer!]
   (let [secret (credential/make-secret)
+        asking-secret (credential/make-secret)
         asked (:body (request :post (str url "/sign-in/program")
-                              {:edn {:hash (credential/hash-of secret) :asks asks}}))
+                              {:edn {:hash (credential/hash-of secret)
+                                     :asking-hash (credential/hash-of asking-secret) :asks asks}}))
         [_ asked] (frame/read-one asked)]
     (if-not (:code asked)
       asked
       (do (answer! (:code asked))
           (let [[_ got] (frame/read-one (:body (request :post (str url "/sign-in/program/poll")
-                                                        {:edn {:code (:code asked) :secret secret}})))]
+                                                        {:edn {:code (:code asked) :asking-secret asking-secret}})))]
             (if (= :yes (:state got))
               (assoc got :credential (credential/text (:root got) (:sign-in got) secret))
               got))))))

@@ -17,9 +17,9 @@
 (defn- ask-code!
   "Starts a program sign-in ask at `url` and returns its `code`."
   [url asks]
-  (let [secret (credential/make-secret)
-        resp (drive/request :post (str url "/sign-in/program")
-                            {:edn {:hash (credential/hash-of secret) :asks asks}})
+  (let [resp (drive/request :post (str url "/sign-in/program")
+                            {:edn {:hash (credential/hash-of (credential/make-secret))
+                                   :asking-hash (credential/hash-of (credential/make-secret)) :asks asks}})
         [_ form] (frame/read-one (:body resp))]
     (:code form)))
 

@@ -6,59 +6,90 @@
 
   What it gives:
 
-  - `step`, the twelve writes as a pure state machine: `(step state call)`
+  - `step`, the fourteen writes as a pure state machine: `(step state call)`
     gives `[state' result]`, where a call is `[:invite {...}]`,
     `[:enter {...}]` and so on. `empty-state` is where it starts.
-  - The pure reads of a state: `who-is`, `ask-of`, `under`, and
-    `live-under`, which is what is live under a root: the value that
-    `watch-root` hands to its function.
+  - The pure reads of a state: `who-is`, `ask-of`, `under`,
+    `invitation-of`, `accounts-of`, and `live-under`, which is what is
+    watched under a root: the value that `watch-root` hands to its function.
   - `cluster`, a thing that stands for a cluster in which Auth is launched
-    under the names that it is given; and the eighteen functions of the
+    under the names that it is given; and the twenty-two functions of the
     contract under their own names, `open` among them, which takes such a
     thing and a module's name, so that a program can stand on it. The reads
     take a client or a state.
 
   The state is one map:
 
-    :persons  person -> {:claim :invited-by :invited-at, and from her first
-                         enter :account :own-lane :making :own-lane-made?
-                         :entered-at}
-    :claims   claim -> the person whom it names, for good
-    :links    account -> {:person :says :said-at}
-    :roots    person -> {:agents {agent {:made-by :label :made-at :depth
-                                         :ended?}}
+    :persons  person -> from her first enter {:invited-by :invited-at
+                         :own-lane :making :own-lane-made? :entered-at}, who
+                         first invited her and when
+    :claims   claim -> {:person :waiting :links}: whom it names, the
+                       invitation that waits under it, {:invite :invited-by
+                       :invited-at :ends} or nil, and the links that were
+                       made by proving it, link -> {:invited-by :invited-at}
+    :links    account -> {:person :says :said-at :claim :link :linked-at}
+    :invite-ops  op -> the answer that the invite of that op gave,
+                       :invited or :claim-in-use
+    :next-link   the number of the next link's id
+    :roots    person -> {:agents {agent {:made-by :ends-with :label :made-at
+                                         :depth :ended?}}
                          :agent-order [agent ...]
                          :sign-ins {sign-in {:actor :kind :hash :first-hash
                                              :until :previous :label :begun
-                                             :ended?}}
+                                             :ended? :watched?}}
                          :sign-in-order [sign-in ...]
                          :sessions {session {:sign-in :until :driven-by
-                                             :opened-at :closed?}}}
-    :asks     code -> {:hash :asks :ends :asked-at :over-when-made? :state
-                       :answer}
+                                             :opened-at :closed? :watched?}}
+                         :ends n}
+    :asks     code -> {:hash :asking-hash :asks :ends :asked-at
+                       :over-when-made? :state :answer}
 
-  A person is in `:roots` from her first enter on. She is then an actor of
-  her root, at depth 0, and is not one of its `:agents`. Nothing is ever
-  taken out of the map: an end is a flag. The reference keeps no log of
-  events, and a refused enter leaves nothing. A result comes from what
+  A person is in `:persons` and `:roots` from her first enter on, and stays
+  there when her accounts are unlinked. She is then an actor of her root,
+  at depth 0, and is not one of its `:agents`. A person who waits is a
+  claim that names her and nothing else. Nothing of a root is ever taken
+  out of the map: an end is a flag. What is taken out is what names a
+  human being: a link, by `unlink`, and an invitation that waits, by
+  `take-back`; a claim under which nothing waits and no link stands is
+  gone. A link's id is the op of the enter that made it: here a UUID of
+  `:next-link`, in the module the op that the client makes. The reference
+  keeps no log of events, and a refused enter leaves nothing. A result comes
+  from what
   stands, never from a memory of calls (Sid's calls of 22 November): a
   link keeps one `:says`, an ask keeps the answer that stands, and a
   sign-in keeps its present hash and the one before it, with no history of
   its replacements. A sign-in keeps, as `:first-hash`, the hash that its
   begin bound, one for each sign-in, by which a repeat of that begin is
-  known (QUESTIONS.md, 8).
+  known (QUESTIONS.md, 8). An invite keeps, under its op, the answer that
+  it gave: a memory of a call, which the spec of 28 November asks for so
+  that an invite that runs again cannot undo a later write (QUESTIONS.md,
+  35). No email is in the state: a claim holds its hash, which the runtime
+  makes.
 
   Approach. `step` reads the form of the call first: an input that does
   not fit gives `{:could-not :read-the-event}` and the state as it was. A
-  write that names a `:root` then takes out of what is live under that root
-  whatever has passed at its `:at` (`take-out`), however it is judged after.
-  Then the write is judged: a repeat is recognised first, and an answer to
-  an ask that has an answer is told what stands; then come the refusals in
-  the order in which the contract lists them, and only then is the write
-  taken. A refusal leaves the state as the take-out left it. Nothing reads a
-  clock: every time is the `:at` of a call. Standing is worked out as the
-  spec words it (`actor-live?`, `sign-in-live?`); what a read costs is not
+  write that names a `:root` then thins what is watched under that root:
+  whatever has passed at its `:at` leaves it (`thin`), however the write is
+  judged after. Then the write is judged: a repeat is recognised first, and
+  an answer to an ask that has an answer is told what stands; then come the
+  refusals in the order in which the contract lists them, and only then is
+  the write taken. A refusal leaves the state as the thinning left it.
+  Nothing reads a clock: every time is the `:at` of a call, and an
+  invitation is over at a write whose `:at` is at or after its `:ends`,
+  which nothing writes down. Standing is worked out as the spec words it
+  (`actor-live?`, `sign-in-live?`, `lets-in?`); what a read costs is not
   modelled.
+
+  Two things are kept apart for a sign-in and a session. `:ended?` and
+  `:closed?` say that someone ended it: `end-sign-in`, `close-session` and
+  `end-actor` alone write them, and nothing takes them back. `:watched?`
+  says that the thing is in what `watch-root` and `under` give: it is so
+  from a write that gave it a time after that write's `:at`, until a write
+  under its root whose `:at` its time is at or before, or until someone
+  ends it. A time that passes ends nothing: a write that needs a live
+  sign-in holds the sign-in's `:until` against its own `:at`, and keeps
+  nothing of that. A root's `:ends` counts the writes that ended something
+  under it.
 
   Where the spec does not say what happens, or says two things, the
   reference takes the reading that refuses more or changes less.
@@ -77,7 +108,7 @@
   clients are closed, and the broken rule, if any. A lock on the atom puts
   the writes, and the calls of the watches that follow each write, in one
   order."
-  (:import [java.util Locale]))
+  (:import [java.util UUID]))
 
 ;; ------------------------------------------------------------------ the bounds
 
@@ -142,12 +173,6 @@
   [x]
   (and (string? x) (<= (count x) longest-text) (carried? x)))
 
-(defn- email?
-  "Whether `x` is an email: a text in lower case. The spec says that the
-  runtime gives emails so, and Auth holds it as form (QUESTIONS.md, 3)."
-  [x]
-  (and (text? x) (= x (.toLowerCase ^String x Locale/ROOT))))
-
 (defn- provider?
   "Whether `x` is a provider: a keyword whose name, with its namespace when
   it has one, is at most 256 characters (Sid's call of 22 November), and can
@@ -193,12 +218,13 @@
   (fn [x] (= k x)))
 
 (defn- claim?
-  "Whether `x` is a claim: `{:by :email :email e}` or `{:by :code :hash h}`.
-  `email-ok?` is the test of the email."
-  ([x] (claim? x email?))
-  ([x email-ok?]
-   (or (shaped? x {:by (is :email) :email email-ok?} {})
-       (shaped? x {:by (is :code) :hash hash?} {}))))
+  "Whether `x` is a claim: `{:by :email :hash h}` or `{:by :code :hash h}`,
+  two kinds of one form. Auth only matches an email and never reads one, so
+  it is given the hash that the runtime makes of it (QUESTIONS.md, 3, as
+  turned on 28 November)."
+  [x]
+  (or (shaped? x {:by (is :email) :hash hash?} {})
+      (shaped? x {:by (is :code) :hash hash?} {})))
 
 (defn- kind?
   "Whether `x` is the kind of a sign-in: `:browser` or `:program`."
@@ -235,9 +261,11 @@
   contract writes `-or-nil` must be there, and may be nil; a part that the
   contract does not name does not fit; `:own-lane` is a UUID (Sid's call
   of 22 November)."
-  {:invite {:person id? :claim claim? :invited-by maker-or-system? :at time?}
-   :enter {:account account? :says says? :email (or-nil email?) :code-hash (or-nil hash?)
+  {:invite {:person id? :claim claim? :invited-by maker-or-system? :at time? :ends time? :op-id id?}
+   :enter {:account account? :says says? :email-hash (or-nil hash?) :code-hash (or-nil hash?)
            :own-lane id? :making making? :at time?}
+   :take-back {:person id? :claim claim? :invite id? :at time?}
+   :unlink {:account account? :link id? :person id? :at time?}
    :own-lane-made {:person id? :at time?}
    :begin-sign-in {:root id? :actor id? :sign-in id? :kind kind? :hash hash? :until time?
                    :label (or-nil text?) :at time?}
@@ -248,7 +276,7 @@
    :end-actor {:root id? :actor id? :at time?}
    :open-session {:root id? :sign-in id? :session id? :until time? :at time?}
    :close-session {:root id? :session id? :at time?}
-   :ask {:code code? :hash hash? :asks text? :ends time? :at time?}
+   :ask {:code code? :hash hash? :asking-hash hash? :asks text? :ends time? :at time?}
    :answer-ask {:code code? :yes? boolean? :root id? :actor id? :new-agent new-agent?
                 :sign-in id? :until time? :at time?}})
 
@@ -265,10 +293,7 @@
                         (assoc-in [:make-actor :label] string?))
    :provider-and-lane-unchecked (-> forms
                                      (assoc-in [:enter :account] #(account? % keyword?))
-                                     (assoc-in [:enter :own-lane] any?))
-   :capital-email-fits (-> forms
-                           (assoc-in [:invite :claim] #(claim? % text?))
-                           (assoc-in [:enter :email] (or-nil text?)))})
+                                     (assoc-in [:enter :own-lane] any?))})
 
 (defn- form-of
   "The form by which the input of the write `kind` is judged in the copy
@@ -310,11 +335,11 @@
 
 (def empty-state
   "The state of an Auth into which nothing has been written."
-  {:persons {} :claims {} :links {} :roots {} :asks {}})
+  {:persons {} :claims {} :links {} :roots {} :asks {} :invite-ops {} :next-link 0})
 
 (def ^:private empty-root
   "What the root of a person holds when she has just entered."
-  {:agents {} :agent-order [] :sign-ins {} :sign-in-order [] :sessions {}})
+  {:agents {} :agent-order [] :sign-ins {} :sign-in-order [] :sessions {} :ends 0})
 
 (defn- state?
   "Whether `x` has the keys of a state. A map whose comparator throws has
@@ -325,9 +350,10 @@
     (catch Throwable _ false)))
 
 (defn- entered?
-  "Whether the person `P` has entered: an account is linked to her."
+  "Whether the person `P` has entered: an enter made her an actor. She stays
+  so when her accounts are unlinked."
   [state P]
-  (some? (get-in state [:persons P :account])))
+  (contains? (:persons state) P))
 
 (defn- actor-of
   "The actor `A` of the root `P`: `{:person? true :depth 0}` for the person
@@ -339,23 +365,47 @@
 
 (defn- actor-live?
   "Whether the actor `A` of the root `P` is there, has not ended, and has no
-  actor above it that has ended. Walks up who made whom, which is 32 deep
-  at most."
+  actor above it that has ended. The actor above an agent is the one whose
+  ending ends it (`:ends-with`), which is not read as who made it. The walk
+  up stops after as many steps as the root has agents."
   [state P A]
   (loop [A A
-         steps 0]
+         steps (count (get-in state [:roots P :agents]))]
     (let [a (actor-of state P A)]
       (cond (nil? a) false
             (:person? a) true
             (:ended? a) false
-            (> steps deepest) false
-            :else (recur (:made-by a) (inc steps))))))
+            (neg? steps) false
+            :else (recur (:ends-with a) (dec steps))))))
 
 (defn- passed?
   "Whether a thing whose end is `end` has passed at the time `at`: a thing
   is live while the time that it is held against is before its end."
   [end at broken]
   (if (= broken :edge-is-after-the-end) (< end at) (<= end at)))
+
+(defn- lets-in?
+  "Whether the invitation `w` lets in an enter at the time `at`: it was made
+  at or before `at`, and `at` is before its end. In the broken copies,
+  `:over-invitation-lets-in` holds no end and `:early-enter-lets-in` no
+  beginning."
+  [w at broken]
+  (boolean (and w
+                (or (<= (:invited-at w) at) (= broken :early-enter-lets-in))
+                (or (not (passed? (:ends w) at broken)) (= broken :over-invitation-lets-in)))))
+
+(defn- names
+  "The person whom the claim `c` names at the time `at`: its person while a
+  link stands under it or an invitation waits that is not over; nil when
+  the claim is free. In the broken copies, `:over-invitation-stands` lets
+  an invitation that is over name its person too, and
+  `:used-claim-names-another` lets no link name its person."
+  [c at broken]
+  (when (and c (or (and (seq (:links c)) (not= broken :used-claim-names-another))
+                   (and (:waiting c)
+                        (or (not (passed? (get-in c [:waiting :ends]) at broken))
+                            (= broken :over-invitation-stands)))))
+    (:person c)))
 
 (defn- sign-in-time
   "The time of the sign-in `g`: its present secret's `:until` alone."
@@ -376,35 +426,48 @@
 (defn- end-sign-ins
   "Ends the sign-ins `Gs` (a set) of the root `P`, which must be there, as
   `end-sign-in` does, and closes every session under them unless `close?`
-  is false."
+  is false. What is ended or closed is watched no longer."
   [state P Gs close?]
   (update-in state [:roots P]
              (fn [r]
-               (cond-> (update r :sign-ins (fn [gs] (reduce (fn [gs G] (assoc-in gs [G :ended?] true)) gs Gs)))
+               (cond-> (update r :sign-ins (fn [gs] (reduce (fn [gs G] (update gs G assoc :ended? true :watched? false)) gs Gs)))
                  close? (update :sessions
                                 (fn [ss]
-                                  (into {} (map (fn [[S s]] [S (if (contains? Gs (:sign-in s)) (assoc s :closed? true) s)]))
+                                  (into {} (map (fn [[S s]] [S (if (contains? Gs (:sign-in s))
+                                                                 (assoc s :closed? true :watched? false)
+                                                                 s)]))
                                         ss)))))))
 
-(defn take-out
-  "Takes out of what is live under the root `P` every sign-in and every
-  session whose time is at or before `at`. A sign-in so taken out is ended,
-  as by `end-sign-in`, with its sessions; a session so taken out is closed,
-  as by `close-session`. Neither is taken back. A root that is not there is
+(defn- counted
+  "The state with one more write that ended something under the root `P`."
+  [state P]
+  (update-in state [:roots P :ends] (fnil inc 0)))
+
+(defn thin
+  "Thins what is watched under the root `P` at the time `at`: every sign-in
+  and every session whose time is at or before `at` leaves it, each by its
+  own time. Nothing of it is ended or closed, and a later write that gives
+  it a time after its own `:at` puts it back. A root that is not there is
   left as it is. `step` does this first for each write that names a root,
   whether the write is then taken, is a repeat, or is refused; the proof
   uses it to say what a repeat or a refusal may change. The arity with
-  `broken` is for the broken copies."
-  ([state P at] (take-out state P at nil))
+  `broken` is for the broken copies: in `:time-ends`, what leaves is ended
+  or closed, as by `end-sign-in` and `close-session`."
+  ([state P at] (thin state P at nil))
   ([state P at broken]
    (if-let [r (get-in state [:roots P])]
-     (let [Gs (into #{} (keep (fn [[G g]] (when (and (not (:ended? g)) (passed? (sign-in-time g broken) at broken)) G)))
+     (let [Gs (into #{} (keep (fn [[G g]] (when (and (:watched? g) (passed? (sign-in-time g broken) at broken)) G)))
                     (:sign-ins r))
-           Ss (into #{} (keep (fn [[S s]] (when (and (not (:closed? s)) (passed? (:until s) at broken)) S)))
+           Ss (into #{} (keep (fn [[S s]] (when (and (:watched? s) (passed? (:until s) at broken)) S)))
                     (:sessions r))]
-       (-> state
-           (end-sign-ins P Gs true)
-           (update-in [:roots P :sessions] (fn [ss] (reduce (fn [ss S] (assoc-in ss [S :closed?] true)) ss Ss)))))
+       (if (= broken :time-ends)
+         (-> state
+             (end-sign-ins P Gs true)
+             (update-in [:roots P :sessions]
+                        (fn [ss] (reduce (fn [ss S] (update ss S assoc :closed? true :watched? false)) ss Ss))))
+         (-> state
+             (update-in [:roots P :sign-ins] (fn [gs] (reduce (fn [gs G] (assoc-in gs [G :watched?] false)) gs Gs)))
+             (update-in [:roots P :sessions] (fn [ss] (reduce (fn [ss S] (assoc-in ss [S :watched?] false)) ss Ss))))))
      state)))
 
 ;; ------------------------------------------------------------------ the writes
@@ -415,22 +478,108 @@
   [state {:refused word}])
 
 (defn- write-invite
-  "invite: makes the person wait under the claim. A claim that names this
-  person already is a repeat, also after she has entered; a claim that
-  names another person is `:claim-in-use`; a person under another claim is
-  `:person-in-use`. `:invited-by` is kept as given."
-  [state {:keys [person claim invited-by at]} broken]
-  (let [named (get-in state [:claims claim])
-        has (get-in state [:persons person :claim])]
+  "invite: makes the person wait under the claim until `:ends`. An invite
+  whose op has an answer gives it again and changes nothing (QUESTIONS.md,
+  35). Else a claim that names another person at the invite's `:at` is
+  `:claim-in-use`; an invitation of this person that waits and is not over
+  is a repeat, whose `:invited-by` and `:ends` are dropped; an invite of a
+  person whose links stand under the claim, made by anyone but her, gives
+  `{:invited P}` and writes nothing, since adding an account to a person
+  who has entered is her act alone (QUESTIONS.md, 41); and otherwise her
+  invitation is written, with this `:at` and `:ends`, beside her links
+  under the claim when she has some. An invitation whose `:ends` is at or
+  before its own `:at` is taken and never lets anyone in (QUESTIONS.md,
+  36). A person may wait
+  under several claims, and be invited after she has entered: that is how
+  she adds an account. `:invited-by` is kept as given. The op's answer is
+  kept in every case but the first. In the broken copies,
+  `:person-has-one-claim` refuses with `:person-in-use` a person whom
+  another claim names, `:used-claim-names-another` lets another person be
+  invited under a claim that a link stands under, which takes the place of
+  the claim's links, `:invite-op-forgotten` judges an op that has an
+  answer again, and `:anyone-invites-beside-links` writes the invitation of
+  anyone beside her links."
+  [state {:keys [person claim invited-by at ends op-id]} broken]
+  (let [c (get-in state [:claims claim])
+        named (names c at broken)
+        done (get-in state [:invite-ops op-id])
+        answered (fn [state result]
+                   [(assoc-in state [:invite-ops op-id] (if (contains? result :invited) :invited :claim-in-use)) result])]
     (cond
-      (= named person) [state {:invited person}]
-      (and (some? named) (not (and (= broken :used-claim-names-another) (entered? state named))))
-      (refuse state :claim-in-use)
-      (and (some? has) (not= broken :second-claim-taken)) (refuse state :person-in-use)
-      :else [(-> state
-                 (assoc-in [:claims claim] person)
-                 (update-in [:persons person] assoc :claim claim :invited-by invited-by :invited-at at))
-             {:invited person}])))
+      (and done (not= broken :invite-op-forgotten))
+      [state (if (= :invited done) {:invited person} {:refused :claim-in-use})]
+
+      (and (some? named) (not= named person))
+      (answered state {:refused :claim-in-use})
+
+      (and (= broken :person-has-one-claim)
+           (some (fn [[k x]] (and (not= k claim) (= person (:person x)))) (:claims state)))
+      [state {:refused :person-in-use}]
+
+      (and (= named person) (:waiting c) (not (passed? (get-in c [:waiting :ends]) at broken)))
+      (answered state {:invited person})
+
+      (and (= person (:person c)) (seq (:links c)) (not= invited-by person)
+           (not= broken :anyone-invites-beside-links))
+      (answered state {:invited person})
+
+      :else
+      (answered (assoc-in state [:claims claim]
+                          {:person person
+                           :waiting {:invite op-id :invited-by invited-by :invited-at at :ends ends}
+                           :links (if (= person (:person c)) (:links c {}) {})})
+                {:invited person}))))
+
+(defn- without-link
+  "The state with the link `L` taken out of the claim `claim`, and the claim
+  gone when nothing waits under it and no link is left."
+  [state claim L]
+  (let [c (get-in state [:claims claim])]
+    (cond
+      (not (contains? (:links c) L)) state
+      (and (nil? (:waiting c)) (= 1 (count (:links c)))) (update state :claims dissoc claim)
+      :else (update-in state [:claims claim :links] dissoc L))))
+
+(defn- write-take-back
+  "take-back: the invitation that the op `:invite` made, when it waits under
+  the claim, waits no longer, whether or not its time has passed; the claim
+  is gone when no link stands under it. It touches no link and no other
+  invitation, and gives `{:taken-back P}` always: after it, that
+  invitation does not wait. `P` is given back as it came (QUESTIONS.md,
+  38). In the broken copies, `:take-back-of-any`
+  takes back whichever invitation waits, and `:take-back-takes-links` takes
+  the claim's links with it."
+  [state {:keys [person claim invite]} broken]
+  (let [c (get-in state [:claims claim])
+        mine? (and (:waiting c) (or (= invite (get-in c [:waiting :invite])) (= broken :take-back-of-any)))]
+    [(cond
+       (not mine?) state
+       (or (empty? (:links c)) (= broken :take-back-takes-links)) (update state :claims dissoc claim)
+       :else (assoc-in state [:claims claim :waiting] nil))
+     {:taken-back person}]))
+
+(defn- write-unlink
+  "unlink: the link `:link` of the account, when it stands there for the
+  person, goes, with its `:says`; the claim that it was made by proving
+  loses it, and is gone when nothing waits under it and no link is left;
+  her accounts lose it. It gives `{:unlinked P}` whenever, after it, the
+  link does not stand on the account, also when it never did (QUESTIONS.md,
+  39); a link that
+  stands there for another person is `:another-persons`. (`:linking`, for a
+  link that its enter is still making, never comes here: an enter is one
+  step.) It ends no sign-in and no session, which are the person's, not the
+  account's: a person whose last account is unlinked keeps what she has
+  until it ends, and cannot enter again until an invitation names her. In
+  the broken copies, `:unlink-keeps-the-claim` leaves the claim's link, and
+  `:unlink-of-any-link` removes the account's link whichever it is."
+  [state {:keys [account link person]} broken]
+  (let [l (get-in state [:links account])]
+    (cond
+      (not (and l (or (= link (:link l)) (= broken :unlink-of-any-link)))) [state {:unlinked person}]
+      (not= person (:person l)) (refuse state :another-persons)
+      :else [(cond-> (update state :links dissoc account)
+               (not= broken :unlink-keeps-the-claim) (without-link (:claim l) (:link l)))
+             {:unlinked person}])))
 
 (defn- entered
   "What an enter of an account that is linked to the person `P` gives: her
@@ -441,27 +590,41 @@
   (let [p (get-in state [:persons P])]
     {:person P :own-lane (:own-lane p) :making (:making p) :own-lane-made? (boolean (:own-lane-made? p))}))
 
+(defn- link-id
+  "The id of the `n`th link that the state makes."
+  [n]
+  (UUID. 0x4C494E4B (long n)))
+
 (defn- write-enter
   "enter: an account that has a link gives its person, whatever claim came
   with it, with the own lane and the `:making` that were fixed, and
   `:own-lane-made?` as it stands. One that has none takes the person of
   the claim that it proves, the code's when `:code-hash` names an
-  invitation that waits, else the email's: the link is written, the claim
-  is used up, and the person becomes an actor, her own root, with the
-  offered own lane and `:making` fixed. One that proves no claim is
-  `:not-invited`, and nothing of it is kept. The link keeps the `:says` of
-  the enter with the latest `:at`, with that `:at`: an enter whose `:at`
-  is not later leaves it. Nothing remembers what an enter gave (Sid's call
-  of 22 November). The broken copy `:enter-repeats-what-it-gave` keeps
-  that memory, under `:decided`, as the reading that the call set aside
-  did."
-  [state {:keys [account says email code-hash own-lane making at] :as input} broken]
+  invitation that lets it in, else the email's (`:email-hash`): one that
+  waits, was made at or before the enter's `:at`, and whose `:ends` is
+  after it. The link is written, with its id, the claim that it was made
+  by and its `:at`; the invitation no longer waits, and the link stands
+  under the claim. A person who has not entered becomes an actor, her own
+  root, with the offered own lane and `:making` fixed, and who invited her
+  by that claim; one who has entered is left as she is, and the account
+  becomes one more of hers. One that proves no claim is `:not-invited`,
+  and nothing of it is kept. The link keeps the `:says` of the enter with
+  the latest `:at`, with that `:at`: an enter whose `:at` is not later
+  leaves it. Nothing remembers what an enter gave (Sid's call of 22
+  November), so an enter that runs again after its account was unlinked is
+  judged as a new enter at its old `:at`: only an invitation made at or
+  before it, that still waits, lets it in (QUESTIONS.md, 42). The broken copy `:enter-repeats-what-it-gave` keeps that
+  memory, under `:decided`, as the reading that the call set aside did;
+  `:one-account-a-person` refuses an account that proves an invitation of
+  a person who has entered."
+  [state {:keys [account says email-hash code-hash own-lane making at] :as input} broken]
   (let [link (get-in state [:links account])
-        waits (fn [claim]
-                (when-let [P (get-in state [:claims claim])]
-                  (when-not (entered? state P) P)))
-        proven (or (when code-hash (waits {:by :code :hash code-hash}))
-                   (when email (waits {:by :email :email email})))
+        proving (fn [claim] (when (lets-in? (get-in state [:claims claim :waiting]) at broken) claim))
+        proven (or (when code-hash (proving {:by :code :hash code-hash}))
+                   (when email-hash (proving {:by :email :hash email-hash})))
+        c (get-in state [:claims proven])
+        P (:person c)
+        proven (when-not (and proven (= broken :one-account-a-person) (entered? state P)) proven)
         remembering? (= broken :enter-repeats-what-it-gave)]
     (cond
       (and link (not (and proven (= broken :link-moves))))
@@ -472,12 +635,21 @@
                        (entered state' (:person link)))]
         [(cond-> state' remembering? (assoc-in [:decided account input] result)) result])
       proven
-      (let [state' (-> state
-                       (assoc-in [:links account] {:person proven :says says :said-at at})
-                       (update-in [:persons proven] assoc :account account :own-lane own-lane
-                                  :making making :own-lane-made? false :entered-at at)
-                       (update-in [:roots proven] #(or % empty-root)))
-            result (entered state' proven)]
+      (let [L (link-id (:next-link state))
+            w (:waiting c)
+            state' (cond-> (-> state
+                               (update :next-link inc)
+                               (cond-> link (without-link (:claim link) (:link link)))
+                               (assoc-in [:links account] {:person P :says says :said-at at :claim proven
+                                                           :link L :linked-at at})
+                               (update-in [:claims proven] assoc :waiting nil)
+                               (assoc-in [:claims proven :links L] (select-keys w [:invited-by :invited-at])))
+                     (not (entered? state P))
+                     (-> (assoc-in [:persons P] {:invited-by (:invited-by w) :invited-at (:invited-at w)
+                                                 :own-lane own-lane :making making :own-lane-made? false
+                                                 :entered-at at})
+                         (assoc-in [:roots P] empty-root)))
+            result (entered state' P)]
         [(cond-> state' remembering? (assoc-in [:decided account input] result)) result])
       :else (refuse state :not-invited))))
 
@@ -493,12 +665,12 @@
   "Begins the sign-in `G` of the root `P` from `g`, which holds its actor,
   kind, hash, until and label, at the time `at`, last in the order in which
   the root's sign-ins began. A sign-in whose until is at or before `at` is
-  taken and is never live: it begins ended."
+  taken, and is not watched and not ended (QUESTIONS.md, 9)."
   [state P G g at broken]
   (-> state
       (assoc-in [:roots P :sign-ins G]
-                (assoc g :first-hash (:hash g) :previous nil :begun at
-                       :ended? (and (passed? (:until g) at broken) (not= broken :born-live))))
+                (assoc g :first-hash (:hash g) :previous nil :begun at :ended? false
+                       :watched? (or (not (passed? (:until g) at broken)) (= broken :born-live))))
       (update-in [:roots P :sign-in-order] conj G)))
 
 (defn- write-begin-sign-in
@@ -513,7 +685,10 @@
       (and g (= actor (:actor g)) (= kind (:kind g)) (= hash (:first-hash g)))
       (case broken
         :ended-sign-in-begins-again
-        [(if (:ended? g) (update-in state [:roots root :sign-ins sign-in] assoc :ended? false :until until) state)
+        [(if (:ended? g)
+           (update-in state [:roots root :sign-ins sign-in] assoc :ended? false :until until
+                      :watched? (not (passed? until at broken)))
+           state)
          {:begun sign-in}]
         :repeat-keeps-its-parts
         [(update-in state [:roots root :sign-ins sign-in] assoc :until until :label label) {:begun sign-in}]
@@ -533,8 +708,10 @@
   is `:wrong-secret`. A replacement is judged by the present hash and the
   one before it alone (Sid's call of 22 November): one that arrives after
   a newer one is refused, and one whose hash has come back is taken when
-  its old hash is the hash now. No session changes. A new until at or
-  before `:at` takes the sign-in out at once, with its sessions
+  its old hash is the hash now. No session changes. A sign-in whose time is
+  at or before the replacement's own `:at` is not live at it, whatever an
+  earlier write under the root said. A new until at or before `:at` is
+  taken: the sign-in then has that until, is not watched, and is not ended
   (QUESTIONS.md, 10). The broken copy `:replacements-remembered` keeps, in
   `:replaced`, each replacement that the sign-in took, as the reading that
   the call set aside did."
@@ -552,28 +729,41 @@
       :else
       (let [g' (cond-> (assoc g :hash new-hash :until until :previous {:hash old-hash :until previous-until})
                  remembering? (update :replaced (fnil conj #{}) [old-hash new-hash]))
-            state' (assoc-in state [:roots root :sign-ins sign-in] g')]
-        [(if (passed? (sign-in-time g' broken) at broken) (end-sign-ins state' root #{sign-in} true) state')
-         {:replaced sign-in}]))))
+            g' (assoc g' :watched? (not (passed? (sign-in-time g' broken) at broken)))]
+        [(assoc-in state [:roots root :sign-ins sign-in] g') {:replaced sign-in}]))))
+
+(defn- ended-something
+  "The state `after` an end under the root `P`, counted. In the broken copy
+  `:end-of-unwatched-not-counted`, counted only when the end changed what
+  was watched in `before`."
+  [before after P broken]
+  (let [watched (fn [state] (select-keys (get-in state [:roots P]) [:sign-ins :sessions]))
+        shows (fn [state] (into #{} (for [[kind things] (watched state) [id thing] things :when (:watched? thing)] [kind id])))]
+    (if (and (= broken :end-of-unwatched-not-counted) (= (shows before) (shows after)))
+      after
+      (counted after P))))
 
 (defn- write-end-sign-in
-  "end-sign-in: the sign-in ends, and every session under it is closed.
-  Ending it again changes nothing. A sign-in that is not of this root is
-  `:no-such-sign-in`."
+  "end-sign-in: the sign-in ends, and every session under it is closed,
+  watched or not. Ending it again changes nothing. A sign-in that is not of
+  this root is `:no-such-sign-in`. A sign-in whose time has passed is ended
+  by this like any other: its time ended nothing."
   [state {:keys [root sign-in]} broken]
   (let [g (get-in state [:roots root :sign-ins sign-in])]
     (cond
       (nil? g) (refuse state :no-such-sign-in)
       (:ended? g) [state {:ended sign-in}]
-      :else [(end-sign-ins state root #{sign-in} (not= broken :end-leaves-sessions-open)) {:ended sign-in}])))
+      :else [(ended-something state (end-sign-ins state root #{sign-in} (not= broken :end-leaves-sessions-open)) root broken)
+             {:ended sign-in}])))
 
 (defn- make-agent
   "Makes the agent `A` of the root `P`, made by `B` with `label` at the time
   `at`, `depth` makers below the root, last in the order of the root's
-  agents."
+  agents. The actor whose ending ends it starts as its maker; no write
+  sets it."
   [state P A B label at depth]
   (-> state
-      (assoc-in [:roots P :agents A] {:made-by B :label label :made-at at :depth depth :ended? false})
+      (assoc-in [:roots P :agents A] {:made-by B :ends-with B :label label :made-at at :depth depth :ended? false})
       (update-in [:roots P :agent-order] conj A)))
 
 (defn- write-make-actor
@@ -595,19 +785,20 @@
       :else [(make-agent state root actor made-by label at (inc (:depth maker))) {:made actor}])))
 
 (defn- beneath
-  "The agent `A` of the root record `r` and every agent that it made, in any
-  depth; in the broken copy `:end-reaches-one-down`, only those that it
-  made itself."
+  "The agent `A` of the root record `r` and every agent that ends with it,
+  in any depth, by `:ends-with`; who made an agent is read for nothing. In
+  the broken copy `:end-reaches-one-down`, only those that end with `A`
+  itself."
   [r A broken]
   (if (= broken :end-reaches-one-down)
-    (into #{A} (keep (fn [[B b]] (when (= A (:made-by b)) B))) (:agents r))
+    (into #{A} (keep (fn [[B b]] (when (= A (:ends-with b)) B))) (:agents r))
     (loop [found #{A}]
-      (let [more (into found (keep (fn [[B b]] (when (contains? found (:made-by b)) B))) (:agents r))]
+      (let [more (into found (keep (fn [[B b]] (when (contains? found (:ends-with b)) B))) (:agents r))]
         (if (= more found) found (recur more))))))
 
 (defn- write-end-actor
-  "end-actor: the agent ends, with every actor that it made, in any depth,
-  and every sign-in and session of each. An agent that has ended already,
+  "end-actor: the agent ends, with every actor that ends with it, in any
+  depth, and every sign-in and session of each. An agent that has ended already,
   by this call or with one above it, gives the same and nothing changes
   (QUESTIONS.md, 16). An actor that is not of this root is `:no-such-actor`;
   the person is `:is-a-person`."
@@ -621,20 +812,25 @@
       (let [r (get-in state [:roots root])
             As (beneath r actor broken)
             Gs (into #{} (keep (fn [[G g]] (when (contains? As (:actor g)) G))) (:sign-ins r))]
-        [(-> state
-             (update-in [:roots root :agents] (fn [as] (reduce (fn [as B] (assoc-in as [B :ended?] true)) as As)))
-             (end-sign-ins root Gs (not= broken :end-actor-leaves-sessions-open)))
+        [(ended-something
+          state
+          (-> state
+              (update-in [:roots root :agents] (fn [as] (reduce (fn [as B] (assoc-in as [B :ended?] true)) as As)))
+              (end-sign-ins root Gs (not= broken :end-actor-leaves-sessions-open)))
+          root broken)
          {:ended actor}]))))
 
 (defn- write-open-session
   "open-session: opens the session under a live sign-in, with its until and
   its `:driven-by`, nil when not said. The same id under the same sign-in is
-  a repeat: while the session is open it moves its until to the one that
-  came, when that is later, and changes nothing else; a session that is
-  closed is not opened again. Else a sign-in that is not live is
-  `:not-live`, and an id that is a session of another sign-in, open or
-  not, is `:in-use`. A session whose until is at or before `:at` is taken
-  and is never live: it opens closed."
+  a repeat, which gives `{:open S}` whatever it changes. It moves the
+  session's until to the one that came, when that is later, and the session
+  is then watched; but only while nobody closed the session, its time has
+  not passed at the repeat's `:at`, and its sign-in is live at that `:at`
+  (QUESTIONS.md, 17). Else a sign-in that is not live is `:not-live`, and
+  an id that is a session of another sign-in, open or not, is `:in-use`. A
+  session whose until is at or before `:at` is taken, and is not watched
+  and not closed (QUESTIONS.md, 9)."
   [state {:keys [root sign-in session until at] :as input} broken]
   (let [s (get-in state [:roots root :sessions session])
         g (get-in state [:roots root :sign-ins sign-in])]
@@ -642,40 +838,54 @@
       (and s (= sign-in (:sign-in s)))
       [(cond
          (and (:closed? s) (= broken :closed-session-opens-again))
-         (update-in state [:roots root :sessions session] assoc :closed? false :until (max (:until s) until))
+         (update-in state [:roots root :sessions session] assoc :closed? false :until (max (:until s) until)
+                    :watched? (not (passed? (max (:until s) until) at broken)))
          (:closed? s) state
-         :else (update-in state [:roots root :sessions session]
-                          (fn [s] (cond-> (assoc s :until (max (:until s) until))
-                                    (= broken :repeat-sets-driven-by) (assoc :driven-by (:driven-by input))))))
+         (and (not (and (passed? (:until s) at broken) (not= broken :passed-session-moves-on)))
+              (sign-in-live? state root g at broken))
+         (update-in state [:roots root :sessions session]
+                    (fn [s] (cond-> s
+                              (> until (:until s)) (assoc :until until :watched? (not (passed? until at broken)))
+                              (= broken :repeat-sets-driven-by) (assoc :driven-by (:driven-by input)))))
+         :else state)
        {:open session}]
       (not (sign-in-live? state root g at broken)) (refuse state :not-live)
       (some? s) (refuse state :in-use)
       :else [(assoc-in state [:roots root :sessions session]
-                       {:sign-in sign-in :until until :driven-by (:driven-by input) :opened-at at
-                        :closed? (and (passed? until at broken) (not= broken :born-live))})
+                       {:sign-in sign-in :until until :driven-by (:driven-by input) :opened-at at :closed? false
+                        :watched? (or (not (passed? until at broken)) (= broken :born-live))})
              {:open session}])))
 
 (defn- write-close-session
   "close-session: the session is closed, once; closing it again changes
-  nothing. A session that is not of this root is `:no-such-session`."
-  [state {:keys [root session]} _]
+  nothing, and neither does closing one that closed with its sign-in. A
+  session that is not of this root is `:no-such-session`."
+  [state {:keys [root session]} broken]
   (let [s (get-in state [:roots root :sessions session])]
     (cond (nil? s) (refuse state :no-such-session)
           (:closed? s) [state {:closed session}]
-          :else [(assoc-in state [:roots root :sessions session :closed?] true) {:closed session}])))
+          :else [(ended-something state
+                                  (update-in state [:roots root :sessions session] assoc :closed? true :watched? false)
+                                  root broken)
+                 {:closed session}])))
 
 (defn- write-ask
-  "ask: binds the code, for good, to the hash of the program's secret. The
-  same code with the same hash is a repeat, whose other parts are dropped;
-  with another hash it is `:in-use`, also when the ask is over. An ask whose
-  end is at or before `:at` is taken and is never live: it is over from
-  its making."
-  [state {:keys [code hash asks ends at]} broken]
+  "ask: binds the code, for good, to the two hashes that the program sends:
+  `:hash`, of the secret that becomes its credential at a yes, and
+  `:asking-hash`, of the secret with which it asks how the ask stands. The
+  same code with the same two hashes is a repeat, whose other parts are
+  dropped; with another of either it is `:in-use`, also when the ask is
+  over. An ask whose end is at or before `:at` is taken and is never live:
+  it is over from its making. The broken copy `:asking-hash-not-bound`
+  takes an ask with the same `:hash` and another `:asking-hash` as a
+  repeat."
+  [state {:keys [code hash asking-hash asks ends at]} broken]
   (let [k (get-in state [:asks code])]
     (cond
-      (and k (= hash (:hash k))) [state {:asked code}]
+      (and k (= hash (:hash k)) (or (= asking-hash (:asking-hash k)) (= broken :asking-hash-not-bound)))
+      [state {:asked code}]
       (and k (not= broken :bound-code-asks-again)) (refuse state :in-use)
-      :else [(assoc-in state [:asks code] {:hash hash :asks asks :ends ends :asked-at at
+      :else [(assoc-in state [:asks code] {:hash hash :asking-hash asking-hash :asks asks :ends ends :asked-at at
                                            :over-when-made? (passed? ends at broken)
                                            :state :waiting :answer nil})
              {:asked code}])))
@@ -781,6 +991,8 @@
   "Each write's keyword, with the function that judges it."
   {:invite write-invite
    :enter write-enter
+   :take-back write-take-back
+   :unlink write-unlink
    :own-lane-made write-own-lane-made
    :begin-sign-in write-begin-sign-in
    :replace-secret write-replace-secret
@@ -793,30 +1005,58 @@
    :answer-ask write-answer-ask})
 
 (def names-a-root
-  "The writes that name a `:root`, and so take out what has passed under it.
-  `invite`, `enter`, `own-lane-made` and `ask` name none."
+  "The writes that name a `:root`, and so thin what is watched under it.
+  `invite`, `enter`, `take-back`, `unlink`, `own-lane-made` and `ask` name
+  none."
   #{:begin-sign-in :replace-secret :end-sign-in :make-actor :end-actor
     :open-session :close-session :answer-ask})
 
 (def breaks
   "The broken copies of the rules. Each key, given to `step`, breaks one
-  rule, and its value says how. The last eight take, each, a reading that
-  Sid's calls of 22 November set aside or let stand against another; a
-  module built on that reading is one of them."
+  rule, and its value says how. Eight take, each, a reading that Sid's
+  calls of 22 November set aside or let stand against another, and two the
+  rules that his yes of 28 November turned (`:person-has-one-claim`,
+  `:one-account-a-person`); a module built on that reading is one of them."
   {:link-moves
    "an enter of an account that has a link, which proves another invitation that waits, moves the link to that invitation's person"
    :used-claim-names-another
-   "a claim that an account has used up is bound to another person by a new invite"
-   :second-claim-taken
-   "a person who has a claim is invited under another, which takes the place of the first"
+   "a claim under which a link stands is free for an invite of another person, which takes the place of the claim's links"
+   :person-has-one-claim
+   "a person whom one claim names is refused with :person-in-use under another"
+   :one-account-a-person
+   "an account that proves an invitation of a person who has entered is refused"
+   :over-invitation-lets-in
+   "an enter proves an invitation at or after its :ends"
+   :early-enter-lets-in
+   "an enter proves an invitation that was made after the enter's :at"
+   :over-invitation-stands
+   "an invitation that is over still names its person, so that an invite of another person under its claim is :claim-in-use"
+   :invite-op-forgotten
+   "an invite whose op has an answer is judged again"
+   :anyone-invites-beside-links
+   "an invite of a person whose links stand under the claim, made by another than her, writes her invitation beside them"
+   :take-back-of-any
+   "take-back takes back whichever invitation waits under the claim, not only the one that its op made"
+   :take-back-takes-links
+   "take-back removes the claim with the links that stand under it"
+   :unlink-keeps-the-claim
+   "unlink removes the link and leaves it standing under its claim, which then names her still"
+   :unlink-of-any-link
+   "unlink removes the account's link whichever link it names"
    :refusal-takes-nothing-out
-   "a write that is refused takes nothing out of what is live"
+   "a write that is refused thins nothing of what is watched"
    :edge-is-after-the-end
-   "a thing whose end is the time of a write is still live at that write"
+   "a thing whose end is the time of a write is still live at that write, and still watched after it"
+   :time-ends
+   "a sign-in or a session whose time is at or before the time of a write under its root is ended, or closed, as by end-sign-in and close-session, and stays so"
+   :end-of-unwatched-not-counted
+   "an end of a thing that is not watched, which changes nothing else that a watch is given, is not counted in the root's :ends"
+   :passed-session-moves-on
+   "a repeat of open-session moves on a session whose time has passed at the repeat's :at"
    :time-of-the-older-secret
    "a sign-in's time is the later of its present secret's and the secret's before it"
    :born-live
-   "a sign-in or a session whose end is at or before the time of the event that makes it is live"
+   "a sign-in or a session whose end is at or before the time of the event that makes it is watched"
    :ended-sign-in-begins-again
    "a repeat of begin-sign-in makes an ended sign-in live again"
    :closed-session-opens-again
@@ -830,7 +1070,7 @@
    :end-leaves-sessions-open
    "end-sign-in ends the sign-in and leaves its sessions open"
    :end-reaches-one-down
-   "end-actor ends the agent and the agents that it made itself, and none further down"
+   "end-actor ends the agent and the agents that end with it itself, and none further down"
    :end-actor-leaves-sessions-open
    "end-actor ends the actors and their sign-ins, and leaves the sessions of those open"
    :later-answer-stands
@@ -839,16 +1079,16 @@
    "an answer whose time is the ask's end is taken"
    :bound-code-asks-again
    "an ask under a code that is bound to another hash takes the code"
+   :asking-hash-not-bound
+   "an ask under a code that is bound to the same hash and another asking hash is taken as a repeat"
    :unfit-input-takes-out
-   "an input that does not fit, but names a root and a time, takes out what has passed under that root"
+   "an input that does not fit, but names a root and a time, thins what is watched under that root"
    :long-label-fits
    "a label of more than 256 characters fits"
    :loose-form
    "a part that the contract names may be left out, and reads as nil, and a part that it does not name is dropped"
    :provider-and-lane-unchecked
    "a provider's name of more than 256 characters, and an :own-lane that is no UUID, fit"
-   :capital-email-fits
-   "an email with a capital letter fits, and is compared as given"
    :no-takes-any-parts
    "the parts of a no that it does not judge may be anything"
    :enter-repeats-what-it-gave
@@ -860,14 +1100,14 @@
    :replacements-remembered
    "a sign-in keeps each replacement that it took, and refuses one that it took before, also when that one's old hash has come back and is the hash now"})
 
-(defn- take-out-for-unfit
+(defn- thin-for-unfit
   "The broken copy `:unfit-input-takes-out`: an input that does not fit, but
-  names a root and a time, takes out what has passed under that root."
+  names a root and a time, thins what is watched under that root."
   [state call]
   (try
     (let [input (when (and (vector? call) (= 2 (count call))) (nth call 1))]
       (if (and (map? input) (id? (get input :root)) (time? (get input :at)))
-        (take-out state (:root input) (:at input))
+        (thin state (:root input) (:at input))
         state))
     (catch Throwable _ state)))
 
@@ -875,27 +1115,29 @@
   "Takes a state and a call, `[write-keyword input-map]`, and gives
   `[state' result]`: the state after the write, and what the write gives.
   An input that does not fit gives `{:could-not :read-the-event}` and the
-  state as it was. A write that names a root takes out, under that root,
-  what has passed at its `:at` before it is judged (`take-out`); then a
+  state as it was. A write that names a root thins what is watched under
+  that root at its `:at` before it is judged (`thin`); then a
   repeat is recognised first, and the refusals come in the order in which
   the contract lists them. It reads no clock and throws for no input.
   `broken`, a key of `breaks` or nil, breaks one rule."
   ([state call] (step state call nil))
   ([state call broken]
    (if-let [[kind input] (fitting call broken)]
-     (let [swept (if (contains? names-a-root kind) (take-out state (:root input) (:at input) broken) state)
+     (let [swept (if (contains? names-a-root kind) (thin state (:root input) (:at input) broken) state)
            [state' result] ((get writes kind) swept input broken)]
        [(if (and (contains? result :refused) (= broken :refusal-takes-nothing-out)) state state') result])
-     [(if (= broken :unfit-input-takes-out) (take-out-for-unfit state call) state)
+     [(if (= broken :unfit-input-takes-out) (thin-for-unfit state call) state)
       {:could-not :read-the-event}])))
 
 ;; ------------------------------------------------------------------- the reads
 
 (defn- who-is-in
-  "who-is of a state: the sign-in of the root, with its standing, the
-  session asked for, which can be of another sign-in, with its
-  `:driven-by`, and the root person's own lane. Ended and closed things
-  are given too."
+  "who-is of a state: the sign-in of the root, the session asked for, which
+  can be of another sign-in, with its `:driven-by`, and the root person's
+  own lane. Ended and closed things are given too, and so are things that
+  are not watched. `:ended?` and `:closed?` say that someone ended the
+  thing, never that its time has passed: the caller holds `:until` against
+  its clock."
   [state query]
   (if-not (try (shaped? query {:root id? :sign-in id? :session (or-nil id?)} {})
                (catch Throwable _ false))
@@ -920,43 +1162,78 @@
   (if-not (code? code)
     {:could-not :read-the-event}
     (when-let [k (get-in state [:asks code])]
-      {:hash (:hash k) :asks (:asks k) :ends (:ends k) :state (:state k) :answer (:answer k)})))
+      {:hash (:hash k) :asking-hash (:asking-hash k) :asks (:asks k) :ends (:ends k) :state (:state k)
+       :answer (:answer k)})))
 
-(defn- live-sign-ins
-  "The sign-ins of the root `P` that are live as the state holds them: not
-  ended, and their actor live. Gives `[id record]` pairs in the order in
-  which they began."
+(defn- invitation-of-in
+  "invitation-of of a state: nil when the claim has no record, else whom it
+  names, the invitation that waits under it, and how many links stand
+  under it. It says nothing of \"over\": the caller holds `:ends` against
+  its own time (QUESTIONS.md, 40)."
+  [state claim]
+  (if-not (try (claim? claim) (catch Throwable _ false))
+    {:could-not :read-the-event}
+    (when-let [c (get-in state [:claims claim])]
+      {:person (:person c)
+       :invitation (:waiting c)
+       :links (count (:links c))})))
+
+(defn account-order
+  "The order of a person's accounts in `accounts-of`: by the `:at` of the
+  enter that linked each, then by the provider's name, its namespace
+  counted, then by the subject (QUESTIONS.md, 37)."
+  [{[provider subject] :account linked-at :linked-at}]
+  [linked-at (subs (str provider) 1) subject])
+
+(defn- accounts-of-in
+  "accounts-of of a state: the accounts that are linked to the person `P`,
+  each with its link and the `:at` of the enter that made it, in
+  `account-order`."
+  [state P]
+  (if-not (id? P)
+    {:could-not :read-the-event}
+    {:accounts (->> (:links state)
+                    (keep (fn [[account l]] (when (= P (:person l)) {:account account :link (:link l) :linked-at (:linked-at l)})))
+                    (sort-by account-order)
+                    vec)}))
+
+(defn- watched-sign-ins
+  "The sign-ins of the root `P` that are watched. Gives `[id record]` pairs
+  in the order in which they began."
   [state P]
   (let [r (get-in state [:roots P])]
     (keep (fn [G] (let [g (get-in r [:sign-ins G])]
-                    (when (and (not (:ended? g)) (actor-live? state P (:actor g))) [G g])))
+                    (when (:watched? g) [G g])))
           (:sign-in-order r))))
 
 (defn- under-in
   "under of a state: the agents of the root, ended ones too, in the order in
-  which they were made, and its live sign-ins, in the order in which they
-  began."
+  which they were made, each with who made it and whose ending ends it, and
+  its watched sign-ins, in the order in which they began."
   [state P]
   (if-not (id? P)
     {:could-not :read-the-event}
     (let [r (get-in state [:roots P])]
       {:actors (mapv (fn [A] (let [a (get-in r [:agents A])]
-                               {:actor A :made-by (:made-by a) :label (:label a) :ended? (boolean (:ended? a))}))
+                               {:actor A :made-by (:made-by a) :ends-with (:ends-with a) :label (:label a)
+                                :ended? (boolean (:ended? a))}))
                      (:agent-order r))
        :sign-ins (mapv (fn [[G g]] {:sign-in G :actor (:actor g) :kind (:kind g) :label (:label g)
                                     :begun (:begun g) :until (:until g)})
-                       (live-sign-ins state P))})))
+                       (watched-sign-ins state P))})))
 
 (defn- live-under-in
-  "What is live under the root `P` in a state: its live sign-ins and its
-  open sessions, with no `:driven-by`."
+  "What is watched under the root `P` in a state: its watched sign-ins and
+  sessions, with no `:driven-by`, and the count of the writes that ended
+  something under it."
   [state P]
   (if-not (id? P)
     {:could-not :read-the-event}
     {:sign-ins (into {} (map (fn [[G g]] [G (select-keys g [:actor :kind :hash :until :previous])]))
-                     (live-sign-ins state P))
-     :sessions (into {} (keep (fn [[S s]] (when-not (:closed? s) [S {:sign-in (:sign-in s) :until (:until s)}])))
-                     (get-in state [:roots P :sessions]))}))
+                     (watched-sign-ins state P))
+     :sessions (into {} (keep (fn [[S s]] (when (:watched? s) [S {:sign-in (:sign-in s) :until (:until s)}])))
+                     (get-in state [:roots P :sessions]))
+     :ends (get-in state [:roots P :ends] 0)}))
 
 ;; ------------------------------------------------------------------ the client
 
@@ -1102,15 +1379,27 @@
   nil)
 
 (defn invite
-  "invite through the client: `{:person P :claim C :invited-by B :at t}`."
+  "invite through the client: `{:person P :claim C :invited-by B :at t
+  :ends t1 :op-id I}`."
   [client input]
   (write! client :invite input))
 
 (defn enter
-  "enter through the client: `{:account :says :email :code-hash :own-lane
-  :making :at}`."
+  "enter through the client: `{:account :says :email-hash :code-hash
+  :own-lane :making :at}`."
   [client input]
   (write! client :enter input))
+
+(defn take-back
+  "take-back through the client: `{:person P :claim C :invite I :at t}`."
+  [client input]
+  (write! client :take-back input))
+
+(defn unlink
+  "unlink through the client: `{:account [provider subject] :link L
+  :person P :at t}`."
+  [client input]
+  (write! client :unlink input))
 
 (defn own-lane-made
   "own-lane-made through the client: `{:person P :at t}`."
@@ -1156,7 +1445,7 @@
   (write! client :close-session input))
 
 (defn ask
-  "ask through the client: `{:code :hash :asks :ends :at}`."
+  "ask through the client: `{:code :hash :asking-hash :asks :ends :at}`."
   [client input]
   (write! client :ask input))
 
@@ -1176,8 +1465,8 @@
   (read-with client-or-state #(who-is-in % query)))
 
 (defn ask-of
-  "Takes a client or a state, and a code. Gives `{:hash :asks :ends :state
-  :answer}`, where `:state` is `:waiting`, `:yes` or `:no` and `:answer` is
+  "Takes a client or a state, and a code. Gives `{:hash :asking-hash :asks
+  :ends :state :answer}`, where `:state` is `:waiting`, `:yes` or `:no` and `:answer` is
   `{:root :actor :sign-in}` for a yes and nil otherwise; or nil when no ask
   has the code. It judges no time."
   [client-or-state code]
@@ -1185,24 +1474,44 @@
 
 (defn under
   "Takes a client or a state, and a root. Gives `{:actors [{:actor :made-by
-  :label :ended?} ...] :sign-ins [{:sign-in :actor :kind :label :begun
+  :ends-with :label :ended?} ...] :sign-ins [{:sign-in :actor :kind :label :begun
   :until} ...]}`: the agents of the root, ended ones too, in the order in
-  which they were made, and its live sign-ins, in the order in which they
-  began, as they stood at the root's latest event."
+  which they were made, and its watched sign-ins, in the order in which
+  they began. A sign-in that is not among them has not ended for that:
+  `who-is` says."
   [client-or-state P]
   (read-with client-or-state #(under-in % P)))
 
+(defn invitation-of
+  "Takes a client or a state, and a claim. Gives nil when the claim has no
+  record, else `{:person P :invitation {:invite I :invited-by B :invited-at
+  t0 :ends t1}-or-nil :links n}`. It judges no time."
+  [client-or-state claim]
+  (read-with client-or-state #(invitation-of-in % claim)))
+
+(defn accounts-of
+  "Takes a client or a state, and a person. Gives `{:accounts [{:account
+  [provider subject] :link L :linked-at t} ...]}`, her accounts in
+  `account-order`, one map for each link. The spec lets the module give
+  one account twice, under two links, for a moment while an enter makes a
+  link or before a late step's entry is removed; here a write is one step,
+  so that moment never comes and each account is given once."
+  [client-or-state P]
+  (read-with client-or-state #(accounts-of-in % P)))
+
 (defn live-under
-  "Takes a client or a state, and a root. Gives what is live under the root,
-  the value that `watch-root` hands to its function: `{:sign-ins {G {:actor
-  :kind :hash :until :previous}} :sessions {S {:sign-in :until}}}`, the live
-  sign-ins and the open sessions as they stood at the root's latest event."
+  "Takes a client or a state, and a root. Gives what is watched under the
+  root, the value that `watch-root` hands to its function: `{:sign-ins {G
+  {:actor :kind :hash :until :previous}} :sessions {S {:sign-in :until}}
+  :ends n}`: the watched sign-ins and sessions, none of which someone ended
+  and none of whose times had passed at the root's latest write, and how
+  many writes ended something under the root."
   [client-or-state P]
   (read-with client-or-state #(live-under-in % P)))
 
 (defn watch-root
   "Takes a client, a root and a function of one argument. From now on,
-  each time what is live under the root changes, through this client or
+  each time what is watched under the root changes, through this client or
   any other opened under the same name, calls the function with the new value of
   `live-under`, on the thread that made the write, before the write
   returns, in the order of the changes. No call is made at the
