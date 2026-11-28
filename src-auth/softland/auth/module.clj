@@ -182,9 +182,7 @@
             (hop-or-done *act)
 
             (case> (= *step :enter/step-1u-person))
-            (s/k-account (get (get *st :mark) :person) (get *ev :account-key) :> *ek)
-            (local-select> [(keypath *ek)] $$root-data :> *e)
-            (s/enter-step-1u-person *ev *st *e :> *act)
+            (s/enter-step-1u-person *ev *st :> *act)
             (write-act! *act $$root-data)
             (hop-or-done *act)
 
@@ -290,9 +288,7 @@
             (hop-or-done *act)
 
             (case> (= *step :enter/step-5r-person))
-            (s/k-account (get (get *st :target) :won-person) (get *ev :account-key) :> *ek)
-            (local-select> [(keypath *ek)] $$root-data :> *e)
-            (s/enter-step-5r-person *ev *st *e :> *act)
+            (s/enter-step-5r-person *ev *st :> *act)
             (write-act! *act $$root-data)
             (hop-or-done *act)))
         (ack-return> *result)
@@ -317,9 +313,7 @@
             (hop-or-done *act)
 
             (case> (= *step :unlink/step-3))
-            (s/k-account (get (get *st :mark) :person) (get *ev :account-key) :> *ek)
-            (local-select> [(keypath *ek)] $$root-data :> *e)
-            (s/unlink-step-3 *ev *st *e :> *act)
+            (s/unlink-step-3 *ev *st :> *act)
             (write-act! *act $$root-data)
             (hop-or-done *act)
 

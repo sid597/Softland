@@ -10,10 +10,10 @@
   byte order matches JVM UTF-16 order identically: the composite keys of
   `$$root-data` (`\"<P>\\0...\"`), and the inner keys of a root's map in
   `$$live` (`\"g:<G>\"` for a sign-in, `\"s:<S>\"` for a session,
-  `\"ends\"` for the count of ends). A person's accounts (`k-account`) end
-  in an account's key, which holds the provider's subject as given: their
-  range is bounded by an ASCII prefix, and `project-accounts` orders them
-  itself.
+  `\"ends\"` for the count of ends). A person's entries of her accounts
+  (`k-account`) end in an account's key, which holds the provider's subject
+  as given, and the id of the link: their range is bounded by an ASCII
+  prefix, and `project-accounts` orders them itself.
 
   Two things are kept apart for a sign-in and a session. That someone ended
   it is a fact, written on its record (`ended?`, `closed?`) by `end-sign-in`,
@@ -102,8 +102,10 @@
 ;; $$root-data {String -> IRootDatum} (partitioned by |hash root-UUID)
 ;; A person's record appears at her first enter: a person who waits is a
 ;; claim that names her and nothing else. It holds who first invited her and
-;; when, and no claim and no account: each account of hers is a
-;; `PersonAccount` of its own, under `k-account`.
+;; when, and no claim and no account: each link of an account of hers is a
+;; `PersonAccount` of its own, under `k-account`, keyed by the link: one
+;; account can have a late entry and a new one at once, and each step
+;; writes or removes the entry of its own link alone.
 (defrecord RootEntered [invited-by-kind invited-by-id invited-at own-lane making-uuid making-session
                         own-lane-made? next-actor-seq next-sign-in-seq]
   IRootDatum)
@@ -290,9 +292,11 @@
   (str p "\u0000ok:" op-id))
 
 (defn k-account
-  "One account of the person `p`, by its account key."
-  ^String [^UUID p ^String account-key]
-  (str p "\u0000na:" account-key))
+  "The entry of the person `p` of one link `link-op` of an account, by its
+  account key. The link's id, a UUID of fixed length, ends the key, so the
+  key is one for each pair however the subject reads."
+  ^String [^UUID p ^String account-key ^UUID link-op]
+  (str p "\u0000na:" account-key "\u0000" link-op))
 
 (defn k-account-lo
   ^String [^UUID p]
@@ -583,12 +587,11 @@
     :else {:write-k ck :write-v (update c :links dissoc L)}))
 
 (defn release-entry
-  "At H(P): removes the person's entry of the account when it is of the link
-  `L`; a link made anew meanwhile is not touched."
-  [P ak e L]
-  (if (and (instance? PersonAccount e) (= L (:link-op e)))
-    {:write-k (k-account P ak) :delete? true}
-    {}))
+  "At H(P): removes the person's entry of the link `L` of the account; the
+  entry of a link made anew meanwhile has a key of its own and is not
+  touched."
+  [P ak L]
+  {:write-k (k-account P ak L) :delete? true})
 
 (defn release-mark
   "At H(Acc): removes the mark of the unlink of the link `L`."
@@ -705,9 +708,9 @@
 
 (defn enter-step-1u-person
   "Step E1u, on H(P) of the mark: the unlink's U3."
-  [^EnterEvent ev st e]
+  [^EnterEvent ev st]
   (let [{:keys [person link-op]} (:mark st)]
-    (assoc (release-entry person (:account-key ev) e link-op)
+    (assoc (release-entry person (:account-key ev) link-op)
            :hop-key (:account-key ev) :next-step :enter/step-1u-account :next-st st)))
 
 (defn enter-step-1u-account
@@ -910,8 +913,8 @@
 (defn enter-step-4-root
   "Step E4, on H(P). A person with no record gets `RootEntered` from what
   the enter offers, with who invited her from the use; one who has a record
-  keeps it. Either way her entry of this account is written, with the
-  target op as its link."
+  keeps it. Either way her entry of the target op's link of this account
+  is written, under that link's own key: no other entry is touched."
   [^EnterEvent ev st r]
   (let [target (:target st)
         P (:won-person target)
@@ -923,7 +926,7 @@
                             (:own-lane target) (:making-uuid target) (:making-session target)
                             false 0 0))
         entry (->PersonAccount (:provider target) (:subject target) (:at target) (:op-id target))]
-    {:writes (cond-> [[(k-account P ak) entry]]
+    {:writes (cond-> [[(k-account P ak (:op-id target)) entry]]
                (not entered-already?) (conj [(k-root P) r']))
      :hop-key ak
      :next-step :enter/step-5-link
@@ -997,11 +1000,11 @@
            :hop-key (:won-person target) :next-step :enter/step-5r-person :next-st st)))
 
 (defn enter-step-5r-person
-  "Step E5r, on H(P) of the use: removes her entry of this account when it
-  is of the target op, then step E1 again for this chain's own op."
-  [^EnterEvent ev st e]
+  "Step E5r, on H(P) of the use: removes her entry of the target op's link
+  of this account, then step E1 again for this chain's own op."
+  [^EnterEvent ev st]
   (let [target (:target st)]
-    (assoc (release-entry (:won-person target) (:account-key ev) e (:op-id target))
+    (assoc (release-entry (:won-person target) (:account-key ev) (:op-id target))
            :hop-key (:account-key ev) :next-step :enter/step-1 :next-st {})))
 
 ;; ----------------------------------------------------------------- unlink
@@ -1043,9 +1046,9 @@
 
 (defn unlink-step-3
   "Step U3, on H(P) of the mark."
-  [^UnlinkEvent ev st e]
+  [^UnlinkEvent ev st]
   (let [{:keys [person link-op]} (:mark st)
-        act (release-entry person (:account-key ev) e link-op)]
+        act (release-entry person (:account-key ev) link-op)]
     (if (:last? st)
       (assoc act :done? true :result {:unlinked (:person ev)})
       (assoc act :hop-key (:account-key ev) :next-step :unlink/step-5 :next-st st))))
@@ -1824,7 +1827,9 @@
 
 (defn project-accounts
   "What `accounts-of` gives of the person's entries (`k-account`), a map
-  from key to `PersonAccount`."
+  from key to `PersonAccount`: one map for each entry. For a moment it can
+  give one account twice, under two links: a late step E4 of an old link
+  before its release, or an entry before its link lands."
   [m]
   {:accounts (->> (vals m)
                   (filter #(instance? PersonAccount %))

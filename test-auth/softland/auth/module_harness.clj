@@ -897,10 +897,12 @@
 (def ^:private enter-steps
   "Each step of `enter` and `unlink` as `softland.auth.module` runs it: the
   table that it reads, the key that it reads there, and how the step is
-  called, through its var. The step writes to the table that it reads."
+  called, through its var. The step writes to the table that it reads. A
+  step that removes an entry of hers reads nothing: the entry's key names
+  its link."
   {:enter/step-1 [:accounts (fn [ev _] (:account-key ev)) (fn [ev _ x] (s/enter-step-1 ev x))]
    :enter/step-1u-claim [:claims (fn [_ st] (:claim-key (:mark st))) #'s/enter-step-1u-claim]
-   :enter/step-1u-person [:root-data (fn [ev st] (s/k-account (:person (:mark st)) (:account-key ev))) #'s/enter-step-1u-person]
+   :enter/step-1u-person [:root-data (fn [_ _] nil) (fn [ev st _] (s/enter-step-1u-person ev st))]
    :enter/step-1u-account [:accounts (fn [ev _] (:account-key ev)) #'s/enter-step-1u-account]
    :enter/step-1a-check-op-returning [:enter-ops (fn [ev _] (:op-id ev)) #'s/enter-step-1a-check-op-returning]
    :enter/step-1c-update-says [:accounts (fn [ev _] (:account-key ev)) #'s/enter-step-1c-update-says]
@@ -916,10 +918,10 @@
    :enter/step-4-root [:root-data (fn [_ st] (s/k-root (:won-person (:target st)))) #'s/enter-step-4-root]
    :enter/step-5-link [:accounts (fn [ev _] (:account-key ev)) #'s/enter-step-5-link]
    :enter/step-5r-claim [:claims (fn [_ st] (:won-claim-key (:target st))) #'s/enter-step-5r-claim]
-   :enter/step-5r-person [:root-data (fn [ev st] (s/k-account (:won-person (:target st)) (:account-key ev))) #'s/enter-step-5r-person]
+   :enter/step-5r-person [:root-data (fn [_ _] nil) (fn [ev st _] (s/enter-step-5r-person ev st))]
    :unlink/step-1 [:accounts (fn [ev _] (:account-key ev)) (fn [ev _ x] (s/unlink-step-1 ev x))]
    :unlink/step-2 [:claims (fn [_ st] (:claim-key (:mark st))) #'s/unlink-step-2]
-   :unlink/step-3 [:root-data (fn [ev st] (s/k-account (:person (:mark st)) (:account-key ev))) #'s/unlink-step-3]
+   :unlink/step-3 [:root-data (fn [_ _] nil) (fn [ev st _] (s/unlink-step-3 ev st))]
    :unlink/step-5 [:accounts (fn [ev _] (:account-key ev)) #'s/unlink-step-5]})
 
 (def ^:private no-tables
@@ -979,6 +981,14 @@
 (defn- result-of
   [[tables out]]
   [tables (:done out)])
+
+(defn- accounts-in
+  "What `accounts-of` gives of the person `P` over the tables: her entries
+  in their range, as the query reads them."
+  [tables P]
+  (let [lo (s/k-account-lo P) hi (s/k-account-hi P)]
+    (s/project-accounts (into {} (filter (fn [[k _]] (and (string? k) (neg? (compare k hi)) (not (neg? (compare k lo))))))
+                              (:root-data tables)))))
 
 (defn check-reruns!
   "Needs no cluster. A record that runs again is not something the
@@ -1054,7 +1064,7 @@
            ["An unlink that runs again after the account was linked anew leaves the new link, her new entry and the claim's new link."
             (and (= P (:person r-e2)) (= {:unlinked P} r)
                  (= e2 (get-in t [:accounts A :link-op]))
-                 (= e2 (:link-op (get-in t [:root-data (s/k-account P A)])))
+                 (= [e2] (map :link (:accounts (accounts-in t P))))
                  (= #{e2} (set (keys (get-in t [:claims C :links])))))
             [r-e2 r (get-in t [:accounts A]) (get-in t [:claims C])]])
          ;; F(i)
@@ -1073,7 +1083,7 @@
          (let [[t _] (invited t0 (invite i1 P C 10))
                e-ev (enter e1 A 20 :email (h 1))
                [t out] (run-until t e-ev [:enter/step-1 {}] :enter/step-5-link 0)
-               entry (get-in t [:root-data (s/k-account P A)])
+               entry (get-in t [:root-data (s/k-account P A e1)])
                [t r] (result-of (run-until t (unlink A e1 P 25)))
                [t r-e] (result-of (run-until t e-ev (:next out)))]
            ["F(ii): an unlink of a link that the enter is still making, which her accounts show already, is refused with :linking and changes nothing; the enter then links."
@@ -1114,7 +1124,7 @@
                  (= [P P P] (map :person [rE rH2 rH1]))
                  (= e1 (get-in t [:accounts A :link-op]))
                  (= #{e1} (set (keys (get-in t [:claims C :links]))))
-                 (= e1 (:link-op (get-in t [:root-data (s/k-account P A)]))))
+                 (= [e1] (map :link (:accounts (accounts-in t P)))))
             [rE rH2 rH1 (get-in t [:accounts A]) (get-in t [:claims C])]])
          ;; D, the second order
          (let [[t _] (invited t0 (invite i1 P C 10))
@@ -1136,9 +1146,9 @@
             (and (= {:refused :not-invited} rE) (nil? cleared) (contains? took e1)
                  (= {:refused :not-invited} rH1)
                  (nil? (get-in t [:claims C]))
-                 (nil? (get-in t [:root-data (s/k-account P A)]))
+                 (= [] (:accounts (accounts-in t P)))
                  (nil? (get-in t [:accounts A])))
-            [rE rH1 (get-in t [:claims C]) (get-in t [:root-data (s/k-account P A)]) (get-in t [:accounts A])]])
+            [rE rH1 (get-in t [:claims C]) (accounts-in t P) (get-in t [:accounts A])]])
          ;; A linking that is :failing at step 5
          (let [[t _] (invited t0 (invite i1 P C 10))
                E (enter e1 A 20 :email (h 1))
@@ -1161,8 +1171,56 @@
                  (not (instance? softland.auth.schema.AccountLinked (get-in t [:accounts A])))
                  (nil? (get-in t [:accounts A]))
                  (not (contains? (get-in t [:claims C :links]) e1))
-                 (nil? (get-in t [:root-data (s/k-account P A)])))
-            [rE rH1 (get-in t [:accounts A]) (get-in t [:claims C]) (get-in t [:root-data (s/k-account P A)])]])
+                 (= [] (:accounts (accounts-in t P))))
+            [rE rH1 (get-in t [:accounts A]) (get-in t [:claims C]) (accounts-in t P)]])
+         ;; A late step 4 of an old link, after the account was linked anew
+         (let [[t _] (invited t0 (invite i1 P C 10))
+               [lt ht lnew] (map #(UUID. 4 %) (range 3))
+               T (enter lt A 30 :email (h 1))
+               H (enter ht A 31 :email (h 1))
+               [t oT] (run-until t T [:enter/step-1 {}] :enter/step-3-use 0)
+               [t oH] (run-until t H [:enter/step-1 {}] :enter/step-3-use 0)
+               ;; T uses and links; H's use of T's op comes after, and its
+               ;; hop to step 4 is late.
+               [t rT] (result-of (run-until t T (:next oT)))
+               [t oH] (one-step t H (:next oH))
+               [t _] (result-of (run-until t (unlink A lt P 40)))
+               ;; She is invited again and an enter by a clock behind T's
+               ;; links the account anew.
+               [t _] (invited t (invite i2 P C 15))
+               [t rN] (result-of (run-until t (enter lnew A 20 :email (h 1))))
+               [t rH] (result-of (run-until t H (:next oH)))]
+           ["A late step 4 of a link that was unlinked, landing after the account was linked anew by an enter whose :at is before the old one's, and then released, leaves the new link's entry: the account is linked by the new link and accounts-of gives exactly it."
+            (and (= P (:person rT)) (= P (:person rN))
+                 (= lnew (get-in t [:accounts A :link-op]))
+                 (= [lnew] (map :link (:accounts (accounts-in t P)))))
+            [rT rN rH (get-in t [:accounts A]) (accounts-in t P)]])
+         ;; A late step 4 of an old link, then the step 4 of a new one
+         (let [[t _] (invited t0 (invite i1 P C 10))
+               [ll hl lt] (map #(UUID. 5 %) (range 3))
+               L (enter ll A 30 :email (h 1))
+               HL (enter hl A 31 :email (h 1))
+               [t oL] (run-until t L [:enter/step-1 {}] :enter/step-3-use 0)
+               [t oHL] (run-until t HL [:enter/step-1 {}] :enter/step-3-use 0)
+               [t rL] (result-of (run-until t L (:next oL)))
+               [t oHL] (one-step t HL (:next oHL))
+               [t _] (result-of (run-until t (unlink A ll P 40)))
+               [t _] (invited t (invite i2 P C 15))
+               T (enter lt A 20 :email (h 1))
+               [t oT] (run-until t T [:enter/step-1 {}] :enter/step-4-root 0)
+               ;; L's late step 4, then T's step 4, then L's release, then
+               ;; T's link.
+               [t oHL] (one-step t HL (:next oHL))
+               [t oT] (one-step t T (:next oT))
+               both (accounts-in t P)
+               [t rHL] (result-of (run-until t HL (:next oHL)))
+               [t rT] (result-of (run-until t T (:next oT)))]
+           ["A late step 4 of a link that was unlinked, then the step 4 of a new link of the same account, then the old one's release, then the new one's link: the account is linked by the new link and accounts-of gives exactly it, though for a moment it gave the account twice, under the two links."
+            (and (= P (:person rL)) (= P (:person rT))
+                 (= #{ll lt} (set (map :link (:accounts both))))
+                 (= lt (get-in t [:accounts A :link-op]))
+                 (= [lt] (map :link (:accounts (accounts-in t P)))))
+            [rL rT rHL (:accounts both) (get-in t [:accounts A]) (accounts-in t P)]])
          ;; The probe's recheck of the code
          (let [[t _] (invited t0 (invite i1 P C 10))
                E (enter e1 A 20 :email (h 1) :code (h 2))

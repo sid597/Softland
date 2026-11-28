@@ -332,8 +332,13 @@ reads
 (accounts-of client P)
                   -> {:accounts [{:account [provider subject] :link L
                                   :linked-at t} ...]}
-                     her accounts, in the order of the :at of the enter that
-                     linked each (then by provider and subject)
+                     her accounts, one map for each link of hers, in the
+                     order of the :at of the enter that linked each (then
+                     by provider and subject). For a moment it can give one
+                     account twice, under two links: a link that an enter
+                     is still making, before it stands, beside the one that
+                     stands; or an old link that a late step left, before
+                     the module removes it
 
 (under client P)  -> {:actors [{:actor A :made-by B :ends-with B' :label text
                                 :ended? bool} ...]
@@ -483,7 +488,7 @@ takes it back and invites again. When the module has used an invitation
 for an enter and cannot then link the account, as when another write
 removed what the enter was making, or when the enter was told
 `:not-invited` meanwhile, it takes the link out of the claim and
-the account out of her accounts; the invitation that the enter used is
+that link's entry out of her accounts, and no other entry; the invitation that the enter used is
 spent and is not put back, since putting it back could bring back one that
 was taken back meanwhile.
 
@@ -755,9 +760,10 @@ events too. What it takes (28 November, later):
   is Sid's).
 - **What Auth keeps to be read is removed by its writes, at once.** An
   account's `[provider subject]` and its `:says` sit in the account's link,
-  and the account's key in her list of accounts; the hash of a claim sits in
-  the claim's record and in the link. `unlink` removes the link with its
-  `:says`, the link under the claim, and the account from her list;
+  and the account's key with the link's id in her list of accounts, one
+  entry for each link; the hash of a claim sits in the claim's record and
+  in the link. `unlink` removes the link with its `:says`, the link under
+  the claim, and that link's entry from her list;
   `take-back` removes an invitation, and the claim's record goes when
   nothing waits under it and no link stands. An answer that an invite keeps
   under its op names nobody.

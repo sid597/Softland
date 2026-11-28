@@ -1492,7 +1492,10 @@
 (defn accounts-of
   "Takes a client or a state, and a person. Gives `{:accounts [{:account
   [provider subject] :link L :linked-at t} ...]}`, her accounts in
-  `account-order`."
+  `account-order`, one map for each link. The spec lets the module give
+  one account twice, under two links, for a moment while an enter makes a
+  link or before a late step's entry is removed; here a write is one step,
+  so that moment never comes and each account is given once."
   [client-or-state P]
   (read-with client-or-state #(accounts-of-in % P)))
 
