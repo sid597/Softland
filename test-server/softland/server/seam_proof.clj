@@ -143,7 +143,7 @@
                 again (m/? (seam/send b actor act act-id))
                 read-back (m/? (seam/read a actor {:asks [:place :chair-7 :colour] :from-lane lane :with #{:writer}}))]
             (check "The seam gives act-ids of a lane ahead of sending, and gives a visitor none."
-                   (and (= [lane :streaming] (pop act-id)) (not= act-id other-id)
+                   (and (= [lane] (pop act-id)) (not= act-id other-id)
                         (= :find-her-session (:could-not (m/? (seam/act-ids a (seam/visitor) lane 1))))))
             (check "A send gives the door's receipt, the act-id and the digest and the ack, and the answer read with them says accepted."
                    (and (= act-id (:act-id receipt)) (string? (:digest receipt)) (= :gate-ran (:ack receipt))
@@ -178,7 +178,7 @@
                   results (m/? (seam/send-all a actor (mapv (fn [id n] [id (write who lane :chair-8 :n n)]) ids [1 2 3])))
                   after-three (:value (:place (m/? (seam/read a actor {:asks [:place :chair-8 :n] :from-lane lane}))))
                   stopped (m/? (seam/send-all a actor [[(first (m/? (seam/act-ids a actor lane 1))) (write who lane :chair-8 :n 4)]
-                                                      [[:another-lane :streaming (UUID/randomUUID)] (write who lane :chair-8 :n 5)]
+                                                      [[:another-lane (UUID/randomUUID)] (write who lane :chair-8 :n 5)]
                                                       [(first (m/? (seam/act-ids a actor lane 1))) (write who lane :chair-8 :n 6)]]))]
               (check "A series of acts is sent in order and gives a receipt for each, and the last of them is what a read gives."
                      (and (= ids (mapv :act-id results)) (= 3 after-three))

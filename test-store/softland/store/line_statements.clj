@@ -152,7 +152,7 @@
      :send-act!
      (fn [maker-act act-id]
        (let [sent (door/send-act the-door maker-act act-id)]
-         (when (and (vector? (:act-id sent)) (= :microbatch (nth (:act-id sent) 1)))
+         (when (= :depot-holds (:ack sent))
            (swap! appended inc)
            (processed!))
          sent))

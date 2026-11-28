@@ -2474,10 +2474,10 @@
 (defn- thing-of-act
   "Takes what `act!` gave for an act that the door sent. Gives the thing as
   it arrived on the depot: the act as the proof made it, with the door's
-  three additions."
+  two additions."
   [got who lane facts]
   (assoc {:version 1 :who who :lane lane :permission (perm/permission-id (perm who lane)) :session :read-path-proof :facts facts}
-         :act-id (:act-id got) :depot (nth (:act-id got) 1) :door-time (:time (:answer got))))
+         :act-id (:act-id got) :door-time (:time (:answer got))))
 
 (defn- every-page
   "Reads a lane's acts from stamp 0 in pages of a count, each from where
@@ -2499,12 +2499,12 @@
                                            :permission (perm/permission-id (perm/first-permission (person :cy) lane))
                                            :session :read-path-proof :facts [(fact :note :n 2)]})
         cy-answer (door/answer-of (the-door) (:act-id cy-sent) (:digest cy-sent))
-        no-time {:act-id [lane :streaming (UUID. 51 1)] :depot :streaming :version 1 :who (person :cy) :lane lane
+        no-time {:act-id [lane (UUID. 51 1)] :version 1 :who (person :cy) :lane lane
                  :facts [(fact :x :n 3)]}
         _ (raw! no-time)
-        no-who {:act-id [lane :streaming (UUID. 51 2)] :depot :streaming :door-time 1 :lane lane}
+        no-who {:act-id [lane (UUID. 51 2)] :door-time 1 :lane lane}
         _ (raw! no-who)
-        heavy {:act-id [lane :streaming (UUID. 51 3)] :depot :streaming :version 1 :who (person :cy) :lane lane
+        heavy {:act-id [lane (UUID. 51 3)] :version 1 :who (person :cy) :lane lane
                :blob (apply str (repeat 300000 "h"))}
         _ (raw! heavy)
         bo-facts [(fact :note :n 4)]
