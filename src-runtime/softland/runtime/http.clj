@@ -18,7 +18,10 @@
   that becomes its credential, and one only for asking. It posts the hash
   of each with what it says of itself. It gets a code, and shows the code
   and a link. She opens the link where she is signed in, sees the code
-  again, and says yes, as herself or as a new agent with a name, or no. The
+  again, and says yes, as a new agent with a name, as an agent of hers
+  signed in again, or as herself; or no. For an agent she ticks what it is
+  lent in her own lane, to see and to write: both for a new agent, neither
+  for one of hers, which keeps what it holds. The
   program asks for the ask's state with its code and its secret for asking
   until she has answered, and puts its credential together from what it is
   told and the other secret, which it has sent nowhere until then. An ask
@@ -435,15 +438,31 @@
               (redirect next))
           (page 503 "<p>The name could not be written. Try again.</p>"))))))
 
+(defn- live-agents
+  "Her agents that have not ended, as `:under` gives them, in the order in
+  which they were made; nil when the read failed."
+  [the-seam caller]
+  (let [actors (:actors (m/? (seam/call the-seam caller {:word :under})))]
+    (when (sequential? actors)
+      (filterv (fn [a] (not (:ended? a))) actors))))
+
+(defn- lend-boxes
+  "The two boxes of what a program is lent in her own lane, ticked or not."
+  [ticked?]
+  (let [checked (if ticked? " checked" "")]
+    (str "<label><input type=\"checkbox\" name=\"see\" value=\"yes\"" checked "> to see</label> "
+         "<label><input type=\"checkbox\" name=\"write\" value=\"yes\"" checked "> to write</label>")))
+
 (defn- yes-page
   [{:keys [the-seam] :as options} request]
   (let [code (credential/of-shown (get (query-of request) "code"))
-        shown (when code (sign-in/ask-shown the-seam code))]
+        shown (when code (sign-in/ask-shown the-seam code))
+        caller (when shown (of-cookie options request))]
     (cond
       (nil? shown)
       (page 404 "<p>This link names no program that waits.</p>")
 
-      (nil? (of-cookie options request))
+      (nil? caller)
       (redirect (str "/?next=" (codec/url-encode (str "/yes?code=" code))))
 
       (or (not= :waiting (:state shown))
@@ -451,59 +470,127 @@
       (page 409 "<p>This program was answered before or waited too long. Start its sign-in again if you want another answer.</p>")
 
       :else
-      (page 200
-            (str "<p>A program asks to be signed in.</p>"
-                 "<p class=\"warn\">Say yes only if you started that program yourself, just now, and it shows the code "
-                 "<code>" (credential/shown code) "</code>. If a link brought you here and you started no program, "
-                 "say no: whoever made the link would act through you.</p>"
-                 "<p>What the program says of itself, which anybody could have written: <code>"
-                 (escaped (:asks shown)) "</code></p>"
-                 "<form method=\"post\" action=\"/yes\">"
-                 "<input type=\"hidden\" name=\"code\" value=\"" code "\">"
-                 ;; An agent of its own is chosen at the start: each program has a
-                 ;; who of its own by default (the runtime's page, entry 8).
-                 "<p><label><input type=\"radio\" name=\"as\" value=\"agent\" checked> It is an agent of its own, called "
-                 "<input name=\"label\" maxlength=\"" words/max-text "\" placeholder=\"a name\"></label></p>"
-                 "<p><label><input type=\"radio\" name=\"as\" value=\"me\"> It acts as me</label></p>"
-                 "<button name=\"say\" value=\"yes\">Yes</button> "
-                 "<button name=\"say\" value=\"no\">No</button></form>")))))
+      (let [form-start (str "<form method=\"post\" action=\"/yes\">"
+                            "<input type=\"hidden\" name=\"code\" value=\"" code "\">")
+            agents (live-agents the-seam caller)]
+        (page 200
+              (str "<p>A program asks to be signed in.</p>"
+                   "<p class=\"warn\">Say yes only if you started that program yourself, just now, and it shows the code "
+                   "<code>" (credential/shown code) "</code>. If a link brought you here and you started no program, "
+                   "say no: whoever made the link would act through you.</p>"
+                   "<p>What the program says of itself, which anybody could have written: <code>"
+                   (escaped (:asks shown)) "</code></p>"
+                   ;; A new agent comes first: each program has a who of its own by
+                   ;; default (the runtime's page, entry 8).
+                   form-start
+                   "<input type=\"hidden\" name=\"as\" value=\"new-agent\">"
+                   "<p>As a new agent, called "
+                   "<input name=\"label\" maxlength=\"" words/max-text "\" placeholder=\"a name\"></p>"
+                   "<p>It is lent, in your own lane: " (lend-boxes true) "</p>"
+                   "<button name=\"say\" value=\"yes\">Yes, as a new agent</button></form>"
+                   (if (seq agents)
+                     (str form-start
+                          "<input type=\"hidden\" name=\"as\" value=\"my-agent\">"
+                          "<p>As this agent of yours, signed in again:</p>"
+                          (apply str (map (fn [a]
+                                            (str "<p><label><input type=\"radio\" name=\"agent\" value=\"" (:actor a) "\"> "
+                                                 (escaped (:label a)) " <code>" (subs (str (:actor a)) 0 8) "</code></label></p>"))
+                                          agents))
+                          "<p>It keeps what it holds. It is lent besides, in your own lane: " (lend-boxes false) "</p>"
+                          "<button name=\"say\" value=\"yes\">Yes, as this agent</button></form>")
+                     "<p>You have no agent yet that a program could sign in as again.</p>")
+                   form-start
+                   "<input type=\"hidden\" name=\"as\" value=\"me\">"
+                   "<button name=\"say\" value=\"yes\">Yes, it acts as me</button></form>"
+                   form-start
+                   "<button name=\"say\" value=\"no\">No</button></form>"))))))
+
+(defn- lent
+  "What the two boxes of a post ask to lend: an `:allows` of the store's, or
+  nil when neither is ticked."
+  [form]
+  (let [see? (= "yes" (get form "see"))
+        write? (= "yes" (get form "write"))]
+    (when (or see? write?)
+      (cond-> {}
+        see? (assoc :see true)
+        write? (assoc :write :all)))))
+
+(defn- lent-words
+  [allows]
+  (case [(boolean (:see allows)) (boolean (:write allows))]
+    [true true] "to see and to write"
+    [true false] "to see"
+    [false true] "to write"))
 
 (defn- yes!
   "POST /yes. The post must come from this runtime's own page and rest on a
   cookie that stands for a person: a browser's sign-in, which no program
-  holds."
+  holds.
+
+  Auth first, then the lend. A yes is written in Auth; when the program is
+  signed in as the agent that she chose and she ticked a box, her act that
+  lends it what she ticked is sent after. A lend that could not be sent
+  leaves a program that is signed in and holds nothing of it, and the page
+  says so: the same post again sends the same act, and a lend can be made
+  later, as any permission is given."
   [{:keys [the-seam] :as options} request]
   (let [form (form-of request)
         code (credential/of-shown (get form "code"))
         caller (when (and form (own-origin? options request)) (of-cookie options request))
+        as (get form "as")
+        yes? (= "yes" (get form "say"))
         label (str/trim (str (get form "label")))
-        agent? (= "agent" (get form "as"))]
+        agent (uuid-of (get form "agent"))
+        allows (lent form)]
     (cond
       (not (and caller code (seam/person? caller)))
       (page 400 "<p>That was not taken.</p>")
 
-      (and (= "yes" (get form "say")) agent? (not (words/text? label)))
+      (and yes? (not (contains? #{"new-agent" "my-agent" "me"} as)))
+      (page 400 "<p>That was not taken.</p>")
+
+      (and yes? (= "new-agent" as) (not (words/text? label)))
       (page 400 "<p>An agent needs a name. Go back and give it one.</p>")
 
+      (and yes? (= "my-agent" as) (nil? agent))
+      (page 400 "<p>Choose one of your agents. Go back and choose one.</p>")
+
       :else
-      (let [yes? (= "yes" (get form "say"))
-            got (sign-in/answer! the-seam caller code {:yes? yes? :label (when (and yes? agent?) label)})
+      (let [new? (and yes? (= "new-agent" as))
+            mine-agent? (and yes? (= "my-agent" as))
+            got (sign-in/answer! the-seam caller code {:yes? yes?
+                                                       :label (when new? label)
+                                                       :agent (when mine-agent? agent)})
             standing (:yes got)
             mine? (and standing (= (seam/root-of caller) (:root standing)))
             as-me? (and mine? (= (seam/root-of caller) (:actor standing)))
+            listed (when (and mine? (not as-me?)) (live-agents the-seam caller))
+            named (or (some (fn [a] (when (= (:actor standing) (:actor a)) (:label a))) listed)
+                      (when new? label))
             actor-matches? (and mine? yes?
-                                (if agent?
-                                  (and (not as-me?)
-                                       (let [listed (m/? (seam/call the-seam caller {:word :under}))
-                                             actors (:actors listed)]
-                                         (if (sequential? actors)
-                                           (= label (some (fn [a] (when (= (:actor standing) (:actor a)) (:label a)))
-                                                          actors))
-                                           true)))
-                                  as-me?))]
+                                (cond new? (and (not as-me?) (or (nil? listed) (= label named)))
+                                      mine-agent? (= agent (:actor standing))
+                                      :else as-me?))]
         (cond
+          (and actor-matches? (not as-me?) allows)
+          (let [ids (credential/lent-at-yes (:root standing) (:sign-in standing))
+                ;; The session is left open: the same post again must find it,
+                ;; to send the same act. It ends when its time passes.
+                in-session (of-cookie options request (:act ids))
+                sent (when in-session (sign-in/lend! the-seam in-session standing allows))]
+            (if (= :accepted (get-in sent [:answer :answer]))
+              (page 200 (str "<p>Done. The program is signed in as " (escaped named) ", and it is lent "
+                             (lent-words allows) " in your own lane; go back to it.</p>"))
+              (page 503 (str "<p>The program is signed in as " (escaped named) ", but what you ticked could not be "
+                             "lent: it holds nothing of it. Send this page again to lend it, or lend it later.</p>"))))
+
           actor-matches?
-          (page 200 "<p>Done. The program is signed in; go back to it.</p>")
+          (page 200 (cond as-me? "<p>Done. The program is signed in as you; go back to it.</p>"
+                          new? (str "<p>Done. The program is signed in as " (escaped named)
+                                    ", and it holds nothing; go back to it.</p>")
+                          :else (str "<p>Done. The program is signed in as " (escaped named)
+                                     ", which keeps what it holds; go back to it.</p>")))
 
           mine?
           (page 409

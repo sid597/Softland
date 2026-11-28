@@ -161,10 +161,10 @@
         ;; Case 1: yes as me, then yes as agent
         c1 (ask-code "yes-me-then-agent")
         r1a (post-yes cookie-a c1 {:say "yes" :as "me"})
-        r1b (post-yes cookie-a c1 {:say "yes" :as "agent" :label "helper"})
+        r1b (post-yes cookie-a c1 {:say "yes" :as "new-agent" :label "helper"})
         ;; Case 2: yes as agent, then yes as me
         c2 (ask-code "yes-agent-then-me")
-        r2a (post-yes cookie-a c2 {:say "yes" :as "agent" :label "helper"})
+        r2a (post-yes cookie-a c2 {:say "yes" :as "new-agent" :label "helper"})
         r2b (post-yes cookie-a c2 {:say "yes" :as "me"})
         ;; Case 3: yes as me, then no by same person
         c3 (ask-code "yes-then-no-same")

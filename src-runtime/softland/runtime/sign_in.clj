@@ -259,9 +259,9 @@
 
 (defn answer!
   "The caller is the person herself, signed in at a browser. For a yes,
-  `:label` is the name of a new agent, or nil to sign the program in as
-  herself."
-  [the-seam caller code {:keys [yes? label]}]
+  `:label` is the name of a new agent, `:agent` the id of a live agent of
+  hers; with neither, the program is signed in as herself."
+  [the-seam caller code {:keys [yes? label agent]}]
   (if-not (seam/person? caller)
     (words/could-not :do-that-as-an-agent nil)
     (let [root (seam/root-of caller)
@@ -270,7 +270,9 @@
                                {:code code
                                 :yes? (boolean yes?)
                                 :root root
-                                :actor (if (and yes? label) (UUID/randomUUID) root)
+                                :actor (cond (and yes? label) (UUID/randomUUID)
+                                             (and yes? agent) agent
+                                             :else root)
                                 :new-agent (when (and yes? label) {:label label})
                                 :sign-in (UUID/randomUUID)
                                 :until (+ now (long (:secret-ms (seam/numbers-of the-seam))))
@@ -279,6 +281,46 @@
         (:could-not got) (words/could-not :reach-auth {:got got})
         (:refused got) (words/could-not :take-that {:why (:refused got)})
         :else got))))
+
+(defn- agent-party
+  "The store's party ID for an agent UUID (`CONTRACT.md` §2.1: `:agent.<id>`)."
+  [id]
+  (keyword (str "agent." id)))
+
+(defn lend!
+  "What her yes lends to the agent that it signed in: her own act, sent for
+  her as she posts the page, in the session of her browser, which the seam
+  derives from the act's UUID (`softland.wire.credential/lent-at-yes`), so
+  that a page posted twice is one act in one session. Its one fact is a
+  permission in her own lane, held by the agent, that allows `allows`,
+  covers her lane's default group, is given by her, and is under and lent
+  from her first permission there. No program writes it. `standing` is
+  what Auth's answer gave, `{:root :actor :sign-in}`. Gives what the send
+  gave."
+  [the-seam caller standing allows]
+  (let [who (seam/who-of caller)
+        lane (seam/own-lane-of caller)
+        first-id (first-act/first-permission-id lane)
+        agent (agent-party (:actor standing))
+        ids (credential/lent-at-yes (:root standing) (:sign-in standing))]
+    (m/? (seam/call the-seam caller
+                    {:word :send
+                     :act {:version 1
+                           :who who
+                           :session (seam/session-of caller)
+                           :lane lane
+                           :permission first-id
+                           :subjects #{agent}
+                           :facts [{:e (:permission ids)
+                                    :k declaration/permission-key
+                                    :v {:holder agent
+                                        :allows allows
+                                        :covers [:default-group lane]
+                                        :given-by who
+                                        :under first-id
+                                        :lent-from first-id}}]}
+                     :act-id (:act ids)
+                     :wait-ms answer-wait-ms}))))
 
 ;; ------------------------------------------------------- a deployment's birth
 

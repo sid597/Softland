@@ -103,17 +103,28 @@
             {:status (:status signed) :cookie cookie :person person :named? true
              :offered offered :name-status (:status posted)}))))))
 
+(defn yes-form
+  "The fields of her post on the yes page. Takes the code and a map:
+  `:say`, \"yes\" or \"no\"; `:agent`, the name of a new agent; `:mine`,
+  the id of an agent of hers to sign in again; with neither, the program
+  is signed in as herself; `:see` and `:write`, whether each box is
+  ticked, both for a new agent and neither for one of hers when left out."
+  [code {:keys [say agent mine see write]}]
+  (let [ticked? (fn [given by-default] (if (some? given) given by-default))]
+    (cond-> {:code code :say (or say "yes") :as (cond agent "new-agent" mine "my-agent" :else "me")}
+      agent (assoc :label agent)
+      mine (assoc :agent (str mine))
+      (ticked? see (some? agent)) (assoc :see "yes")
+      (ticked? write (some? agent)) (assoc :write "yes"))))
+
 (defn yes
   "Answers a program's ask as a signed-in person. Takes the runtime's
-  address; her cookie; the code; and a map: `:say`, \"yes\" or \"no\";
-  `:agent`, the name of a new agent, or nil to sign the program in as
-  herself; `:origin`, the `Origin` to write, the runtime's own when left
-  out. Gives the page's status."
-  [url cookie code {:keys [say agent origin]}]
+  address; her cookie; the code; and a map, as `yes-form` takes it, with
+  `:origin`, the `Origin` to write, the runtime's own when left out. Gives
+  the page's status."
+  [url cookie code {:keys [origin] :as answer}]
   (:status (request :post (str url "/yes")
-                    {:cookie cookie :origin (or origin url)
-                     :form (cond-> {:code code :say (or say "yes") :as (if agent "agent" "me")}
-                             agent (assoc :label agent))})))
+                    {:cookie cookie :origin (or origin url) :form (yes-form code answer)})))
 
 (defn program
   "Signs a program in, by the two requests themselves and not through the

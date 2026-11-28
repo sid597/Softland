@@ -220,6 +220,99 @@
                                           (fn [code] (drive/yes a (:credential mine) code {})))]
                  (= :waiting (:state other))))
 
+        ;; ------------------------------------- what a program is lent at her yes
+        (let [her (browser-line a cookie)
+              her-who (:who (:hello her))
+              her-lane (:own-lane (:hello her))
+              lend-of (fn [p] (:permission (credential/lent-at-yes (:root p) (:sign-in p))))
+              post-yes (fn [code answer] (drive/request :post (str a "/yes")
+                                                        {:cookie cookie :origin a :form (drive/yes-form code answer)}))
+              pages (atom {})
+              signed (fn [asks answer]
+                       (drive/program a asks (fn [code]
+                                               (swap! pages assoc asks (post-yes code answer)))))
+              both (signed "a program lent both" {:agent "lent both"})
+              looker (signed "a program lent to see" {:agent "a looker" :write false})
+              writer (signed "a program lent to write" {:agent "a writer" :see false})
+              idle (signed "a program lent nothing" {:agent "an idle one" :see false :write false})
+              twice-code (atom nil)
+              twice (drive/program a "a program whose yes is posted twice"
+                                   (fn [code]
+                                     (reset! twice-code code)
+                                     (swap! pages assoc :twice [(post-yes code {:agent "twice"}) (post-yes code {:agent "twice"})])))
+              try-it (fn [p n]
+                       (let [opened (line a (:credential p) nil)
+                             hello (:hello opened)
+                             wrote (say opened {:word :send :act (act-of hello her-lane (lend-of p) (keyword (str "lent-" n)) :v n)
+                                                :act-id (UUID/randomUUID)})
+                             seen (:value (:place (place opened her-lane :lend-shelf :colour)))]
+                         (close-line! opened)
+                         {:who (:who hello) :wrote (get-in wrote [:answer :answer]) :seen seen}))
+              _ (say her {:word :send :act (act-of (:hello her) her-lane (perm/first-permission her-who her-lane) :lend-shelf :colour :green)
+                          :act-id (UUID/randomUUID)})
+              tried (into {} (map (fn [[k p n]] [k (try-it p n)])) [[:both both 1] [:looker looker 2] [:writer writer 3] [:idle idle 4]])
+              body (fn [asks] (:body (get @pages asks)))]
+          (check "A program that she approves as a new agent, with both boxes ticked as the page offers them, writes in her own lane under the agent's own who and the permission that her yes lent it, and sees her lane; the page says what it was lent."
+                 (and (= (perm/agent (:actor both)) (:who (:both tried))) (not= her-who (:who (:both tried)))
+                      (= :accepted (:wrote (:both tried))) (= :green (:seen (:both tried)))
+                      (= (:who (:both tried)) (:writer (:place (place her her-lane :lent-1 :v))))
+                      (str/includes? (body "a program lent both") "lent to see and to write"))
+                 [(:both tried) (body "a program lent both")])
+          (check "With a box unticked the program cannot do that thing: lent to see alone, its write is refused and it sees; lent to write alone, it writes and sees nothing; lent nothing, it is signed in, its write is refused and it sees nothing, and the page says that it holds nothing."
+                 (and (= [:refused :green] ((juxt :wrote :seen) (:looker tried)))
+                      (= [:accepted nil] ((juxt :wrote :seen) (:writer tried)))
+                      (= [:refused nil] ((juxt :wrote :seen) (:idle tried)))
+                      (str/includes? (body "a program lent nothing") "holds nothing"))
+                 [tried (body "a program lent nothing")])
+          (check "The lend is her own act: the permission that a program reads under its lend's id is held by its agent, allows what she ticked, covers her lane, is given by her and lent from her first permission, and she is its writer."
+                 (let [read-it (fn [p] (say her {:word :read :query {:asks [:place (lend-of p) :softland.store/permission]
+                                                                      :asker her-who :lanes [her-lane]
+                                                                      :stores-own-facts true :with #{:writer}}}))
+                       first-id (perm/permission-id (perm/first-permission her-who her-lane))
+                       of-looker (:place (read-it looker))]
+                   (and (= {:holder (perm/agent (:actor looker)) :allows {:see true} :covers [:default-group her-lane]
+                            :given-by her-who :under first-id :lent-from first-id}
+                           (:value of-looker))
+                        (= her-who (:writer of-looker))
+                        (nil? (:value (:place (read-it idle)))))))
+          (check "Her page posted twice lends once: both posts say that the program is lent what she ticked, and the program writes under that one lend."
+                 (let [[one two] (:twice @pages)]
+                   (and (= [200 200] [(:status one) (:status two)])
+                        (str/includes? (:body two) "lent to see and to write")
+                        (= :accepted (:wrote (try-it twice 5)))))
+                 (mapv #(select-keys % [:status :body]) (:twice @pages)))
+          (let [asked (drive/request :post (str a "/sign-in/program")
+                                     {:edn {:hash (credential/hash-of (credential/make-secret))
+                                            :asking-hash (credential/hash-of (credential/make-secret))
+                                            :asks "a program that she looks at"}})
+                looked-at (:code (second (frame/read-one (:body asked))))
+                page (:body (drive/request :get (str a "/yes?code=" looked-at) {:cookie cookie}))
+                again (signed "the agent that was lent both, again" {:mine (:actor both)})
+                woken (signed "the idle agent, again, lent to see" {:mine (:actor idle) :see true})
+                tried-again (try-it again 6)
+                first-stands (line a (:credential both) nil)]
+            (close-line! first-stands)
+            (check "The yes page lists her live agents by name, each to be signed in again, with both boxes unticked, and says that such an agent keeps what it holds."
+                   (and (str/includes? page (str "value=\"" (:actor both) "\""))
+                        (str/includes? page "lent both")
+                        (str/includes? page "It keeps what it holds")
+                        (str/includes? page "name=\"as\" value=\"my-agent\"")
+                        (= 4 (count (re-seq #"type=\"checkbox\"" page)))
+                        (= 2 (count (re-seq #"value=\"yes\" checked>" page))))
+                   page)
+            (check "The same agent signed in a second time, with no box ticked, is a new sign-in of that agent that holds what the agent held: it writes under the first lend, the page says that it keeps what it holds, and the first sign-in stands."
+                   (and (= (:actor both) (:actor again)) (not= (:sign-in both) (:sign-in again))
+                        (= (:who (:both tried)) (:who tried-again)) (= :accepted (:wrote tried-again))
+                        (str/includes? (body "the agent that was lent both, again") "keeps what it holds")
+                        (uuid? (:session (:hello first-stands))))
+                   [tried-again (body "the agent that was lent both, again") (:hello first-stands)])
+            (check "An agent of hers signed in again with a box ticked is lent that besides what it holds: the agent that was lent nothing then sees her lane, under the second lend."
+                   (let [opened (line a (:credential woken) nil)
+                         seen (:value (:place (place opened her-lane :lend-shelf :colour)))]
+                     (close-line! opened)
+                     (and (= (:actor idle) (:actor woken)) (= :green seen)))))
+          (close-line! her))
+
         (let [me (line a (:credential mine) nil)
               hello (:hello me)
               who (:who hello)

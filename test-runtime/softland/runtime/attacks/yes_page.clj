@@ -30,10 +30,7 @@
    (drive/request :post (str url "/yes")
                   {:cookie cookie
                    :origin url
-                   :form (cond-> {:code code
-                                  :say (or say "yes")
-                                  :as (if agent "agent" "me")}
-                           agent (assoc :label agent))})
+                   :form (drive/yes-form code {:say say :agent agent})})
    [:status :body]))
 
 (defn- strip-html
