@@ -697,7 +697,7 @@
         twice (alice {:e :thing-6 :k :name :v "sent twice"})
         twice-in-a-batch (alice {:e :thing-7 :k :name :v "twice in one batch"})
         of-the-old-form (assoc (alice {:e :thing-13 :k :name :v "a stray of the base"})
-                               :act-id [:base (UUID/randomUUID)])]
+                               :act-id [:base :microbatch (UUID/randomUUID)])]
     ;; a mark and a fact under its key in one batch
     (in-one-batch! [(system (marks #{:kind})) (alice {:e :thing-1 :k :kind :v "x"})])
     ;; a fact under the marked key, replaced
@@ -2637,11 +2637,11 @@
 
 (defn- uuid-of
   "Takes a thing as it arrived on a depot. Gives the uuid of its act-id, or
-  nil for a thing that is no map or holds no act-id of three slots."
+  nil for a thing that is no map or holds no act-id of two slots."
   [thing]
   (when (map? thing)
     (let [act-id (get thing :act-id)]
-      (when (and (vector? act-id) (= 3 (count act-id)))
+      (when (and (vector? act-id) (= 2 (count act-id)))
         (nth act-id 1)))))
 
 (defn- notes!
@@ -3164,7 +3164,7 @@
   nothing while one is false."
   [gave records cases]
   (let [each-gate? (fn [f] (every? f gate-order))
-        five (set declaration/stray-reasons)
+        stray-words (set declaration/stray-reasons)
         two-times? (fn [gate act-id]
                      (let [times (times-under (get records gate) act-id)]
                        (and (= 2 (count times)) (every? some? times) (apply not= times))))]
@@ -3215,8 +3215,8 @@
                                (and (pos? answers) (= answers line-rows) (empty? apart)))))]
      ["each act into each room is accepted"
       (= {:accepted (* (count rooms) (inc rounds-in-a-room))} (:rooms gave))]
-     ["each gate keeps a stray of each of the five words"
-      (each-gate? (fn [gate] (= five (set (keys (get-in gave [:strays gate]))))))]
+     ["each gate keeps a stray of each of the four words"
+      (each-gate? (fn [gate] (= stray-words (set (keys (get-in gave [:strays gate]))))))]
      ["each gate refused with eight words at least"
       (each-gate? (fn [gate] (<= 8 (count (dissoc (get-in gave [:words gate]) :accepted)))))]
      ["two lanes that the streaming gate made live on one task"
