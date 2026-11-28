@@ -1353,9 +1353,8 @@ to all that i dont explicitly comment below". Words in quotation marks after
 "his answer" are his, as he typed them; each question is given as the session
 put it. His yes covers each change as the question said it. What a session
 drew from an answer, and every name and shape inside a change, is marked as a
-session's and is his to turn. The three were built as one change, since each
-changes the bytes that a digest is taken of: the eleventh making of
-`test-store/softland/store/run_again_fixture/` was made for it.
+session's and is his to turn. The three are one change, since each changes
+the bytes that a digest is taken of.
 
 1. **A fact's key is an id: a readable keyword or a UUID.** The question
    (4a): "What happens today: a fact is thing, key, value, like (note-17,

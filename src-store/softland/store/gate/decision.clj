@@ -170,7 +170,7 @@
 
 (defn hex-for-its-permission
   "The digest of the act as its maker made it: in its one form, without its
-  act-id, its depot, its time and its permission. A maker makes the same
+  act-id, its time and its permission. A maker makes the same
   text with `softland.store.door.digest/hex-for-a-yes`, for every act that
   the declaration takes, so the two agree under any act-id that she sends
   it under. What must hold: the declaration took the thing. The thing is
@@ -451,10 +451,10 @@
 
 (defn- replaced-fact-fault
   "Stale when the place is empty, another fact wrote its row, or the fact
-  named is of another lane or depot."
-  [gate-depot act rows fact]
+  named is of another lane."
+  [act rows fact]
   (when-let [replaces (:replaces fact)]
-    (when-not (record/written-by? gate-depot (:lane act) (get rows (place-of act fact)) replaces)
+    (when-not (record/written-by? (:lane act) (get rows (place-of act fact)) replaces)
       :replaced-fact-not-current)))
 
 (defn- setting-fault
@@ -663,7 +663,7 @@
   `softland.store.gate.first-act/making-act?` held their form."
   [gate-depot act rows]
   (let [facts (:facts act)]
-    (or (some #(replaced-fact-fault gate-depot act rows %) facts)
+    (or (some #(replaced-fact-fault act rows %) facts)
         (some #(setting-fault act %) facts)
         (when-not (makes-the-lane? gate-depot act rows)
           (let [acts-own (under act rows)]
@@ -873,7 +873,7 @@
   check gave it, `:place-rows` holds what the list above says, and the
   time is there."
   [act-id act refused stamp time-millis digest in-hand]
-  (let [[lane _ act-uuid] act-id]
+  (let [[lane act-uuid] act-id]
     (conj (if refused [] (accept-writes act act-uuid stamp time-millis in-hand))
           [:answer (record/answer-key lane act-uuid) (record/answer-row refused stamp time-millis digest)]
           [:last-stamp nil (long stamp)])))
@@ -942,7 +942,7 @@
   What must hold: the thing is no stray, and no answer was under its
   act-id."
   [act-id thing refused stamp time-millis digest weight bound]
-  (let [[lane _ act-uuid] act-id
+  (let [[lane act-uuid] act-id
         who (declaration/usable-who thing)
         kept? (and (int? weight) (<= (long weight) (long bound)))
         not-kept (cond kept? nil (= :not-weighed weight) :not-weighed :else :too-heavy)

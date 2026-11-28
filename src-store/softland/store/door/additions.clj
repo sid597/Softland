@@ -1,11 +1,11 @@
 (ns softland.store.door.additions
-  "What the door makes of one act: the tests of its own three additions, and
+  "What the door makes of one act: the tests of its own two additions, and
   the thing to append. Pure code. It reads no clock: the door hands it the
   time.
 
   The door checks nothing of the act's form: a gate does. What is tested
   here is only what the door's own additions need, so that the thing is no
-  stray on the depot that its act-id names and a gate answers it. A thing
+  stray on its lane's depot and a gate answers it. A thing
   that failed would get no answer, ever, and its maker could not tell it
   from an act that is on its way.
 
@@ -37,7 +37,7 @@
 
 (def ^:private parts-read
   "The door reads `:lane` alone: an act-id of the door's making holds it,
-  and it names the depot to ask for."
+  and it names the lane whose depot the door reads."
   [:lane])
 
 (defn- read-parts
@@ -54,7 +54,7 @@
 
 (def ^:private parts-added
   "In the order in which `own-parts-word` tests them."
-  [:act-id :depot declaration/time-part])
+  [:act-id declaration/time-part])
 
 (defn- own-parts-word
   "A part that is there with nil counts: the door writes over nothing."
@@ -63,10 +63,7 @@
     (words/word :add-its-parts {:at part})))
 
 (defn- act-id-word
-  "The two tests are the declaration's, the ones that a read's head makes.
-  An act-id of the lane whose depot slot is a depot word and not the
-  lane's depot passes: the thing then goes to the depot that the act-id
-  names, and a gate refuses it there with a recorded word."
+  "The two tests are the declaration's, the ones that a read's head makes."
   [lane act-id]
   (cond
     (not (declaration/usable-id? lane))
@@ -105,12 +102,11 @@
   for the reading's lane. `door-time` is in milliseconds since 1970; it is
   added as given and not tested. Each other part is the maker's own object.
 
-  It never throws: a thing that throws while the three parts are added ends
+  It never throws: a thing that throws while the two parts are added ends
   in the word `:read-the-act`."
   [reading act-id door-time]
   (try
     {:thing (assoc (:thing reading)
                    :act-id act-id
-                   :depot (nth act-id 1)
                    declaration/time-part door-time)}
     (catch Throwable _ (words/word :read-the-act nil))))

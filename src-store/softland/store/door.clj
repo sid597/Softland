@@ -15,7 +15,7 @@
   sender.
 
   Everything goes plain into a depot: the maker's act as she gave it, with
-  the act-id, the depot and the time added. A depot keeps the thing for
+  the act-id and the time added. A depot keeps the thing for
   good, whatever a gate decides of it, and any client of the cluster that
   reads a depot reads each value.
 
@@ -103,7 +103,7 @@
        (catch Throwable t [:threw (what-threw t)])))
 
 (defn- append!
-  "One round trip. `depot` is the second slot of the thing's act-id.
+  "One round trip. `depot` is the lane's depot, as `depot-of` read it.
 
   The streaming depot is appended to with the ack level :ack: the call
   returns when the streaming gate has processed the thing and its rows are
@@ -142,18 +142,20 @@
   "One round trip, to the lane's task. What must hold: the lane passed
   `softland.store.record.rows/depot-read`.
 
-  A read that gives nil says that the lane is not made, and the depot is
-  the one that the lane starts with. A read that threw has not said \"not
-  made\", so it gives a word and no depot. In this build the read and the
-  starting depot always agree, since no act changes a depot; the read is
-  made all the same, and it is what leaves room for a lane whose depot can
-  change. The door remembers no lane's depot between two calls: that would
-  be a kept copy of what the cluster holds."
+  The lane's own depot fact is the one home of a lane's depot: no act-id
+  says it, so the door reads it for each send. A read that gives nil says
+  that the lane is not made, and the depot is the one that the lane starts
+  with (`softland.store.gate.first-act/depot-as-said`). A read that threw
+  has not said \"not made\", so it gives a word and no depot. In this build
+  the read and the starting depot always agree, since no act changes a
+  depot; the read is made all the same, and it is what leaves room for a
+  lane whose depot can change. The door remembers no lane's depot between
+  two calls: that would be a kept copy of what the cluster holds."
   [^Door door lane]
   (let [[outcome got] (attempt (fn [] (rama/foreign-invoke-query (.-depot-query door) lane)))]
     (if (= :threw outcome)
       [:word (words/word :read-the-lanes-depot (assoc got :lane lane))]
-      [:ok (or got (first-act/depot-at-making lane))])))
+      [:ok (first-act/depot-as-said lane got)])))
 
 ;; ------------------------------------------------------------------ the clock
 
@@ -237,22 +239,19 @@
        (words/word :find-the-module (assoc (what-threw t) :module module-name))))))
 
 (defn act-id-for
-  "An act-id for a lane, ahead of sending: [lane depot uuid], or a word.
+  "An act-id for a lane, ahead of sending: [lane uuid], or a word.
 
   The uuid is a random one of the JVM's. The door keeps no id that it gave:
   it gives no id twice only by the chance of a random uuid, and it cannot
   tell an id of its own from another.
 
-  One round trip, to the lane's task; none for a lane that is no id within
-  the limit. A maker that gives the act-id back to `send-act` pays no
-  second read there."
-  [^Door door lane]
+  No round trip: an act-id names no depot, so nothing of the cluster is
+  read to make one, and `door` is not used. The lane's depot is read when
+  the act is sent."
+  [^Door _door lane]
   (if-not (record/depot-read lane)
     (words/word :make-an-act-id {:at :lane})
-    (let [[outcome got] (depot-of door lane)]
-      (if (= :word outcome)
-        got
-        [lane got (UUID/randomUUID)]))))
+    [lane (UUID/randomUUID)]))
 
 (defn act-ids-for
   "The act-ids of a series in one lane, before the first of them is sent.
@@ -260,21 +259,45 @@
   is sent: as `:because-of`, and as the act-id of a fact id in `:replaces`
   and `:based-on`.
 
-  One read of the lane's depot serves the whole series, where `act-id-for`
-  would read once for each id, on the lane's task, whose one thread the
-  streaming gate also needs.
+  No round trip, as `act-id-for`. `send-acts` sends such a series with one
+  read of the lane's depot.
 
   Limit: the count has no bound but the memory of the process. The whole
   vector is made before the call returns, so a count that the memory does
   not hold ends in the JVM's own error, which is no word of the door's."
-  [^Door door lane n]
+  [^Door _door lane n]
   (or (when-not (record/depot-read lane)
         (words/word :make-an-act-id {:at :lane}))
       (additions/series-word n)
-      (let [[outcome got] (depot-of door lane)]
-        (if (= :word outcome)
-          got
-          (vec (repeatedly n (fn [] [lane got (UUID/randomUUID)])))))))
+      (vec (repeatedly n (fn [] [lane (UUID/randomUUID)])))))
+
+(defn- send-one
+  "One act into its lane's depot; `send-act` says what it gives.
+  `read-depot` takes a lane and gives what `depot-of` gives. It is called
+  once, after the thing was read to its end, so a thing that ends in
+  `:read-the-act` or `:add-its-parts` costs no round trip."
+  [^Door door act act-id read-depot]
+  (let [reading (additions/reading act act-id)]
+    (if (:could-not reading)
+      reading
+      (let [lane (:lane reading)
+            act-id (if (some? act-id) act-id [lane (UUID/randomUUID)])
+            built (additions/thing-to-append reading act-id (server-clock))]
+        (if (:could-not built)
+          built
+          (let [thing (:thing built)
+                digest (digest/readable-hex-of thing)]
+            (if (nil? digest)
+              (words/word :read-the-act nil)
+              (let [[outcome depot] (read-depot lane)]
+                (if (= :word outcome)
+                  depot
+                  (let [[outcome threw] (append! door depot thing)]
+                    (if (= :threw outcome)
+                      (words/word :append-cleanly (assoc threw :act-id act-id :digest digest))
+                      {:act-id act-id
+                       :digest digest
+                       :ack (get words/acks depot)})))))))))))
 
 (defn send-act
   "Takes a maker's act into its depot. `act-id` is the one that the maker
@@ -288,18 +311,25 @@
   there when the call returns, and a maker of the base reads with a wait
   (`answer-of`).
 
-  An act-id that is given is used as it is, also when its depot slot is not
-  the lane's depot; the thing then goes to the depot that it names and a
-  gate refuses it there. The digest is taken after the act-id is made: it
-  is of the thing with its act-id in it. A thing that throws while it is
-  read ends in `:read-the-act`, and nothing is appended.
+  An act-id that is given is used as it is. The digest is taken after the
+  act-id is made: it is of the thing with its act-id in it. A thing that
+  throws while it is read ends in `:read-the-act`, and nothing is appended.
+
+  Where the thing goes. One round trip reads the depot of the act's lane,
+  from the lane's own fact, for every send: no act-id says a depot, and
+  the door keeps none between two calls. The thing is appended to that
+  depot and to no other, so the door sends nothing to the gate that does
+  not have the lane. The read is made after the thing was read to its end,
+  so a thing that ends in `:read-the-act` costs no round trip. A send is
+  two round trips, the read and the append; `send-acts` reads once for a
+  series.
 
   When the append throws, the word is `:append-cleanly`, with the act-id
   and the digest: the door does not know whether the depot holds the thing.
   It is the one word of which \"nothing was appended\" cannot be said. The
   door sends nothing again; the maker reads the record.
 
-  The door changes the act by its three additions and no more. It gives no
+  The door changes the act by its two additions and no more. It gives no
   value a normal form and makes no part a vector, so a maker who gives her
   facts as a list gets another digest than one who gives the same facts as
   a vector: the one text writes the two apart.
@@ -343,32 +373,50 @@
   depot by then."
   ([door act] (send-act door act nil))
   ([^Door door act act-id]
-   (let [reading (additions/reading act act-id)]
-     (if (:could-not reading)
-       reading
-       (let [[outcome act-id] (if (some? act-id)
-                                [:ok act-id]
-                                (let [lane (:lane reading)
-                                      [outcome got] (depot-of door lane)]
-                                  (if (= :word outcome)
-                                    [:word got]
-                                    [:ok [lane got (UUID/randomUUID)]])))]
-         (if (= :word outcome)
-           act-id
-           (let [built (additions/thing-to-append reading act-id (server-clock))]
-             (if (:could-not built)
-               built
-               (let [thing (:thing built)
-                     depot (nth act-id 1)
-                     digest (digest/readable-hex-of thing)]
-                 (if (nil? digest)
-                   (words/word :read-the-act nil)
-                   (let [[outcome threw] (append! door depot thing)]
-                     (if (= :threw outcome)
-                       (words/word :append-cleanly (assoc threw :act-id act-id :digest digest))
-                       {:act-id act-id
-                        :digest digest
-                        :ack (get words/acks depot)}))))))))))))
+   (send-one door act act-id (fn [lane] (depot-of door lane)))))
+
+(defn send-acts
+  "A series: takes each act of `pairs`, a sequence of `[act act-id]`, into
+  its lane's depot, in the order given. An `act-id` is one that the maker
+  asked for ahead (`act-ids-for`), or nil. Gives a vector with one result
+  for each act that was tried, each as `send-act` gives it.
+
+  It stops at the first act that ends in a word of the door's, which is
+  then the last result: a later act of a series can rest on an earlier one,
+  and the maker sends the rest again under the same act-ids.
+
+  One read of a lane's depot serves every act of the series in that lane,
+  where `send-act` reads once for each act: n acts of one lane are one read
+  and n appends. The depot that was read is held for this one call and for
+  no longer. Each act carries the door's clock as it was read for that
+  act.
+
+  A thing that is no sequence, and an entry that is no pair, end in
+  `:read-the-act`, as a thing that is no act does. Everything else is as
+  `send-act` says."
+  [^Door door pairs]
+  (let [depots (volatile! {})
+        read-depot (fn [lane]
+                     (if-let [depot (get @depots lane)]
+                       [:ok depot]
+                       (let [[outcome got :as read] (depot-of door lane)]
+                         (when (= :ok outcome) (vswap! depots assoc lane got))
+                         read)))
+        step (fn [left] (try (when-let [left (seq left)] [(first left) (rest left)])
+                             (catch Throwable _ :threw)))]
+    (loop [results []
+           left (if (sequential? pairs) pairs [nil])]
+      (let [stepped (step left)]
+        (cond
+          (nil? stepped) results
+          (= :threw stepped) (conj results (words/word :read-the-act nil))
+          :else
+          (let [[entry more] stepped
+                [act act-id] (if (and (vector? entry) (= 2 (count entry))) entry [nil nil])
+                result (send-one door act act-id read-depot)]
+            (if (:could-not result)
+              (conj results result)
+              (recur (conj results result) more))))))))
 
 (defn answer-of
   "`digest` is the one that `send-act` gave. `bound-ms`, when the maker

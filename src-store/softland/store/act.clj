@@ -3,8 +3,8 @@
   `parse`, the check of that form. Pure code.
 
   The form is the maker's act: what a maker gives, with plain values, before
-  the door adds an act-id, a depot and a time. A gate accepts the whole act
-  or refuses the whole act.
+  the door adds an act-id and a time. A gate accepts the whole act or
+  refuses the whole act.
 
   The shape is code and not a fact in the store. Each shape that a tool
   gives enters the store as a fact, inside an act, so the shape of the act
@@ -77,11 +77,12 @@
     [:v        :value   {:optional true}]
     [:replaces :fact-id {:optional true}]]
 
-   ;; [lane depot uuid]. The door makes it. The lane and the depot are there
-   ;; so that the act can be routed and the door can find its answer in the
-   ;; right record.
+   ;; [lane uuid]. The door makes it. The lane is there so that the act can
+   ;; be routed and the door can find its answer on the lane's task. Which
+   ;; depot a lane is on is the lane's to say, in a fact of its own
+   ;; (`:softland.store/depot`), and no id holds it.
    :act-id
-   [:tuple :id [:enum :streaming :microbatch] :uuid]
+   [:tuple :id :uuid]
 
    ;; [act-id index]: one fact of one act.
    :fact-id
@@ -410,8 +411,8 @@
   that gave no `:v`, or a nil one, holds `:v nil` and is a retract. To parse
   the :ok of a parse gives the same :ok.
 
-  An act that carries an act-id, a depot or a time is refused
-  `:unknown-part`: those three are the door's.
+  An act that carries an act-id or a time is refused `:unknown-part`: those
+  two are the door's.
 
   Limits. It reads no clock. It has no rule about a session beyond its
   shape. Of the permission that the act

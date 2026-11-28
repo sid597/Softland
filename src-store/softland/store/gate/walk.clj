@@ -153,13 +153,14 @@
 
 (defn begin
   "Takes the gate's depot word, `:streaming` or `:microbatch`, and a thing
-  as it arrived on that gate's depot. Gives the walk's state. With the
-  other gate's word every thing of the depot is a stray."
+  as it arrived on that gate's depot. Gives the walk's state. An act-id
+  names no depot, so the first read is the same for both gates: the answer
+  under the thing's act-id in this gate's own record."
   [gate-depot thing]
-  (if-let [stray (declaration/stray-reason gate-depot thing)]
+  (if-let [stray (declaration/stray-reason thing)]
     (done {:gate gate-depot :thing thing}
           {:stray stray :writes [[:stray stray (digest/hex-of thing)]]})
-    (let [[lane _ act-uuid :as act-id] (:act-id thing)]
+    (let [[lane act-uuid :as act-id] (:act-id thing)]
       {:gate gate-depot
        :thing thing
        :act-id act-id

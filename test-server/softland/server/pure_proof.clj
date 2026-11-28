@@ -137,7 +137,7 @@
 
 ;; ------------------------------------------------------------------- the words
 
-(def ^:private an-act-id [:notes :streaming (UUID/randomUUID)])
+(def ^:private an-act-id [:notes (UUID/randomUUID)])
 (def ^:private an-act {:version 1 :lane :notes :permission (UUID/randomUUID) :facts [{:e :chair-7 :k :colour :v :green}]})
 (def ^:private a-query {:asks [:place :chair-7 :colour] :lanes [:notes]})
 
@@ -205,7 +205,7 @@
              (words/check {:word :act-ids :lane :notes :count (inc words/max-act-ids)})
              (words/check {:word :send})
              (words/check {:word :send :act [an-act]})
-             (words/check {:word :send :act an-act :act-id [:notes :streaming "no uuid"]})
+             (words/check {:word :send :act an-act :act-id [:notes "no uuid"]})
              (words/check {:word :answer :digest "x"})
              (words/check {:word :answer :act-id an-act-id})
              (words/check {:word :answer :act-id an-act-id :digest 7})

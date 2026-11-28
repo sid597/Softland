@@ -570,12 +570,13 @@
   nil)
 
 (defn- act-id-of
-  "One round trip, to the lane's task: the door reads the lane's depot
-  (`softland.store.door/act-id-for`). The maker's UUID takes the place of
-  the one that the door made."
+  "No round trip: an act-id is the lane and a UUID
+  (`softland.store.door/act-id-for`), and the door reads the lane's depot
+  when it sends. The maker's UUID takes the place of the one that the door
+  made."
   [^Seam seam lane uuid]
   (let [got (door/act-id-for (.-door seam) lane)]
-    (if (:could-not got) got (assoc got 2 uuid))))
+    (if (:could-not got) got (assoc got 1 uuid))))
 
 (defn- sent
   "The act must already be held against its sender. `ends` is a moment of

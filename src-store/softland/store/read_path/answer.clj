@@ -16,7 +16,7 @@
   fact. What a live read says of a lane that the asker may not see is held
   against what she was told of it.
 
-  In a place-answer, `:fact` is the fact id `[[lane depot uuid] index]`,
+  In a place-answer, `:fact` is the fact id `[[lane uuid] index]`,
   which a writer names in `:replaces`; `:stamp` is the stamp of that fact's
   decision, which a writer carries in `:based-on`; `:time` is the time on
   the act that wrote the fact, a label. `:holds :not-a-value` says that the
@@ -42,7 +42,6 @@
   lane says the thing, and which no order of a lane that she may see holds,
   is not in the answer."
   (:require [softland.store.door.declaration :as declaration]
-            [softland.store.gate.first-act :as first-act]
             [softland.store.read-path.lanes :as lanes]
             [softland.store.read-path.sources :as sources]
             [softland.store.record.rows :as rows]))
@@ -74,7 +73,7 @@
   for one act (`softland.store.record.rows/use-row`)."
   [lane row]
   (when (some? (:by-index row))
-    [[lane (first-act/depot-at-making lane) (:by-act row)] (:by-index row)]))
+    [[lane (:by-act row)] (:by-index row)]))
 
 (def no-fact-given
   "What an answer says of a place at which the read gives no fact: no lane

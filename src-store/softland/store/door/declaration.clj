@@ -219,7 +219,7 @@
 
 (def shapes
   "The door's map of shapes: each entry of `softland.store.act/shapes`, and
-  more in the same language. `:arrived-act` is the three parts that the
+  more in the same language. `:arrived-act` is the two parts that the
   door adds and then the eight parts of the maker's `:act`, read from
   `act.clj`'s map in its order and with its options. `:lane-list` and
   `:key-set` say no limit: a rule holds each, with a word of its own. A
@@ -252,7 +252,6 @@
   (assoc act/shapes
          :arrived-act  (into [:parts
                               [:act-id :act-id]
-                              [:depot :depot-word {:reason :depot-not-the-act-ids-depot}]
                               [time-part [:int {:min 0}] {:reason :no-door-time}]]
                              (rest (get act/shapes :act)))
          :depot-word   [:enum :streaming :microbatch]
@@ -321,8 +320,7 @@
   permission in one fact at most, so no permission is changed twice, or
   given and ended, in one act."
   (into (vec act/rules)
-        [[:depot-is-the-act-ids-depot          :depot-not-the-act-ids-depot]
-         [:facts-within-the-limit              :too-many-facts]
+        [[:facts-within-the-limit              :too-many-facts]
          [:based-on-within-the-limit           :too-many-based-on]
          [:store-key-is-known                  :store-key-not-known]
          [:depot-fact-holds-a-depot-word       :depot-fact-not-a-depot-word]
@@ -345,7 +343,6 @@
   [:no-act-id
    :act-id-malformed
    :id-too-long
-   :act-id-of-the-other-gate
    :act-id-of-another-lane])
 
 (def reasons
@@ -450,10 +447,7 @@
   "The code of each rule of `rules`. Each takes an act that has the shape
   `:arrived-act`, in the one form that the engine gave, and may rest on the
   rules before it: `check` stops at the first that is broken."
-  {:depot-is-the-act-ids-depot
-   (fn [act] (= (:depot act) (nth (:act-id act) 1)))
-
-   :facts-within-the-limit
+  {:facts-within-the-limit
    (fn [act] (<= (count (:facts act)) max-facts))
 
    :based-on-within-the-limit
@@ -528,18 +522,22 @@
   which is where its gate writes its answer and where a read by its act-id
   looks.
 
+  It asks for no depot: an act-id says none, so the test is one for both
+  gates. A thing for a lane of the other gate is no stray: the gate refuses
+  it under its act-id, in its own record
+  (`softland.store.gate.decision/standing`).
+
   It reads no time. A thing with a usable act-id and no usable time is no
   stray: `check` refuses it, and the refusal is recorded under its act-id.
 
   It never throws: a thing that throws while it is tested gives :no-act-id."
-  [gate-depot thing]
+  [thing]
   (try
     (let [act-id (when (plain-map? thing) (get thing :act-id))]
       (cond
         (nil? act-id) :no-act-id
         (not= :ok (first (act/as-shape shapes :act-id act-id))) :act-id-malformed
         (not (id-within-the-limit? (nth act-id 0))) :id-too-long
-        (not= gate-depot (nth act-id 1)) :act-id-of-the-other-gate
         (not= (nth act-id 0) (get thing :lane)) :act-id-of-another-lane
         :else nil))
     (catch Throwable _ :no-act-id)))

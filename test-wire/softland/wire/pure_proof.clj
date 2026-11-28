@@ -82,7 +82,7 @@
         each {:who-am-i {:word :who-am-i}
               :send {:word :send :act an-act :act-id uuid :wait-ms 5}
               :send-all {:word :send-all :acts [{:act an-act :act-id uuid}] :wait-ms 5}
-              :answer {:word :answer :act-id [:notes :streaming uuid] :digest a-hash :wait-ms 5}
+              :answer {:word :answer :act-id [:notes uuid] :digest a-hash :wait-ms 5}
               :read {:word :read :query a-query}
               :watch {:word :watch :query a-query}
               :leave {:word :leave :watch 3}
@@ -109,6 +109,11 @@
                 (= a-query (:query (:ok (words/check (:read each)))))))
     (check "An act of a wrong form passes the check: a gate refuses it, and the log keeps it."
            (contains? (words/check {:word :send :act {:nothing :of-an-act} :act-id uuid}) :ok))
+    (check "An answer is asked for by an act-id, which is the act's lane and its UUID and names no depot: one with a depot word in it, as the form before 28 November 2026 had it, and a bare UUID, are turned away at that part."
+           (= [true {:refuse :act-id-has-no-form :at :act-id} {:refuse :act-id-has-no-form :at :act-id}]
+              [(contains? (words/check (:answer each)) :ok)
+               (refused (assoc (:answer each) :act-id [:notes :streaming uuid]))
+               (refused (assoc (:answer each) :act-id uuid))]))
     (check "A send names its act's UUID: one that names none, or a thing that is no UUID, is turned away at that part."
            (= [{:refuse :act-id-not-given :at :act-id} {:refuse :act-id-is-no-uuid :at :act-id}]
               [(refused (dissoc (:send each) :act-id)) (refused (assoc (:send each) :act-id "one"))]))

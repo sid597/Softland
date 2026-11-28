@@ -2004,9 +2004,9 @@
         uuid (fn [stamp] (UUID. 0 (long stamp)))]
     (check "the four things that a place can hold, told apart: no fact given; nothing here; a value as its maker gave it; a String that is no value of the form, in a row that the proof puts in the table by hand, since no write of a gate gives one"
            [{:holds :no-fact-given}
-            {:holds :nothing-here :lane :alice-notes :fact [[:alice-notes :streaming (uuid 20)] 0] :stamp 20}
-            {:holds :value :value "from the base" :lane :base :fact [[:base :microbatch (uuid 310)] 0] :stamp 310}
-            {:holds :not-a-value :lane :base :fact [[:base :microbatch (uuid 9)] 0] :stamp 331}]
+            {:holds :nothing-here :lane :alice-notes :fact [[:alice-notes (uuid 20)] 0] :stamp 20}
+            {:holds :value :value "from the base" :lane :base :fact [[:base (uuid 310)] 0] :stamp 310}
+            {:holds :not-a-value :lane :base :fact [[:base (uuid 9)] 0] :stamp 331}]
            [(place (person :alice) [:place :nobody :text] [:alice-notes :team :base])
             (place (person :alice) [:place :note-41 :text] [:alice-notes :team :base])
             (place (person :alice) [:place :note-41 :text] [:base])
@@ -2871,7 +2871,7 @@
            [(given (:answer holder)) (:last-stamp (:answer holder)) (:next (:answer holder)) (:left-out (:answer holder))
             (given (:answer given-one))])
     (check "a decision given whole holds its act-id, the answer of the door's read by act-id, and the thing as it arrived"
-           [[:lab :streaming (UUID. 3 2)]
+           [[:lab (UUID. 3 2)]
             {:verdict :refused :reason :permission-not-found :stamp 2 :time (time-of 2) :digest (text/hex (digest-of 2))}
             {:who (person :cy) :facts [:try 1]}]
            (let [d (nth (:acts (:answer holder)) 2)] [(:act-id d) (:answer d) (:thing d)]))

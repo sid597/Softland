@@ -27,8 +27,32 @@
   :base)
 
 (defn depot-at-making
+  "The depot that a lane starts with, from its id alone: the base on the
+  microbatch depot, every other lane on the streaming depot, which is the
+  default (src-store/README.md, 7 October 2026, entry 4). Both gates and the
+  door ask it, so the three agree on which gate makes a lane with no read
+  and no race between the two depots.
+
+  Not built: a maker who chooses the other depot as she makes her lane.
+  That is the step of changing a made lane's depot, a handing over of the
+  lane from one gate to the other, and no gate takes either
+  (`softland.store.gate.decision`, `fact-fault`)."
   [lane]
   (if (= base lane) :microbatch :streaming))
+
+(def ^:private depot-words
+  (set (rest (get declaration/shapes :depot-word))))
+
+(defn depot-as-said
+  "The depot that a lane is on. `said` is the value of the lane's own depot
+  fact, at `[lane :softland.store/depot]`, as a read gave it, or nil. That
+  fact is the one home of a lane's depot: no act-id holds it. While no fact
+  says a depot word the lane is not made, and it is on the depot that it
+  starts with. In this build the two always agree, since no act changes a
+  depot; asking the fact is what leaves room for a lane whose depot can
+  change."
+  [lane said]
+  (if (contains? depot-words said) said (depot-at-making lane)))
 
 (defn starts-with-the-other-gates-depot?
   "Reads the lane id alone. So the word of an act on one depot, for a lane

@@ -31,7 +31,7 @@
   (`softland.store.read-path.query`) without `:asker` and `:not-signed-in`.
   The server adds them from the credential, so a system has no place in
   which to claim a name. The server is the maker's hand here, as the door
-  is behind it: the door adds the act-id, the depot and the time to what a
+  is behind it: the door adds the act-id and the time to what a
   maker gives (src-store/README.md, 6 October 2026, entry 2), and the
   server adds who gives it. That a system sends the act without the two
   parts, and not the whole act for the server to compare, is a session's

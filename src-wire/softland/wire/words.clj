@@ -16,7 +16,7 @@
   with `:not-signed-in true`. The runtime holds those parts against the
   caller and refuses a difference (`softland.runtime.seam`); it strips
   nothing and writes nothing into them. The act-id is the maker's too: a
-  random UUID, which the runtime completes with the lane and its depot. A
+  random UUID, which the runtime completes with the act's lane. A
   maker that sends the same act under the same UUID a second time, after a
   break, sends the same thing, and a gate takes it once.
 

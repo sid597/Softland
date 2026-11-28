@@ -93,12 +93,12 @@
   (UUID. 0 n))
 
 (defn- an-act-id
-  "An act-id for a lane and a depot, with a fixed UUID."
-  [lane depot n]
-  [lane depot (uuid n)])
+  "An act-id for a lane, with a fixed UUID."
+  [lane n]
+  [lane (uuid n)])
 
-(def ^:private earlier-act-id "The act-id of an earlier act in Alice's lane." (an-act-id :alice :streaming 2))
-(def ^:private other-act-id "The act-id of another earlier act in Alice's lane." (an-act-id :alice :streaming 3))
+(def ^:private earlier-act-id "The act-id of an earlier act in Alice's lane." (an-act-id :alice 2))
+(def ^:private other-act-id "The act-id of another earlier act in Alice's lane." (an-act-id :alice 3))
 (def ^:private alice-own "Alice's permission in her own lane." (perm/first-permission (person :alice) :alice))
 (def ^:private a-fact "One fact with a plain value." {:e :note-1 :k :note :v "a text"})
 
@@ -158,7 +158,7 @@
           [:k :id]
           [:v :value {:optional true}]
           [:replaces :fact-id {:optional true}]]
-   :act-id [:tuple :id [:enum :streaming :microbatch] :uuid]
+   :act-id [:tuple :id :uuid]
    :fact-id [:tuple :act-id [:int {:min 0}]]
    :carried-stamp [:int {:min 0}]})
 
@@ -177,7 +177,7 @@
     [{:refuse :unknown-part} {:refuse :unknown-part}]]
    ["the four parts of a fact"
     (fn [] act/fact-parts) #{:e :k :v :replaces}]
-   ["the door's three additions and the seal are no parts: no act-id, depot or time of the door on an act; no seal, lock id, lane or mark on a fact"
+   ["the door's two additions and the seal are no parts: no act-id or time of the door on an act, and no depot; no seal, lock id, lane or mark on a fact"
     (fn [] (mapv #(contains? %1 %2)
                  [act/act-parts act/act-parts act/act-parts act/fact-parts act/fact-parts act/fact-parts act/fact-parts]
                  [:act-id :depot declaration/time-part :sealed :lock-id :lane :mark]))
@@ -292,7 +292,7 @@
   [;; parts that the form does not name
    ["another part" (assoc good :signature "x") :unknown-part]
    ["an act-id: the door makes it, and it is no part" (assoc good :act-id earlier-act-id) :unknown-part]
-   ["a depot: the door adds it, and it is no part" (assoc good :depot :streaming) :unknown-part]
+   ["a depot: a lane's depot is the lane's to say, and it is no part" (assoc good :depot :streaming) :unknown-part]
    ["a time of the door: the door writes it, and it is no part" (assoc good declaration/time-part 1760000000000) :unknown-part]
    ["a part for expected versions" (assoc good :expected-versions {}) :unknown-part]
    ;; the version
@@ -325,8 +325,9 @@
    ["a carried stamp that is a double" (assoc good :based-on {[earlier-act-id 0] 1.5}) :malformed]
    ;; because of
    ["a :because-of that is no act-id" (assoc good :because-of [:alice 0]) :malformed]
-   ["a :because-of with a scheme word, four slots" (assoc good :because-of [:alice :streaming :act (uuid 2)]) :malformed]
-   ["a :because-of with no depot" (assoc good :because-of [:alice nil (uuid 2)]) :malformed]
+   ["a :because-of with a depot word in it, three slots: an act-id is a lane and a uuid" (assoc good :because-of [:alice :streaming (uuid 2)]) :malformed]
+   ["a :because-of with no uuid" (assoc good :because-of [:alice nil]) :malformed]
+   ["a fact that names what it replaces by an act-id with a depot word in it" (act-of (assoc a-fact :replaces [[:alice :streaming (uuid 2)] 0])) :malformed]
    ;; the facts
    ["no facts" (dissoc good :facts) :malformed]
    ["facts that are a map" (assoc good :facts a-fact) :malformed]
@@ -487,12 +488,12 @@
           [[true "Long"] [true "Long"] [true "Long"] [true "Long"] [true "Long"] [true "BigInt"] [true "Double"]
            [true "BigDecimal"] [true "BigDecimal"] [true "PersistentVector"] [true "PersistentArrayMap"]
            [true "PersistentHashSet"]]]
-         ["the shape of an act-id, as an act refers to one: [lane depot uuid], the lane an id"
+         ["the shape of an act-id, as an act refers to one: [lane uuid], the lane an id; it names no depot, so one with a depot word in it is none, in the middle or at an end"
           (fn [] (mapv #(act/has-shape? :act-id %)
-                       [[:alice :streaming (uuid 1)] [:group :microbatch (uuid 1)] [(uuid 3) :streaming (uuid 1)]
-                        [:alice :streaming :act (uuid 1)] [:alice nil (uuid 1)] [:alice :sideways (uuid 1)]
-                        [:alice :streaming "id"] ["alice" :streaming (uuid 1)] (list :alice :streaming (uuid 1))]))
-          [true true true false false false false false false]]
+                       [[:alice (uuid 1)] [:base (uuid 1)] [(uuid 3) (uuid 1)]
+                        [:alice :streaming (uuid 1)] [:base :microbatch (uuid 1)] [:alice (uuid 1) :streaming]
+                        [:alice nil] [:alice "id"] ["alice" (uuid 1)] (list :alice (uuid 1)) [(uuid 1)]]))
+          [true true true false false false false false false false false]]
          ["fact ids: an act-id and an index from 0; not a negative index, not a big one, not a list, not an id in place of an act-id"
           (fn [] (mapv #(act/has-shape? :fact-id %)
                        [[earlier-act-id 0] [earlier-act-id (int 3)] [earlier-act-id -1] [earlier-act-id 1N]
