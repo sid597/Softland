@@ -26,8 +26,41 @@ agent: one id, two jobs.**
   old ones. Above 32 in one holder's run the store answers that agent's
   reads `:too-many-permissions` (read_path/lanes.clj).
 
-*Settled.* What the yes page lends is one thing for each agent, not one for
-each sign-in:
+**Not mended: two settled mends each met a wall, and the question is Sid's.**
+
+The first mend settled is the one written below this paragraph (one
+permission for each agent, its id from root and agent, set in place by each
+yes that ticks a box). The builder stopped it: the store refuses any value
+at the id of a permission that was ended, `:a-permission-id-takes-one-permission`
+(decision.clj `fact-fault`; the store's own check, permission_proof, "an id
+takes one permission for good"). She or the agent may end the lend, and
+after that no tick could lend at that id again. That rule of the store is
+right to stand.
+
+The second mend settled: leave the lend as built (one permission for each
+yes that ticked a box) and let the command line find its default by reading
+what its own party holds, as the brief said a program does ("it reads what
+it holds like anyone"). The builder stopped it too, with a probe on a
+cluster: no read lets an agent learn what it holds in a lane unless it may
+also see that lane. An agent lent "to see" finds its lends only by reading
+the whole lane with its store facts; an agent lent only "to write" finds
+nothing, even at the exact place of its own lend (`:left-out :may-not-see`,
+read_path/lanes.clj `sees-under?`). The yes page offers "to write" alone, so
+that default would tell such an agent that it holds nothing.
+
+So it stands as built: the command line's default is the lend of its own
+sign-in; an agent signed in again with no box ticked keeps what it holds in
+the store and must be given `--permission`, whose id the new program cannot
+compute; she can tick the boxes again, which lends besides, and each such
+yes adds a permission that nothing ends, up to the store's ceiling of 32
+for one holder. What would close it is a choice of rule, and Sid's: a
+holder may always read the permissions it holds (a rule of the store's
+read path); or the runtime tells a program at sign-in which permissions the
+page has lent its agent; or a yes for an agent of hers ends the page's
+earlier lend and lends anew.
+
+*Settled first, and stopped.* What the yes page lends is one thing for each
+agent, not one for each sign-in:
 
 - **The permission's id is made from her root and the agent.** The act's
   UUID stays made from the sign-in that the yes begins, so a page posted
@@ -174,3 +207,55 @@ loads. Nothing else.
   `open_session_proof`, the attacks `closed_session`, `slow_readers`,
   `unwatched_standing`, `watch_caps`, `lost_replacement`; `src/app`.
 - Whether any kept store holds a sign-in of kind `:program` for a person.
+
+## 6. What the mending builder built and ran (Opus, high)
+
+- `52a53c4`: finding 2. After the send the page reads the lend as it stands
+  (`sign-in/lent-now`) and answers 200, 409 or 503. By the builder's own
+  reading the 409 side also takes a send answered `:accepted` whose lend no
+  longer stands, and any answer about the session, a closed one among them.
+- `22f0e0e`: finding 3. `seam/caller-now` answers such a sign-in
+  `:find-her-sign-in :ended` and opens no session for it; SPEC.md says it;
+  the pure proof's sentence is its opposite, against a stand-in for Auth's
+  `who-is`.
+- `289bd14`: findings 4 and 6. The page compares `:actor-named` (which
+  `answer!` returns) with the actor that stands; the words for an agent that
+  cannot be signed in and for agents that could not be read; the command
+  line's help says of `give` "to a person, refused while it holds no :give".
+- `70d685f`: finding 5. The three marks, and seven sentences reworded with
+  their meaning kept.
+- `9c03ea6`: a new agent's id at her yes is made from her root, the code
+  and its name. With the code alone a second answer that named another new
+  agent was told "Done"; `review-faults-proof` (5 passed, 1 failed) and
+  `attacks.yes-page` (0, 1) caught it in the builder's own run.
+- Finding 1: nothing built (above).
+
+The last run of each: every namespace under test-runtime loads (24); the
+wire's pure proof 41 passed, 0 failed; the runtime's 30, 0; the command
+line's 37, 0; `command-proof` 16, 0; `review-faults-proof` 6, 0;
+`attacks.yes-page` 1, 0; `softland.runtime.proof` 72, 0.
+
+Shown to fail first: finding 3's sentence with the seam's line removed (29
+passed, 1 failed); findings 2 and 4 by the reviewer's probe, which on the
+old code printed 503 for its cases A and B and 200 "Done" for C, and on the
+mended code A 409, B 200, C 409 with no agent made. The sentences of
+finding 6 were not held against a broken copy.
+
+Left to the final run: `two_lines_proof`, `cluster_proof` and the attack
+`slow_readers`, which would catch a fault in the road of the yes.
+
+The page's words that changed. 409: "…but what you ticked was not lent: it
+is lent to see in your own lane / this page has lent it nothing / what it
+is lent could not be read. To change it, start the program's sign-in again
+as this agent." 503: "…could not be lent: … Send this page again; if it is
+still not lent, start the program's sign-in again as this agent and tick
+again." An agent that cannot be signed in: "That agent cannot be signed in:
+it has ended, or it is not one of yours. The program still waits: go back
+and choose again." Agents that could not be read: "Your agents could not be
+read, so none is shown here to sign in again. Load this page again to see
+them."
+
+Seen and not changed: nothing in SPEC.md or the runtime's README says yet
+that each yes with a box ticked adds a permission that nothing ends, up to
+the store's ceiling of 32 for one holder; the long lines that part 8 left
+are not reflowed.
