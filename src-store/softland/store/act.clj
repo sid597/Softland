@@ -46,7 +46,12 @@
   a form that `conform` reads.
 
   The order of the parts is the order of the checks: when a thing has two
-  faults, the part that is declared first gives the reason.
+  faults, the part that is declared first gives the reason. Before any
+  part is read, a thing that holds a part that the list does not name is
+  refused `:unknown-part`; but the part marked `:edition`, which says which
+  list of parts the thing was made by, is read before that word is said. A
+  thing of another edition is then refused with the edition's reason: the
+  list of another edition can name the part.
 
   An `:optional` part can be absent or nil; the one form then holds nil for
   it, or its `:default`. A part with no `:reason` is refused `:malformed`.
@@ -56,7 +61,7 @@
   declaration uses those two."
   {:act
    [:parts
-    [:version      [:enum version]                    {:reason :unknown-version}]
+    [:version      [:enum version]                    {:reason :unknown-version :edition true}]
     [:who          :author-party                      {:reason :who-not-a-party}]
     [:lane        :id]
     [:permission   :uuid                              {:optional true :reason :permission-not-an-id}]
@@ -255,32 +260,38 @@
 
 (defn- conform-parts
   [declared entries x seen]
-  (cond
-    (not (and (map? x) (not (record? x)))) [:no :malformed]
-    (not-every? (into #{} (map first) entries) (keys x)) [:no :unknown-part]
-    :else
-    (reduce
-     (fn [[_ out] [part shape opts]]
-       (let [reason (:reason opts :malformed)
-             given (get x part)]
-         (cond
-           (= :never shape)
-           (if (contains? x part) (reduced [:no reason]) [:ok out])
+  (let [in-order
+        (fn [entries]
+          (reduce
+           (fn [[_ out] [part shape opts]]
+             (let [reason (:reason opts :malformed)
+                   given (get x part)]
+               (cond
+                 (= :never shape)
+                 (if (contains? x part) (reduced [:no reason]) [:ok out])
 
-           (nil? given)
-           (cond
-             (not (:optional opts)) (reduced [:no (:absent opts reason)])
-             (:left-out opts) [:ok out]
-             :else [:ok (assoc out part (:default opts))])
+                 (nil? given)
+                 (cond
+                   (not (:optional opts)) (reduced [:no (:absent opts reason)])
+                   (:left-out opts) [:ok out]
+                   :else [:ok (assoc out part (:default opts))])
 
-           :else
-           (let [[verdict normal] (conform declared shape given seen)]
-             (cond
-               (= :no verdict) (reduced [:no (or normal reason)])
-               (and (:empty opts) (empty? normal)) (reduced [:no (:empty opts)])
-               :else [:ok (assoc out part normal)])))))
-     [:ok {}]
-     entries)))
+                 :else
+                 (let [[verdict normal] (conform declared shape given seen)]
+                   (cond
+                     (= :no verdict) (reduced [:no (or normal reason)])
+                     (and (:empty opts) (empty? normal)) (reduced [:no (:empty opts)])
+                     :else [:ok (assoc out part normal)])))))
+           [:ok {}]
+           entries))]
+    (cond
+      (not (and (map? x) (not (record? x)))) [:no :malformed]
+
+      (not-every? (into #{} (map first) entries) (keys x))
+      (let [edition (in-order (filter (fn [[_ _ opts]] (:edition opts)) entries))]
+        (if (= :no (first edition)) edition [:no :unknown-part]))
+
+      :else (in-order entries))))
 
 (defn- conform
   "The engine. `seen` is the count of each named shape that is around this
@@ -393,7 +404,9 @@
   Each throw is `:malformed`.
 
   The shape first, then the rules. The first part or rule that is wrong, in
-  the declared order, gives the reason.
+  the declared order, gives the reason. An act with a part that the form
+  does not name is refused `:unknown-part` before any part is read, unless
+  its version is another: then `:unknown-version`.
 
   The one form. Each part of the declaration is there. Each vector, map and
   set is plain, and each fixed-width integer is a long. A part that the act

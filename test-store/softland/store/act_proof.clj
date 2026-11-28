@@ -150,7 +150,7 @@
   each number as a literal. So a change of the form is made in two places on
   purpose."
   {:act [:parts
-         [:version [:enum 1] {:reason :unknown-version}]
+         [:version [:enum 1] {:reason :unknown-version :edition true}]
          [:who :author-party {:reason :who-not-a-party}]
          [:lane :id]
          [:permission :uuid {:optional true :reason :permission-not-an-id}]
@@ -368,9 +368,14 @@
 
 (def ^:private order-rows
   "Acts with two faults. The order of the declaration gives the reason:
-  part by part and fact by fact."
-  [["another part, and version 2: a part that the form does not name, first"
-    (assoc good :signature "x" :version 2) :unknown-part]
+  part by part and fact by fact. A part that the form does not name comes
+  before each, but for the version: the form of another version can name
+  it."
+  [["another part, and version 2: the version is read before the part is called unknown"
+    (assoc good :signature "x" :version 2) :unknown-version]
+   ["another part, and no version" (-> good (assoc :signature "x") (dissoc :version)) :unknown-version]
+   ["another part, and a :who that is a string: a part that the form does not name, first"
+    (assoc good :signature "x" :who "alice") :unknown-part]
    ["version 2, and a permission that is no id"
     (assoc good :version 2 :permission :not-an-id) :unknown-version]
    ["a :who that is a string, and a permission that is no id"
@@ -405,8 +410,8 @@
    ["a list" '(1 2) :malformed]
    ["a record" (->Thing :note-1 :note) :malformed]
    ["an object" (Object.) :malformed]
-   ["a map whose keys are strings" {"version" 1} :unknown-part]
-   ["a sorted map whose keys are strings" (sorted-map "version" 1) :unknown-part]
+   ["a map whose keys are strings: it names no version" {"version" 1} :unknown-version]
+   ["a sorted map whose keys are strings: it throws when its version is read" (sorted-map "version" 1) :malformed]
    ["a value inside 2000 collections" (act-of (assoc a-fact :v (nested 2000))) :malformed]
    ["facts that throw when they are read" (assoc good :facts (throwing)) :malformed]])
 

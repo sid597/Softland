@@ -517,7 +517,7 @@
     [:act-id :act-id]
     [:depot :depot-word {:reason :depot-not-the-act-ids-depot}]
     [:door-time [:int {:min 0}] {:reason :no-door-time}]
-    [:version [:enum 1] {:reason :unknown-version}]
+    [:version [:enum 1] {:reason :unknown-version :edition true}]
     [:who :author-party {:reason :who-not-a-party}]
     [:lane :id]
     [:permission :uuid {:optional true :reason :permission-not-an-id}]
@@ -1095,8 +1095,10 @@
   a rule, the rule that is listed first, and a rule before the last step
   give the reason; in the last step, a value over its bound before an act
   over its bound. The time on the act is declared after the depot and
-  before each of the maker's parts."
-  [["a part that is not named, and a wrong version" (assoc good :owner 1 :version 2) :unknown-part]
+  before each of the maker's parts. A part that the form does not name
+  comes before each, but for the version."
+  [["a part that is not named, and a wrong version: the version is read before the part is called unknown" (assoc good :owner 1 :version 2) :unknown-version]
+   ["a part that is not named, and a who that is a string: the part that the form does not know" (assoc good :owner 1 :who "alice") :unknown-part]
    ["no depot, and a wrong version" (assoc (dissoc good :depot) :version 2) :depot-not-the-act-ids-depot]
    ["a part that is not named, and no time: the part that the form does not know" (assoc (without-time good) :owner 1) :unknown-part]
    ["a depot that is no depot word, and no time: the depot is declared before the time" (assoc (without-time good) :depot :fast) :depot-not-the-act-ids-depot]
@@ -4746,8 +4748,8 @@
                                     answer (get-in after [:answers (record/answer-key :alice (:act row))])]
                                 (= (record/line-answer s row) (record/answer-of answer))))
                       (range 10))]))
-    [[nil nil :unknown-part :permission-never-given :permission-never-given :replaced-fact-not-current
-      :value-too-large nil :permission-does-not-allow-writing :unknown-part] true]]
+    [[nil nil :unknown-version :permission-never-given :permission-never-given :replaced-fact-not-current
+      :value-too-large nil :permission-does-not-allow-writing :unknown-version] true]]
    ["the thing kept under a stamp is the thing that was decided there: the taken act, not the other thing under its act-id; the stranger's small refused thing and the declaration's"
     (fn [] (let [after @a-line-walked
                  thing-at (fn [s] (get-in after [:things (record/line-key :alice s)]))]
