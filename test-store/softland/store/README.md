@@ -363,7 +363,7 @@ group observed. This page does not retell the checks.
 Clojure lets a proof put a function of its own in the place of Rama's client
 calls `foreign-append!`, `foreign-invoke-query`, `foreign-depot` and
 `foreign-query` for a while. The proof does so
-for five things, and each `SHOWN` line that rests on it says so:
+for six things, and each `SHOWN` line that rests on it says so:
 
 - to count the handles that the opening of a door fetches (the test `the-door-is-opened`);
 - to count the round trips of a call of the door: the function counts and
@@ -375,7 +375,11 @@ for five things, and each `SHOWN` line that rests on it says so:
   door tests each thing that it passes to a read before it calls;
 - to set a thread's interrupt mark between the door's read of a lane's depot
   and its append (the test `an-append-that-threw`): the read is Rama's, and the
-  mark is set after it, so that the throw is the append's own.
+  mark is set after it, so that the throw is the append's own;
+- to give the door's read of one lane's depot another word than the depot
+  that the lane starts with (the test `the-door-goes-by-the-lanes-depot-fact`):
+  no act can make a lane's depot fact say another word, so without it no
+  check tells the door's use of the fact from where the lane starts.
 
 The other throws are real: a module name under which no module runs; a thing
 that holds a plain Java object, which Rama's client cannot turn into bytes; a

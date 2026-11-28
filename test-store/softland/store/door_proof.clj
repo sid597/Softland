@@ -83,12 +83,15 @@
   Where the proof stands in for a call of Rama's client. Clojure lets a
   proof put a function of its own in the place of `foreign-append!`,
   `foreign-invoke-query`, `foreign-depot` or `foreign-query` for a while.
-  The proof does so for four things, and each line that rests on it says
+  The proof does so for six things, and each line that rests on it says
   so: to count the handles that the opening of a door fetches; to count the
   round trips of a call of the door; to note the calls of the door in their
-  order, and of a read what it was asked and what Rama gave; and to make a
+  order, and of a read what it was asked and what Rama gave; to make a
   read throw, since no real throw of a query was found that the in-process
-  cluster gives without a fault of the cluster. The
+  cluster gives without a fault of the cluster; to set the interrupt mark
+  after the read of a lane's depot; and to give that read another word than
+  the depot that the lane starts with, which no act can make a lane's depot
+  fact say. The
   other throws are real throws of Rama's client: a module name under which
   no module runs, a thing that holds a plain Java object, a thing whose
   `:who` is an object of the proof's own, and a call made on a thread whose
@@ -505,6 +508,22 @@
                   (fn [query & args]
                     (if (= n (count args))
                       (throw (ex-info "the proof made this read throw" {:arguments n}))
+                      (apply real-query query args)))]
+      (f))))
+
+(defn- with-depot-said
+  "Calls f while the proof stands in for Rama's client call
+  `foreign-invoke-query` with a function that gives `said` for the read of
+  `lane`'s depot, one argument after the handle and that lane, and calls
+  Rama for each other read. No act can make a lane's depot fact say another
+  word than the depot that the lane starts with, so this is how the proof
+  gives the door's read another word."
+  [lane said f]
+  (let [real-query rama/foreign-invoke-query]
+    (with-redefs [rama/foreign-invoke-query
+                  (fn [query & args]
+                    (if (= [lane] (vec args))
+                      said
                       (apply real-query query args)))]
       (f))))
 
@@ -1539,7 +1558,7 @@
     (check "act-id-for the base, and act-ids-for 3 in the base: no read of a lane's depot, and each act-id is the base and a uuid"
            [[] [] #{[:base]}]
            [(:asked ahead) (:asked series) (set (map (fn [id] (vec (take 1 id))) (conj (:result series) (:result ahead))))])
-    (check "a send into the base: one read of the lane's depot, asked with the lane alone, which gave the microbatch depot, as the base's own depot fact says; the thing went to that depot, and its answer by a wait is accepted"
+    (check "a send into the base: one read of the lane's depot, asked with the lane alone, which gave the microbatch depot; the thing went to the microbatch depot, where the base also starts, so this does not tell the read from the lane's id (the next check does), and its answer by a wait is accepted"
            [[[[[:base] :microbatch]] :depot-holds] :accepted]
            [(seen base-sent) (:answer sent-answer)])
     (check "a send into a streaming lane that is made, under an act-id that was asked for ahead: one read, which gave the streaming depot, and the thing went there"
@@ -1553,6 +1572,25 @@
            "| a streaming lane that is made" (pr-str (:asked streaming-sent)) "| a lane that is not made" (pr-str (:asked not-made-sent))
            "whose thing went to the streaming depot | the making of an act-id asked nothing:" (pr-str (:asked ahead))
            "| the proof noted each read by standing in for Rama's client call with a function that calls Rama and notes what it gave")))
+
+(deftest the-door-goes-by-the-lanes-depot-fact
+  (let [d (the-door)
+        lane :told-another-depot
+        sent-under (fn [said text]
+                     (let [id (act-id-for! d lane)
+                           before (log-counts)
+                           sent (with-depot-said lane said #(send! d (act-of lane [(value (keyword (str "told-" text)) text)]) id))
+                           after (log-counts)]
+                       [(mapv - after before) (:ack sent) (= id (:act-id sent))]))
+        told-microbatch (sent-under :microbatch "microbatch")
+        told-no-depot (sent-under :fast "no-depot")
+        told-nothing (sent-under nil "nothing")]
+    (check "the door sends a thing to the depot that its read of the lane's depot gives, and not to the one that the lane starts with: for a lane that starts on the streaming depot, a read that says the microbatch depot sends the thing there, one record more in the microbatch log and none in the streaming log, with the microbatch depot's ack; a read that says a word that is no depot, and a read that gives nothing, send it to the depot that the lane starts with"
+           [:streaming [[0 1] :depot-holds true] [[1 0] :gate-ran true] [[1 0] :gate-ran true]]
+           [(first-act/depot-at-making lane) told-microbatch told-no-depot told-nothing])
+    (shown "the door's read of a lane's depot, given by the proof another word than where the lane starts, for a lane of this check's own that no other check sends into: [streaming microbatch] records more, the ack, the act-id kept | said :microbatch" (pr-str told-microbatch)
+           "| said :fast" (pr-str told-no-depot) "| said nothing" (pr-str told-nothing)
+           "| the proof gave the word by standing in for Rama's client call foreign-invoke-query, for that lane's read alone")))
 
 (deftest the-ack-of-the-base-is-no-answer
   (let [d (the-door)
@@ -1927,6 +1965,7 @@
   (many-makers-at-once)
   (the-base-through-the-door)
   (the-depot-of-a-lane)
+  (the-door-goes-by-the-lanes-depot-fact)
   (the-ack-of-the-base-is-no-answer)
   (two-sends-into-the-base-are-decided-in-their-order)
   (how-long-an-act-of-the-base-takes)
