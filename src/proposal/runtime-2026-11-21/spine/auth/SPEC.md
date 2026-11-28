@@ -41,6 +41,22 @@ turn. Each is written below where it belongs, marked "28 November".
   replaces the taking out at a write, which he asked to see. With it,
   questions 9, 10 and 17 of the reference's questions have new readings.
 
+**28 November 2026, later.** Sid said yes to three more changes, as a
+session put them to him: "several accounts per person? An erased email
+becomes free again? Invitations end and can be taken back?" His answer: "Yes
+to all that i dont explicitly comment below", with no comment on these. So a
+person can have several accounts; an erased or unlinked email is free again;
+an invitation has an end and can be taken back. The third goes with the
+second: otherwise whoever later holds a freed address enters as the person
+who was invited. His decision of 9 October, entry 1 (`src-store/README.md`),
+stands under this: an account "is added, replaced or removed by its link".
+What it takes for an email to be erasable from what Auth keeps was a
+session's to work out, and is in "What can be erased later". Every rule,
+shape and name below that came with these is a session's, and his to turn;
+each is marked "28 November, later". Not part of it: `:driven-by` leaving
+Auth, whether a program may act under a person's own id, a block on a
+person, a person's name.
+
 ## What Auth is
 
 Auth is a Rama module of its own beside the module `Store`. It holds what
@@ -52,9 +68,11 @@ this lives outside Auth's log.
 
 Auth is apart from the store because it makes another promise about time. The
 store's two depots of acts are never trimmed and nothing in them is erased. In
-Auth, what names a human being (her account, what her provider said of her)
-must be erasable later, and what has ended may one day be thinned. The spine
-builds no erasing and no thinning; it must not make either impossible.
+Auth, what names a human being (her account, her email, what her provider
+said of her) must be erasable, and what has ended may one day be thinned.
+What it takes is in "What can be erased later": what Auth keeps to be read
+is removed by its writes, and what its events hold by an operator's step
+that is not built; nothing here makes either impossible.
 
 Auth never reads the store, and the store never reads Auth.
 
@@ -64,11 +82,24 @@ Auth never reads the store, and the store never reads Auth.
   as `[:google "1082…"]`. The subject is the provider's own text, kept as
   given.
 - **Person.** A human being in Softland: a random UUID that says nothing.
-- **Link.** Account to person. An account has one person at most. What the
-  provider said at her sign-ins is kept with the link.
-- **Invitation.** A person who waits for an account. It is made with a
-  **claim**: an email address, or the hash of a code. The first account that
-  proves the claim becomes that person's account.
+- **Link.** Account to person. An account has one person at most; a person
+  can have several accounts (28 November, later). What the provider said at
+  her sign-ins is kept with the link. A link has an id, the id of the enter
+  that made it, which `accounts-of` gives and by which `unlink` names it.
+- **Claim.** What an invitation is made with: `{:by :email :hash H}`, the
+  hash of an email address, or `{:by :code :hash H}`, the hash of a code. Two
+  kinds of one form. Auth only matches a claim and never reads one, so it is
+  given the hash, never the address (28 November, later): the runtime
+  lower-cases the address, in the root locale, and hashes it. A claim
+  **names** one person at a time: its person while a link that was made by
+  proving it stands, or while an invitation of hers waits under it that is
+  not over. It is **free** otherwise.
+- **Invitation.** A person who waits for an account, under a claim, until an
+  end (28 November, later). It has an id, the op of the invite that made it.
+  It **lets in** an enter whose `:at` is at or after the invitation's own
+  `:at` and before its `:ends`: the first account that proves the claim so
+  becomes that person's account, and the invitation waits no longer. It is
+  **over** at or after its `:ends`. It can be taken back.
 - **Actor.** A who: something that sends acts. A person is an actor. An
   **agent** is an actor that another actor made; it has an id of its own, a
   random UUID. The **root** of an actor is the person at the top of who made
@@ -127,11 +158,18 @@ Rules for every call:
   exception: an `enter` gives `:own-lane-made?` as it stands at that
   enter. Two writes are the same write when the
   parts that say what is bound are the same: for `invite`, the person and
-  the claim; for `begin-sign-in`, the root, the actor, the kind and the
+  the claim, while her invitation waits under it and is not over; for
+  `begin-sign-in`, the root, the actor, the kind and the
   hash; for `make-actor`, the root and the maker; for `open-session`, the
-  root and the sign-in; for `ask`, the two hashes. The other parts of a repeat
-  are dropped, but for `open-session`, whose repeat moves the session's
-  time on. A refusal binds nothing: the same write after the state changed
+  root and the sign-in; for `ask`, the two hashes; for `take-back`, the
+  claim and the invite; for `unlink`, the account and the link. The other
+  parts of a repeat are dropped, but for `open-session`, whose repeat moves
+  the session's time on. `invite` is the exception to "never from a memory
+  of calls" (28 November, later): it carries an op-id, fresh for each call
+  and the same for each try of one call, and an invite whose op was
+  answered gives that answer again and changes nothing, whatever stands
+  now, so that an invite that runs again after its invitation was taken
+  back, or after the link that it let in was removed, cannot bring it back. A refusal binds nothing: the same write after the state changed
   can be taken, and so can the same write with another `:at`, when it was
   refused for a time that had passed at the first one.
 - Where two refusals apply to one write, a repeat is recognised first, then
@@ -144,7 +182,7 @@ Rules for every call:
   sessions are UUIDs, and so are `:own-lane` and the two ids of a
   `:making`, its `:uuid` and its `:session`. A hash is 64 lower-case hex
   characters. A code is a string of 8 characters, compared exactly. A text
-  (`:label`, `:asks`, an email, a provider's subject, a `:driven-by`
+  (`:label`, `:asks`, a provider's subject, a `:driven-by`
   `:model`) is a string of at most 256 characters, a character being one
   `char` of the JVM. A provider is a keyword whose name is at most 256
   characters. A `:driven-by`, optional on `open-session`, is nil or either
@@ -159,10 +197,13 @@ Rules for every call:
   that it does not judge, as those of a no, must fit all the same. A write
   or a read whose input does not fit gives `{:could-not :read-the-event}`,
   and a write then writes nothing.
-- Two emails are the same when their texts are the same. The runtime gives
-  every email in lower case, and Auth holds that as form: an email that
-  Java's `toLowerCase`, in the root locale, would change does not fit, in a
-  claim or in an enter, whatever else the enter holds.
+- Auth is given no email (28 November, later): a claim and an enter hold
+  the hash of one, 64 lower-case hex characters, and a claim or an enter
+  that holds an address does not fit. Two emails are the same when their
+  hashes are. The runtime owns the address's form: it lower-cases the
+  address in the root locale and hashes it, so that every copy of it makes
+  the same hash (suggested: SHA-256 of the text `softland/email/` followed
+  by the address).
 - A string that UTF-8 cannot carry, one that holds a surrogate `char`
   without its pair, does not fit wherever the contract takes a string: a
   text, a code, a provider's name, a key or a value of `:says`. (The
@@ -185,19 +226,29 @@ Rules for every call:
 
 writes: each takes the client and one map, and gives a map
 
-invite            {:person P :claim C :invited-by B :at t}
-                    C is {:by :email :email "a@b"} or {:by :code :hash H}
+invite            {:person P :claim C :invited-by B :at t :ends t1 :op-id I}
+                    C is {:by :email :hash H} or {:by :code :hash H}
                     B is an actor's id, or :system
+                    I is a UUID, fresh for each call
                   -> {:invited P}
                      {:refused :claim-in-use}       the claim names another person
-                     {:refused :person-in-use}      the person has another claim
 
-enter             {:account [provider subject] :says {...} :email text-or-nil
+take-back         {:person P :claim C :invite I :at t}
+                  -> {:taken-back P}                the invitation of the op I
+                                                    does not wait under C
+
+enter             {:account [provider subject] :says {...} :email-hash H-or-nil
                    :code-hash H-or-nil :own-lane L :making {:uuid U :session M}
                    :at t}
                   -> {:person P :own-lane L' :making {:uuid U' :session M'}
                       :own-lane-made? bool}
                      {:refused :not-invited}
+
+unlink            {:account [provider subject] :link L :person P :at t}
+                  -> {:unlinked P}                  the link L does not stand
+                                                    on the account
+                     {:refused :another-persons}    L stands there for another
+                     {:refused :linking}            the enter L is making it
 
 own-lane-made     {:person P :at t}
                   -> {:made P}   {:refused :no-such-person}
@@ -266,6 +317,21 @@ reads
                       :state :waiting|:yes|:no
                       :answer {:root P :actor A :sign-in G}-or-nil}, or nil
 
+(invitation-of client C)
+                  -> {:person P
+                      :invitation {:invite I :invited-by B :invited-at t0
+                                   :ends t1}-or-nil
+                      :links n}, or nil
+                     whom the claim names, the invitation that waits under
+                     it, and how many links stand under it; it says nothing
+                     of "over": the caller holds t1 against its own clock
+
+(accounts-of client P)
+                  -> {:accounts [{:account [provider subject] :link L
+                                  :linked-at t} ...]}
+                     her accounts, in the order of the :at of the enter that
+                     linked each (then by provider and subject)
+
 (under client P)  -> {:actors [{:actor A :made-by B :ends-with B' :label text
                                 :ended? bool} ...]
                       :sign-ins [{:sign-in G :actor A :kind K :label text-or-nil
@@ -307,14 +373,37 @@ sign-in stands at the start registers first and then reads with `who-is`.
 
 ## What each write does
 
-**invite.** Makes the person `P` wait under the claim `C`. A claim names one
-person for good: once an account has proven it, it is used up, and it never
-names another person. A person has one claim: `P` under another claim is
-refused. The same `P` under the same `C` again changes nothing, also after
-she has entered. A person who waits has no sign-in and is no actor yet.
-`:invited-by` is kept as given and not checked: who may invite is the
-runtime's. An invitation has no time and cannot be taken back in this
-build.
+**invite.** Makes the person `P` wait under the claim `C` until `:ends`
+(28 November, later). An invite whose op was answered gives that answer and
+changes nothing. Else a claim that names another person at the invite's
+`:at`, by a link or by an invitation that is not over, is `:claim-in-use`.
+An invitation of `P` that waits under `C` and is not over makes the invite a
+repeat, which changes nothing; its `:invited-by` and `:ends` are dropped.
+Otherwise her invitation is written, with this `:at` and `:ends`, in the
+place of any invitation that waited and is over, and beside her links under
+the claim when she has some. An invitation whose `:ends` is at or before its
+own `:at` is taken and lets nobody in. A person may wait under several
+claims, and may be invited after she has entered: that is how she adds an
+account, an invitation that names herself, proven by her other account. Who
+may make such an invitation is the runtime's: only the person herself, at a
+browser, may name herself; nobody may name another person who has entered.
+A person who waits has no sign-in and is no actor yet. `:invited-by` is
+kept as given and not checked: who may invite is the runtime's. Nothing is
+written when a time passes: an invitation that is over keeps its record,
+names nobody and lets nobody in, until the claim is invited again or the
+invitation is taken back, or an operator's sweep that is not built drops
+it. A clock far ahead at an `invite` finds a waiting invitation over and
+replaces it; the invitation that was replaced is gone, and its inviter
+invites again.
+
+**take-back.** The invitation that the op `I` made, when it waits under
+`C`, waits no longer, whether or not its time has passed; the claim is free
+when no link stands under it (28 November, later). It touches no link and
+no other invitation, so that a take-back that runs again cannot take back a
+later invitation. It gives `{:taken-back P}` always: after it, the
+invitation of `I` does not wait under `C`. Who may take an invitation back
+is the runtime's: it reads `invitation-of` and takes back the invitation
+that it read only for the actor who invited.
 
 **enter.** An account that its provider has proven comes in. The runtime has
 checked the provider's token before it calls; Auth takes the account as
@@ -323,17 +412,24 @@ proven.
 - An account that has a link gives its person, whatever claim came with it,
   with the own lane and the `:making` that were fixed, and
   `:own-lane-made?` as it stands at that enter (Sid's call of 22
-  November). An enter that is sent again is answered so like any other:
-  Auth keeps no memory of what an enter gave.
+  November). An enter that is sent again while its link stands is
+  answered so like any other: Auth keeps no memory of what an enter gave.
+  An enter that is sent again after its link was removed is judged afresh,
+  as any enter of an account that has no link (28 November, later).
 - An account that has none takes the person of the claim that it proves: the
-  code's, when `:code-hash` names an invitation that waits; else the
-  email's, when `:email` names one. The link is written, the claim is used
-  up, and the person becomes an actor, her own root.
+  code's, when `:code-hash` names an invitation that lets it in; else the
+  email's, when `:email-hash` names one. An invitation lets in an enter
+  whose `:at` is at or after the invitation's own `:at` and before its
+  `:ends` (28 November, later). The link is written, the invitation waits
+  no longer, and the link stands under the claim. A person who has not
+  entered becomes an actor, her own root; one who has entered is left as
+  she is, and the account becomes one more of hers.
 - An account that has none and proves no claim is refused, and nothing of it
   is kept but the event.
 - `:own-lane` and `:making` are what the runtime offers for a person who
   has none yet. The first enter that makes her an actor fixes them; every
-  later enter gives the ones that were fixed, and its own offer is dropped.
+  later enter gives the ones that were fixed, its own offer dropped, an
+  enter of another of her accounts among them.
 - `:says` is kept with the link from the enter with the latest `:at`, with
   that `:at`: an enter whose `:at` is not later than the kept one's leaves
   it (Sid's call of 22 November). What other enters said is in the events
@@ -342,10 +438,38 @@ proven.
 
 What must hold: two enters of one new account at the same moment, through
 two copies of the runtime, give one person, one own lane and one `:making`.
-Two accounts that prove one claim at the same moment: one becomes the person
-and the other is refused. An enter that is run again after a failure gives
-the person, the own lane and the `:making` that it gave, and
-`:own-lane-made?` as it stands.
+Two accounts that prove one invitation at the same moment: one becomes the
+person and the other is refused. An enter that is run again after a failure,
+while its link stands, gives the person, the own lane and the `:making` that
+it gave, and `:own-lane-made?` as it stands. An enter that the module runs
+again, after its account was unlinked and its claim invited for another
+person, cannot prove that later invitation: that rests on the rule that an
+invitation lets in no enter whose `:at` is before its own, and so on the
+clocks of the runtime's copies, as an invitation's end does. An honest
+enter from a copy whose clock is behind the inviter's is refused
+`:not-invited` until its clock passes the invitation's `:at`, and an
+invitation made by a clock far ahead lets nobody in until then; its inviter
+takes it back and invites again. When the module has used an invitation
+for an enter and cannot then link the account, as when another write
+removed what the enter was making, it takes the link out of the claim and
+the account out of her accounts; the invitation that the enter used is
+spent and is not put back, since putting it back could bring back one that
+was taken back meanwhile.
+
+**unlink.** The link `L` of the account, when it stands there for `P`,
+goes, with its `:says`; the claim that it was made by proving loses it, and
+is free when nothing else stands under it; her accounts lose it (28
+November, later). It gives `{:unlinked P}` whenever, after it, the link `L`
+does not stand on the account, also when it never did, or when another link
+stands there now: so a repeat gives the same, and an unlink that runs again
+after the account was linked anew removes nothing. It is refused with
+`:another-persons` when `L` stands there for another person, and with
+`:linking` while the enter `L` is still making it, which `accounts-of` can
+show a moment before the link stands: the caller says it again. It ends no
+sign-in and no session: those are the person's, not the account's. A person
+whose last account is unlinked keeps what she has until it ends, and cannot
+enter again until an invitation names her; her own lane and `:making` stay,
+and her next enter gives them.
 
 `:own-lane` and `:making` are how a break between Auth and the store is
 met. The runtime writes Auth first. Then it sends the act that makes her own
@@ -586,9 +710,54 @@ a thing had ended. The first job is kept. The second is taken away.
 ## What can be erased later
 
 What names a human being is her account, her email, and what her provider
-said. All of it must be erasable later from everything that Auth keeps, its
-events too: the plan keeps that possible from the start, and builds none of
-it. An enter that is refused keeps its event like any other.
+said. All of it must be erasable from everything that Auth keeps, its
+events too. What it takes (28 November, later):
+
+- **Auth only ever matches an email; it never reads one. So it is given a
+  hash, never the address.** A claim is `{:by :email :hash H}` or
+  `{:by :code :hash H}`, and an enter carries `:email-hash`. So an
+  invitation holds no address anywhere in Auth, its events too: a person who
+  is invited and never comes leaves none. What is left is the hash.
+- **What Auth keeps to be read is removed by its writes, at once.** An
+  account's `[provider subject]` and its `:says` sit in the account's link,
+  and the account's key in her list of accounts; the hash of a claim sits in
+  the claim's record and in the link. `unlink` removes the link with its
+  `:says`, the link under the claim, and the account from her list;
+  `take-back` removes an invitation, and the claim's record goes when
+  nothing waits under it and no link stands. An answer that an invite keeps
+  under its op names nobody.
+- **Erasing her is not one write.** It is `unlink` of each link that
+  `accounts-of` gives, and `take-back` of each invitation whose claim
+  someone names. No list of the invitations that name a person is kept, and
+  none is built (it would bring back a hop to the person's task at each
+  invite: Sid's call, listed for him). So an invitation that names her and
+  that nobody names lets its account in until it ends; the record of an
+  invitation that is over stays until its claim is invited again or it is
+  taken back, or an operator's sweep that is not built drops it.
+  `:invited-by` is the inviter's id: it is not what names her, and stays
+  where it is written. After those writes, no key and no value of the
+  claims, the accounts, the invites' answers, the enters' records or her
+  list of accounts holds her hash, her subject or her `:says`, and her
+  address can be invited as another person; her own record stays, with her
+  own lane, who first invited her and when, and holds none of the three.
+  No word of the runtime for "erase her" is built: who may say it is not
+  decided.
+- **From the events, it takes a depot migration.** The events of enters and
+  of invites hold the account, its `:says` and the hashes, and a depot is a
+  log: an ordinary write removes nothing from it. A module update whose
+  function clears the `:says`, the subject and the hashes of the records of
+  accounts that were unlinked does, which Rama applies on read at once and
+  rewrites in the background, keeping offsets. That is an operator's step
+  and is not built. What the module keeps true so that it stays possible: no
+  step reads an old event of enters or of invites again after that event is
+  done, and an event that a migration cleared or replaced by a tombstone
+  breaks nothing.
+
+Left for Sid: the hash is plain, so whoever holds the log can test a guessed
+address against it; a hash keyed by a secret that the runtime holds would
+close that, at the price of a secret whose loss frees every bound email. And
+`[provider subject]` could be given as a hash too, since Auth only matches
+it; then `:says` would be the one readable thing. Neither is built.
 
 ## What must hold at full life
 
@@ -615,13 +784,23 @@ Judge each of these against many writers, many readers and years of data.
   20,000 roots be watched on one task, the figure that Red Planet Labs run
   their own TPC-C module with (the same section), and the build measures
   what the option bounds.
-- **Nothing is deleted.** An ended sign-in, a closed session, an ended actor
-  and an answered ask can still be read: the facts of them stay. What is
-  watched and what is read on each request is kept apart from that history.
+- **Nothing is deleted but what names a human being.** An ended sign-in, a
+  closed session, an ended actor and an answered ask can still be read: the
+  facts of them stay. What is watched and what is read on each request is
+  kept apart from that history. A link, an invitation and a claim's record
+  are removed by `unlink` and `take-back`, since what names a human being
+  must be erasable (28 November, later).
 - **Scale.** Persons: millions. Actors under one person: from one to
   thousands. Live sign-ins under one person: tens; ended ones: without
   bound. Open sessions under one person: tens to hundreds; closed ones:
-  without bound. Asks: short-lived, without bound over time.
+  without bound. Asks: short-lived, without bound over time. Accounts of
+  one person: few, each added by an invitation that she makes herself;
+  nothing in Auth bounds their number, and `accounts-of` reads them all,
+  with one seek and a scan. A claim's record is one entry, with at most one
+  invitation and the few links of its person. Each invite keeps one answer
+  under its op, as each refused enter keeps one record; each is read only
+  by its own write, when that write runs again, and both can be swept. Nothing of an
+  invitation or a link is watched.
 - **Order.** Events of one person are decided in one order. An end is never
   taken back: no later event makes an ended sign-in, a closed session or an
   ended actor live again. That is said of an end that someone wrote, and
@@ -632,8 +811,10 @@ Judge each of these against many writers, many readers and years of data.
 
 ## Not in this build
 
-Erasing a link. A second account for one person, and the replacing of an
-account. A block on a person. Counts for pacing. A person's name, which is a
+A word of the runtime for erasing a person, and a list of the invitations
+that name a person. A sweep of the invitations that are over and of the
+answers that invites keep. The migration of the depots that clears what an
+unlinked account's events hold. A block on a person. Counts for pacing. A person's name, which is a
 fact in the store. Permissions, which are the store's.
 
 ## Where it goes

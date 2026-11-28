@@ -20,6 +20,13 @@ the reference's state grows with the number of calls.
 spec's note of that day) turns questions 9, 10 and 17, each of which says so
 under it, and adds 30 to 34, which are a session's readings and his to turn.
 
+**28 November 2026, later.** Sid's yes to three more changes (the spec's
+second note of that day: several accounts for a person, an email that is
+free again once it is erased or unlinked, an invitation that ends and can be
+taken back) turns question 3, and adds 35 to 40, which are a session's
+readings and his to turn. The rules that came with them, the steps of the
+module and every name are a session's too (the spec says each).
+
 ## Forms
 
 **1. A part that is left out, and a part that the contract does not name.**
@@ -80,6 +87,14 @@ it".
 
 **Stands, by Sid's call of 22 November.** The spec now says it as form. The
 broken copy `:capital-email-fits` takes (b).
+
+**Turned on 28 November, later, by the design that came with Sid's yes.**
+Auth is given no address: a claim is `{:by :email :hash H}` and an enter
+carries `:email-hash`, so that an invitation holds no address anywhere in
+Auth, its events too. The runtime lower-cases the address and hashes it,
+and the question of case is its own. A claim or an enter that holds an
+address does not fit. The broken copy `:capital-email-fits` is gone with
+the rule it broke.
 
 **4. The two ids of `:making`.** "`:making` holds its UUID and the id that it
 names as its session ... that session is no session of Auth's." And "Ids of
@@ -547,6 +562,70 @@ The reference reads these as follows:
 - A write that `f` makes, which "must return at once" forbids, puts its calls
   after the ones still owed. Each watch is handed the changes in their order.
 
+## Invitations and accounts
+
+**35. An invite that runs again, and a result that comes from a memory.**
+Sid's call of 22 November: a repeat's result "comes from what stands, never
+from a memory of calls". The spec of 28 November, later: an invite carries
+an op-id, "an invite whose op has a record changes nothing and gives the
+answer it gave", so that an invite that the module runs again, after its
+invitation was taken back or after the link that it let in was removed,
+cannot bring it back.
+
+- (a) The op's answer is kept, and an invite of that op gives it again,
+  whatever stands: a memory of one call, for one write.
+- (b) No answer is kept, and an invite that runs again is judged afresh.
+
+The reference takes (a), with the spec, and keeps the answer under the op
+alone: an op given again with another person or another claim gives the
+answer of the first (the module keeps it at the claim's task, so there an
+op given again under another claim of another task is judged afresh; the
+runtime makes an op fresh for each call, and neither happens). It is the one
+place where a result comes from a memory of a call, and it grows by one
+answer for each invite (28). **A session's reading, for Sid to see beside
+his call of 22 November.** The broken copy `:invite-op-forgotten` takes
+(b).
+
+**36. An invitation whose end is at or before its own time.** "One whose
+`:ends` is at or before its own `:at` is taken and never waits."
+
+The reference takes it, and writes it: it lets nobody in, names nobody, and
+takes the place of an invitation of the same claim that was over. An invite
+of the same person while it stands is no repeat, since it is over: it
+writes the new one.
+
+**37. The order of a person's accounts.** "In the order in which they were
+linked." Two accounts can be linked at one `:at`, from two copies of the
+runtime.
+
+The reference orders them by the `:at` of the enter that linked each, then
+by the provider's name, its namespace counted, then by the subject
+(`account-order`), which the module can give without a counter. An `:at`
+from a clock that went back puts a later link before an earlier one.
+
+**38. The person of a take-back.** "`take-back {:person P :claim C :invite I
+:at t}` gives `{:taken-back P}` always."
+
+The reference takes the invitation back by its op alone and gives the `P`
+that it was given, without holding it against the invitation's person: the
+op names one invitation, and who may take it back is the runtime's.
+
+**39. An unlink of a link that never stood.** "`{:unlinked P}` whenever,
+after it, link `L` does not stand on the account."
+
+The reference gives `{:unlinked P}` for a link that never stood, for an
+account that has no link, and for a link of another person that stands no
+more, and changes nothing. Only a link that stands for another person is
+refused. `:linking` is never given by the reference, in which an enter is
+one step.
+
+**40. An invitation that is over, as read.** "`invitation-of` ... says
+nothing of "over": the caller holds `:ends` against its own time."
+
+The reference gives an invitation that is over as it gives one that waits,
+with its `:ends`, until it is taken back or the claim is invited again. Its
+person is the claim's `:person` though the claim names nobody.
+
 ## What the state keeps
 
 **28. What grows with the number of calls.** Asked in the prompt that Sid pasted
@@ -555,11 +634,14 @@ with the number of calls and is not history that the spec asks to keep.
 
 Since the calls, a repeat, a refusal and an input that does not fit add nothing
 to the state, and a write that is taken adds only a thing that the spec keeps
-for good: a person and her claim, a link, an agent, a sign-in, a session, an
-ask. `:agent-order` is kept whole because `under` gives every agent, ended
+for good: a person, a link, an agent, a sign-in, a session, an ask; and
+since 28 November, later, a claim's record, which goes when nothing waits
+under it and no link stands, and the answer of each invite's op (35), which
+stays. `:agent-order` is kept whole because `under` gives every agent, ended
 ones too, in the order in which they were made. Kept for a rule, one each and
 not growing: `:first-hash` for each sign-in (8), `:over-when-made?` for each
-ask (19), and `:invited-by`, `:invited-at` and `:entered-at` for each person.
+ask (19), and `:invited-by`, `:invited-at` and `:entered-at` for each person;
+and `:next-link`, one number, from which the reference makes a link's id.
 Two parts grow otherwise:
 
 - `:sign-in-order` keeps every sign-in that a root ever began, ended ones too.

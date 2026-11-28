@@ -24,7 +24,7 @@
   With no seed given, the seed is the clock's; given one, the run makes the
   same histories again. The checks of a history read the reference's state
   map, whose form its namespace gives, where no read of the contract shows
-  the fact (who is linked to which account, which claim names whom).
+  the fact (which claim holds which link, what an invite's op answered).
 
   State. It changes nothing outside its own process."
   (:require [clojure.java.io :as io]
@@ -92,7 +92,8 @@
 (def ^:private asha-google [:google "108200000000000000001"])
 (def ^:private bo-google [:google "208300000000000000002"])
 (def ^:private asha-code {:by :code :hash (h 1)})
-(def ^:private bo-email {:by :email :email "bo@example.org"})
+(def ^:private bo-email {:by :email :hash (h 2)})
+(def ^:private bo-google-2 [:github "bo"])
 (def ^:private code-1 "ABCD2345")
 
 (def ^:private auth-name
@@ -115,8 +116,8 @@
   "One call of each write, as Asha's first day would make it: invited at
   100, in at 110, signed in at 130 until 100000, a session at 140 until
   50000, an agent at 130, an ask at 130 that ends at 1000."
-  {:invite {:person asha :claim asha-code :invited-by :system :at 100}
-   :enter {:account asha-google :says {"name" "Asha"} :email nil :code-hash (h 1)
+  {:invite {:person asha :claim asha-code :invited-by :system :at 100 :ends 100000}
+   :enter {:account asha-google :says {"name" "Asha"} :email-hash nil :code-hash (h 1)
            :own-lane lane-1 :making making-1 :at 110}
    :own-lane-made {:person asha :at 120}
    :begin-sign-in {:root asha :actor asha :sign-in sign-in-1 :kind :browser :hash (h 101)
@@ -130,12 +131,32 @@
    :close-session {:root asha :session session-1 :at 150}
    :ask {:code code-1 :hash (h 201) :asking-hash (h 301) :asks "the importer on a laptop" :ends 1000 :at 130}
    :answer-ask {:code code-1 :yes? true :root asha :actor asha :new-agent nil
-                :sign-in sign-in-2 :until 100000 :at 140}})
+                :sign-in sign-in-2 :until 100000 :at 140}
+   :take-back {:person asha :claim asha-code :at 150}
+   :unlink {:account asha-google :person asha :at 160}})
+
+(defn- op-of
+  "The op of an invite whose parts but its op are `input`: the same parts,
+  the same op, so that a call made twice is one call sent twice."
+  [input]
+  (UUID. 0x1A71 (long (hash (dissoc input :op-id)))))
+
+(def ^:private first-link
+  "The id of the first link that a state makes."
+  (UUID. 0x4C494E4B 0))
 
 (defn- c
-  "A call of the write `kind`: its default, with `parts` in their place."
+  "A call of the write `kind`: its default, with `parts` in their place. An
+  invite that is given no `:op-id` takes one made from its other parts; a
+  take-back that is given no `:invite`, the op of the default invite; an
+  unlink that is given no `:link`, the first link of a state."
   [kind & {:as parts}]
-  [kind (merge (get defaults kind) parts)])
+  (let [input (merge (get defaults kind) parts)]
+    [kind (case kind
+            :invite (if (contains? input :op-id) input (assoc input :op-id (op-of input)))
+            :take-back (if (contains? input :invite) input (assoc input :invite (op-of (:invite defaults))))
+            :unlink (if (contains? input :link) input (assoc input :link first-link))
+            input)]))
 
 (defn- without
   "A call of the write `kind`: its default with the parts `ks` left out."
@@ -178,7 +199,7 @@
 (def ^:private asha-in [(c :invite) (c :enter)])
 (def ^:private bo-in
   [(c :invite :person bo :claim bo-email :at 101)
-   (c :enter :account bo-google :email "bo@example.org" :code-hash nil :own-lane lane-2
+   (c :enter :account bo-google :email-hash (h 2) :code-hash nil :own-lane lane-2
       :making making-2 :at 111)])
 (def ^:private signed-in (conj asha-in (c :begin-sign-in)))
 (def ^:private sitting (conj signed-in (c :open-session)))
@@ -188,14 +209,15 @@
 ;; ------------------------------------------------- the rules for every call
 
 (def ^:private write-fns
-  "The twelve writes of the client, in the order of the contract."
-  [r/invite r/enter r/own-lane-made r/begin-sign-in r/replace-secret r/end-sign-in r/make-actor
-   r/end-actor r/open-session r/close-session r/ask r/answer-ask])
+  "The fourteen writes of the client, in the order of the contract."
+  [r/invite r/enter r/take-back r/unlink r/own-lane-made r/begin-sign-in r/replace-secret r/end-sign-in
+   r/make-actor r/end-actor r/open-session r/close-session r/ask r/answer-ask])
 
 (def ^:private contract-names
-  "The eighteen functions of the contract."
-  '[open close! invite enter own-lane-made begin-sign-in replace-secret end-sign-in make-actor
-    end-actor open-session close-session ask answer-ask who-is ask-of under watch-root])
+  "The twenty-two functions of the contract."
+  '[open close! invite enter take-back unlink own-lane-made begin-sign-in replace-secret end-sign-in
+    make-actor end-actor open-session close-session ask answer-ask who-is ask-of under invitation-of
+    accounts-of watch-root])
 
 (defn- rules-checks
   "The checks of \"Rules for every call\" and of the forms."
@@ -207,8 +229,8 @@
         outcomes (concat
                   (for [f write-fns v odd] (could-not? (f cl v)))
                   (for [f write-fns v odd] (could-not? (f v (second (c :invite)))))
-                  (for [f [r/who-is r/ask-of r/under r/live-under] v odd] (could-not? (f cl v)))
-                  (for [f [r/who-is r/ask-of r/under r/live-under] v odd] (could-not? (f v asha)))
+                  (for [f [r/who-is r/ask-of r/under r/live-under r/invitation-of r/accounts-of] v odd] (could-not? (f cl v)))
+                  (for [f [r/who-is r/ask-of r/under r/live-under r/invitation-of r/accounts-of] v odd] (could-not? (f v asha)))
                   (for [v odd] (could-not? (r/watch-root cl v v)))
                   (for [v odd] (could-not? (r/watch-root v asha (fn [_] nil))))
                   (for [v odd] (= {:could-not :find-the-module} (r/open v auth-name)))
@@ -216,7 +238,7 @@
                   (for [v odd] (nil? (r/close! v)))
                   (for [v odd] (= unfit (second (r/step r/empty-state v))))
                   (for [v odd] (= unfit (second (r/step r/empty-state [:invite v])))))]
-    (check "No call throws for what a caller gives: each of the eighteen functions, given things of no form (an infinite sequence and a map whose order throws among them), gives a map that holds :could-not, close! gives nil, and step gives :read-the-event."
+    (check "No call throws for what a caller gives: each of the twenty-two functions, given things of no form (an infinite sequence and a map whose order throws among them), gives a map that holds :could-not, close! gives nil, and step gives :read-the-event."
            (every? true? outcomes)))
 
   (check "Auth checks an id only within its root: an id of a sign-in, an agent and a session that another root holds is taken under this one."
@@ -228,6 +250,8 @@
 
   (let [cases [[[] (c :invite)]
                [asha-waits (c :enter)]
+               [asha-waits (c :take-back)]
+               [asha-in (c :unlink)]
                [asha-in (c :own-lane-made)]
                [asha-in (c :begin-sign-in)]
                [signed-in (c :replace-secret)]
@@ -245,13 +269,22 @@
                                  (= (:state once) (:state twice))
                                  (= (:last once) (:last twice)))))
                         cases)]
-    (check "A write that arrives twice leaves the same state as once, and the second call gives the result of the first: so for each of the twelve writes."
-           (and (= 12 (count cases)) (empty? failing)) (map (comp first second) failing)))
+    (check "A write that arrives twice leaves the same state as once, and the second call gives the result of the first: so for each of the fourteen writes."
+           (and (= 14 (count cases)) (empty? failing)) (map (comp first second) failing)))
 
-  (let [{:keys [state last]} (run [(c :invite) (c :invite :invited-by agent-1 :at 999)])]
-    (check "Two invites are the same write when the person and the claim are: a repeat with another :invited-by and :at gives {:invited P} and keeps the first ones."
+  (let [{:keys [state last]} (run [(c :invite) (c :invite :invited-by agent-1 :at 999 :ends 5000)])]
+    (check "An invite of a person whose invitation waits under the claim and is not over is a repeat, with another op too: it gives {:invited P} and keeps the first :invited-by, :at and :ends."
            (and (= {:invited asha} last)
-                (= [:system 100] [(get-in state [:persons asha :invited-by]) (get-in state [:persons asha :invited-at])]))))
+                (= {:invite (op-of (:invite defaults)) :invited-by :system :invited-at 100 :ends 100000}
+                   (:invitation (r/invitation-of state asha-code))))))
+
+  (let [first-call (c :invite :person bo)
+        {:keys [state results]} (run [first-call (c :invite) first-call
+                                      (c :take-back :person bo :invite (:op-id (second first-call)))
+                                      (assoc-in first-call [1 :at] 200)])]
+    (check "An invite whose op was answered gives that answer again and changes nothing, whatever stands now (QUESTIONS.md, 35): Bo's invite, sent again after Asha's was refused and after his invitation was taken back, gives {:invited P} and does not make him wait again."
+           (and (= [{:invited bo} {:refused :claim-in-use} {:invited bo} {:taken-back bo} {:invited bo}] results)
+                (nil? (r/invitation-of state asha-code)))))
 
   (check "Two begin-sign-ins are the same write when the root, the actor, the kind and the hash are: a repeat with another :until, :label and :at gives {:begun G} and changes nothing."
          (unchanged? signed-in (c :begin-sign-in :until 7 :label "another" :at 135) {:begun sign-in-1}))
@@ -348,10 +381,10 @@
 
   (let [lone (str (char 0xD800))
         lone-low (str (char 0xDC00))]
-    (check "A string that UTF-8 cannot carry, one that holds a surrogate character without its pair, does not fit wherever the contract takes a string (QUESTIONS.md, 29: the build's default of 23 November, for Sid to turn): a subject, a provider's name, an email, a key and a value of :says, a label, an ask's :asks and code, and a :model; a pair that stands together fits."
+    (check "A string that UTF-8 cannot carry, one that holds a surrogate character without its pair, does not fit wherever the contract takes a string (QUESTIONS.md, 29: the build's default of 23 November, for Sid to turn): a subject, a provider's name, a key and a value of :says, a label, an ask's :asks and code, and a :model; a pair that stands together fits."
            (and (every? #(= unfit (last-of (conj asha-waits (c :enter %))))
                         [{:account [:google (str lone "x")]} {:account [:google (str "x" lone-low)]}
-                         {:account [(keyword (str "goo" lone)) "1"]} {:email (str "asha" lone "@example.com")}
+                         {:account [(keyword (str "goo" lone)) "1"]}
                          {:says {"name" (str "A" lone)}} {:says {(str lone-low "k") "v"}}])
                 (every? #(= unfit (last-of (conj signed-in %)))
                         [(c :open-session :driven-by {:kind :model :model (str "m" lone)})])
@@ -375,22 +408,24 @@
                     (r/who-is state {:root (str asha) :sign-in sign-in-1 :session nil})
                     (r/ask-of state "ABCD234") (r/under state (str asha)) (r/live-under state (str asha))])))
 
-  (check "Every part that the contract names must be there, an -or-nil one as nil, and no other part may be (Sid's call of 22 November): an enter without :email or :code-hash, a begin-sign-in without :label, an answer without :new-agent and an invite with one part more do not fit; :driven-by alone may be left out."
+  (check "Every part that the contract names must be there, an -or-nil one as nil, and no other part may be (Sid's call of 22 November): an enter without :email-hash or :code-hash, a begin-sign-in without :label, an answer without :new-agent, an invite without :ends or :op-id and an invite with one part more do not fit; :driven-by alone may be left out."
          (and (every? #(= unfit (last-of (conj asked %)))
-                      [(without :enter :email) (without :enter :code-hash) (without :begin-sign-in :label)
+                      [(without :enter :email-hash) (without :enter :code-hash) (without :begin-sign-in :label)
+                       (without :invite :ends) [:invite (dissoc (second (c :invite)) :op-id)]
                        (without :answer-ask :new-agent) (c :invite :more 1) (c :open-session :at 140 :more 1)])
               (= {:open session-1} (last-of (conj signed-in (without :open-session :driven-by))))))
 
-  (check "Two emails are the same when their texts are the same: an enter whose email is another text than the invitation's, by one character, does not prove it."
-         (and (= bo (:person (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email "bo@example.org")))))
+  (check "Two email claims are the same when their hashes are: an enter whose :email-hash is another hash than the invitation's, by one character, does not prove it."
+         (and (= bo (:person (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email-hash (h 2))))))
               (every? #(= {:refused :not-invited}
-                          (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email %))))
-                      ["bo@example.or" "b0@example.org" "bo@example.org."])))
+                          (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email-hash %))))
+                      [(h 3) (str (subs (h 2) 0 63) "3")])))
 
-  (check "The runtime gives every email in lower case, and Auth holds that as form (QUESTIONS.md, 3, which Sid's call of 22 November let stand): an email with a capital letter does not fit, in a claim or in an enter, also an enter of an account that has a link."
-         (and (= unfit (last-of [(c :invite :claim {:by :email :email "Bo@example.org"})]))
-              (= unfit (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email "Bo@example.org"))))
-              (= unfit (last-of (conj asha-in (c :enter :email "Asha@example.org" :at 120))))))
+  (check "Auth is given an email's hash and never the address (QUESTIONS.md, 3, as turned on 28 November): a claim that holds an address, an enter with an :email, and an email claim whose hash is no hash do not fit."
+         (and (= unfit (last-of [(c :invite :claim {:by :email :email "bo@example.org"})]))
+              (= unfit (last-of [(c :invite :claim {:by :email :hash "bo@example.org"})]))
+              (= unfit (last-of (conj (vec (take 1 bo-in)) [:enter (assoc (second (c :enter :account bo-google :code-hash nil)) :email "bo@example.org")])))
+              (= unfit (last-of [(c :take-back :claim {:by :email :email "bo@example.org"})]))))
 
   (let [cl (r/cluster auth-name "Another")
         a (r/open cl auth-name)
@@ -413,40 +448,84 @@
 ;; ------------------------------------------------------------------- invite
 
 (defn- invite-checks
-  "The checks of invite."
+  "The checks of invite, take-back and invitation-of."
   []
   (check "invite gives {:invited P} and makes the person wait under the claim: the first account that proves the claim becomes hers."
          (and (= {:invited asha} (last-of [(c :invite)]))
               (= asha (:person (last-of asha-in)))))
 
-  (check "invite is refused with :claim-in-use when the claim names another person."
-         (= {:refused :claim-in-use} (last-of [(c :invite) (c :invite :person bo)])))
+  (check "invite is refused with :claim-in-use when the claim names another person: an invitation of hers waits and is not over, or a link of hers stands under it."
+         (and (= {:refused :claim-in-use} (last-of [(c :invite) (c :invite :person bo)]))
+              (= {:refused :claim-in-use} (last-of (conj asha-in (c :invite :person bo :at 200))))))
 
-  (check "invite is refused with :person-in-use when the person has another claim."
-         (= {:refused :person-in-use} (last-of [(c :invite) (c :invite :claim bo-email)])))
+  (check "A person may wait under several claims (28 November): Asha, who waits under her code, is invited under Bo's email too, and either claim lets an account in as her."
+         (and (= {:invited asha} (last-of [(c :invite) (c :invite :claim bo-email)]))
+              (= asha (:person (last-of [(c :invite) (c :invite :claim bo-email)
+                                         (c :enter :account bo-google :code-hash nil :email-hash (h 2))])))))
 
-  (check "A claim names one person for good: once an account has proven it, it is used up; inviting another person under it is :claim-in-use, and another account that proves it is not let in."
-         (= [{:refused :claim-in-use} {:refused :not-invited}]
-            (take-last 2 (:results (run (conj asha-in (c :invite :person bo) (c :enter :account bo-google)))))))
+  (let [before (:state (run asha-waits))
+        call (c :invite :at 105)
+        [after got] (r/step before call)]
+    (check "The same person under the same claim again, while her invitation waits and is not over, gives {:invited P} and changes nothing but the answer kept under its op."
+           (and (= {:invited asha} got)
+                (= before (update after :invite-ops dissoc (:op-id (second call))))
+                (= :invited (get-in after [:invite-ops (:op-id (second call))])))))
 
-  (check "The same person under the same claim again gives {:invited P} and changes nothing, also after she has entered."
-         (and (unchanged? asha-waits (c :invite :at 105) {:invited asha})
-              (unchanged? asha-in (c :invite :at 200) {:invited asha})))
+  (let [{:keys [state results]} (run (conj asha-in (c :invite :invited-by asha :at 200)
+                                           (c :enter :account bo-google :at 210 :own-lane lane-2 :making making-2)))]
+    (check "A person who has entered may be invited again under a claim of hers, beside her link: that is how she adds an account. Another account that proves it becomes one more of hers, with her own lane and :making as they were fixed."
+           (and (= {:invited asha} (nth results 2))
+                (= {:person asha :own-lane lane-1 :making making-1 :own-lane-made? false} (nth results 3))
+                (= [asha-google bo-google] (map :account (:accounts (r/accounts-of state asha))))
+                (= 2 (:links (r/invitation-of state asha-code))))))
+
+  (let [{:keys [state results]} (run [(c :invite :ends 150) (c :invite :person bo :at 150 :ends 1000)
+                                      (c :enter :at 160)])]
+    (check "An invitation has an end: at or after its :ends it lets nobody in and names nobody, so that an invite of another person under the claim is taken in its place, and the account that proves the claim becomes his."
+           (and (= {:invited bo} (nth results 1))
+                (= bo (:person (nth results 2)))
+                (= bo (:person (r/invitation-of state asha-code))))))
+
+  (check "An enter at or after an invitation's :ends is refused with :not-invited, and one just before it is let in: the end is held against the enter's :at."
+         (and (= {:refused :not-invited} (last-of [(c :invite :ends 150) (c :enter :at 150)]))
+              (= asha (:person (last-of [(c :invite :ends 150) (c :enter :at 149)])))))
+
+  (check "An enter whose :at is before the invitation's own :at is refused with :not-invited: an invitation lets in an enter at or after it was made (settled on 28 November, so that an enter that runs again cannot take an invitation made after it)."
+         (and (= {:refused :not-invited} (last-of [(c :invite) (c :enter :at 99)]))
+              (= asha (:person (last-of [(c :invite) (c :enter :at 100)])))))
+
+  (check "An invitation whose :ends is at or before its own :at is taken and never lets anyone in."
+         (= [{:invited asha} {:refused :not-invited}] (:results (run [(c :invite :ends 100) (c :enter)]))))
+
+  (let [{:keys [state last]} (run [(c :invite :invited-by agent-3)])]
+    (check ":invited-by is kept as given and not checked: an invite by an id that is no actor's is taken, and invitation-of gives that id."
+           (and (= {:invited asha} last) (= agent-3 (get-in (r/invitation-of state asha-code) [:invitation :invited-by])))))
+
+  (let [{:keys [state results]} (run [(c :invite) (c :take-back) (c :enter)])]
+    (check "take-back takes back the invitation that its op made: it waits no longer, lets nobody in, and the claim is free; take-back gives {:taken-back P}."
+           (and (= [{:invited asha} {:taken-back asha} {:refused :not-invited}] results)
+                (nil? (r/invitation-of state asha-code))
+                (= {:invited bo} (last-of [(c :invite) (c :take-back) (c :invite :person bo :at 160)])))))
+
+  (check "take-back of an op that made no invitation that waits under the claim changes nothing and gives {:taken-back P}: a later invitation of the same person stays, and so does a link."
+         (and (unchanged? [(c :invite) (c :take-back) (c :invite :at 170)] (c :take-back :at 180) {:taken-back asha})
+              (unchanged? asha-in (c :take-back :at 180) {:taken-back asha})))
+
+  (let [{:keys [state]} (run (conj asha-in (c :invite :invited-by asha :at 200) (c :take-back :invite (op-of (second (c :invite :invited-by asha :at 200))) :at 210)))]
+    (check "take-back touches no link: her invitation that waits beside her link is taken back, and the claim still names her by the link."
+           (= {:person asha :invitation nil :links 1} (r/invitation-of state asha-code))))
 
   (let [{:keys [state results]} (run (conj asha-waits (c :begin-sign-in) (c :make-actor)))]
     (check "A person who waits has no sign-in and is no actor yet: a sign-in for her is :no-such-actor, an agent made by her is :no-such-maker, and who-is gives her no own lane."
            (and (= [{:refused :no-such-actor} {:refused :no-such-maker}] (take-last 2 results))
                 (= {:sign-in nil :session nil :own-lane nil :own-lane-made? false} (who state sign-in-1)))))
 
-  (let [{:keys [state last]} (run [(c :invite :invited-by agent-3)])]
-    (check ":invited-by is kept as given and not checked: an invite by an id that is no actor's is taken, and the state keeps that id."
-           (and (= {:invited asha} last) (= agent-3 (get-in state [:persons asha :invited-by])))))
-
-  (check "An invitation has no time: an enter ten years after the invite is let in."
-         (= asha (:person (last-of [(c :invite) (c :enter :at (+ 100 (* 10 365 24 3600 1000)))]))))
-
-  (check "Where both refusals of invite apply, :claim-in-use comes first, as the contract lists them: Asha, who has a claim, under the claim of Bo is :claim-in-use."
-         (= {:refused :claim-in-use} (last-of [(c :invite) (c :invite :person bo :claim bo-email) (c :invite :claim bo-email)]))))
+  (let [state (:state (run [(c :invite)]))]
+    (check "invitation-of gives whom the claim names, the invitation that waits with its op, who invited, when and its end, and how many links stand under it; nil for a claim that has no record; and judges no time."
+           (and (= {:person asha :invitation {:invite (op-of (:invite defaults)) :invited-by :system :invited-at 100 :ends 100000} :links 0}
+                   (r/invitation-of state asha-code))
+                (nil? (r/invitation-of state bo-email))
+                (= unfit (r/invitation-of state {:by :email :email "bo@example.org"}))))))
 
 ;; -------------------------------------------------------------------- enter
 
@@ -457,27 +536,27 @@
          (= {:person asha :own-lane lane-1 :making making-1 :own-lane-made? false} (last-of asha-in)))
 
   (check "enter of an account that has no link and proves no claim is refused with :not-invited, and nothing of it is kept."
-         (unchanged? asha-waits (c :enter :code-hash (h 9) :email "nobody@example.org") {:refused :not-invited}))
+         (unchanged? asha-waits (c :enter :code-hash (h 9) :email-hash (h 999)) {:refused :not-invited}))
 
   (let [{:keys [results]} (run (conj asha-in (c :invite :person bo :claim bo-email :at 112)
-                                     (c :enter :email "bo@example.org" :code-hash nil :at 120)
-                                     (c :enter :account bo-google :email "bo@example.org" :code-hash nil
+                                     (c :enter :email-hash (h 2) :code-hash nil :at 120)
+                                     (c :enter :account bo-google :email-hash (h 2) :code-hash nil
                                         :own-lane lane-2 :making making-2 :at 130)))]
     (check "An account that has a link gives its person, whatever claim came with it: an enter of Asha's account with the email of Bo, who waits, gives Asha, and Bo's claim still waits for Bo."
            (and (= asha (:person (nth results 3))) (= bo (:person (nth results 4))))))
 
   (let [both (conj asha-waits (c :invite :person bo :claim bo-email :at 101))]
     (check "An account that has none takes the person of the code's invitation when :code-hash names one that waits, before the email's."
-           (= asha (:person (last-of (conj both (c :enter :account [:github "9"] :email "bo@example.org")))))))
+           (= asha (:person (last-of (conj both (c :enter :account [:github "9"] :email-hash (h 2))))))))
 
-  (check "An account that has none takes the email's person when :code-hash names no invitation that waits: none at all, or one that is used up."
-         (and (= bo (:person (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash (h 9) :email "bo@example.org")))))
+  (check "An account that has none takes the email's person when :code-hash names no invitation that waits: none at all, or one that an account used."
+         (and (= bo (:person (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash (h 9) :email-hash (h 2))))))
               (= bo (:person (last-of (concat asha-in (take 1 bo-in)
-                                              [(c :enter :account bo-google :code-hash (h 1) :email "bo@example.org" :at 120)]))))))
+                                              [(c :enter :account bo-google :code-hash (h 1) :email-hash (h 2) :at 120)]))))))
 
   (let [{:keys [results]} (run (conj asha-in (c :enter :at 115) (c :enter :account bo-google :at 116)
                                      (c :begin-sign-in) (c :make-actor)))]
-    (check "The link is written, the claim is used up, and the person becomes an actor, her own root: the account gives her again, another account with her code is not let in, and she begins a sign-in and makes an agent."
+    (check "The link is written, the invitation waits no longer, and the person becomes an actor, her own root: the account gives her again, another account with her code is not let in, and she begins a sign-in and makes an agent."
            (and (= asha (:person (nth results 2))) (= {:refused :not-invited} (nth results 3))
                 (= [{:begun sign-in-1} {:made agent-1}] (take-last 2 results)))))
 
@@ -497,12 +576,62 @@
                      {:person asha :own-lane lane-1 :making making-1 :own-lane-made? false}))
 
   (let [{:keys [state]} (run (into asha-in (map (fn [i] (c :enter :says {"n" (str i)} :at (+ 200 i)))) (range 100)))]
-    (check "The link keeps no memory of each enter: after a hundred enters of one account, its link holds the person, one :says and one :at, and nothing more (Sid's call of 22 November)."
-           (= {:person asha :says {"n" "99"} :said-at 299} (get-in state [:links asha-google]))))
+    (check "The link keeps no memory of each enter: after a hundred enters of one account, its link holds the person, one :says and one :at, its claim, its id and the :at of its making, and nothing more (Sid's call of 22 November)."
+           (= {:person asha :says {"n" "99"} :said-at 299 :claim asha-code :link first-link :linked-at 110}
+              (get-in state [:links asha-google]))))
 
   (let [{:keys [results]} (run (conj asha-in (c :enter :at 115)))]
-    (check "An enter that is run again after a failure gives the person, the own lane and the :making that it gave, and :own-lane-made? as it stands."
+    (check "An enter that is run again after a failure, while its link stands, gives the person, the own lane and the :making that it gave, and :own-lane-made? as it stands."
            (= (nth results 1) (nth results 2))))
+
+  (let [{:keys [results]} (run (conj asha-in (c :unlink) (c :invite :person bo :at 200) (c :enter)))]
+    (check "An enter that is run again after its link was removed is judged afresh, and an invitation made after it lets it in no more: after Asha's account is unlinked and her code is invited for Bo, the first enter, sent again, is refused with :not-invited (turned on 28 November)."
+           (= [{:unlinked asha} {:invited bo} {:refused :not-invited}] (take-last 3 results))))
+
+  (let [{:keys [state results]} (run (conj asha-in (c :unlink :person bo) (c :unlink :link (UUID. 7 7)) (c :unlink)
+                                           (c :unlink :at 170)))]
+    (check "unlink of a link that stands for another person is :another-persons and changes nothing; of a link that does not stand on the account it gives {:unlinked P} and changes nothing; of her link it removes the link, the link under the claim and her account, and frees the claim; again, it gives the same and changes nothing."
+           (and (= [{:refused :another-persons} {:unlinked asha} {:unlinked asha} {:unlinked asha}] (take-last 4 results))
+                (nil? (get-in state [:links asha-google]))
+                (nil? (r/invitation-of state asha-code))
+                (= {:accounts []} (r/accounts-of state asha))
+                (unchanged? asha-in (c :unlink :link (UUID. 7 7)) {:unlinked asha}))))
+
+  (let [{:keys [state results]} (run (conj asha-in (c :begin-sign-in) (c :open-session) (c :unlink :at 145)
+                                           (c :enter :at 146)))]
+    (check "unlink ends no sign-in and no session, which are the person's: after her last account is unlinked she keeps what she has, and cannot enter again until an invitation names her."
+           (and (= {:refused :not-invited} (last results))
+                (= {:sign-in {:actor asha :kind :browser :hash (h 101) :until 100000 :previous nil :ended? false :actor-ended? false}
+                    :session {:sign-in sign-in-1 :until 50000 :closed? false :driven-by nil}
+                    :own-lane lane-1 :own-lane-made? false}
+                   (who state sign-in-1 session-1)))))
+
+  (let [waits-too (c :invite :claim {:by :code :hash (h 5)} :invited-by asha :at 230)
+        {:keys [state]} (run (conj asha-in (c :invite :claim bo-email :invited-by asha :at 200)
+                                   (c :enter :account bo-google :email-hash (h 2) :code-hash nil :at 210)
+                                   waits-too))
+        erased (reduce (fn [st {:keys [account link]}]
+                         (first (r/step st [:unlink {:account account :link link :person asha :at 300}])))
+                       state
+                       (:accounts (r/accounts-of state asha)))
+        erased (first (r/step erased (c :take-back :claim {:by :code :hash (h 5)} :invite (:op-id (second waits-too)) :at 310)))
+        held (pr-str (dissoc erased :roots))]
+    (check "Erasing her is unlink of each link that accounts-of gives and take-back of each invitation that is named: after them no claim, no link and no answer of an invite holds a hash of her claims, her accounts or her :says; her person stays, and holds none of them; and her claims can be invited as another person."
+           (and (= 2 (count (:accounts (r/accounts-of state asha))))
+                (not-any? #(str/includes? held %) [(h 1) (h 2) (h 5) "108200000000000000001" "208300000000000000002" "Asha"])
+                (= {:accounts []} (r/accounts-of erased asha))
+                (contains? (:persons erased) asha)
+                (every? #(= {:invited bo} (second (r/step erased (c :invite :person bo :claim % :at 400))))
+                        [asha-code bo-email {:by :code :hash (h 5)}]))
+           held))
+
+  (let [{:keys [state]} (run (conj asha-in (c :invite :invited-by asha :at 200)
+                                   (c :enter :account bo-google :at 210)
+                                   (c :enter :account bo-google-2 :code-hash (h 1) :at 220)))]
+    (check "accounts-of gives her accounts, each with its link and the :at of the enter that made it, in the order of that :at."
+           (= {:accounts [{:account asha-google :link first-link :linked-at 110}
+                          {:account bo-google :link (UUID. 0x4C494E4B 1) :linked-at 210}]}
+              (r/accounts-of state asha))))
 
   (let [{:keys [results]} (run (conj asha-in (c :enter :at 115) (c :own-lane-made) (c :enter :at 125)))]
     (check "Until own-lane-made, every enter says :own-lane-made? false; after it, an enter says true (Sid's call of 22 November)."
@@ -1145,7 +1274,7 @@
 
 (def ^:private client-writes
   "The client's function of each write."
-  {:invite r/invite :enter r/enter :own-lane-made r/own-lane-made :begin-sign-in r/begin-sign-in
+  {:invite r/invite :enter r/enter :take-back r/take-back :unlink r/unlink :own-lane-made r/own-lane-made :begin-sign-in r/begin-sign-in
    :replace-secret r/replace-secret :end-sign-in r/end-sign-in :make-actor r/make-actor
    :end-actor r/end-actor :open-session r/open-session :close-session r/close-session :ask r/ask
    :answer-ask r/answer-ask})
@@ -1160,8 +1289,8 @@
   reference: the functions, two copies of the runtime, watch-root, and
   close!."
   []
-  (check "The reference has the eighteen functions of the contract under their own names."
-         (and (= 18 (count contract-names))
+  (check "The reference has the twenty-two functions of the contract under their own names."
+         (and (= 22 (count contract-names))
               (every? #(fn? (some-> (ns-resolve 'softland.auth.reference %) deref)) contract-names)))
 
   (let [[a b] (two-clients)]
@@ -1301,7 +1430,11 @@
   "The rules that hold after every step of a generated history, each with
   the words that its check prints."
   [[:no-throw "no step throws"]
-   [:one-person "an account names one person at most, and the same one for good; a claim names one person for good; a person has one claim"]
+   [:links "an account has one link at most; each link stands under the claim that it was made by proving, as a link of that claim's person, who has entered; each link under a claim is the link of an account; a claim that has a record has an invitation that waits or a link; and no two links have one id"]
+   [:let-in "an enter that links an account that had no link proves an invitation that waited under its claim for the person that it gives, made at or before the enter's :at and ending after it, which then waits no longer; and one that is refused with :not-invited proves no such invitation, whoever it names"]
+   [:invite "an invite whose op was answered gives that answer again and changes nothing; any other is refused with :claim-in-use exactly when the claim names another person at its :at, by a link or an invitation that is not over, and its op's answer is kept"]
+   [:take-back "a take-back gives {:taken-back P}, leaves no invitation of its op waiting under its claim, and changes nothing else: no link and no other invitation"]
+   [:unlink "an unlink gives {:unlinked P}, after which the link that it names does not stand on the account, or {:refused :another-persons} when that link stands there for another person, which changes nothing"]
    [:repeat "a write that arrives twice gives the result of the first, by the parts that bind, an enter with :own-lane-made? as it stands, and leaves the state as once, but for what its own time thins from what is watched, the time that a repeat of open-session moves on while the session and its sign-in stand at the repeat's :at, and the :says of an enter whose :at is later than the kept one's; a replacement that arrives after a newer one is no repeat: it is refused when its sign-in is not live or its old hash is not the hash now, and taken when that hash has come back"]
    [:refusal "a write that is refused changes nothing but what its time thins from what is watched"]
    [:no-revival "an end is never taken back: no later call makes an ended sign-in, a closed session or an ended actor live again"]
@@ -1318,8 +1451,7 @@
 
 (def ^:private empty-tracker
   "What the checks of a history know before its first step."
-  {:account->person {} :claim->person {} :person->claim {}
-   :ended {:sign-ins #{} :sessions #{} :agents #{}}
+  {:ended {:sign-ins #{} :sessions #{} :agents #{}}
    :latest-at {} :asks {} :over-when-made #{} :standing {} :driven-by {}})
 
 (defn- taken?
@@ -1344,19 +1476,90 @@
   [m kvs]
   (reduce (fn [m [k v]] (if (contains? m k) m (assoc m k v))) m kvs))
 
-(defn- one-person-violations
-  "Checks that an account names one person, for good; that a claim names
-  one person, for good; that a person has one claim; and that the links,
-  claims and persons of the state agree."
-  [tracker {:keys [links persons claims]}]
+(defn- link-violations
+  "Checks that the links, the claims and the persons of the state agree."
+  [{:keys [links claims persons]}]
+  (let [held (into #{} (for [[claim c] claims L (keys (:links c))] [claim L]))
+        made (into #{} (for [[_ l] links] [(:claim l) (:link l)]))]
+    (concat
+     (for [[account l] links
+           :let [c (get claims (:claim l))]
+           :when (not (and c (= (:person c) (:person l)) (contains? (:links c) (:link l)) (contains? persons (:person l))))]
+       [:link-not-under-its-claim account])
+     (for [x held :when (not (contains? made x))] [:claim-holds-a-link-of-no-account x])
+     (for [[claim c] claims :when (not (or (:waiting c) (seq (:links c))))] [:empty-claim claim])
+     (when (not= (count links) (count (distinct (map :link (vals links))))) [[:two-links-one-id]]))))
+
+(defn- let-in-violations
+  "Checks an enter that linked an account that had no link: the invitation
+  that waited under the link's claim, in the state before, was of the
+  person that it gave and let the enter in, and waits no longer after; and
+  that an enter of an account that had no link is refused with
+  :not-invited only when no invitation of its claims lets it in."
+  [before [kind input] result after]
   (concat
-   (for [[account P] (:account->person tracker) :when (not= P (get-in links [account :person]))] [:account-moved account])
-   (for [[claim P] (:claim->person tracker) :when (not= P (get claims claim))] [:claim-moved claim])
-   (for [[P claim] (:person->claim tracker) :when (not= claim (get-in persons [P :claim]))] [:claim-of-person-changed P])
-   (for [[claim P] claims :when (not= claim (get-in persons [P :claim]))] [:claim-not-the-persons claim P])
-   (for [[account {:keys [person]}] links :when (not= account (get-in persons [person :account]))] [:link-not-the-persons account])
-   (let [accounts (keep :account (vals persons))]
-     (when (not= (count accounts) (count (distinct accounts))) [[:one-account-two-persons]]))))
+   (when (and (= kind :enter) (contains? result :person) (nil? (get-in before [:links (:account input)])))
+     (let [l (get-in after [:links (:account input)])
+           w (get-in before [:claims (:claim l) :waiting])]
+       (cond-> []
+         (not (and l (= (:person result) (:person l)) (= (:person result) (get-in before [:claims (:claim l) :person]))
+                   w (<= (:invited-at w) (:at input)) (< (:at input) (:ends w))))
+         (conj [:let-in-without-an-invitation input result])
+         (and l (some? (get-in after [:claims (:claim l) :waiting]))) (conj [:invitation-still-waits input]))))
+   (when (and (= kind :enter) (= {:refused :not-invited} result) (nil? (get-in before [:links (:account input)])))
+     (let [lets-in? (fn [claim] (let [w (get-in before [:claims claim :waiting])]
+                                  (and w (<= (:invited-at w) (:at input)) (< (:at input) (:ends w)))))]
+       (when (or (and (:code-hash input) (lets-in? {:by :code :hash (:code-hash input)}))
+                 (and (:email-hash input) (lets-in? {:by :email :hash (:email-hash input)})))
+         [[:refused-though-invited input]])))))
+
+(defn- invite-violations
+  "Checks an invite against the state before it."
+  [before [kind input] result after]
+  (when (= kind :invite)
+    (let [{:keys [person claim at op-id]} input
+          done (get-in before [:invite-ops op-id])
+          c (get-in before [:claims claim])
+          other? (boolean (and c (not= person (:person c))
+                               (or (seq (:links c)) (and (:waiting c) (< at (get-in c [:waiting :ends]))))))]
+      (cond
+        done (cond-> []
+               (not= result (if (= :invited done) {:invited person} {:refused :claim-in-use})) (conj [:not-the-answer-given input result])
+               (not= before after) (conj [:answered-op-changed-the-state input]))
+        :else (cond-> []
+                (not= other? (= {:refused :claim-in-use} result)) (conj [:claim-in-use-not-as-named input result])
+                (nil? (get-in after [:invite-ops op-id])) (conj [:answer-not-kept input]))))))
+
+(defn- take-back-violations
+  "Checks a take-back: what it gives, that its op's invitation waits no
+  longer, and that nothing else changed."
+  [before [kind input] result after]
+  (when (= kind :take-back)
+    (let [{:keys [person claim invite]} input
+          c (get-in before [:claims claim])
+          expected (if (= invite (get-in c [:waiting :invite]))
+                     (if (seq (:links c)) (assoc-in before [:claims claim :waiting] nil) (update before :claims dissoc claim))
+                     before)]
+      (cond-> []
+        (not= {:taken-back person} result) (conj [:take-back-gave result])
+        (not= expected after) (conj [:take-back-changed-more input])))))
+
+(defn- unlink-violations
+  "Checks an unlink: what it gives, and that the link that it names stands
+  no more, or, refused, that it was another person's and nothing changed."
+  [before [kind input] result after]
+  (when (= kind :unlink)
+    (let [{:keys [account link person]} input
+          l (get-in before [:links account])
+          stands? (fn [state] (= link (get-in state [:links account :link])))]
+      (if (= {:refused :another-persons} result)
+        (cond-> []
+          (not (and (= link (:link l)) (not= person (:person l)))) (conj [:refused-not-another-persons input])
+          (not= before after) (conj [:refusal-changed input]))
+        (cond-> []
+          (not= {:unlinked person} result) (conj [:unlink-gave result])
+          (stands? after) (conj [:link-still-stands input])
+          (and (not (stands? before)) (not= before after)) (conj [:unlink-of-nothing-changed input]))))))
 
 (defn- expected-after-repeat
   "The state that a repeat of `kind` with `input` must leave after
@@ -1391,7 +1594,8 @@
 (defn- repeat-violations
   "Checks a repeat of the taken call `j` of the world: it gives the first
   result by the parts that bind, an enter with :own-lane-made? as it
-  stands, and leaves the state as once. A replacement that arrives after a
+  stands, and leaves the state as once. An enter whose link is no longer
+  of the person that it gave is judged afresh, and is not held here. A replacement that arrives after a
   newer one is no repeat: it is judged by the present hash and the one
   before it alone, and so refused with :not-live when its sign-in is no
   longer live, with :wrong-secret when its old hash is not the hash now,
@@ -1416,13 +1620,16 @@
                (not= [(:new-hash input) {:hash (:old-hash input) :until (:previous-until input)}]
                      [(:hash g') (:previous g')]))
           (conj [:hash-that-came-back-not-taken call])))
-      (cond-> []
-        (not= (bound-parts kind first-result) (bound-parts kind result)) (conj [:other-result call first-result result])
-        (and (= kind :enter)
-             (not= (:own-lane-made? result)
-                   (:own-lane-made? (r/who-is before {:root (:person result) :sign-in (:person result) :session nil}))))
-        (conj [:flag-not-as-it-stands call result])
-        (not= (expected-after-repeat kind input before) after) (conj [:state-changed call])))))
+      (if (and (= kind :enter) (not= (:person first-result) (get-in before [:links (:account input) :person])))
+        ;; Its link is gone: the enter is judged afresh (turned on 28 November).
+        []
+        (cond-> []
+          (not= (bound-parts kind first-result) (bound-parts kind result)) (conj [:other-result call first-result result])
+          (and (= kind :enter)
+               (not= (:own-lane-made? result)
+                     (:own-lane-made? (r/who-is before {:root (:person result) :sign-in (:person result) :session nil}))))
+          (conj [:flag-not-as-it-stands call result])
+          (not= (expected-after-repeat kind input before) after) (conj [:state-changed call]))))))
 
 (defn- ended-in
   "The sign-ins that have ended, the sessions that are closed, and the
@@ -1629,9 +1836,6 @@
         opened? (and fits? (= kind :open-session) (= {:open (:session input)} result)
                      (nil? (:session (r/who-is before {:root (:root input) :sign-in (:sign-in input) :session (:session input)}))))]
     (cond-> (-> tracker
-                (update :account->person first-seen (map (fn [[a l]] [a (:person l)]) (:links after)))
-                (update :claim->person first-seen (:claims after))
-                (update :person->claim first-seen (keep (fn [[P p]] (when (:claim p) [P (:claim p)])) (:persons after)))
                 (assoc :ended (ended-in after))
                 (update :asks first-seen (map (fn [[U _]] [U (select-keys (r/ask-of after U) [:hash :asking-hash :asks :ends])])
                                               (:asks after))))
@@ -1657,12 +1861,20 @@
                       (concat
                        (when repeat-of (tagged :repeat (repeat-violations w before call result after repeat-of)))
                        (when (contains? result :refused)
-                         (when (not= (swept before kind input) after) [[:refusal [call result]]]))
+                         (let [kept (cond-> (swept before kind input)
+                                      ;; An invite keeps its op's answer, a refusal too.
+                                      (= kind :invite) (assoc-in [:invite-ops (:op-id input)] :claim-in-use))]
+                           (when (and (not= kept after) (not (and (= kind :invite) (= (swept before kind input) after))))
+                             [[:refusal [call result]]])))
+                       (tagged :let-in (let-in-violations before call result after))
+                       (tagged :invite (invite-violations before call result after))
+                       (tagged :take-back (take-back-violations before call result after))
+                       (tagged :unlink (unlink-violations before call result after))
                        (tagged :ask (ask-violations before call result))
                        (tagged :judged-afresh (afresh-violations before call result))
                        (tagged :answer (answer-violations tracker before call result after))
                        (tagged :end-actor (end-actor-violations call result after vs))))
-                    (tagged :one-person (one-person-violations tracker after))
+                    (tagged :links (link-violations after))
                     (tagged :no-revival (revival-violations tracker after vs))
                     (tagged :only-an-end-ends (only-an-end-violations before kind after))
                     (tagged :ends (ends-violations before kind input after))

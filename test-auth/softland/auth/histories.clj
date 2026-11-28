@@ -1,6 +1,6 @@
 (ns softland.auth.histories
   "The generator of the histories that the checks of Auth send: random
-  sequences of calls of the twelve writes, made to meet the state often,
+  sequences of calls of the fourteen writes, made to meet the state often,
   with repeats of calls that were taken, inputs that do not fit, and a
   clock that moves on and now and then goes back, as a slower copy of the
   runtime would; and now and then one write whose `:at` is far ahead, as a
@@ -31,14 +31,14 @@
   (apply str (repeat n "x")))
 
 (def write-kinds
-  "The twelve writes."
-  [:invite :enter :own-lane-made :begin-sign-in :replace-secret :end-sign-in :make-actor :end-actor
-   :open-session :close-session :ask :answer-ask])
+  "The fourteen writes."
+  [:invite :enter :take-back :unlink :own-lane-made :begin-sign-in :replace-secret :end-sign-in :make-actor
+   :end-actor :open-session :close-session :ask :answer-ask])
 
 (def weighted-kinds
   "The writes that a history makes, each as many times as its weight."
   (vec (mapcat (fn [[k n]] (repeat n k))
-               [[:invite 6] [:enter 8] [:own-lane-made 3] [:begin-sign-in 12] [:replace-secret 8]
+               [[:invite 6] [:enter 8] [:take-back 3] [:unlink 3] [:own-lane-made 3] [:begin-sign-in 12] [:replace-secret 8]
                 [:end-sign-in 5] [:make-actor 10] [:end-actor 6] [:open-session 14] [:close-session 4]
                 [:ask 5] [:answer-ask 9]])))
 
@@ -60,13 +60,15 @@
 (defn new-world
   "What the runtime of one history holds: its random source, a few ids of
   each kind, so that they meet often, its clock, the count of hashes made,
-  and the calls that were taken."
+  the calls that were taken, and the links that it saw stand, so that an
+  unlink can name one that stands no more. An email is its hash: the
+  runtime makes it, and Auth is given nothing else."
   [seed]
   (let [rnd (Random. (long seed))]
     {:rnd rnd
      :persons (vec (repeatedly 4 #(uuid-of rnd)))
      :accounts [[:google "1"] [:google "2"] [:github "1"] [:google "3"]]
-     :emails ["a@x.org" "b@x.org" "c@x.org"]
+     :email-hashes [(h 2001) (h 2002) (h 2003)]
      :code-hashes [(h 1001) (h 1002) (h 1003)]
      :agents (vec (repeatedly 6 #(uuid-of rnd)))
      :sign-ins (vec (repeatedly 6 #(uuid-of rnd)))
@@ -74,7 +76,8 @@
      :codes ["CODE0001" "CODE0002" "CODE0003"]
      :now 1000
      :fresh 0
-     :taken []}))
+     :taken []
+     :links-seen []}))
 
 (defn tick
   "Moves the world's clock: mostly on, by steps of ten that often land on
@@ -101,7 +104,19 @@
 (defn entered-persons
   "The persons of the state who have entered."
   [state]
-  (vec (sort (keep (fn [[P p]] (when (:account p) P)) (:persons state)))))
+  (vec (sort (keys (:persons state)))))
+
+(defn claims-of
+  "Every claim of the world's pools."
+  [w]
+  (into [] (concat (map (fn [x] {:by :email :hash x}) (:email-hashes w))
+                   (map (fn [x] {:by :code :hash x}) (:code-hashes w)))))
+
+(defn invitation-end
+  "An end for an invitation: mostly one that lives through many steps, now
+  and then one that is over soon, at once or from its making."
+  [w]
+  (+ (:now w) (pick (:rnd w) [-10 0 10 30 100 300 1000 5000 100000 100000])))
 
 (defn agents-of
   "The agents of the root `P` in the state, in the order in which they were made."
@@ -158,27 +173,57 @@
   (let [rnd (:rnd w)
         now (:now w)]
     (case kind
-      :invite (let [claims (into [] (concat (map (fn [e] {:by :email :email e}) (:emails w))
-                                            (map (fn [x] {:by :code :hash x}) (:code-hashes w))))
+      :invite (let [claims (claims-of w)
                     fresh-persons (vec (remove #(contains? (:persons state) %) (:persons w)))
                     fresh-claims (vec (remove #(contains? (:claims state) %) claims))
-                    fresh? (and (seq fresh-persons) (seq fresh-claims) (chance? rnd 0.5))]
-                [w [:invite {:person (pick rnd (if fresh? fresh-persons (:persons w)))
-                             :claim (pick rnd (if fresh? fresh-claims claims))
+                    fresh? (and (seq fresh-persons) (seq fresh-claims) (chance? rnd 0.5))
+                    ;; Now and then a person who has entered, under a claim that
+                    ;; names her already, as she adds an account.
+                    own (vec (sort-by str (keep (fn [[claim c]] (when (contains? (:persons state) (:person c)) [(:person c) claim]))
+                                                (:claims state))))
+                    [P claim] (if (and (seq own) (chance? rnd 0.2))
+                                (pick rnd own)
+                                [(pick rnd (if fresh? fresh-persons (:persons w))) (pick rnd (if fresh? fresh-claims claims))])]
+                [w [:invite {:person P
+                             :claim claim
                              :invited-by (if (chance? rnd 0.5) :system (uuid-of rnd))
-                             :at now}]])
-      :enter (let [waiting (vec (sort-by str (keep (fn [[claim P]] (when-not (get-in state [:persons P :account]) claim))
-                                                   (:claims state))))
-                   proving (when (and (seq waiting) (chance? rnd 0.5)) (pick rnd waiting))]
-               [w [:enter {:account (pick rnd (:accounts w))
+                             :at now
+                             :ends (invitation-end w)
+                             :op-id (uuid-of rnd)}]])
+      :enter (let [waiting (vec (sort-by str (keep (fn [[claim c]] (when (:waiting c) claim)) (:claims state))))
+                   proving (when (and (seq waiting) (chance? rnd 0.5)) (pick rnd waiting))
+                   ;; Mostly an account that has no link when one proves a claim.
+                   free (vec (remove #(contains? (:links state) %) (:accounts w)))
+                   account (if (and proving (seq free) (chance? rnd 0.7)) (pick rnd free) (pick rnd (:accounts w)))]
+               [w [:enter {:account account
                            :says (pick rnd [{} {"name" "Asha"} {"name" "Bo" "picture" "https://p/1"}])
-                           :email (cond (= :email (:by proving)) (:email proving)
-                                        (chance? rnd 0.6) (pick rnd (:emails w)))
+                           :email-hash (cond (= :email (:by proving)) (:hash proving)
+                                             (chance? rnd 0.6) (pick rnd (:email-hashes w)))
                            :code-hash (cond (= :code (:by proving)) (:hash proving)
                                             (chance? rnd 0.6) (pick rnd (:code-hashes w)))
                            :own-lane (uuid-of rnd)
                            :making {:uuid (uuid-of rnd) :session (uuid-of rnd)}
                            :at now}]])
+      :take-back (let [waiting (vec (sort-by str (keep (fn [[claim c]] (when (:waiting c) [claim c])) (:claims state))))
+                       ops (vec (keep (fn [{[k x] :call}] (when (= k :invite) x)) (:taken w)))
+                       [claim I P] (cond
+                                     (and (seq waiting) (chance? rnd 0.7))
+                                     (let [[claim c] (pick rnd waiting)]
+                                       [claim (get-in c [:waiting :invite]) (:person c)])
+                                     (and (seq ops) (chance? rnd 0.8))
+                                     (let [x (pick rnd ops)] [(:claim x) (:op-id x) (:person x)])
+                                     :else [(pick rnd (claims-of w)) (uuid-of rnd) (pick rnd (:persons w))])]
+                   [w [:take-back {:person P :claim claim :invite I :at now}]])
+      :unlink (let [links (vec (sort-by str (:links state)))
+                    w (update w :links-seen (fn [seen] (into seen (comp (map (comp :link second)) (remove (set seen))) links)))
+                    [account L P] (cond
+                                    (and (seq links) (chance? rnd 0.75))
+                                    (let [[account l] (pick rnd links)]
+                                      [account (:link l) (if (chance? rnd 0.9) (:person l) (pick rnd (:persons w)))])
+                                    (and (seq (:links-seen w)) (chance? rnd 0.7))
+                                    [(pick rnd (:accounts w)) (pick rnd (:links-seen w)) (a-root w state)]
+                                    :else [(pick rnd (:accounts w)) (uuid-of rnd) (a-root w state)])]
+                [w [:unlink {:account account :link L :person P :at now}]])
       :own-lane-made [w [:own-lane-made {:person (a-root w state) :at now}]]
       :begin-sign-in (let [P (a-root w state)
                            [w H] (fresh-hash w)]
@@ -263,10 +308,10 @@
   [w kind input]
   (let [rnd (:rnd w)]
     (case kind
-      :invite (assoc input :invited-by (uuid-of rnd))
+      :invite (assoc input :invited-by (uuid-of rnd) :ends (invitation-end w))
       :enter (assoc input :says {"name" "Another"} :own-lane (uuid-of rnd)
                     :making {:uuid (uuid-of rnd) :session (uuid-of rnd)}
-                    :email (pick rnd (:emails w)) :code-hash (pick rnd (:code-hashes w)))
+                    :email-hash (pick rnd (:email-hashes w)) :code-hash (pick rnd (:code-hashes w)))
       :begin-sign-in (assoc input :until (end-after w) :label "another")
       :replace-secret (assoc input :until (end-after w) :previous-until (end-after w))
       :make-actor (assoc input :label "another")
@@ -320,17 +365,21 @@
         long-text (text-of 257)
         lone (str (char 0xD800))
         lone-low (str (char 0xDC00))]
-    {:invite [{:person "a person"} {:claim {:by :email :email "A@x.org"}} {:claim {:by :phone :phone "1"}}
-              {:claim {:by :code :hash "abc"}} {:claim {:by :email :email "a@x.org" :more 1}} {:invited-by "someone"}
-              {:claim {:by :email :email (str "a" lone "@x.org")}}]
+    {:invite [{:person "a person"} {:claim {:by :email :email "a@x.org"}} {:claim {:by :phone :phone "1"}}
+              {:claim {:by :code :hash "abc"}} {:claim {:by :email :hash (h 1) :more 1}} {:invited-by "someone"}
+              {:claim {:by :email :hash (apply str (repeat 64 "A"))}} {:ends "later"} {:ends nil}
+              {:op-id (str (uuid-of rnd))} {:op-id nil}]
+     :take-back [{:invite "an invite"} {:invite nil} {:claim {:by :email :email "a@x.org"}} {:person nil}]
+     :unlink [{:link "a link"} {:link nil} {:account [:google]} {:person "a person"}
+              {:account [:google (str lone "1")]}]
      :enter [{:account [:google]} {:account (list :google "1")} {:account ["google" "1"]}
              {:account [:google long-text]} {:says {"k" (text-of 2049)}}
              {:says (into {} (map (fn [i] [(str i) "v"])) (range 33))} {:says {:k "v"}} {:says nil}
-             {:email "A@x.org"} {:email 7} {:code-hash (apply str (repeat 64 "A"))}
+             {:email "a@x.org"} {:email-hash 7} {:email-hash "a@x.org"} {:code-hash (apply str (repeat 64 "A"))}
              {:making {:uuid (uuid-of rnd)}} {:account [(keyword long-text) "1"]} {:own-lane "a lane"}
              {:own-lane nil} {:account [:google (str lone "1")]} {:account [:google (str "1" lone-low)]}
              {:account [(keyword (str "goo" lone "gle")) "1"]} {:says {"name" (str "A" lone "sha")}}
-             {:says {(str "na" lone-low "me") "Asha"}} {:email (str "asha" lone "@x.org")}]
+             {:says {(str "na" lone-low "me") "Asha"}}]
      :own-lane-made [{:person "a person"}]
      :begin-sign-in [{:kind :robot} {:hash (apply str (repeat 64 "A"))} {:hash (apply str (repeat 63 "a"))}
                      {:label long-text} {:until "5"} {:root "a root"} {:label (str "lap" lone "top")}]

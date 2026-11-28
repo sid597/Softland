@@ -19,13 +19,14 @@
   What it does. It opens two clients of the module through the contract's
   `open`, as two copies of the runtime, and sends generated histories
   (`softland.auth.histories`) through them and through the reference: each
-  write through one client or the other; reads of `who-is`, `ask-of` and
-  `under`, of their own and, after each write, of every root that the write
-  could change; and watches, registered with `watch-root` and stopped. After
+  write through one client or the other; reads of `who-is`, `ask-of`,
+  `under`, `invitation-of` and `accounts-of`, of their own and, after each
+  write, of every root, claim and person that the write could change; and
+  watches, registered with `watch-root` and stopped. After
   each step it compares the module's result with the reference's, each read
   with the reference's read, and what each watch came to with what is
   watched under its root in the reference. It reads nothing of the module but what
-  the eighteen functions give.
+  the twenty-two functions give.
 
   What a real module needs of it:
   - A watch's calls come later, on another thread. After a write that
@@ -48,6 +49,12 @@
   - A quarter of the histories hold a deep segment: 32 agents in a line under
     one root, one more under the deepest, which is `:too-deep`, and a sign-in
     for the deepest. The histories go on with those agents among the rest.
+  - A link's id is made by the module, the op of the enter that made it,
+    and by the reference otherwise: the run pairs the two by the account
+    and the time of each link that `accounts-of` gives, holds the pairing
+    to one id for one, and sends an unlink the module's id of the link that
+    the reference names. Every enter that links is followed by a read of
+    its person's accounts, so each link is paired before an unlink names it.
   - Two rules of Sid's calls of 22 November are met in every run, not only
     now and then: after an `own-lane-made`, a copy of the person's first
     enter is sent again, now and then; and after a replacement whose new hash
@@ -91,13 +98,14 @@
 ;; -------------------------------------------------------- what is checked
 
 (def contract-names
-  "The eighteen functions of the contract, by their names in
+  "The twenty-two functions of the contract, by their names in
   `softland.auth.client`."
-  '[open close! invite enter own-lane-made begin-sign-in replace-secret end-sign-in make-actor
-    end-actor open-session close-session ask answer-ask who-is ask-of under watch-root])
+  '[open close! invite enter take-back unlink own-lane-made begin-sign-in replace-secret end-sign-in
+    make-actor end-actor open-session close-session ask answer-ask who-is ask-of under invitation-of
+    accounts-of watch-root])
 
 (defn calls-of
-  "The eighteen functions of the contract as the namespace `ns-sym` gives them,
+  "The twenty-two functions of the contract as the namespace `ns-sym` gives them,
   the namespace loaded first: a map from each name of the contract to its
   function, or nil when one is missing."
   [ns-sym]
@@ -113,7 +121,7 @@
   {:watch-bound-ms 10000 :settle-ms 200 :tries 8 :retry-pause-ms 100})
 
 (defn implementation
-  "What the run holds against the reference: `calls`, the eighteen functions
+  "What the run holds against the reference: `calls`, the twenty-two functions
   as `calls-of` gives them; `cluster`, what stands for the cluster that the
   module runs in, as `open` takes it; and `module-name`. Options: `:name`,
   `:watch-bound-ms`, `:settle-ms`, `:tries`, `:retry-pause-ms`, and `:close`,
@@ -123,7 +131,7 @@
          {:calls calls :cluster cluster :module-name module-name}))
 
 (defn the-reference
-  "The reference itself, as a module for the run: its eighteen functions, over
+  "The reference itself, as a module for the run: its twenty-two functions, over
   a cluster of its own. With `broken`, a key of `r/breaks`, the copy of the
   rules in which that one rule is broken. Its watches are called before a
   write returns, so the run waits for nothing."
@@ -159,8 +167,12 @@
                         (fn [] (given) (.shutdown pool) nil)
                         (do (.shutdown pool) given))))))))
 
+(def ^:private read-calls
+  "The names in the contract of the reads but `watch-root`."
+  '[who-is ask-of under invitation-of accounts-of])
+
 (def ^:private write-calls
-  "The names in the contract of the twelve writes."
+  "The names in the contract of the fourteen writes."
   (mapv (fn [k] (symbol (name k))) hs/write-kinds))
 
 (defn lossy
@@ -181,7 +193,7 @@
     (-> impl
         (assoc :name (str (:name impl) ", which loses the answer of one call in " one-in ", made or not"))
         (assoc :tries 12)
-        (update :calls (fn [calls] (reduce (fn [m s] (update m s lose)) calls (concat write-calls '[who-is ask-of under])))))))
+        (update :calls (fn [calls] (reduce (fn [m s] (update m s lose)) calls (concat write-calls read-calls)))))))
 
 (def ^:private broken-clients
   "Clients over the reference, each wrong in one way that only time or a
@@ -213,7 +225,7 @@
                  (-> impl
                      (update :calls (fn [m] (reduce (fn [m s] (update m s late)) m write-calls)))
                      (update :calls (fn [m] (reduce (fn [m s] (assoc m s (fn [_ arg] ((get calls s) behind arg))))
-                                                    m '[who-is ask-of under]))))))]])
+                                                    m read-calls))))))]])
 
 ;; -------------------------------------------------------------- the calls
 
@@ -255,7 +267,9 @@
   (case kind
     :who-is (r/who-is state arg)
     :ask-of (r/ask-of state arg)
-    :under (r/under state arg)))
+    :under (r/under state arg)
+    :invitation-of (r/invitation-of state arg)
+    :accounts-of (r/accounts-of state arg)))
 
 (defn- call-name
   "The name in the contract of the write or read `kind`."
@@ -330,9 +344,10 @@
 (defn- world
   "What the runtime of history `i` of the run of `seed` holds: the
   generator's world, with pools that no other history of the run shares, so
-  that every history of one run can go through one Auth: its accounts, its
-  emails, the hashes of its codes, the codes of its asks, and the hashes that
-  it makes."
+  that every history of one run can go through one Auth: its accounts, the
+  hashes of its emails and of its codes, the codes of its asks, and the
+  hashes that it makes; and the pairing of the reference's links with the
+  module's (`:links*`)."
   [seed i]
   (let [n (+ seed i)
         k (mod n 0x40000000)
@@ -340,7 +355,8 @@
     (assoc (hs/new-world n)
            :accounts [[:google (str "g" n ".1")] [:google (str "g" n ".2")] [:github (str "h" n ".1")]
                       [:google (str "g" n ".3")]]
-           :emails [(str "a." n "@x.org") (str "b." n "@x.org") (str "c." n "@x.org")]
+           :email-hashes [(hs/h (+ base 999101)) (hs/h (+ base 999102)) (hs/h (+ base 999103))]
+           :links* (atom {})
            :code-hashes [(hs/h (+ base 999001)) (hs/h (+ base 999002)) (hs/h (+ base 999003))]
            :codes (mapv #(format "%08X" (+ (* 4 k) %)) [0 1 2])
            :hash-base base
@@ -366,13 +382,18 @@
                                      :hash H :until (+ at 5000) :label nil :at at}]})]))
 
 (defn- a-read
-  "A read for a step of its own: `who-is`, `ask-of` or `under`, with parts
-  chosen as the writes' are, and now and then one whose input does not fit."
+  "A read for a step of its own: `who-is`, `ask-of`, `under`,
+  `invitation-of` or `accounts-of`, with parts chosen as the writes' are,
+  and now and then one whose input does not fit."
   [w state]
   (let [rnd (:rnd w)
         P (hs/a-root w state)
         unfit? (hs/chance? rnd 0.12)]
-    (case (.nextInt ^Random rnd 3)
+    (case (.nextInt ^Random rnd 5)
+      3 [:invitation-of (if unfit?
+                          (hs/pick rnd [{:by :email :email "a@x.org"} {:by :code} nil (str P)])
+                          (hs/pick rnd (hs/claims-of w)))]
+      4 [:accounts-of (if unfit? (hs/pick rnd [(str P) nil 7]) P)]
       0 (let [q {:root P :sign-in (hs/a-sign-in w state P)
                  :session (when (hs/chance? rnd 0.7) (hs/pick rnd (:sessions w)))}]
           [:who-is (if unfit?
@@ -445,7 +466,9 @@
   "The reads after a write: for each root that the write could change, its
   `under`, and `who-is` of each pair of the history's sign-ins and sessions
   and of one with no session; after an ask or an answer, `ask-of` of each of
-  the history's codes."
+  the history's codes; after an invite, an enter, a take-back or an unlink,
+  `invitation-of` of each of the history's claims and `accounts-of` of each
+  of its persons and of the person that the write gave."
   [w kind input result]
   (let [root (when (map? input) (some #(when (uuid? %) %) [(get input :root) (get input :person)]))
         person (when (map? result) (let [p (get result :person)] (when (uuid? p) p)))]
@@ -455,17 +478,43 @@
                      (map (fn [G S] [:who-is {:root P :sign-in G :session S}]) (:sign-ins w) (:sessions w)))]
        q)
      (when (#{:ask :answer-ask} kind)
-       (for [U (:codes w)] [:ask-of U])))))
+       (for [U (:codes w)] [:ask-of U]))
+     (when (#{:invite :enter :take-back :unlink} kind)
+       (concat (for [C (hs/claims-of w)] [:invitation-of C])
+               (for [P (distinct (remove nil? (conj (:persons w) person)))] [:accounts-of P]))))))
+
+(defn- paired
+  "The module's `accounts-of` read `got` with each link's id the reference's
+  id that it is paired with in `links*`, pairing the links of the same place
+  in the reference's read `want` when they have the same account and time.
+  One id is paired with one id for good. Gives `got` as it is when the two
+  do not pair."
+  [links* want got]
+  (let [ws (:accounts want)
+        gs (:accounts got)]
+    (if (and (vector? ws) (vector? gs) (= (count ws) (count gs))
+             (every? true? (map (fn [a b] (= (dissoc a :link) (dissoc b :link))) ws gs)))
+      (let [ok? (every? (fn [[a b]]
+                          (let [m @links*
+                                ref-of (some (fn [[r x]] (when (= x (:link b)) r)) m)]
+                            (cond
+                              (= (get m (:link a)) (:link b)) true
+                              (or (contains? m (:link a)) ref-of) false
+                              :else (do (swap! links* assoc (:link a) (:link b)) true))))
+                        (map vector ws gs))]
+        (if ok? (assoc got :accounts (mapv (fn [a b] (assoc b :link (:link a))) ws gs)) got))
+      got)))
 
 (defn- first-read-difference
   "Makes each read through a client picked at random, and gives the first
   whose result is not the reference's, with the times it was sent again; or
   nil, with the times."
-  [impl clients ^Random rnd state reads]
+  [impl clients ^Random rnd w state reads]
   (loop [reads reads, retries 0]
     (if-let [[kind arg] (first reads)]
       (let [want (read-of state kind arg)
-            [got n] (send! impl (get (:calls impl) (call-name kind)) (clients (.nextInt rnd 2)) arg)]
+            [got n] (send! impl (get (:calls impl) (call-name kind)) (clients (.nextInt rnd 2)) arg)
+            got (if (= kind :accounts-of) (paired (:links* w) want got) got)]
         (if (= (comparable want) (comparable got))
           (recur (rest reads) (+ retries n))
           [{:what :a-read-is-not-the-reference's :read [kind arg] :reference want :module got} (+ retries n)]))
@@ -474,7 +523,7 @@
 (def ^:private empty-tally
   "What a history counts."
   {:histories 0 :steps 0 :writes 0 :repeats 0 :unfit 0 :reads 0 :watches 0 :watch-changes 0
-   :retries 0 :deep 0 :too-deep 0})
+   :retries 0 :deep 0 :too-deep 0 :linked 0 :unlinked 0 :taken-back 0})
 
 (defn- step!
   "Takes one step of a history through the module's clients and the
@@ -488,7 +537,10 @@
       :write
       (let [[kind input :as call] (:call step)
             [state' want] (r/step state call)
-            [got tries] (send! impl (get calls (call-name kind)) c input)
+            sent (if (and (= kind :unlink) (map? input))
+                   (update input :link #(get @(:links* w) % %))
+                   input)
+            [got tries] (send! impl (get calls (call-name kind)) c sent)
             changed (into {} (keep (fn [[id W]] (let [after (r/live-under state' (:root W))]
                                                    (when (not= after (r/live-under state (:root W)))
                                                      [id (assoc W :want after)]))))
@@ -500,7 +552,7 @@
             reads (sweep w kind input want)
             [read-difference read-tries] (if (or result-difference watch-difference)
                                            [nil 0]
-                                           (first-read-difference impl clients rnd state' reads))
+                                           (first-read-difference impl clients rnd w state' reads))
             taken? (not (or (contains? want :refused) (contains? want :could-not)))]
         {:w (follow-ups (if (and taken? (not (:repeat-of step))) (update w :taken conj {:call call :result want}) w)
                         state call want)
@@ -508,11 +560,17 @@
          :watches watches
          :tally {:writes 1 :repeats (if (:repeat-of step) 1 0) :unfit (if (:unfit? step) 1 0) :reads (count reads)
                  :watch-changes (count changed) :retries (+ tries read-tries)
-                 :too-deep (if (= {:refused :too-deep} want) 1 0)}
+                 :too-deep (if (= {:refused :too-deep} want) 1 0)
+                 :linked (if (and (= kind :enter) (map? input)
+                                  (not= (get-in state [:links (:account input) :link]) (get-in state' [:links (:account input) :link]))
+                                  (get-in state' [:links (:account input)]))
+                           1 0)
+                 :unlinked (if (and (= kind :unlink) (not= state state')) 1 0)
+                 :taken-back (if (and (= kind :take-back) (not= state state')) 1 0)}
          :difference (or result-difference watch-difference read-difference)})
 
       :read
-      (let [[difference tries] (first-read-difference impl clients rnd state [(:read step)])]
+      (let [[difference tries] (first-read-difference impl clients rnd w state [(:read step)])]
         {:w w :state state :watches watches :tally {:reads 1 :retries tries} :difference difference})
 
       :watch
@@ -610,9 +668,11 @@
         n (mod seed 0x40000000)
         code-hash (hs/h (+ (* n 1000000) 999999))]
     {:person P :sign-in G
-     :invite {:person P :claim {:by :code :hash code-hash} :invited-by :system :at 100}
-     :enter {:account [:google (str "close." seed)] :says {} :email nil :code-hash code-hash
+     :invite {:person P :claim {:by :code :hash code-hash} :invited-by :system :at 100 :ends 100000 :op-id (id)}
+     :enter {:account [:google (str "close." seed)] :says {} :email-hash nil :code-hash code-hash
              :own-lane (id) :making {:uuid (id) :session (id)} :at 110}
+     :take-back {:person P :claim {:by :code :hash code-hash} :invite (id) :at 120}
+     :unlink {:account [:google (str "close." seed)] :link (id) :person P :at 120}
      :own-lane-made {:person P :at 120}
      :begin-sign-in {:root P :actor P :sign-in G :kind :browser :hash (hs/h 77) :until 100000 :label nil :at 130}
      :replace-secret {:root P :sign-in G :old-hash (hs/h 77) :new-hash (hs/h 78) :until 200000
@@ -649,16 +709,18 @@
                                  [(comparable ((get calls 'who-is) b (:who-is fx)))
                                   (comparable ((get calls 'ask-of) b (get-in fx [:ask :code])))
                                   (comparable ((get calls 'under) b (:person fx)))
+                                  (comparable ((get calls 'invitation-of) b (get-in fx [:invite :claim])))
+                                  (comparable ((get calls 'accounts-of) b (:person fx)))
                                   (comparable ((get calls 'watch-root) b (:person fx) (fn [_] nil)))]))
           again (attempt close! b)
           [later _] (send! impl (get calls 'begin-sign-in) a (:begin-sign-in fx))
           _ (Thread/sleep (long (max 200 (:settle-ms impl))))
           seen @rec]
-      (check "After close!, each of the sixteen calls on that client gives {:could-not :closed}, watch-root's in place of the function; close! gives nil, also again; no function that it watched with is called again; and the other client goes on."
+      (check "After close!, each of the twenty calls on that client gives {:could-not :closed}, watch-root's in place of the function; close! gives nil, also again; no function that it watched with is called again; and the other client goes on."
              (and (= (:person fx) (:person entered))
                   (stops? stop)
                   (nil? closed) (nil? again)
-                  (= 16 (count on-closed))
+                  (= 20 (count on-closed))
                   (every? #(= {:could-not :closed} %) on-closed)
                   (= {:begun (:sign-in fx)} (comparable later))
                   (= ::none (:last seen)) (zero? (:calls seen)))
@@ -680,14 +742,15 @@
     (if-not (every? #(nil? (could-not-word %)) clients)
       (check "open gives two clients of the module." false clients)
       (let [{:keys [tally differences histories-that-differ]} (run-histories impl clients seed n)
-            {:keys [steps writes repeats unfit reads watches watch-changes retries deep too-deep]} tally]
+            {:keys [steps writes repeats unfit reads watches watch-changes retries deep too-deep linked unlinked taken-back]} tally]
         (doseq [c clients] (attempt (get (:calls impl) 'close!) c))
         (check (str "The module, " (:name impl) ", gave what the reference gives, through the contract alone, in " n
                     " generated histories of " steps " steps: every result of " writes " writes (" repeats
                     " of them repeats, " unfit " whose input does not fit), every one of " reads
-                    " reads of who-is, ask-of and under, and what each of " watches
+                    " reads of who-is, ask-of, under, invitation-of and accounts-of, and what each of " watches
                     " watches came to after each of the " watch-changes " changes under its root; with " deep
-                    " deep segments of 32 agents in a line, " too-deep " times :too-deep, and " retries
+                    " deep segments of 32 agents in a line, " too-deep " times :too-deep, " linked " links made, " unlinked
+                    " removed and " taken-back " invitations taken back, and " retries
                     " calls sent again after a :could-not that said nothing.")
                (zero? histories-that-differ)
                (when (pos? histories-that-differ)

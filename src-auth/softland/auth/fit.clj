@@ -8,8 +8,7 @@
   class, and a boxed `Integer` does not fit where `Long` is declared.
 
   Every check catches `Throwable`, so that an exotic map (such as a sorted
-  map whose comparator throws on keyword keys) counts as unfit."
-  (:import [java.util Locale]))
+  map whose comparator throws on keyword keys) counts as unfit.")
 
 ;; ------------------------------------------------------------------- bounds
 
@@ -74,10 +73,6 @@
   [x]
   (and (string? x) (<= (.length ^String x) longest-text) (carried? x)))
 
-(defn email?
-  [x]
-  (and (text? x) (= x (.toLowerCase ^String x Locale/ROOT))))
-
 (defn provider?
   [x]
   (and (keyword? x)
@@ -118,8 +113,10 @@
        (every? (fn [[k ok?]] (or (not (contains? m k)) (ok? (get m k)))) optional)))
 
 (defn claim?
+  "Two kinds of one form: Auth is given the hash of an email, which the
+  runtime makes, and never the address."
   [x]
-  (or (shaped? x {:by (is-kw :email) :email email?} {})
+  (or (shaped? x {:by (is-kw :email) :hash hash-str?} {})
       (shaped? x {:by (is-kw :code) :hash hash-str?} {})))
 
 (defn kind?
@@ -147,9 +144,12 @@
 ;; ------------------------------------------------------- write & read forms
 
 (def ^:private write-forms
-  {:invite         {:person id? :claim claim? :invited-by invited-by? :at time-val?}
-   :enter          {:account account? :says says? :email (or-nil email?) :code-hash (or-nil hash-str?)
+  {:invite         {:person id? :claim claim? :invited-by invited-by? :at time-val? :ends time-val?
+                    :op-id id?}
+   :enter          {:account account? :says says? :email-hash (or-nil hash-str?) :code-hash (or-nil hash-str?)
                     :own-lane id? :making making? :at time-val?}
+   :take-back      {:person id? :claim claim? :invite id? :at time-val?}
+   :unlink         {:account account? :link id? :person id? :at time-val?}
    :own-lane-made {:person id? :at time-val?}
    :begin-sign-in  {:root id? :actor id? :sign-in id? :kind kind? :hash hash-str? :until time-val?
                     :label (or-nil text?) :at time-val?}
@@ -206,6 +206,18 @@
   [code]
   (try
     (when (code-str? code) code)
+    (catch Throwable _ nil)))
+
+(defn fit-invitation-of
+  [claim]
+  (try
+    (when (claim? claim) claim)
+    (catch Throwable _ nil)))
+
+(defn fit-accounts-of
+  [person]
+  (try
+    (when (id? person) person)
     (catch Throwable _ nil)))
 
 (defn fit-under

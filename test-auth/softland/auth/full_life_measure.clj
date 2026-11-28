@@ -38,6 +38,14 @@
            [java.util.concurrent Callable CountDownLatch Executors TimeUnit]
            [java.util.concurrent.atomic AtomicLong]))
 
+
+(defn- eh
+  "The hash of an email, as the runtime gives it to Auth: the measures need
+  only one that is the same for the same address."
+  [^String address]
+  (let [d (java.security.MessageDigest/getInstance "SHA-256")]
+    (apply str (map #(format "%02x" (bit-and % 0xff)) (.digest d (.getBytes (str "softland/email/" address) "UTF-8"))))))
+
 (defn- h-of
   "Deterministic 64-char lower-case hex hash from integer `n`."
   [^long n]
@@ -172,8 +180,8 @@
             A-end (UUID/randomUUID)
             G-end (UUID/randomUUID)
             S-end (UUID/randomUUID)
-            _ (client/invite c {:person P :claim {:by :email :email "m1@example.com"} :invited-by :system :at 10})
-            _ (client/enter c {:account [:google "m1-user"] :says {} :email "m1@example.com"
+            _ (client/invite c {:person P :claim {:by :email :hash (eh "m1@example.com")} :invited-by :system :at 10 :ends 1000000000 :op-id (UUID/randomUUID)})
+            _ (client/enter c {:account [:google "m1-user"] :says {} :email-hash (eh "m1@example.com")
                                :code-hash nil :own-lane L :making M :at 20})
             _ (client/own-lane-made c {:person P :at 25})
             _ (client/begin-sign-in c {:root P :actor P :sign-in G-live :kind :browser :hash (h-of 1)
@@ -322,9 +330,9 @@
           ;; The writer: a root that nobody watches, with a live sign-in.
           P-w (UUID/randomUUID)
           G-w (UUID/randomUUID)
-          _ (do (client/invite c {:person P-w :claim {:by :email :email "writer@example.com"}
-                                  :invited-by :system :at 10})
-                (client/enter c {:account [:google "writer"] :says {} :email "writer@example.com"
+          _ (do (client/invite c {:person P-w :claim {:by :email :hash (eh "writer@example.com")}
+                                  :invited-by :system :at 10 :ends 1000000000 :op-id (UUID/randomUUID)})
+                (client/enter c {:account [:google "writer"] :says {} :email-hash (eh "writer@example.com")
                                  :code-hash nil :own-lane (UUID/randomUUID)
                                  :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
                 (client/own-lane-made c {:person P-w :at 25})
@@ -373,9 +381,9 @@
           G0 (UUID/randomUUID)
           G-last (UUID/randomUUID)
           _ (doseq [[p g idx] [[P0 G0 1] [P-last G-last 2]]]
-              (client/invite c {:person p :claim {:by :email :email (str "w20k-" idx "@example.com")}
-                                :invited-by :system :at 10})
-              (client/enter c {:account [:google (str "w20k-" idx)] :says {} :email (str "w20k-" idx "@example.com")
+              (client/invite c {:person p :claim {:by :email :hash (eh (str "w20k-" idx "@example.com"))}
+                                :invited-by :system :at 10 :ends 1000000000 :op-id (UUID/randomUUID)})
+              (client/enter c {:account [:google (str "w20k-" idx)] :says {} :email-hash (eh (str "w20k-" idx "@example.com"))
                                :code-hash nil :own-lane (UUID/randomUUID)
                                :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
               (client/own-lane-made c {:person p :at 25})
@@ -423,8 +431,8 @@
           S-sib   (UUID/randomUUID)
           ;; Setup both roots
           _ (doseq [[p em sub] [[P-heavy "heavy@example.com" "heavy"] [P-sib "sib@example.com" "sib"]]]
-              (client/invite c1 {:person p :claim {:by :email :email em} :invited-by :system :at 10})
-              (client/enter c1 {:account [:google sub] :says {} :email em :code-hash nil
+              (client/invite c1 {:person p :claim {:by :email :hash (eh em)} :invited-by :system :at 10 :ends 1000000000 :op-id (UUID/randomUUID)})
+              (client/enter c1 {:account [:google sub] :says {} :email-hash (eh em) :code-hash nil
                                 :own-lane (UUID/randomUUID)
                                 :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
               (client/own-lane-made c1 {:person p :at 25}))
@@ -535,8 +543,8 @@
   "Invites and enters a new person through client `c`. Gives her root."
   [c tag]
   (let [P (UUID/randomUUID)]
-    (client/invite c {:person P :claim {:by :email :email (str tag "@example.com")} :invited-by :system :at 10})
-    (client/enter c {:account [:google tag] :says {} :email (str tag "@example.com") :code-hash nil
+    (client/invite c {:person P :claim {:by :email :hash (eh (str tag "@example.com"))} :invited-by :system :at 10 :ends 1000000000 :op-id (UUID/randomUUID)})
+    (client/enter c {:account [:google tag] :says {} :email-hash (eh (str tag "@example.com")) :code-hash nil
                      :own-lane (UUID/randomUUID)
                      :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)} :at 20})
     (client/own-lane-made c {:person P :at 25})
@@ -658,8 +666,8 @@
                     S (UUID/randomUUID)
                     U (format "M4%06d" idx)
                     em (str "m4-" idx "@example.com")]
-                (client/invite c {:person P :claim {:by :email :email em} :invited-by :system :at 10})
-                (client/enter c {:account [:google (str "m4-" idx)] :says {} :email em :code-hash nil
+                (client/invite c {:person P :claim {:by :email :hash (eh em)} :invited-by :system :at 10 :ends 1000000000 :op-id (UUID/randomUUID)})
+                (client/enter c {:account [:google (str "m4-" idx)] :says {} :email-hash (eh em) :code-hash nil
                                  :own-lane L :making M :at 20})
                 (client/own-lane-made c {:person P :at 25})
                 (client/make-actor c {:root P :actor A :made-by P :label "a" :at 30})

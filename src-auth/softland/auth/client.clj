@@ -1,5 +1,5 @@
 (ns softland.auth.client
-  "Foreign client for the Rama module `Auth`: the 18 functions of Auth's
+  "Foreign client for the Rama module `Auth`: the 22 functions of Auth's
   contract (`src/proposal/runtime-2026-11-21/spine/auth/SPEC.md`). A client
   holds no Auth truth.
 
@@ -72,9 +72,11 @@
                  d-enters
                  p-asks
                  p-live
+                 p-claims
                  q-who-is
                  q-under
                  q-ping-task
+                 q-accounts-of
                  closed?
                  watch-lock
                  proxies
@@ -390,16 +392,18 @@
             d-enters  (rama/foreign-depot cluster module-name "*enters")
             p-asks    (rama/foreign-pstate cluster module-name "$$asks")
             p-live    (rama/foreign-pstate cluster module-name "$$live")
+            p-claims  (rama/foreign-pstate cluster module-name "$$claims")
             q-who-is  (rama/foreign-query cluster module-name "who-is")
             q-under   (rama/foreign-query cluster module-name "under")
             q-ping    (rama/foreign-query cluster module-name "ping-task")
+            q-accts   (rama/foreign-query cluster module-name "accounts-of")
             info      (rama/foreign-object-info p-live)
             n-parts   (long (or (:num-partitions info) 1))]
         (->Client module-name
                   n-parts
                   d-root d-asks d-invites d-enters
-                  p-asks p-live
-                  q-who-is q-under q-ping
+                  p-asks p-live p-claims
+                  q-who-is q-under q-ping q-accts
                   (atom false)
                   (Object.)
                   (atom {})
@@ -442,28 +446,58 @@
         (stop-watcher-sync! w))))
   nil)
 
-;; ---------------------------------------------------------------- 12 writes
+;; ---------------------------------------------------------------- 14 writes
 
 (defn invite
+  "`{:person P :claim C :invited-by B :at t :ends t1 :op-id I}` gives
+  `{:invited P}` or `{:refused :claim-in-use}`. `I` is fresh for each call
+  and the same for each try of one call: an invite whose op has a record
+  gives the answer it gave."
   [client input]
   (guarded-write
    client :invite input #(.-d-invites ^Client %)
-   (fn [{:keys [person claim invited-by at]}]
+   (fn [{:keys [person claim invited-by at ends op-id]}]
      (let [ck (s/claim-key-from-map claim)
-           cv (s/claim-val-from-map claim)
            ib-kind (if (= :system invited-by) :system :actor)
            ib-id   (when (uuid? invited-by) invited-by)]
-       (s/->InviteEvent person ck (:by claim) cv ib-kind ib-id at)))))
+       (s/->InviteEvent op-id person ck ib-kind ib-id ends at)))))
+
+(defn take-back
+  "`{:person P :claim C :invite I :at t}` gives `{:taken-back P}`: after it,
+  the invitation that the op `I` made does not wait under `C`."
+  [client input]
+  (guarded-write
+   client :take-back input #(.-d-invites ^Client %)
+   (fn [{:keys [person claim invite at]}]
+     (s/->TakeBackEvent (s/claim-key-from-map claim) person invite at))))
 
 (defn enter
+  "`{:account [provider subject] :says {...} :email-hash H-or-nil
+  :code-hash H-or-nil :own-lane L :making {:uuid U :session M} :at t}`
+  gives `{:person P :own-lane L' :making {:uuid U' :session M'}
+  :own-lane-made? bool}` or `{:refused :not-invited}`. The op of the call,
+  made here, is the id of the link that it makes, which `accounts-of`
+  gives as `:link`."
   [client input]
   (guarded-write
    client :enter input #(.-d-enters ^Client %)
-   (fn [{:keys [account says email code-hash own-lane making at]}]
+   (fn [{:keys [account says email-hash code-hash own-lane making at]}]
      (let [[provider subject] account
            ak (s/account-key provider subject)]
-       (s/->EnterEvent (UUID/randomUUID) ak provider subject says email code-hash
+       (s/->EnterEvent (UUID/randomUUID) ak provider subject says email-hash code-hash
                        own-lane (:uuid making) (:session making) at)))))
+
+(defn unlink
+  "`{:account [provider subject] :link L :person P :at t}` gives
+  `{:unlinked P}` when, after it, the link `L` does not stand on the
+  account; `{:refused :another-persons}` when it stands there for another
+  person; `{:refused :linking}` while the enter `L` is still making it."
+  [client input]
+  (guarded-write
+   client :unlink input #(.-d-enters ^Client %)
+   (fn [{:keys [account link person at]}]
+     (let [[provider subject] account]
+       (s/->UnlinkEvent (s/account-key provider subject) link person at)))))
 
 (defn own-lane-made
   [client input]
@@ -537,7 +571,49 @@
                          (when new-agent (:label new-agent))
                          sign-in until at))))
 
-;; ----------------------------------------------------------------- 4 reads
+;; ----------------------------------------------------------------- 6 reads
+
+(defn- read-once
+  "One foreign call, as a read of the contract: what `f` gives, or
+  `{:could-not ...}`."
+  [client fit-fn arg f]
+  (if-not (client? client)
+    {:could-not :read-the-event}
+    (if @(.-closed? ^Client client)
+      {:could-not :closed}
+      (if-let [x (fit-fn arg)]
+        (try
+          (f ^Client client x)
+          (catch TimeoutException t
+            {:could-not :reach-the-module :error (str "timeout: " (.getMessage t))})
+          (catch Throwable t
+            (let [c (unwrap-cause t)]
+              {:could-not :reach-the-module :error (or (.getMessage c) (str c))})))
+        {:could-not :read-the-event}))))
+
+(defn invitation-of
+  "`(invitation-of client C)`: nil when the claim has no record, else
+  `{:person P :invitation {:invite I :invited-by B :invited-at t0 :ends t1}-or-nil
+  :links n}`. One read of one record, at the claim's task. It says nothing
+  of \"over\": the caller holds `:ends` against its own time."
+  [client claim]
+  (read-once client fit/fit-invitation-of claim
+             (fn [^Client c x]
+               (s/project-invitation
+                (await-future (rama/foreign-select-one-async [(path/keypath (s/claim-key-from-map x))]
+                                                             (.-p-claims c))
+                              default-timeout-ms)))))
+
+(defn accounts-of
+  "`(accounts-of client P)`: `{:accounts [{:account [provider subject] :link L
+  :linked-at t} ...]}`, in the order of `:linked-at`. One read at the
+  person's task: a seek and a scan of her entries, which nothing in Auth
+  bounds but that each needs an invitation that names her."
+  [client person]
+  (read-once client fit/fit-accounts-of person
+             (fn [^Client c p]
+               (await-future (rama/foreign-invoke-query-async (.-q-accounts-of c) p)
+                             default-timeout-ms))))
 
 (defn who-is
   [client query]

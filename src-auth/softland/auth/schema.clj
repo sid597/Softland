@@ -3,13 +3,17 @@
   functions for the Rama module `Auth`. Pure code.
 
   Every Rama depot record and PState value implements a closed marker interface
-  (`IRootDatum`, `ILiveEntry`, `IAccountState`, `IClaimState`, `IAskState`,
-  `IEnterOpState`, `IDrivenBy`) so no PState schema uses `Object` and no live
-  watched record holds a byte array. All range-scanned keys are strictly 7-bit
-  ASCII so RocksDB UTF-8 byte order matches JVM UTF-16 order identically: the
-  composite keys of `$$root-data` (`\"<P>\\0...\"`), and the inner keys of a
-  root's map in `$$live` (`\"g:<G>\"` for a sign-in, `\"s:<S>\"` for a
-  session, `\"ends\"` for the count of ends).
+  (`IRootDatum`, `ILiveEntry`, `IAccountState`, `IClaimState`,
+  `IInviteOpState`, `IAskState`, `IEnterOpState`, `IDrivenBy`) so no PState
+  schema uses `Object` and no live watched record holds a byte array. The
+  keys whose order a read uses are strictly 7-bit ASCII, so RocksDB UTF-8
+  byte order matches JVM UTF-16 order identically: the composite keys of
+  `$$root-data` (`\"<P>\\0...\"`), and the inner keys of a root's map in
+  `$$live` (`\"g:<G>\"` for a sign-in, `\"s:<S>\"` for a session,
+  `\"ends\"` for the count of ends). A person's accounts (`k-account`) end
+  in an account's key, which holds the provider's subject as given: their
+  range is bounded by an ASCII prefix, and `project-accounts` orders them
+  itself.
 
   Two things are kept apart for a sign-in and a session. That someone ended
   it is a fact, written on its record (`ended?`, `closed?`) by `end-sign-in`,
@@ -24,12 +28,12 @@
   time had passed at the root's latest write; a thing that left it has not
   ended, and is not put back until a write gives it a time again.
 
-  The pure transition functions for `invite`, `enter`, and `answer-ask` are
+  The pure transition functions for `enter` and `answer-ask` were first
   written from the step specification that was model-checked in
-  `src/proposal/runtime-2026-11-21/spine/auth/agreement/`, step for step, but
-  they are not that code, and no model check has run them: what checks them
-  is `softland.auth.module-check`, through the module, against the
-  contract's reference (`softland.auth.module` says how far that reaches)."
+  `src/proposal/runtime-2026-11-21/spine/auth/agreement/`, step for step. They
+  are not that code, and no model check has run them; since 28 November the
+  steps of `enter`, `invite`, `take-back` and `unlink` are not even that
+  specification (`softland.auth.module` says which checks hold them)."
   (:import [java.util UUID]))
 
 ;; ------------------------------------------------------- marker interfaces
@@ -43,6 +47,9 @@
 (definterface IEnterOpState)
 (definterface IRootEvent)
 (definterface IAskEvent)
+(definterface IInviteEvent)
+(definterface IEnterEvent)
+(definterface IInviteOpState)
 
 ;; ------------------------------------------------------------- driven-by
 
@@ -65,12 +72,16 @@
 
 ;; ----------------------------------------------------------- depot events
 
-;; *invites (partitioned by :claim-key String)
-(defrecord InviteEvent [person claim-key claim-kind claim-val invited-by-kind invited-by-id at])
+;; *invites (partitioned by :claim-key String). `claim-key` is `e:<hash>` or
+;; `c:<hash>`: Auth is given the hash of an email, never the address.
+(defrecord InviteEvent [op-id person claim-key invited-by-kind invited-by-id ends at] IInviteEvent)
+(defrecord TakeBackEvent [claim-key person invite-op at] IInviteEvent)
 
 ;; *enters (partitioned by :account-key String)
-(defrecord EnterEvent [op-id account-key provider subject says email code-hash
-                       own-lane making-uuid making-session at])
+(defrecord EnterEvent [op-id account-key provider subject says email-hash code-hash
+                       own-lane making-uuid making-session at]
+  IEnterEvent)
+(defrecord UnlinkEvent [account-key link-op person at] IEnterEvent)
 
 ;; *asks (partitioned by :code String)
 (defrecord AskEvent [code hash asking-hash asks ends at] IAskEvent)
@@ -89,13 +100,15 @@
 ;; ----------------------------------------------------------- PState records
 
 ;; $$root-data {String -> IRootDatum} (partitioned by |hash root-UUID)
-(defrecord RootReserving [claim-key claim-kind claim-val invited-by-kind invited-by-id invited-at]
-  IRootDatum)
-(defrecord RootInvited [claim-key claim-kind claim-val invited-by-kind invited-by-id invited-at]
-  IRootDatum)
-(defrecord RootEntered [claim-key claim-kind claim-val invited-by-kind invited-by-id invited-at
-                        linked-provider linked-subject own-lane making-uuid making-session
+;; A person's record appears at her first enter: a person who waits is a
+;; claim that names her and nothing else. It holds who first invited her and
+;; when, and no claim and no account: each account of hers is a
+;; `PersonAccount` of its own, under `k-account`.
+(defrecord RootEntered [invited-by-kind invited-by-id invited-at own-lane making-uuid making-session
                         own-lane-made? next-actor-seq next-sign-in-seq]
+  IRootDatum)
+;; `link-op` is the op of the enter that made the link: the link's id.
+(defrecord PersonAccount [provider subject linked-at link-op]
   IRootDatum)
 (defrecord ActorRec [actor made-by ends-with depth label ended? seq]
   IRootDatum)
@@ -131,17 +144,35 @@
   ILiveEntry)
 
 ;; $$accounts {String -> IAccountState} (partitioned by |hash account-key)
+;; `round` is raised at each reset to `:probing`; a step of a chain that
+;; left in an earlier round changes no status.
 (defrecord AccountLinking [op-id account-key provider subject code-claim-key email-claim-key
-                           own-lane making-uuid making-session says at status chosen]
+                           own-lane making-uuid making-session says at status chosen round]
   IAccountState)
-(defrecord AccountLinked [person own-lane making-uuid making-session says says-at]
+;; `claim-key` is the claim that the link was made by proving, `link-op` the
+;; op of the enter that made it.
+(defrecord AccountLinked [person own-lane making-uuid making-session says says-at claim-key link-op]
+  IAccountState)
+;; The mark of an unlink that is under way. It holds no `:says`.
+(defrecord AccountUnlinking [person claim-key link-op]
   IAccountState)
 
 ;; $$claims {String -> IClaimState} (partitioned by |hash claim-key)
-(defrecord ClaimWaiting [person invited-by-kind invited-by-id invited-at]
+;; One record for a claim: whom it names, the invitation that waits under it
+;; (one or none), and the links that were made by proving it, a map from the
+;; op of the linking enter to `[invited-by-kind invited-by-id invited-at]`,
+;; the invitation that the link was made by. The record is removed when
+;; nothing waits and no link stands.
+(defrecord Invitation [invite-op invited-by-kind invited-by-id invited-at ends])
+(defrecord Claim [person waiting links]
   IClaimState)
-(defrecord ClaimUsed [person invited-by-kind invited-by-id invited-at used-by-op]
-  IClaimState)
+
+;; $$invite-ops {UUID -> IInviteOpState} (partitioned by |hash claim-key):
+;; read and written only at the claim's task, in the event of its own
+;; invite, and never looked up by op alone. It names nobody; `at` is there so
+;; that a later sweep can drop old ones.
+(defrecord InviteOpDone [answer at]
+  IInviteOpState)
 
 ;; $$asks {String -> IAskState} (partitioned by |hash code)
 ;; `hash` is of the secret that becomes the program's credential at a yes.
@@ -172,22 +203,16 @@
     (str (.length p) ":" p ":" subject)))
 
 (defn claim-key-from-parts
-  [kind ^String val]
+  [kind ^String h]
   (case kind
-    :email (str "e:" val)
-    :code  (str "c:" val)))
+    :email (str "e:" h)
+    :code  (str "c:" h)))
 
 (defn claim-key-from-map
+  "A claim is `{:by :email :hash H}` or `{:by :code :hash H}`: two kinds of
+  one form."
   [claim]
-  (case (:by claim)
-    :email (str "e:" (:email claim))
-    :code  (str "c:" (:hash claim))))
-
-(defn claim-val-from-map
-  [claim]
-  (case (:by claim)
-    :email (:email claim)
-    :code  (:hash claim)))
+  (claim-key-from-parts (:by claim) (:hash claim)))
 
 (defn hex16
   "`n` must not be negative."
@@ -264,6 +289,19 @@
   ^String [^UUID p ^UUID op-id]
   (str p "\u0000ok:" op-id))
 
+(defn k-account
+  "One account of the person `p`, by its account key."
+  ^String [^UUID p ^String account-key]
+  (str p "\u0000na:" account-key))
+
+(defn k-account-lo
+  ^String [^UUID p]
+  (str p "\u0000na:"))
+
+(defn k-account-hi
+  ^String [^UUID p]
+  (str p "\u0000na;"))
+
 ;; ------------------------------------------- inner keys of a root in $$live
 
 (defn lk-signin
@@ -337,14 +375,20 @@
   (boolean
    (cond
      (instance? InviteEvent ev)
-     (and (uuid? (:person ev)) (string? (:claim-key ev)) (contains? #{:email :code} (:claim-kind ev))
-          (string? (:claim-val ev)) (contains? #{:system :actor} (:invited-by-kind ev))
-          (or (nil? (:invited-by-id ev)) (uuid? (:invited-by-id ev))) (long-val? (:at ev)))
+     (and (uuid? (:op-id ev)) (uuid? (:person ev)) (string? (:claim-key ev))
+          (contains? #{:system :actor} (:invited-by-kind ev))
+          (or (nil? (:invited-by-id ev)) (uuid? (:invited-by-id ev))) (long-val? (:ends ev)) (long-val? (:at ev)))
+
+     (instance? TakeBackEvent ev)
+     (and (string? (:claim-key ev)) (uuid? (:person ev)) (uuid? (:invite-op ev)) (long-val? (:at ev)))
 
      (instance? EnterEvent ev)
      (and (uuid? (:op-id ev)) (string? (:account-key ev)) (keyword? (:provider ev)) (string? (:subject ev))
-          (said? (:says ev)) (text-or-nil? (:email ev)) (text-or-nil? (:code-hash ev))
+          (said? (:says ev)) (text-or-nil? (:email-hash ev)) (text-or-nil? (:code-hash ev))
           (uuid? (:own-lane ev)) (uuid? (:making-uuid ev)) (uuid? (:making-session ev)) (long-val? (:at ev)))
+
+     (instance? UnlinkEvent ev)
+     (and (string? (:account-key ev)) (uuid? (:link-op ev)) (uuid? (:person ev)) (long-val? (:at ev)))
 
      (instance? AskEvent ev)
      (and (string? (:code ev)) (string? (:hash ev)) (string? (:asking-hash ev)) (string? (:asks ev))
@@ -385,11 +429,11 @@
 
 (defn invite-record-fits?
   [ev]
-  (and (instance? InviteEvent ev) (record-fits? ev)))
+  (and (instance? IInviteEvent ev) (record-fits? ev)))
 
 (defn enter-record-fits?
   [ev]
-  (and (instance? EnterEvent ev) (record-fits? ev)))
+  (and (instance? IEnterEvent ev) (record-fits? ev)))
 
 (defn ask-record-fits?
   [ev]
@@ -422,6 +466,20 @@
   [act]
   (boolean (:delete? act)))
 
+(defn act-writes
+  "Each `[k v]` that the act writes to the one table of its step, `v` nil to
+  remove `k`."
+  [act]
+  (cond
+    (:writes act) (:writes act)
+    (some? (:write-k act)) [[(:write-k act) (when-not (:delete? act) (:write-v act))]]
+    :else []))
+
+(defn act-op-v
+  "What an invite writes under its own op, at the claim's task."
+  [act]
+  (:op-v act))
+
 (defn act-hop-key
   "Nil for a step on the same task."
   [act]
@@ -435,148 +493,118 @@
   [act]
   (:next-st act))
 
-;; ------------------------------------------------------- Slice a: invite
+;; ------------------------------------------------- invite and take-back
 
-(defn invite-step-1
-  "On H(C) (Revision 1). `:claim-in-use` hops to H(P) to clean up any
-  orphaned `RootReserving(C)` (Witness 6)."
-  [^InviteEvent ev c]
-  (let [P (:person ev)]
+(defn invitation-lets-in?
+  "Whether the invitation `w` lets in an enter at `at`: it was made at or
+  before `at`, and `at` is before its end. Both ends are held against the
+  `:at` of the op that the claim is used for."
+  [w at]
+  (boolean (and (instance? Invitation w)
+                (<= (long (:invited-at w)) (long at))
+                (< (long at) (long (:ends w))))))
+
+(defn- not-over?
+  "Whether the invitation `w` is not over at `at`."
+  [w at]
+  (boolean (and (instance? Invitation w) (< (long at) (long (:ends w))))))
+
+(defn claim-named
+  "The person whom the claim `c` names at `at`: its person while a link
+  stands under it or an invitation waits that is not over. Nil when the
+  claim is free."
+  [c at]
+  (when (and (instance? Claim c) (or (seq (:links c)) (not-over? (:waiting c) at)))
+    (:person c)))
+
+(defn- answer-of
+  "The result of an invite of `P` that was answered `answer`."
+  [P answer]
+  (if (= :invited answer) {:invited P} {:refused :claim-in-use}))
+
+(defn invite-step
+  "On H(C), one step, no hop. `c` is the claim's record and `done` the
+  record of this invite's op. An op that has a record changes nothing and
+  gives the answer it gave. Every other case writes the op's record in the
+  same event."
+  [^InviteEvent ev c done]
+  (let [P (:person ev)
+        ck (:claim-key ev)
+        at (long (:at ev))
+        named (claim-named c at)]
     (cond
-      (nil? c)
-      {:hop-key P :next-step :invite/step-2 :next-st {}}
+      (instance? InviteOpDone done)
+      {:result (answer-of P (:answer done))}
 
-      (= (:person c) P)
-      {:hop-key P :next-step :invite/step-4 :next-st {}}
+      (and (some? named) (not= named P))
+      {:result {:refused :claim-in-use} :op-v (->InviteOpDone :claim-in-use at)}
+
+      (and (= named P) (not-over? (:waiting c) at))
+      {:result {:invited P} :op-v (->InviteOpDone :invited at)}
 
       :else
-      {:hop-key P :next-step :invite/step-3-clear :next-st {}})))
+      ;; The links, when there are any, are P's: another's would name another.
+      {:result {:invited P}
+       :write-k ck
+       :write-v (->Claim P
+                         (->Invitation (:op-id ev) (:invited-by-kind ev) (:invited-by-id ev) at (:ends ev))
+                         (if (instance? Claim c) (:links c) {}))
+       :op-v (->InviteOpDone :invited at)})))
 
-(defn invite-step-2
-  "On H(P) (Revision 1). Before refusing `:person-in-use`, hops to H(C) to
-  re-check `$$claims[C]`, so `:claim-in-use` always precedes
-  `:person-in-use` (Witness 9)."
-  [^InviteEvent ev r]
-  (let [P (:person ev)
-        C (:claim-key ev)]
-    (cond
-      (or (instance? RootInvited r) (instance? RootEntered r))
-      (if (= (:claim-key r) C)
-        {:done? true :result {:invited P}}
-        {:hop-key C :next-step :invite/step-2-recheck :next-st {}})
+(defn take-back-step
+  "On H(C), one step, no hop. Takes back the invitation that the op
+  `invite-op` made, when it waits; touches no link and no other invitation."
+  [^TakeBackEvent ev c]
+  (let [ck (:claim-key ev)
+        res {:result {:taken-back (:person ev)}}]
+    (if (and (instance? Claim c) (= (:invite-op ev) (:invite-op (:waiting c))))
+      (if (empty? (:links c))
+        (assoc res :write-k ck :delete? true)
+        (assoc res :write-k ck :write-v (assoc c :waiting nil)))
+      res)))
 
-      (nil? r)
-      {:write-k (k-root P)
-       :write-v (->RootReserving C (:claim-kind ev) (:claim-val ev)
-                                 (:invited-by-kind ev) (:invited-by-id ev) (:at ev))
-       :hop-key C :next-step :invite/step-3 :next-st {}}
+;; ------------------------------------- what an unlink and a release remove
 
-      (instance? RootReserving r)
-      (let [c0 (:claim-key r)]
-        (if (= c0 C)
-          {:hop-key C :next-step :invite/step-3 :next-st {}}
-          {:hop-key c0
-           :next-step :invite/step-2-help-claim
-           :next-st {:help-claim c0
-                     :help-kind (:claim-kind r)
-                     :help-val (:claim-val r)
-                     :help-by-kind (:invited-by-kind r)
-                     :help-by-id (:invited-by-id r)
-                     :help-at (:invited-at r)}})))))
+(defn release-claim
+  "At H(C): the claim `c` of key `ck` without the link of op `L`. The record
+  goes when nothing waits under it and no link is left. Nothing when the
+  link is not there."
+  [ck c L]
+  (cond
+    (not (and (instance? Claim c) (contains? (:links c) L))) {}
+    (and (nil? (:waiting c)) (= 1 (count (:links c)))) {:write-k ck :delete? true}
+    :else {:write-k ck :write-v (update c :links dissoc L)}))
 
-(defn invite-step-2-help-claim
-  "On H(C0): helps a competing `RootReserving(C0)` commit or observe loss on
-  `$$claims[C0]`."
-  [^InviteEvent ev st c0]
-  (let [P (:person ev)
-        hc (:help-claim st)]
-    (cond
-      (nil? c0)
-      {:write-k hc
-       :write-v (->ClaimWaiting P (:help-by-kind st) (:help-by-id st) (:help-at st))
-       :hop-key P
-       :next-step :invite/step-2-help-root
-       :next-st (assoc st :other-won? true)}
+(defn release-entry
+  "At H(P): removes the person's entry of the account when it is of the link
+  `L`; a link made anew meanwhile is not touched."
+  [P ak e L]
+  (if (and (instance? PersonAccount e) (= L (:link-op e)))
+    {:write-k (k-account P ak) :delete? true}
+    {}))
 
-      (= (:person c0) P)
-      {:hop-key P
-       :next-step :invite/step-2-help-root
-       :next-st (assoc st :other-won? true)}
+(defn release-mark
+  "At H(Acc): removes the mark of the unlink of the link `L`."
+  [ak acc L]
+  (if (and (instance? AccountUnlinking acc) (= L (:link-op acc)))
+    {:write-k ak :delete? true}
+    {}))
 
-      :else
-      {:hop-key P
-       :next-step :invite/step-2-help-root
-       :next-st (assoc st :other-won? false)})))
+(defn- mark-of
+  [^AccountUnlinking acc]
+  {:person (:person acc) :claim-key (:claim-key acc) :link-op (:link-op acc)})
 
-(defn invite-step-2-help-root
-  "On H(P): promotes won `C0` (then rechecks `C` for Witness 9) or evicts
-  lost `C0`."
-  [^InviteEvent ev st r]
-  (let [P (:person ev)
-        C (:claim-key ev)
-        hc (:help-claim st)]
-    (if (:other-won? st)
-      (let [promote? (and (instance? RootReserving r) (= (:claim-key r) hc))]
-        (cond-> {:hop-key C :next-step :invite/step-2-recheck :next-st {}}
-          promote?
-          (assoc :write-k (k-root P)
-                 :write-v (->RootInvited hc (:help-kind st) (:help-val st)
-                                         (:help-by-kind st) (:help-by-id st) (:help-at st)))))
-      (if (and (instance? RootReserving r) (= (:claim-key r) hc))
-        {:write-k (k-root P)
-         :write-v (->RootReserving C (:claim-kind ev) (:claim-val ev)
-                                   (:invited-by-kind ev) (:invited-by-id ev) (:at ev))
-         :hop-key C :next-step :invite/step-3 :next-st {}}
-        ;; Root changed meanwhile -> re-run Step 2 locally on H(P)
-        (invite-step-2 ev r)))))
+;; ------------------------------------------------------------------ enter
 
-(defn invite-step-2-recheck
-  "On H(C)."
-  [^InviteEvent ev c]
-  (let [P (:person ev)]
-    (cond
-      (nil? c)          {:done? true :result {:refused :person-in-use}}
-      (= (:person c) P) {:hop-key P :next-step :invite/step-4 :next-st {}}
-      :else             {:done? true :result {:refused :claim-in-use}})))
-
-(defn invite-step-3
-  "On H(C)."
-  [^InviteEvent ev c]
-  (let [P (:person ev)
-        C (:claim-key ev)]
-    (cond
-      (nil? c)
-      {:write-k C
-       :write-v (->ClaimWaiting P (:invited-by-kind ev) (:invited-by-id ev) (:at ev))
-       :hop-key P :next-step :invite/step-4 :next-st {}}
-
-      (= (:person c) P)
-      {:hop-key P :next-step :invite/step-4 :next-st {}}
-
-      :else
-      {:hop-key P :next-step :invite/step-3-clear :next-st {}})))
-
-(defn invite-step-3-clear
-  "On H(P)."
-  [^InviteEvent ev r]
-  (let [P (:person ev)
-        clear? (and (instance? RootReserving r) (= (:claim-key r) (:claim-key ev)))]
-    (cond-> {:done? true :result {:refused :claim-in-use}}
-      clear? (assoc :write-k (k-root P) :delete? true))))
-
-(defn invite-step-4
-  "On H(P)."
-  [^InviteEvent ev r]
-  (let [P (:person ev)
-        C (:claim-key ev)
-        promote? (or (nil? r) (and (instance? RootReserving r) (= (:claim-key r) C)))]
-    (cond-> {:done? true :result {:invited P}}
-      promote?
-      (assoc :write-k (k-root P)
-             :write-v (->RootInvited C (:claim-kind ev) (:claim-val ev)
-                                     (:invited-by-kind ev) (:invited-by-id ev) (:at ev))))))
-
-;; ------------------------------------------------------- Slice a: enter
+(defn claim-provable?
+  "Whether the op `op`, whose enter is at `at`, can use the claim `c`: it
+  holds a link of `op` already (a record that failed after the use, running
+  again, or a second use of one round), or an invitation waits that lets the
+  enter in."
+  [c op at]
+  (boolean (and (instance? Claim c)
+                (or (contains? (:links c) op)
+                    (invitation-lets-in? (:waiting c) at)))))
 
 (defn- linking->target
   [^AccountLinking acc]
@@ -592,7 +620,8 @@
    :says (:says acc)
    :at (:at acc)
    :status (:status acc)
-   :chosen (:chosen acc)})
+   :chosen (:chosen acc)
+   :round (:round acc)})
 
 (defn- enter-route-linking
   [^AccountLinking acc]
@@ -617,12 +646,13 @@
          :next-st {:target t :phase ph :curr-claim ck :code-was-nil? false}}))))
 
 (defn enter-step-1
-  "Step E1, on H(Acc) (Revisions 1 & 5)."
+  "Step E1, on H(Acc). A mark of an unlink is finished first (`E1u`), and
+  then this step runs again."
   [^EnterEvent ev acc]
   (let [ak (:account-key ev)
         self-op (:op-id ev)
         cc (when-let [h (:code-hash ev)] (claim-key-from-parts :code h))
-        ec (when-let [e (:email ev)] (claim-key-from-parts :email e))]
+        ec (when-let [h (:email-hash ev)] (claim-key-from-parts :email h))]
     (cond
       (instance? AccountLinked acc)
       (let [prev-at (long (:says-at acc))
@@ -638,6 +668,11 @@
            :next-step :enter/step-1b-read-flag
            :next-st link-info}))
 
+      (instance? AccountUnlinking acc)
+      {:hop-key (:claim-key acc)
+       :next-step :enter/step-1u-claim
+       :next-st {:mark (mark-of acc)}}
+
       (nil? acc)
       (if (and (nil? cc) (nil? ec))
         {:hop-key self-op
@@ -646,13 +681,33 @@
         (let [linking (->AccountLinking self-op ak (:provider ev) (:subject ev)
                                         cc ec (:own-lane ev) (:making-uuid ev)
                                         (:making-session ev) (:says ev) (:at ev)
-                                        :probing nil)]
+                                        :probing nil 0)]
           (assoc (enter-route-linking linking)
                  :write-k ak
                  :write-v linking)))
 
       (instance? AccountLinking acc)
       (enter-route-linking acc))))
+
+(defn enter-step-1u-claim
+  "Step E1u, on H(C) of the mark: the unlink's U2."
+  [^EnterEvent ev st c]
+  (let [{:keys [person claim-key link-op]} (:mark st)]
+    (assoc (release-claim claim-key c link-op)
+           :hop-key person :next-step :enter/step-1u-person :next-st st)))
+
+(defn enter-step-1u-person
+  "Step E1u, on H(P) of the mark: the unlink's U3."
+  [^EnterEvent ev st e]
+  (let [{:keys [person link-op]} (:mark st)]
+    (assoc (release-entry person (:account-key ev) e link-op)
+           :hop-key (:account-key ev) :next-step :enter/step-1u-account :next-st st)))
+
+(defn enter-step-1u-account
+  "Step E1u, on H(Acc): the unlink's U5, then step E1 again."
+  [^EnterEvent ev st acc]
+  (assoc (release-mark (:account-key ev) acc (:link-op (:mark st)))
+         :hop-key nil :next-step :enter/step-1 :next-st {}))
 
 (defn enter-step-1a-check-op-returning
   "Step E1a, on H(self-op): blocks `:all-after` replay of a previously
@@ -685,7 +740,8 @@
 
 (defn enter-step-2-probe
   "Step E2, on H(curr-claim): strictly read-only probe of `$$claims[C]`,
-  with `:code-recheck` when `:code` was `nil` and `:email` was `ClaimUsed`."
+  with `:code-recheck` when `:code` had no record and the email's claim
+  has one that this op cannot use."
   [^EnterEvent ev st c]
   (let [target (:target st)
         op (:op-id target)
@@ -693,8 +749,7 @@
         ck (:curr-claim st)
         ak (:account-key ev)]
     (cond
-      (or (instance? ClaimWaiting c)
-          (and (instance? ClaimUsed c) (= (:used-by-op c) op)))
+      (claim-provable? c op (:at target))
       {:hop-key ak
        :next-step :enter/step-2b-choose
        :next-st {:target target :probed ck}}
@@ -707,7 +762,7 @@
                  :curr-claim (:email-claim-key target)
                  :code-was-nil? (nil? c)}}
 
-      (and (= :email phase) (:code-was-nil? st) (instance? ClaimUsed c))
+      (and (= :email phase) (:code-was-nil? st) (some? c))
       {:hop-key (:code-claim-key target)
        :next-step :enter/step-2-probe
        :next-st {:target target
@@ -721,7 +776,9 @@
        :next-st {:target target :probed nil}})))
 
 (defn enter-step-2b-choose
-  "Step E2', on H(Acc)."
+  "Step E2', on H(Acc). It changes the status only of the linking of its
+  own target op in its own round; a chain whose round has passed starts
+  again at step E1."
   [^EnterEvent ev st acc]
   (let [target (:target st)
         op (:op-id target)
@@ -729,6 +786,9 @@
         ak (:account-key ev)]
     (cond
       (not (and (instance? AccountLinking acc) (= (:op-id acc) op)))
+      (enter-step-1 ev acc)
+
+      (not= (:round acc) (:round target))
       (enter-step-1 ev acc)
 
       (= :failing (:status acc))
@@ -787,33 +847,36 @@
     (if (= op (:op-id ev))
       (cond-> {:done? true :result {:refused :not-invited}}
         clear? (assoc :write-k ak :delete? true))
-      ;; Helper: clear op first, then re-evaluate self at Step E1 on H(Acc)
-      ;; Note: if we cleared acc, we must hop/continue locally with acc=nil,
-      ;; so we let the topology apply delete and continue> to :enter/step-1!
+      ;; A helper: clears the op's linking, then judges its own enter afresh
+      ;; at step E1, on this task.
       (cond-> {:hop-key nil :next-step :enter/step-1 :next-st {}}
         clear? (assoc :write-k ak :delete? true)))))
 
 (defn enter-step-3-use
-  "Step E3, on H(curr-claim)."
+  "Step E3, on H(curr-claim). A link of the target op that the claim holds
+  already goes on with what it holds; else an invitation that lets the
+  target's enter in is used: it no longer waits, and the target's link
+  stands under the claim. Anything else is a lost choice."
   [^EnterEvent ev st c]
   (let [target (:target st)
         op (:op-id target)
         ck (:curr-claim st)
-        ak (:account-key ev)]
+        ak (:account-key ev)
+        won (fn [P [by-kind by-id by-at]]
+              {:hop-key P
+               :next-step :enter/step-4-root
+               :next-st {:target (assoc target :won-person P :won-claim-key ck
+                                        :won-by-kind by-kind :won-by-id by-id :won-at by-at)}})]
     (cond
-      (instance? ClaimWaiting c)
-      (let [P (:person c)]
-        {:write-k ck
-         :write-v (->ClaimUsed P (:invited-by-kind c) (:invited-by-id c) (:invited-at c) op)
-         :hop-key P
-         :next-step :enter/step-4-root
-         :next-st {:target (assoc target :won-person P :won-claim-key ck)}})
+      (and (instance? Claim c) (contains? (:links c) op))
+      (won (:person c) (get (:links c) op))
 
-      (and (instance? ClaimUsed c) (= (:used-by-op c) op))
-      (let [P (:person c)]
-        {:hop-key P
-         :next-step :enter/step-4-root
-         :next-st {:target (assoc target :won-person P :won-claim-key ck)}})
+      (and (instance? Claim c) (invitation-lets-in? (:waiting c) (:at target)))
+      (let [w (:waiting c)
+            by [(:invited-by-kind w) (:invited-by-id w) (:invited-at w)]]
+        (assoc (won (:person c) by)
+               :write-k ck
+               :write-v (assoc c :waiting nil :links (assoc (:links c) op by))))
 
       :else
       {:hop-key ak
@@ -821,44 +884,55 @@
        :next-st {:target target :failed-claim ck}})))
 
 (defn enter-step-3b-clear-chosen
-  "Step E3b, on H(Acc)."
+  "Step E3b, on H(Acc). Resets the target's linking to `:probing`, in a
+  round one higher, only when it is in the round that the chain left in."
   [^EnterEvent ev st acc]
-  (let [op (:op-id (:target st))
+  (let [target (:target st)
+        op (:op-id target)
         failed-claim (:failed-claim st)
         ak (:account-key ev)
         reset? (and (instance? AccountLinking acc)
                     (= (:op-id acc) op)
+                    (= (:round acc) (:round target))
                     (= :chosen (:status acc))
                     (= (:chosen acc) failed-claim))]
     (cond-> {:hop-key nil :next-step :enter/step-1 :next-st {}}
-      reset? (assoc :write-k ak :write-v (assoc acc :status :probing :chosen nil)))))
+      reset? (assoc :write-k ak :write-v (assoc acc :status :probing :chosen nil
+                                                :round (inc (long (:round acc))))))))
 
 (defn enter-step-4-root
-  "Step E4, on H(P)."
+  "Step E4, on H(P). A person with no record gets `RootEntered` from what
+  the enter offers, with who invited her from the use; one who has a record
+  keeps it. Either way her entry of this account is written, with the
+  target op as its link."
   [^EnterEvent ev st r]
   (let [target (:target st)
         P (:won-person target)
+        ak (:account-key ev)
         entered-already? (instance? RootEntered r)
         r' (if entered-already?
              r
-             (->RootEntered (:claim-key r) (:claim-kind r) (:claim-val r)
-                            (:invited-by-kind r) (:invited-by-id r) (:invited-at r)
-                            (:provider target) (:subject target)
+             (->RootEntered (:won-by-kind target) (:won-by-id target) (:won-at target)
                             (:own-lane target) (:making-uuid target) (:making-session target)
-                            false 0 0))]
-    (cond-> {:hop-key (:account-key ev)
-             :next-step :enter/step-5-link
-             :next-st {:target (assoc target
-                                      :fixed-lane (:own-lane r')
-                                      :fixed-making-uuid (:making-uuid r')
-                                      :fixed-making-session (:making-session r')
-                                      :present-flag (boolean (:own-lane-made? r')))}}
-      (not entered-already?)
-      (assoc :write-k (k-root P) :write-v r'))))
+                            false 0 0))
+        entry (->PersonAccount (:provider target) (:subject target) (:at target) (:op-id target))]
+    {:writes (cond-> [[(k-account P ak) entry]]
+               (not entered-already?) (conj [(k-root P) r']))
+     :hop-key ak
+     :next-step :enter/step-5-link
+     :next-st {:target (assoc target
+                              :fixed-lane (:own-lane r')
+                              :fixed-making-uuid (:making-uuid r')
+                              :fixed-making-session (:making-session r')
+                              :present-flag (boolean (:own-lane-made? r')))}}))
 
 (defn enter-step-5-link
-  "Step E5, on H(Acc). A helper with a strictly later `:at` hops to
-  H(self-op) (`E1a`) to verify not refused before updating `:says`."
+  "Step E5, on H(Acc). The target's linking, in any round, becomes its link;
+  a link of the target op answers its person. Anything else (no record, a
+  mark of an unlink, a link or a linking of another op) releases what the
+  use and step E4 wrote (`E5r`) and starts again at step E1 for this
+  chain's own op. A helper with a strictly later `:at` hops to H(self-op)
+  (`E1a`) to verify not refused before updating `:says`."
   [^EnterEvent ev st acc]
   (let [target (:target st)
         op (:op-id target)
@@ -873,13 +947,18 @@
         linking-this? (and (instance? AccountLinking acc) (= (:op-id acc) op))
         linked-base (cond
                       linking-this?
-                      (->AccountLinked P fl fmu fms (:says target) (:at target))
-                      (instance? AccountLinked acc)
+                      (->AccountLinked P fl fmu fms (:says target) (:at target) (:won-claim-key target) op)
+                      (and (instance? AccountLinked acc) (= (:link-op acc) op))
                       acc
                       :else nil)
         need-self-says? (and (some? linked-base)
                              (> (long (:at ev)) (long (:says-at linked-base))))]
     (cond
+      (nil? linked-base)
+      {:hop-key (:won-claim-key target)
+       :next-step :enter/step-5r-claim
+       :next-st {:target target}}
+
       (and helping? need-self-says?)
       (cond-> {:hop-key self-op
                :next-step :enter/step-1a-check-op-returning
@@ -898,6 +977,75 @@
       (cond-> {:done? true
                :result {:person P :own-lane fl :making {:uuid fmu :session fms} :own-lane-made? flag}}
         linking-this? (assoc :write-k ak :write-v linked-base)))))
+
+(defn enter-step-5r-claim
+  "Step E5r, on H(C) of the use: takes the target op's link out of the
+  claim. The invitation that the use took is spent and is not put back:
+  putting it back could bring back one that was taken back meanwhile."
+  [^EnterEvent ev st c]
+  (let [target (:target st)]
+    (assoc (release-claim (:won-claim-key target) c (:op-id target))
+           :hop-key (:won-person target) :next-step :enter/step-5r-person :next-st st)))
+
+(defn enter-step-5r-person
+  "Step E5r, on H(P) of the use: removes her entry of this account when it
+  is of the target op, then step E1 again for this chain's own op."
+  [^EnterEvent ev st e]
+  (let [target (:target st)]
+    (assoc (release-entry (:won-person target) (:account-key ev) e (:op-id target))
+           :hop-key (:account-key ev) :next-step :enter/step-1 :next-st {})))
+
+;; ----------------------------------------------------------------- unlink
+
+(defn unlink-step-1
+  "Step U1, on H(Acc). The link `L` of `P` is replaced by its mark, which is
+  the decision and holds no `:says`. A mark of `L` is finished. A link `L`
+  of another person is refused, and so is a link that the enter `L` is
+  still making. Anything else means that `L` does not stand on the
+  account: U3 removes an entry that a fault left, and the unlink gives
+  `{:unlinked P}`."
+  [^UnlinkEvent ev acc]
+  (let [L (:link-op ev)
+        P (:person ev)
+        ak (:account-key ev)]
+    (cond
+      (and (instance? AccountLinked acc) (= L (:link-op acc)))
+      (if (= P (:person acc))
+        (let [mark (->AccountUnlinking P (:claim-key acc) L)]
+          {:write-k ak :write-v mark
+           :hop-key (:claim-key acc) :next-step :unlink/step-2 :next-st {:mark (mark-of mark)}})
+        {:done? true :result {:refused :another-persons}})
+
+      (and (instance? AccountUnlinking acc) (= L (:link-op acc)))
+      {:hop-key (:claim-key acc) :next-step :unlink/step-2 :next-st {:mark (mark-of acc)}}
+
+      (and (instance? AccountLinking acc) (= L (:op-id acc)))
+      {:done? true :result {:refused :linking}}
+
+      :else
+      {:hop-key P :next-step :unlink/step-3 :next-st {:mark {:person P :link-op L} :last? true}})))
+
+(defn unlink-step-2
+  "Step U2, on H(C) of the mark."
+  [^UnlinkEvent ev st c]
+  (let [{:keys [person claim-key link-op]} (:mark st)]
+    (assoc (release-claim claim-key c link-op)
+           :hop-key person :next-step :unlink/step-3 :next-st st)))
+
+(defn unlink-step-3
+  "Step U3, on H(P) of the mark."
+  [^UnlinkEvent ev st e]
+  (let [{:keys [person link-op]} (:mark st)
+        act (release-entry person (:account-key ev) e link-op)]
+    (if (:last? st)
+      (assoc act :done? true :result {:unlinked (:person ev)})
+      (assoc act :hop-key (:account-key ev) :next-step :unlink/step-5 :next-st st))))
+
+(defn unlink-step-5
+  "Step U5, on H(Acc)."
+  [^UnlinkEvent ev st acc]
+  (assoc (release-mark (:account-key ev) acc (:link-op (:mark st)))
+         :done? true :result {:unlinked (:person ev)}))
 
 ;; --------------------------------------------------- Slice a: own-lane-made
 
@@ -1639,6 +1787,41 @@
      :answer {:root (:root k) :actor (:actor k) :sign-in (:sign-in k)}}
     (instance? AskNo k)
     {:hash (:hash k) :asking-hash (:asking-hash k) :asks (:asks k) :ends (:ends k) :state :no :answer nil}))
+
+(defn- invited-by-of
+  [kind id]
+  (if (= :system kind) :system id))
+
+(defn project-invitation
+  "What `invitation-of` gives of the claim's record `c`: nil when there is
+  none. It says nothing of \"over\": the caller holds `:ends` against its own
+  time."
+  [c]
+  (when (instance? Claim c)
+    {:person (:person c)
+     :invitation (when-let [w (:waiting c)]
+                   {:invite (:invite-op w)
+                    :invited-by (invited-by-of (:invited-by-kind w) (:invited-by-id w))
+                    :invited-at (:invited-at w)
+                    :ends (:ends w)})
+     :links (count (:links c))}))
+
+(defn account-order
+  "The order of a person's accounts: by the `:at` of the enter that linked
+  each, then by the provider's name, its namespace counted, then by the
+  subject."
+  [{[provider subject] :account linked-at :linked-at}]
+  [linked-at (subs (str provider) 1) subject])
+
+(defn project-accounts
+  "What `accounts-of` gives of the person's entries (`k-account`), a map
+  from key to `PersonAccount`."
+  [m]
+  {:accounts (->> (vals m)
+                  (filter #(instance? PersonAccount %))
+                  (map (fn [e] {:account [(:provider e) (:subject e)] :link (:link-op e) :linked-at (:linked-at e)}))
+                  (sort-by account-order)
+                  vec)})
 
 (def no-live
   "What `watch-root` gives of a root under which nothing is watched and

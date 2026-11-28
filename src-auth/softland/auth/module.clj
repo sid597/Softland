@@ -1,7 +1,8 @@
 (ns softland.auth.module
   "The Rama module `Auth`. One stream topology, `\"auth\"`, decides every
-  write and acks its contract result; three query topologies serve the
-  reads. The module has no global depot, no global PState, no `|global` or
+  write and acks its contract result. Four query topologies serve
+  `who-is`, `under`, `accounts-of` and the client's probe of a task;
+  `ask-of` and `invitation-of` read one record each, by the client. The module has no global depot, no global PState, no `|global` or
   `|all` partitioner and no `TaskGlobal`.
 
   Each depot's dataflow first holds the record against the form that the
@@ -11,19 +12,33 @@
   nothing, so that it can never throw in a step and, under `:all-after`,
   hold its partition.
 
-  Cross-key agreement (`invite`, `enter`, `answer-ask`) runs the pure
-  single-task step functions of `softland.auth.schema` via `loop<-` +
-  `|hash` + `continue>`, so every cross-task hop flushes and replicates local
-  PState mutations before the child event executes.
+  `invite` and `take-back` are one step each at the claim's task, with no
+  hop. `enter`, `unlink` and `answer-ask` run the pure single-task step
+  functions of `softland.auth.schema` via `loop<-` + `|hash` + `continue>`,
+  so every cross-task hop flushes and replicates local PState mutations
+  before the child event executes.
 
-  What holds of those steps, and what does not. The protocol was
-  model-checked as another writing of it, not as these functions: carbon's
-  checker (`src/proposal/runtime-2026-11-21/overnight-audit/auth-concurrent`)
-  ran `spine/auth/agreement/src/auth_concurrent/plan_steps.clj`, under faults
-  and retries of every mode. `schema.clj` is a second writing of the same
-  steps, held to the contract's reference by `softland.auth.module-check`'s
-  generated histories through this module, on a healthy cluster: on this
-  module no hop has failed and no record has been replayed in any run."
+  What holds of those steps, and what does not. The protocol of `enter` and
+  `answer-ask` was model-checked as another writing of it, not as these
+  functions: carbon's checker
+  (`src/proposal/runtime-2026-11-21/overnight-audit/auth-concurrent`) ran
+  `spine/auth/agreement/src/auth_concurrent/plan_steps.clj`, under faults and
+  retries of every mode. Since 28 November the steps of `invite`,
+  `take-back`, `enter` and `unlink` are new (a claim that comes back, an
+  invitation that ends, several accounts for one person, a link that is
+  removed), and no model check has run them: not the helping steps of
+  `enter` with claims that come back, not the round of a linking, not the
+  release of step 5, not `unlink`. What holds them: the generated histories
+  of `softland.auth.module-check` through this module against the contract's
+  reference, on a healthy cluster, where on this module no hop has failed and
+  no record has been replayed in any run; the concurrent scenarios of
+  `softland.auth.module-harness` (`invitations`), each of which allows only
+  the outcomes that some order of its two writes gives; carbon's scenarios
+  of invites and enters (`step3`), brought to the contract; and, for a
+  record that runs again, the steps
+  called by hand in the orders of events that each rule is for
+  (`softland.auth.module-harness`, `reruns`), which holds the steps and not
+  this module."
   (:use [com.rpl.rama]
         [com.rpl.rama.path])
   (:require [com.rpl.rama.ops :as ops]
@@ -32,9 +47,9 @@
            [softland.auth.schema
             AskEvent AnswerAskEvent BeginSignInEvent CloseSessionEvent
             EndActorEvent EndSignInEvent EnterEvent IAccountState IAskState
-            IClaimState IEnterOpState ILiveEntry IRootDatum InviteEvent
+            IClaimState IEnterOpState IInviteOpState ILiveEntry IRootDatum InviteEvent
             MakeActorEvent OpenSessionEvent OwnLaneMadeEvent
-            ReplaceSecretEvent]))
+            ReplaceSecretEvent TakeBackEvent UnlinkEvent]))
 
 (def ^:private source-opts
   {:start-from :beginning :retry-mode :all-after})
@@ -84,258 +99,237 @@
     (identity nil :> *arec))
   (:> *arec))
 
+(deframaop write-act!
+  "The task must be the one of the step's table. Writes `s/act-writes` of
+  `*act` to `*p`: each pair, a nil value removing its key; no read."
+  [*act *p]
+  (<<atomic
+    (ops/explode (s/act-writes *act) :> [*k *v])
+    (<<if (some? *v)
+      (local-transform> [(keypath *k) (termval *v)] *p)
+     (else>)
+      (local-transform> [(keypath *k) NONE>] *p)))
+  (:>))
+
 (defn- invites-source!
   [st]
   (<<sources st
     ;; ====================================================================
-    ;; 1. *invites -> invite (cross-key H(C) <-> H(P), Revision 1)
+    ;; 1. *invites -> invite and take-back: one step each on H(C), no hop
     ;; ====================================================================
     (source> *invites source-opts :> *ev)
     (<<if (s/invite-record-fits? *ev)
-      (loop<- [*step :invite/step-1
-               *st {}
-               :> *result]
-        (<<cond
-          (case> (= *step :invite/step-1))
-          (get *ev :claim-key :> *ck)
-          (local-select> [(keypath *ck)] $$claims :> *c)
-          (s/invite-step-1 *ev *c :> *act)
-          (<<if (s/act-done? *act)
-            (:> (s/act-result *act))
-           (else>)
-            (|hash (s/act-hop-key *act))
-            (continue> (s/act-next-step *act) (s/act-next-st *act)))
+      (<<subsource *ev
+        (case> InviteEvent)
+        (get *ev :claim-key :> *ck)
+        (get *ev :op-id :> *op)
+        (local-select> [(keypath *ck)] $$claims :> *c)
+        (local-select> [(keypath *op)] $$invite-ops :> *done)
+        (s/invite-step *ev *c *done :> *act)
+        (write-act! *act $$claims)
+        (s/act-op-v *act :> *ov)
+        (<<if (some? *ov)
+          (local-transform> [(keypath *op) (termval *ov)] $$invite-ops))
+        (ack-return> (s/act-result *act))
 
-          (case> (= *step :invite/step-2))
-          (s/k-root (get *ev :person) :> *rk)
-          (local-select> [(keypath *rk)] $$root-data :> *r)
-          (s/invite-step-2 *ev *r :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$root-data))
-          (<<if (s/act-done? *act)
-            (:> (s/act-result *act))
-           (else>)
-            (|hash (s/act-hop-key *act))
-            (continue> (s/act-next-step *act) (s/act-next-st *act)))
-
-          (case> (= *step :invite/step-2-help-claim))
-          (get *st :help-claim :> *hc)
-          (local-select> [(keypath *hc)] $$claims :> *c0)
-          (s/invite-step-2-help-claim *ev *st *c0 :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$claims))
-          (|hash (s/act-hop-key *act))
-          (continue> (s/act-next-step *act) (s/act-next-st *act))
-
-          (case> (= *step :invite/step-2-help-root))
-          (s/k-root (get *ev :person) :> *rk)
-          (local-select> [(keypath *rk)] $$root-data :> *r)
-          (s/invite-step-2-help-root *ev *st *r :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$root-data))
-          (<<if (s/act-done? *act)
-            (:> (s/act-result *act))
-           (else>)
-            (|hash (s/act-hop-key *act))
-            (continue> (s/act-next-step *act) (s/act-next-st *act)))
-
-          (case> (= *step :invite/step-2-recheck))
-          (get *ev :claim-key :> *ck)
-          (local-select> [(keypath *ck)] $$claims :> *c)
-          (s/invite-step-2-recheck *ev *c :> *act)
-          (<<if (s/act-done? *act)
-            (:> (s/act-result *act))
-           (else>)
-            (|hash (s/act-hop-key *act))
-            (continue> (s/act-next-step *act) (s/act-next-st *act)))
-
-          (case> (= *step :invite/step-3))
-          (get *ev :claim-key :> *ck)
-          (local-select> [(keypath *ck)] $$claims :> *c)
-          (s/invite-step-3 *ev *c :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$claims))
-          (|hash (s/act-hop-key *act))
-          (continue> (s/act-next-step *act) (s/act-next-st *act))
-
-          (case> (= *step :invite/step-3-clear))
-          (s/k-root (get *ev :person) :> *rk)
-          (local-select> [(keypath *rk)] $$root-data :> *r)
-          (s/invite-step-3-clear *ev *r :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) NONE>] $$root-data))
-          (:> (s/act-result *act))
-
-          (case> (= *step :invite/step-4))
-          (s/k-root (get *ev :person) :> *rk)
-          (local-select> [(keypath *rk)] $$root-data :> *r)
-          (s/invite-step-4 *ev *r :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$root-data))
-          (:> (s/act-result *act))))
-      (ack-return> *result)
+        (case> TakeBackEvent)
+        (get *ev :claim-key :> *ck)
+        (local-select> [(keypath *ck)] $$claims :> *c)
+        (s/take-back-step *ev *c :> *act)
+        (write-act! *act $$claims)
+        (ack-return> (s/act-result *act)))
      (else>)
       (ack-return> s/does-not-fit))))
+
+(defmacro ^:private hop-or-done
+  "The end of a step of a chain: its result, or the next step, on the task
+  of the act's hop key when it has one, else on this task."
+  [act]
+  (list '<<if (list 's/act-done? act)
+        (list :> (list 's/act-result act))
+        '(else>)
+        (list 's/act-hop-key act :> '*hk)
+        (list '<<if '(some? *hk) '(|hash *hk))
+        (list 'continue> (list 's/act-next-step act) (list 's/act-next-st act))))
 
 (defn- enters-source!
   "Hops between H(Acc), H(C), H(op) and H(P)."
   [st]
   (<<sources st
     ;; ====================================================================
-    ;; 2. *enters -> enter (uniform choose-at-account, Revisions 1 & 5)
+    ;; 2. *enters -> enter (uniform choose-at-account) and unlink
     ;; ====================================================================
     (source> *enters source-opts :> *ev)
     (<<if (s/enter-record-fits? *ev)
-      (loop<- [*step :enter/step-1
-               *st {}
-               :> *result]
-        (<<cond
-          (case> (= *step :enter/step-1))
-          (get *ev :account-key :> *ak)
-          (local-select> [(keypath *ak)] $$accounts :> *acc)
-          (s/enter-step-1 *ev *acc :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$accounts))
-          (<<if (s/act-done? *act)
+      (<<subsource *ev
+        (case> EnterEvent)
+        (loop<- [*step :enter/step-1
+                 *st {}
+                 :> *result]
+          (<<cond
+            (case> (= *step :enter/step-1))
+            (get *ev :account-key :> *ak)
+            (local-select> [(keypath *ak)] $$accounts :> *acc)
+            (s/enter-step-1 *ev *acc :> *act)
+            (write-act! *act $$accounts)
+            (hop-or-done *act)
+
+            (case> (= *step :enter/step-1u-claim))
+            (get (get *st :mark) :claim-key :> *ck)
+            (local-select> [(keypath *ck)] $$claims :> *c)
+            (s/enter-step-1u-claim *ev *st *c :> *act)
+            (write-act! *act $$claims)
+            (hop-or-done *act)
+
+            (case> (= *step :enter/step-1u-person))
+            (s/k-account (get (get *st :mark) :person) (get *ev :account-key) :> *ek)
+            (local-select> [(keypath *ek)] $$root-data :> *e)
+            (s/enter-step-1u-person *ev *st *e :> *act)
+            (write-act! *act $$root-data)
+            (hop-or-done *act)
+
+            (case> (= *step :enter/step-1u-account))
+            (get *ev :account-key :> *ak)
+            (local-select> [(keypath *ak)] $$accounts :> *acc)
+            (s/enter-step-1u-account *ev *st *acc :> *act)
+            (write-act! *act $$accounts)
+            (hop-or-done *act)
+
+            (case> (= *step :enter/step-1a-check-op-returning))
+            (get *ev :op-id :> *op)
+            (local-select> [(keypath *op)] $$enter-ops :> *eo)
+            (s/enter-step-1a-check-op-returning *ev *st *eo :> *act)
+            (hop-or-done *act)
+
+            (case> (= *step :enter/step-1c-update-says))
+            (get *ev :account-key :> *ak)
+            (local-select> [(keypath *ak)] $$accounts :> *acc)
+            (s/enter-step-1c-update-says *ev *st *acc :> *act)
+            (write-act! *act $$accounts)
+            (hop-or-done *act)
+
+            (case> (= *step :enter/step-1b-read-flag))
+            (s/k-root (get *st :linked-person) :> *rk)
+            (local-select> [(keypath *rk)] $$root-data :> *r)
+            (s/enter-step-1b-read-flag *st *r :> *act)
             (:> (s/act-result *act))
-           (else>)
-            (|hash (s/act-hop-key *act))
-            (continue> (s/act-next-step *act) (s/act-next-st *act)))
 
-          (case> (= *step :enter/step-1a-check-op-returning))
-          (get *ev :op-id :> *op)
-          (local-select> [(keypath *op)] $$enter-ops :> *eo)
-          (s/enter-step-1a-check-op-returning *ev *st *eo :> *act)
-          (<<if (s/act-done? *act)
-            (:> (s/act-result *act))
-           (else>)
-            (|hash (s/act-hop-key *act))
-            (continue> (s/act-next-step *act) (s/act-next-st *act)))
+            (case> (= *step :enter/step-2-probe))
+            (get *st :curr-claim :> *ck)
+            (local-select> [(keypath *ck)] $$claims :> *c)
+            (s/enter-step-2-probe *ev *st *c :> *act)
+            (hop-or-done *act)
 
-          (case> (= *step :enter/step-1c-update-says))
-          (get *ev :account-key :> *ak)
-          (local-select> [(keypath *ak)] $$accounts :> *acc)
-          (s/enter-step-1c-update-says *ev *st *acc :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$accounts))
-          (|hash (s/act-hop-key *act))
-          (continue> (s/act-next-step *act) (s/act-next-st *act))
+            (case> (= *step :enter/step-2b-choose))
+            (get *ev :account-key :> *ak)
+            (local-select> [(keypath *ak)] $$accounts :> *acc)
+            (s/enter-step-2b-choose *ev *st *acc :> *act)
+            (write-act! *act $$accounts)
+            (hop-or-done *act)
 
-          (case> (= *step :enter/step-1b-read-flag))
-          (s/k-root (get *st :linked-person) :> *rk)
-          (local-select> [(keypath *rk)] $$root-data :> *r)
-          (s/enter-step-1b-read-flag *st *r :> *act)
-          (:> (s/act-result *act))
+            (case> (= *step :enter/step-2c-confirm-choice))
+            (get (get *st :target) :op-id :> *op)
+            (local-select> [(keypath *op)] $$enter-ops :> *eo)
+            (s/enter-step-2c-confirm-choice *ev *st *eo :> *act)
+            (hop-or-done *act)
 
-          (case> (= *step :enter/step-2-probe))
-          (get *st :curr-claim :> *ck)
-          (local-select> [(keypath *ck)] $$claims :> *c)
-          (s/enter-step-2-probe *ev *st *c :> *act)
-          (|hash (s/act-hop-key *act))
-          (continue> (s/act-next-step *act) (s/act-next-st *act))
+            (case> (= *step :enter/step-2c-mark-failed))
+            (get (get *st :target) :op-id :> *op)
+            (local-select> [(keypath *op)] $$enter-ops :> *eo)
+            (s/enter-step-2c-mark-failed *ev *st *eo :> *act)
+            (write-act! *act $$enter-ops)
+            (hop-or-done *act)
 
-          (case> (= *step :enter/step-2b-choose))
-          (get *ev :account-key :> *ak)
-          (local-select> [(keypath *ak)] $$accounts :> *acc)
-          (s/enter-step-2b-choose *ev *st *acc :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$accounts))
-          (<<if (s/act-done? *act)
-            (:> (s/act-result *act))
-           (else>)
-            (|hash (s/act-hop-key *act))
-            (continue> (s/act-next-step *act) (s/act-next-st *act)))
+            (case> (= *step :enter/step-2c-mark-failed-direct))
+            (get *ev :op-id :> *op)
+            (local-select> [(keypath *op)] $$enter-ops :> *eo)
+            (s/enter-step-2c-mark-failed-direct *ev *eo :> *act)
+            (write-act! *act $$enter-ops)
+            (hop-or-done *act)
 
-          (case> (= *step :enter/step-2c-confirm-choice))
-          (get (get *st :target) :op-id :> *op)
-          (local-select> [(keypath *op)] $$enter-ops :> *eo)
-          (s/enter-step-2c-confirm-choice *ev *st *eo :> *act)
-          (|hash (s/act-hop-key *act))
-          (continue> (s/act-next-step *act) (s/act-next-st *act))
+            (case> (= *step :enter/step-2d-finish-failed))
+            (get *ev :account-key :> *ak)
+            (local-select> [(keypath *ak)] $$accounts :> *acc)
+            (s/enter-step-2d-finish-failed *ev *st *acc :> *act)
+            (write-act! *act $$accounts)
+            (hop-or-done *act)
 
-          (case> (= *step :enter/step-2c-mark-failed))
-          (get (get *st :target) :op-id :> *op)
-          (local-select> [(keypath *op)] $$enter-ops :> *eo)
-          (s/enter-step-2c-mark-failed *ev *st *eo :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$enter-ops))
-          (|hash (s/act-hop-key *act))
-          (continue> (s/act-next-step *act) (s/act-next-st *act))
+            (case> (= *step :enter/step-3-use))
+            (get *st :curr-claim :> *ck)
+            (local-select> [(keypath *ck)] $$claims :> *c)
+            (s/enter-step-3-use *ev *st *c :> *act)
+            (write-act! *act $$claims)
+            (hop-or-done *act)
 
-          (case> (= *step :enter/step-2c-mark-failed-direct))
-          (get *ev :op-id :> *op)
-          (local-select> [(keypath *op)] $$enter-ops :> *eo)
-          (s/enter-step-2c-mark-failed-direct *ev *eo :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$enter-ops))
-          (:> (s/act-result *act))
+            (case> (= *step :enter/step-3b-clear-chosen))
+            (get *ev :account-key :> *ak)
+            (local-select> [(keypath *ak)] $$accounts :> *acc)
+            (s/enter-step-3b-clear-chosen *ev *st *acc :> *act)
+            (write-act! *act $$accounts)
+            (hop-or-done *act)
 
-          (case> (= *step :enter/step-2d-finish-failed))
-          (get *ev :account-key :> *ak)
-          (local-select> [(keypath *ak)] $$accounts :> *acc)
-          (s/enter-step-2d-finish-failed *ev *st *acc :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) NONE>] $$accounts))
-          (<<if (s/act-done? *act)
-            (:> (s/act-result *act))
-           (else>)
-            (continue> (s/act-next-step *act) (s/act-next-st *act)))
+            (case> (= *step :enter/step-4-root))
+            (get (get *st :target) :won-person :> *P)
+            (local-select> [(keypath (s/k-root *P))] $$root-data :> *r)
+            (s/enter-step-4-root *ev *st *r :> *act)
+            (write-act! *act $$root-data)
+            (hop-or-done *act)
 
-          (case> (= *step :enter/step-3-use))
-          (get *st :curr-claim :> *ck)
-          (local-select> [(keypath *ck)] $$claims :> *c)
-          (s/enter-step-3-use *ev *st *c :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$claims))
-          (|hash (s/act-hop-key *act))
-          (continue> (s/act-next-step *act) (s/act-next-st *act))
+            (case> (= *step :enter/step-5-link))
+            (get *ev :account-key :> *ak)
+            (local-select> [(keypath *ak)] $$accounts :> *acc)
+            (s/enter-step-5-link *ev *st *acc :> *act)
+            (write-act! *act $$accounts)
+            (hop-or-done *act)
 
-          (case> (= *step :enter/step-3b-clear-chosen))
-          (get *ev :account-key :> *ak)
-          (local-select> [(keypath *ak)] $$accounts :> *acc)
-          (s/enter-step-3b-clear-chosen *ev *st *acc :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$accounts))
-          (continue> (s/act-next-step *act) (s/act-next-st *act))
+            (case> (= *step :enter/step-5r-claim))
+            (get (get *st :target) :won-claim-key :> *ck)
+            (local-select> [(keypath *ck)] $$claims :> *c)
+            (s/enter-step-5r-claim *ev *st *c :> *act)
+            (write-act! *act $$claims)
+            (hop-or-done *act)
 
-          (case> (= *step :enter/step-4-root))
-          (get (get *st :target) :won-person :> *P)
-          (s/k-root *P :> *rk)
-          (local-select> [(keypath *rk)] $$root-data :> *r)
-          (s/enter-step-4-root *ev *st *r :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$root-data))
-          (|hash (s/act-hop-key *act))
-          (continue> (s/act-next-step *act) (s/act-next-st *act))
+            (case> (= *step :enter/step-5r-person))
+            (s/k-account (get (get *st :target) :won-person) (get *ev :account-key) :> *ek)
+            (local-select> [(keypath *ek)] $$root-data :> *e)
+            (s/enter-step-5r-person *ev *st *e :> *act)
+            (write-act! *act $$root-data)
+            (hop-or-done *act)))
+        (ack-return> *result)
 
-          (case> (= *step :enter/step-5-link))
-          (get *ev :account-key :> *ak)
-          (local-select> [(keypath *ak)] $$accounts :> *acc)
-          (s/enter-step-5-link *ev *st *acc :> *act)
-          (s/act-write-k *act :> *wk)
-          (<<if (some? *wk)
-            (local-transform> [(keypath *wk) (termval (s/act-write-v *act))] $$accounts))
-          (<<if (s/act-done? *act)
-            (:> (s/act-result *act))
-           (else>)
-            (|hash (s/act-hop-key *act))
-            (continue> (s/act-next-step *act) (s/act-next-st *act)))))
-      (ack-return> *result)
+        (case> UnlinkEvent)
+        (loop<- [*step :unlink/step-1
+                 *st {}
+                 :> *result]
+          (<<cond
+            (case> (= *step :unlink/step-1))
+            (get *ev :account-key :> *ak)
+            (local-select> [(keypath *ak)] $$accounts :> *acc)
+            (s/unlink-step-1 *ev *acc :> *act)
+            (write-act! *act $$accounts)
+            (hop-or-done *act)
+
+            (case> (= *step :unlink/step-2))
+            (get (get *st :mark) :claim-key :> *ck)
+            (local-select> [(keypath *ck)] $$claims :> *c)
+            (s/unlink-step-2 *ev *st *c :> *act)
+            (write-act! *act $$claims)
+            (hop-or-done *act)
+
+            (case> (= *step :unlink/step-3))
+            (s/k-account (get (get *st :mark) :person) (get *ev :account-key) :> *ek)
+            (local-select> [(keypath *ek)] $$root-data :> *e)
+            (s/unlink-step-3 *ev *st *e :> *act)
+            (write-act! *act $$root-data)
+            (hop-or-done *act)
+
+            (case> (= *step :unlink/step-5))
+            (get *ev :account-key :> *ak)
+            (local-select> [(keypath *ak)] $$accounts :> *acc)
+            (s/unlink-step-5 *ev *st *acc :> *act)
+            (write-act! *act $$accounts)
+            (hop-or-done *act)))
+        (ack-return> *result))
      (else>)
       (ack-return> s/does-not-fit))))
 
@@ -565,6 +559,7 @@
     (declare-pstate st $$live {UUID (map-schema String ILiveEntry {:subindex-options {:track-size? false}})})
     (declare-pstate st $$accounts {String IAccountState})
     (declare-pstate st $$claims {String IClaimState})
+    (declare-pstate st $$invite-ops {UUID IInviteOpState})
     (declare-pstate st $$asks {String IAskState})
     (declare-pstate st $$enter-ops {UUID IEnterOpState})
 
@@ -640,6 +635,19 @@
      (else>)
       (identity nil :> *live-g-map))
     (s/build-under-result *ao-map *ae-map *live-g-map :> *result)
+    (|origin))
+
+  ;; ========================================================================
+  ;; Query Topology: "accounts-of" (1 RT to 1 task: one seek and a scan of the
+  ;; person's entries, which are few)
+  ;; ========================================================================
+  (<<query-topology topologies "accounts-of"
+    [*person :> *result]
+    (|hash *person)
+    (local-select> [(sorted-map-range (s/k-account-lo *person) (s/k-account-hi *person))]
+                   $$root-data
+                   :> *entries)
+    (s/project-accounts *entries :> *result)
     (|origin))
 
   ;; ========================================================================
