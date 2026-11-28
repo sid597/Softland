@@ -58,7 +58,7 @@ earlier form until each is rebuilt.
 | Part | Responsibility | State and lifetime |
 |---|---|---|
 | [act.clj](act.clj) | The declared shape of an act and of what it holds, the rules that a shape cannot say, and the check that reads both. It gives its engine to the door's declaration. | None. |
-| [door.clj](door.clj) | The door: it opens on the module, gives act-ids, appends each act as its maker gave it, with an act-id, the lane's depot and the time of its server's clock added, and reads the answer back by act-id. It is a client of the module, and checks nothing of an act. | None: it keeps nothing between two calls. It borrows four handles of Rama's client and holds one number, fixed at its opening. |
+| [door.clj](door.clj) | The door: it opens on the module, gives act-ids, appends each act as its maker gave it, with an act-id and the time of its server's clock added, to the depot that the lane's own depot fact says, and reads the answer back by act-id. It is a client of the module, and checks nothing of an act. | None: it keeps nothing between two calls. It borrows four handles of Rama's client and holds one number, fixed at its opening. |
 | [door/](door/README.md) | What arrives on a depot, as the door hands it over and a gate checks it: the door's declaration, the one text of a thing and its digest. And the door's own pure parts: what it makes of one act, the numbers of a wait, and its words. | None. |
 | [read_path.clj](read_path.clj) | The read path: it opens on the module, reads a query once or keeps it live, and says when an asker left. It is a client of the module: it selects and watches the four tables of facts, and for a read of a lane's acts by stamp, asked once, it selects each gate's line, its things and its table for a task; it reads nothing else. It writes nothing. | Who looks at what, what each asked for, and the pushes that they share, with a count of them: the memory of one process, empty at each opening. It borrows ten handles of Rama's client. It holds no row and no value. |
 | [read_path/](read_path/README.md) | The rules of a read, as pure code: the form of a query and its check, the lanes of a read and who may see each, the sources that a read asks of Rama, the answer, and the read path's words. | None. |
@@ -750,7 +750,7 @@ permission and the two keys' words are a session's. A gate holds an act to
 what its permission covers before it reads the chain: the act's `:session`
 against the run; for a yes, the act itself, by its digest. The digest is of
 the act as its maker made it, in the one form that `parse` gives, with its
-who and its session, without its act-id, its depot, its time and its
+who and its session, without its act-id, its time and its
 permission (`hex-for-a-yes` in [digest.clj](door/digest.clj)): the maker's
 function, which she calls before her act has an act-id or a permission, and
 which gives no digest for an act that the declaration refuses under every

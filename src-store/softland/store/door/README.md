@@ -169,9 +169,9 @@ not act, a value that is no value of the form, a value over the bound on one
 value and an act with more facts than the limit are each appended, and a gate
 refuses each under its own act-id with the gate's word. The door bounds no
 size: through it a thing of any size that Rama's client writes is in the log.
-Nothing paces a sender. One thing more ends in a word of the door with nothing
+Nothing paces a sender. Two things more end in a word of the door with nothing
 appended, beside its three tests: a thing that throws while the door takes its
-digest. An append that throws ends in `:append-cleanly`, the one word that
+digest, and a read of the lane's depot that throws (`:read-the-lanes-depot`). An append that throws ends in `:append-cleanly`, the one word that
 cannot say that nothing was appended. A thing that has no end in any part holds
 its own maker's thread in the digest's walk, and that call does not come back.
 The namespace docstring of [door.clj](../door.clj) says each of these, and what

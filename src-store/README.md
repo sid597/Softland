@@ -105,7 +105,8 @@ session read the photographs and wrote down a mark for each question
    maker's; a gate checks what arrives against it. Since then the class is
    called the depot (9 October), the door also writes the time, and the seal
    was set aside on 12 October (entry 2 of that day): the door adds the
-   act-id, the depot and the time.
+   act-id, the depot and the time. Since 28 November 2026 it adds the act-id
+   and the time: a lane's depot is the lane's own fact (entry 3 of that day).
 3. **The seal is below the form.** Sid decided. The act holds plain values. The
    door seals, and a gate refuses an unsealed value by its own rule. So the act
    has no sealed bytes, no lock id, no store keys, no placed keys, no mark, and
@@ -121,6 +122,8 @@ session read the photographs and wrote down a mark for each question
    door reads the layer and adds the class; an act that the store places
    itself always carries the class. The door makes act-ids. An act-id is
    `[layer class uuid]`: three slots, no scheme word, the last a random UUID.
+   (That is the act-id of then. Since 28 November 2026 it is `[lane uuid]`,
+   and no act-id names a depot: entry 3 of that day.)
    Sid asked on 7 October why it was called a name when "act-uuid" would be
    understood (‹9b8f461f›); it holds more than the UUID, so a session wrote
    act-id — his to change. The act still refers to
@@ -131,7 +134,9 @@ session read the photographs and wrote down a mark for each question
    decided: they are his words for the two kinds of depot, "my streaming and
    microbatch" (‹12c9bd22›). What a later change of the two words would cost,
    read and not run: the word is in every act-id, and an act-id is in the
-   log, with its own act and in each act that names it. Rama can write the
+   log, with its own act and in each act that names it. (Of the act-id of
+   then: since 28 November 2026 no act-id holds the word, entry 3 of that
+   day.) Rama can write the
    records of a log again at a module update
    (`/mnt/data/projects/research/softland/rama-reference/docs/14-depots.md`, line 288). No key of a table holds
    the word (`answer-key` in `softland/store/record/rows.clj`).
@@ -287,7 +292,8 @@ never live there.
 10. **The act's id is called act-id.** Sid asked why it was called a name when
     "act-uuid" would be understood (‹9b8f461f›); it holds more than the UUID —
     `[layer class uuid]`, the layer and the class route the act and find its
-    answer — so a session wrote act-id; the word is his to change. **The word
+    answer (the act-id of then; since 28 November 2026 it is `[lane uuid]`,
+    entry 3 of that day) — so a session wrote act-id; the word is his to change. **The word
     "class"** (streaming or microbatch) is borrowed and not accepted; it stays
     until Sid gives one. He gave it on 9 October: "depot" (entry 4 of that
     day). The code says "depot" since the rename of that day.
@@ -479,7 +485,8 @@ chose, and the fourth waits for two words.
    "Naming::: bro you total shit at it .." (‹32f65085›). The rename was made
    the same day. The code says
    "depot", the three keys of facts carry the namespace, and the part of a
-   thing as it arrives is `:depot`. The act's own part `:permission` keeps
+   thing as it arrives is `:depot` (no part since 28 November 2026, entry 3
+   of that day). The act's own part `:permission` keeps
    its word: only the key of a fact takes the namespace. Asked "Should a gate
    refuse a key in softland.store that the store does not know?", he said
    "yes" (‹1a5ec25a›). So a gate refuses such a fact with
@@ -917,7 +924,9 @@ everything is partitioned by the layer key."
    - The door adds the time to a maker's thing, beside the act-id and the
      depot. A stamp is made of that time, and the stamp of 8 October stands
      (entry 4 of that day). Changed on 14 October: no stamp is made of the
-     time, which is a label beside it (entry 1 of that day).
+     time, which is a label beside it (entry 1 of that day). Since 28
+     November 2026 the door adds no depot: the time is beside the act-id
+     alone (entry 3 of that day).
    - Not decided, his list in the prompt: "what a second send of the same act
      carries as its time"; "what happens to a record that arrives with no
      time"; "what the time on the act is called"; "where a time that is far
@@ -1351,7 +1360,8 @@ questions that the session put to him in one text («59efa1cb»), numbered 4a,
 4b and 4c there. His answers are in one line (‹b8e1bdaf›), which begins "Yes
 to all that i dont explicitly comment below". Words in quotation marks after
 "his answer" are his, as he typed them; each question is given as the session
-put it. His yes covers each change as the question said it. What a session
+put it, but for the question of entry 3, which is retold: its text was not at
+hand when that entry was written. His yes covers each change as the question said it. What a session
 drew from an answer, and every name and shape inside a change, is marked as a
 session's and is his to turn. The three are one change, since each changes
 the bytes that a digest is taken of.
@@ -1400,3 +1410,47 @@ the bytes that a digest is taken of.
      lane, where the part of an act was read only by whoever may read the
      lane's acts whole; and a fact under a plain key needs a permission that
      allows writing.
+
+3. **The depot word leaves an act's id; a lane's depot is said by the lane's
+   own fact.** The question (4c), retold and not quoted: the session asked
+   whether a lane's speed, its depot, should be changeable after the lane is
+   made. Its own words are in «59efa1cb», which could not be reached when this
+   entry was written; a session with the record puts them in here. His
+   answer: "4c yes should be controllable". It stands beside his line of 7
+   October (entry 4 of that day): "members choose yes, default is streaming
+   yes" (‹27882354›). What comes with it, a session's, and his to turn:
+   - An act's id is `[lane uuid]` and a fact's id `[[lane uuid] index]`
+     (`:act-id` and `:fact-id` in `softland/store/act.clj`). The thing that
+     arrives on a depot is the maker's act with `:act-id` and `:door-time`
+     added. It carries no `:depot`: a thing that does is refused
+     `:unknown-part`.
+   - A lane's depot is found in the lane's own fact, at
+     `[lane :softland.store/depot]`, which its making act writes. The door
+     reads it for each send (`softland/store/door.clj`): one read and one
+     append for an act; for a series through `send-acts`, one read for each
+     lane and one append for each act. The read by act-id reads the same fact
+     in the same turn on the lane's task, one seek more and no round trip
+     more, to know which gate's answers to read
+     (`softland/store/module/door_reads.clj`).
+   - Where a lane starts stays a pure function of its id (`depot-at-making`
+     in `softland/store/gate/first_act.clj`): the base on the microbatch
+     depot, every other lane on the streaming depot, the default. That is
+     what lets both gates and the door agree on which gate makes a lane, with
+     no read and no race between the two depots.
+   - A maker who chooses another speed as she makes her lane is the same step
+     as changing a made lane's speed later: a handing over of the lane from
+     one gate to the other. Neither is built. A gate refuses a depot fact in a
+     made lane with `:changing-a-depot-not-decided` when it names the other
+     depot (`fact-fault` in `softland/store/gate/decision.clj`).
+   - What a change of speed would still have to build, besides the handing
+     over itself. The reads that pick a gate's tables by `depot-at-making`
+     and not by the lane's fact: `sources.clj`, `acts.clj` and `lanes.clj`
+     under `softland/store/read_path/`, and in `door_reads.clj` the query
+     `lane-rights` and the read of the depot fact itself. A gate's word for
+     an act of a lane that starts on the other depot, which reads the lane's
+     id alone (`starts-with-the-other-gates-depot?` in `first_act.clj`). And
+     what to do with a thing that an appender other than the door put on the
+     other gate's depot: that gate refuses it
+     `:lane-belongs-to-the-other-gate` and keeps the refusal in its own
+     record, under the same answer key as the lane's own gate keeps the
+     lane's answers (`answer-key` in `softland/store/record/rows.clj`).

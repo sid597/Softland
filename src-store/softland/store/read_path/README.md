@@ -43,8 +43,8 @@ two ends; and the sources, for the one test of a letter that a range of Rama's
 does not order as the table does. [answer.clj](answer.clj) requires the lanes
 and the sources. [acts.clj](acts.clj) requires the lanes and the sources, for
 the rights, which it reads as a read of facts reads them; it takes the keys of
-the line from [rows.clj](../record/rows.clj), and the act-id's depot from
-[first_act.clj](../gate/first_act.clj).
+the line from [rows.clj](../record/rows.clj), and the depot that the lane starts
+with from [first_act.clj](../gate/first_act.clj).
 
 [read_path.clj](../read_path.clj) requires the query, the sources, the answer,
 the acts and the words. It holds no rule of a read. It fetches what the sources say is
