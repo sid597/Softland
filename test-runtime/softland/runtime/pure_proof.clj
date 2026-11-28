@@ -11,7 +11,8 @@
 
   Then it reads the source and holds what the trees' pages say of their
   boundaries: which files may reach the store's door, its read path and
-  Auth's client; that one place calls the door's `send-act`; that the
+  Auth's client; that one place calls the door's `send-act`, and one its
+  `send-acts`; that the
   system's acts are sent from one file; that the wire and the command line
   can open no cluster; and that nothing requires Electric, the rig, the
   server of 20 November, the old server or Inland.
@@ -114,9 +115,9 @@
            (= #{"door/open" "read-path/open"}
               (set (re-seq #"(?<![\w.-])(?:door|read-path)/[\w!?*-]+" main-code)))
            (set (re-seq #"(?<![\w.-])(?:door|read-path)/[\w!?*-]+" main-code)))
-    (check "The seam calls the door's send-act in one place: no act reaches a depot but through the one function behind which each sender's act has been held against its sender."
-           (= 1 (count (re-seq #"door/send-act" seam-code)))
-           (count (re-seq #"door/send-act" seam-code)))
+    (check "The seam calls the door's send-act in one place and its send-acts in one place: no act reaches a depot but through the two functions behind which each sender's act has been held against its sender, one act or a series."
+           (= {"door/send-act" 1 "door/send-acts" 1} (frequencies (re-seq #"door/send-acts?\b" seam-code)))
+           (frequencies (re-seq #"door/send-acts?\b" seam-code)))
     (check "Four files of the runtime require Auth's client: the program that opens it, the seam, the standing, and the file that writes what sign-in writes. No face requires it."
            (= (in "main" "seam" "sign_in" "standing") (holding runtime #"softland\.auth\.client"))
            (holding runtime #"softland\.auth\.client"))
