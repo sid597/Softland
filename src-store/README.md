@@ -1368,25 +1368,28 @@ it.
 
 Sid made these on 28 November 2026, in the chat of a Claude Code session, to
 questions that the session put to him in one text («59efa1cb»), numbered 4a,
-4b and 4c there. His answers are in one line (‹b8e1bdaf›), which begins "Yes
-to all that i dont explicitly comment below". Words in quotation marks after
-"his answer" are his, as he typed them; each question is given as the session
-put it, but for the question of entry 3, which is retold: its text was not at
-hand when that entry was written. His yes covers each change as the question said it. What a session
-drew from an answer, and every name and shape inside a change, is marked as a
-session's and is his to turn. The three are one change, since each changes
-the bytes that a digest is taken of.
+4b and 4c there. His answers are in ‹b8e1bdaf›: "Yes to all that i dont
+explicitly comment below", "4b yes but then to get what we are removing how
+would this work? Ok we can do it as ordinary fact as you mention", and "4c yes
+should be controllable". Words in quotation marks for his answers are his, as
+he typed them; each question is given in the session's words from «59efa1cb».
+His yes covers each change as the question said it. What a session drew from
+an answer, and every name and shape inside a change, is marked as a session's
+and is his to turn. The three are one change, since each changes the bytes
+that a digest is taken of.
 
 1. **A fact's key is an id: a readable keyword or a UUID.** The question
-   (4a): "What happens today: a fact is thing, key, value, like (note-17,
-   `:title`, "Groceries"). The key must be a plain word like `:title`. The
-   change: a key may also be an id, pointing at a thing in the store. Why you
-   would want it: you could define "priority" as a thing in your lane, with
-   its own name and description, and use it as a key. Two people's "priority"
-   would not clash, and renaming it touches no fact. Asked: confirm "both"?"
-   His answer is the first sentence of the line: "Yes to all that i dont
-   explicitly comment below"; he commented on 4b and 4c and not on 4a. It
-   closes entry 9 of 6 October and K5. What comes with it, a session's:
+   (4a, «59efa1cb»): "What happens today: a fact is thing, key, value, like
+   (note-17, `:title`, "Groceries"). The key must be a plain word like
+   `:title`. The change: a key may also be an id, pointing at a thing in the
+   store. Why you would want it: you could define "priority" as a thing in
+   your lane, with its own name and description, and use it as a key. Two
+   people's "priority" would not clash, and renaming it touches no fact.
+   Asked: confirm "both"? You typed "yeah both" on 26 November, but the
+   question you were answering is not in the record." His answer (‹b8e1bdaf›)
+   is the first line: "Yes to all that i dont explicitly comment below"; 4a,
+   the key, had no comment of its own. It closes entry 9 of 6 October and K5.
+   What comes with it, a session's:
    - `:k` has the shape of `:e`. A key that is a UUID is a plain key: the
      store's own keys stay keywords of the namespace `softland.store`. A lane
      marks such a key like any other, and a read names it in a place, at the
@@ -1398,27 +1401,28 @@ the bytes that a digest is taken of.
      every keyword, and one that begins with a letter after them all
      (`softland/store/read_path/query.clj`).
 2. **`:subjects` and `:claimed-when` are no parts of an act.** The question
-   (4b): "The change: both slots go. When needed, the same thing is said as
-   an ordinary fact about the act, which reads can already find. Asked: yes
-   to removing them? I say yes." His answer: "4b yes but then to get what we
-   are removing how would this work? Ok we can do it as ordinary fact as you
-   mention". What comes with it, a session's:
+   (4b, «59efa1cb»): "The change: both slots go. When needed, the same thing
+   is said as an ordinary fact about the act, which reads can already find.
+   Asked: yes to removing them? I say yes." His answer (‹b8e1bdaf›): "4b yes
+   but then to get what we are removing how would this work? Ok we can do it
+   as ordinary fact as you mention". What comes with it, a session's:
    - An act that carries either part is refused `:unknown-part`, as any act
      with a part that the form does not name. The form has eight parts.
    - Nothing read either part but the declaration's bound on the length of
      an id, which held each id of `:subjects` to it (`ids-of` in
-     `softland/store/door/declaration.clj`). `:subjects` was written in six
+     `softland/store/door/declaration.clj`). `:subjects` was written in seven
      places: the making act of a person's own lane, the act that writes her
-     name, the give of the setup command (`softland/runtime/sign_in.clj`
-     under `src-runtime/`), the command line's `give`
-     (`softland/command/main.clj` under `src-command/`), and, in the server
-     of 20 November 2026 (`softland/server/sign_in.clj` under
-     `src-server/`), the making act of her own lane and each act that writes
-     what Google said of her into `people`. Each of those acts already names
-     her in a fact of its own: the two making acts and the two gives in the
-     `:holder` of the permission that they write, and the act of her name
-     and the acts in `people` in the `:e` of each of their facts. So none of
-     the six writes a fact more, and what the part held is still in the act.
+     name, the lend that her yes page sends for an agent, and the give of the
+     setup command (`softland/runtime/sign_in.clj` under `src-runtime/`), the
+     command line's `give` (`softland/command/main.clj` under `src-command/`),
+     and, in the server of 20 November 2026 (`softland/server/sign_in.clj`
+     under `src-server/`), the making act of her own lane and each act that
+     writes what Google said of her into `people`. Each of those acts already
+     names the person or the agent in a fact of its own: the two making acts,
+     the lend and the two gives in the `:holder` of the permission that they
+     write, and the act of her name and the acts in `people` in the `:e` of
+     each of their facts. So none of the seven writes a fact more, and what
+     the part held is still in the act.
    - Where an act's own facts do not say whom it is about, its maker says it
      as a fact of the act: `{:e <the act's own uuid> :k :subjects :v #{…}}`.
      `:subjects` there is a maker's key and no store key: no gate reads it.
@@ -1435,20 +1439,16 @@ the bytes that a digest is taken of.
      for a key that it marks, so the lane must mark `:subjects` first. The
      form by which a person's acts are found is open, and Sid's to turn.
 
-3. **A lane's speed is to be changeable after the lane is made. Not built.**
-   The question (4c), retold and not quoted: the session asked
-   whether a lane's speed, its depot, should be changeable after the lane is
-   made. Its own words are in «59efa1cb», which could not be reached when this
-   entry was written; a session with the record puts them in here. His
-   answer: "4c yes should be controllable". It stands beside his line of 7
-   October (entry 4 of that day): "members choose yes, default is streaming
-   yes" (‹27882354›). A session's: the brief of this work, written by a
-   session that had the record, says that his yes covers the depot word
-   leaving an act's id; whether question 4c named that change in its own
-   words could not be read when this entry was written. What a session drew
-   from it, and his to turn: so that nothing in an act's stored form stands
-   in the way of a change of speed, the depot word leaves an act's id, and a
-   lane's depot is said by the lane's own fact.
+3. **A lane's speed is to be changeable after the lane is made, and the depot
+   word leaves an act's id. Changing a lane's speed is not built.** The
+   question (4c, «59efa1cb»): "should a lane's speed be changeable after it is
+   made? If yes, the word must leave the id. If no, it is a harmless copy and
+   can stay. I say take it out." His answer (‹b8e1bdaf›): "4c yes should be
+   controllable". It stands beside his line of 7 October (entry 4 of that
+   day): "members choose yes, default is streaming yes" (‹27882354›). His yes
+   covers a lane's speed being changeable after it is made and the depot word
+   leaving an act's id, as the question put them. What a session drew from it,
+   and his to turn: a lane's depot is said by the lane's own fact.
    - An act's id is `[lane uuid]` and a fact's id `[[lane uuid] index]`
      (`:act-id` and `:fact-id` in `softland/store/act.clj`). The thing that
      arrives on a depot is the maker's act with `:act-id` and `:door-time`
