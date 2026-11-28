@@ -45,7 +45,7 @@ What a check observed belongs to the checks, under `test-store/`.
 ## Words
 
 "Act" is the word of this tree, and it is Sid's. "Lane" is the store's unit: the
-acts that one gate decides one after another, shown to its members. "Layer" is
+acts that one gate decides one after another. "Layer" is
 Sid's word for a group of acts at any size; this tree does not use it for its
 unit, and defines no meaning for it. "Key" is the key of a fact. "Lock" is an
 encryption key. Never one word for both.

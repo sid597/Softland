@@ -1167,9 +1167,14 @@ session's question whether his decisions of these two days go on this page.
 
 Sid made this on 25 November 2026, in the chat of a Claude Code session, to a
 note that the session put to him: "yes lane is the name" and "yes put in
-readme" (‹d5172c3f›). The note stands below as he approved it.
+readme" (‹d5172c3f›). The note stands below as he approved it, but for its
+first sentence, which read "What one gate puts in order, and shows to its
+members, is a lane." The session of the review of 26 November asked him: "May
+the README sentence lose "and shows to its members"? It would read: "What one
+gate puts in order is a lane."" He answered "5.yse" (‹e17932a7›, 27 November
+2026).
 
-What one gate puts in order, and shows to its members, is a lane. "Layer"
+What one gate puts in order is a lane. "Layer"
 stays Sid's word, for a group of acts of any size; the store gives it no
 meaning. In the entries above, where "layer" means what one gate puts in
 order, read "lane".
