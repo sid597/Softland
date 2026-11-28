@@ -741,6 +741,10 @@
                                                      [(assoc (act-of :carol [(value :c-s-2 2)]) declaration/time-part 5) nil]
                                                      [(act-of :carol [(value :c-s-3 3)]) nil]])))
         not-a-series (counting #(mapv noted (door/send-acts d 5)))
+        odd-series (mapv (fn [pairs] (counting #(mapv noted (door/send-acts d pairs))))
+                         [nil {:act (act-of :carol [(value :c-odd-1 1)])} [(list (act-of :carol [(value :c-odd-2 2)]) nil)]])
+        throws-at-two (counting #(mapv noted (door/send-acts d (lazy-cat [[(act-of :carol [(value :c-lazy-1 1)]) nil]]
+                                                                       (lazy-seq (throw (ex-info "the proof's sequence throws at its second entry" {})))))))
         answers (mapv (fn [counted] (answer! d (:act-id (:result counted)) (:digest (:result counted)))) [first-value five])
         one-read (counting #(answer! d given-id (:digest (:result held))))
         never (act-id-for! d :carol)
@@ -768,6 +772,9 @@
            [(trips stopped) (count (:result stopped)) (hex64? (:digest (first (:result stopped)))) (:could-not (peek (:result stopped)))])
     (check "a thing that is no series ends in the word of a thing that the door could not read, with no round trip"
            [[0 0] [:read-the-act]] [(trips not-a-series) (mapv :could-not (:result not-a-series))])
+    (check "a series that is nothing, a map, or a sequence whose entry is no pair of an act and an act-id ends in that word too, one result, with no round trip; a lazy sequence that throws at its second entry gives the first act's receipt and then that word, with one append"
+           [[[0 0] [:read-the-act]] [[0 0] [:read-the-act]] [[0 0] [:read-the-act]] [[1 1] [nil :read-the-act]]]
+           (mapv (fn [counted] [(trips counted) (mapv :could-not (:result counted))]) (conj odd-series throws-at-two)))
     (check "a send of five values that makes its act-id: 1 append and 1 query, as for one value" [1 1] (trips five))
     (check "the three sends are three records more in the streaming depot's log and none in the other, and the two that made their act-id are accepted"
            [[3 0] [:accepted :accepted]] [(mapv - logs-after logs-before) (mapv :answer answers)])

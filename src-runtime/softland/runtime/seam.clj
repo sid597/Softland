@@ -608,13 +608,13 @@
 (defn- send-all-now
   "One result for each act that was tried. It stops at the first act that
   ends with a word, since a later act of a series can rest on an earlier
-  one; the maker sends the rest again under the same UUIDs. Every act is
-  held against its sender and rationed before the first is sent; the door
-  sends those before the first that was not with one read of each lane's
-  depot (`door/send-acts`), and the answers are read after the last send.
-  So an interrupt after the checks is met by the door, which gives a word
-  of its own, and not `:find-her-sign-in`. The wait is one span for the
-  whole series."
+  one; the maker sends the rest again under the same UUIDs. An interrupt
+  that comes while the series is being sent is met by the door, not by the
+  seam's `:find-her-sign-in`: one act more is handed to Rama's client,
+  whose append throws, so its send ends `:append-cleanly` with `:appended
+  :not-known`; no act after it is tried; and each receipt before it comes
+  back with `{:could-not :read-the-answer}` as its answer. The wait is one
+  span for the whole series."
   [^Seam seam caller {:keys [acts wait-ms]}]
   (let [ends (ends-after wait-ms)
         [pairs stop] (reduce (fn [[pairs _] {:keys [act act-id]}]
