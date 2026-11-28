@@ -674,13 +674,46 @@
       (mapv (fn [^java.util.concurrent.Future fut] (.get fut 30 TimeUnit/SECONDS)) futs)
       (finally (.shutdownNow pool)))))
 
+(def ^:private reading-keys
+  "The keys by which `every-record` reaches the partitions of a table.
+  That they meet every partition is checked, by `partitions-met`, where
+  it is leaned on."
+  (mapv #(UUID. 7 %) (range 64)))
+
 (defn- every-record
-  "Every key and value of the PState `pstate-name`, over all its
-  partitions: the union of what each partition holds, read with
-  `{:pkey ...}` of 64 keys, which meet each of 4 partitions."
+  "Every key and value of the PState `pstate-name` on each partition that
+  one of `reading-keys` meets: the union of what each holds, read with
+  `{:pkey ...}`."
   [ipc mod-name pstate-name]
   (let [p (rama/foreign-pstate ipc mod-name pstate-name)]
-    (into {} (mapcat (fn [k] (rama/foreign-select [path/ALL] p {:pkey (UUID. 7 k)}))) (range 64))))
+    (into {} (mapcat (fn [k] (rama/foreign-select [path/ALL] p {:pkey k}))) reading-keys)))
+
+(defn- depot-records
+  "Every record of the depot `depot-name`, each with the index of its
+  partition: `[[i record] ...]`."
+  [ipc mod-name depot-name]
+  (let [d (rama/foreign-depot ipc mod-name depot-name)
+        n (or (:num-partitions (rama/foreign-object-info d))
+              (count (take-while #(try (rama/foreign-depot-partition-info d %) true (catch Throwable _ false)) (range 64))))]
+    (vec (for [i (range n)
+               :let [{:keys [start-offset end-offset]} (rama/foreign-depot-partition-info d i)]
+               from (range start-offset end-offset 100)
+               r (rama/foreign-depot-read d i from (min end-offset (+ from 100)))]
+           [i r]))))
+
+(defn- partitions-met
+  "Appends, for each of `reading-keys`, an `own-lane-made` of a person who
+  is none, which Auth refuses and of which it keeps nothing but the record;
+  `*root-events` is partitioned by that key, as a table is, so where each
+  record lands is the partition that its key meets. Gives the set of
+  partitions that the keys met and how many partitions there are."
+  [ipc mod-name c]
+  (doseq [k reading-keys] (client/own-lane-made c {:person k :at 1}))
+  (let [records (depot-records ipc mod-name "*root-events")
+        keyed (set reading-keys)
+        d (rama/foreign-depot ipc mod-name "*root-events")]
+    {:met (into #{} (keep (fn [[i r]] (when (contains? keyed (:root-id r)) i))) records)
+     :partitions (or (:num-partitions (rama/foreign-object-info d)) (inc (reduce max 0 (map first records))))}))
 
 (defn check-invitations!
   "On a cluster, the scenarios of invitations and accounts in which two
@@ -690,8 +723,11 @@
   the same account; an unlink and a new invite of the claim that it frees;
   and enters at and before an invitation's end. Each allows the outcomes
   that some order of the two writes gives, read through the contract and
-  from `$$accounts`, and no other. Then the three cases of Sid's yes, at
-  Auth's edge: two accounts enter as one person; after unlinking each
+  from `$$accounts`, and no other. Then, with the keys of the tables' reads
+  checked to meet every partition, that after an invitation neither the
+  records of `*invites` nor the tables hold her address; and the three
+  cases of Sid's yes, at Auth's edge: two accounts enter as one person;
+  after unlinking each
   account that `accounts-of` gives and taking back the invitation that is
   named, no key and no value of Auth's tables holds her hash, her subject
   or her `:says`, her own record stays, and her address can be invited as
@@ -712,7 +748,8 @@
                 ([cl account C at] (ent cl account C at {"name" "Asha"}))
                 ([cl account C at says] (client/enter cl {:account account :says says :email-hash (:hash C)
                                                           :code-hash nil :own-lane (UUID/randomUUID) :making (mk) :at at})))
-          her-says {"name" "Asha Erasable"}
+          ;; What a provider says holds her address, as Google's does.
+          her-says {"name" "Asha Erasable" "email" "asha@example.org"}
           scenarios
           [["Two invitations of one claim for two persons at one moment: one is taken and the other is :claim-in-use, and the claim names the one that was taken."
             (fn []
@@ -791,7 +828,10 @@
           A1 [:google "asha-google-108200000000000000001"]
           A2 [:github "asha-github-5551"]
           I-self (UUID/randomUUID)
+          {:keys [met partitions]} (partitions-met ipc mod-name c1)
+          all-tables ["$$claims" "$$accounts" "$$invite-ops" "$$enter-ops" "$$root-data"]
           _ (inv c1 P C 10 100000)
+          invited-only (pr-str (into {} (map (fn [t] [t (every-record ipc mod-name t)])) all-tables))
           r1 (ent c1 A1 C 20 her-says)
           _ (client/invite c1 {:person P :claim C :invited-by P :at 30 :ends 100000 :op-id I-self})
           r2 (ent c2 A2 C 40 her-says)
@@ -808,6 +848,8 @@
           names [(:hash C) (:hash C2) address (second A1) (second A2) "Asha Erasable"]
           after-in (ent c1 A1 C 60)
           Q-in (inv c1 Q C 70 100000)
+          invite-log (pr-str (mapv second (depot-records ipc mod-name "*invites")))
+          enter-log (pr-str (mapv second (depot-records ipc mod-name "*enters")))
           ;; Over, or taken back: nobody comes in.
           C3 {:by :email :hash (email-hash "bo@example.org")}
           C4 {:by :email :hash (email-hash "cy@example.org")}
@@ -817,10 +859,22 @@
           _ (client/invite c1 {:person (UUID/randomUUID) :claim C4 :invited-by :system :at 10 :ends 100000 :op-id I4})
           _ (client/take-back c1 {:person P :claim C4 :invite I4 :at 20})
           back (ent c1 [:google "cy-1"] C4 30)
-          cases [["Two accounts enter as one person: her first account by an invitation, her second by an invitation that names herself under the same address; accounts-of gives both."
+          cases [["The 64 keys with which the tables are read here meet every partition: an own-lane-made under each, which Auth refuses and keeps nothing of, lands on the partition of *root-events that its key meets, and the 64 land on all of them."
+                  (and (pos? partitions) (= (set (range partitions)) met))
+                  {:met met :partitions partitions}]
+                 ["After her invitation, no record of *invites holds her address, though they hold its hash; and before she enters, no key and no value of $$claims, $$accounts, $$invite-ops, $$enter-ops or $$root-data holds it. The search finds her address where it is: in the records of *enters, in what her provider said."
+                  (and (not (.contains ^String invite-log ^String address))
+                       (.contains ^String invite-log ^String (:hash C))
+                       (not (.contains ^String invited-only ^String address))
+                       (.contains ^String invited-only ^String (:hash C))
+                       (.contains ^String enter-log ^String address))
+                  {:invites-hold-address (.contains ^String invite-log ^String address)
+                   :tables-hold-address (.contains ^String invited-only ^String address)
+                   :enters-hold-address (.contains ^String enter-log ^String address)}]
+                 ["Two accounts enter as one person: her first account by an invitation, her second by an invitation that names herself under the same address; accounts-of gives both."
                   (and (= P (:person r1)) (= P (:person r2)) (= [A1 A2] (map :account (:accounts two))))
                   [r1 r2 two]]
-                 ["After unlinking each account that accounts-of gives and taking back the invitation that is named, no key and no value of $$claims, $$accounts, $$invite-ops, $$enter-ops or her entries holds the hash of her address or of her code, her address, her subjects or her :says; her own record stays and holds none of them; her first account is refused, and her address can be invited as another person."
+                 ["After unlinking each account that accounts-of gives and taking back the invitation that is named, no key and no value of $$claims, $$accounts, $$invite-ops, $$enter-ops or her entries holds the hash of her address or of her code, her address, her subjects or her :says, which held her address; her own record stays and holds none of them; her first account is refused, and her address can be invited as another person. It reads the tables, not the log of *enters, whose records keep her :says until a migration."
                   (and (= [{:unlinked P} {:unlinked P}] unlinked) (= {:taken-back P} taken)
                        (not-any? #(.contains ^String held ^String %) names)
                        (= [(s/k-root P)] (keys hers))
@@ -1085,6 +1139,45 @@
                  (nil? (get-in t [:root-data (s/k-account P A)]))
                  (nil? (get-in t [:accounts A])))
             [rE rH1 (get-in t [:claims C]) (get-in t [:root-data (s/k-account P A)]) (get-in t [:accounts A])]])
+         ;; A linking that is :failing at step 5
+         (let [[t _] (invited t0 (invite i1 P C 10))
+               E (enter e1 A 20 :email (h 1))
+               H1 (enter h1 A 21 :email (h 1))
+               [t oE] (run-until t E [:enter/step-1 {}] :enter/step-3-use 0)
+               [t oH1] (run-until t H1 [:enter/step-1 {}] :enter/step-3-use 0)
+               [t _] (taken-back t (s/->TakeBackEvent C P i1 23))
+               ;; E's use is lost; E probes again and finds nothing: its
+               ;; linking is :failing and its op is marked failed, and E's
+               ;; last step, which clears the linking, is slow.
+               [t oE] (run-until t E (:next oE) :enter/step-2d-finish-failed 0)
+               failing (get-in t [:accounts A :status])
+               ;; The claim is invited again, by a clock behind E's, and
+               ;; H1's use of round 0 lands and takes it for e1.
+               [t _] (invited t (invite i2 P C 15))
+               [t rH1] (result-of (run-until t H1 (:next oH1)))
+               [t rE] (result-of (run-until t E (:next oE)))]
+           ["A linking that is :failing when its step 5 comes is released, as a link of another op would be: the enter that was told :not-invited links nothing, the claim holds no link of its op, she has no entry of the account, and the account has no record."
+            (and (= :failing failing) (= {:refused :not-invited} rE)
+                 (not (instance? softland.auth.schema.AccountLinked (get-in t [:accounts A])))
+                 (nil? (get-in t [:accounts A]))
+                 (not (contains? (get-in t [:claims C :links]) e1))
+                 (nil? (get-in t [:root-data (s/k-account P A)])))
+            [rE rH1 (get-in t [:accounts A]) (get-in t [:claims C]) (get-in t [:root-data (s/k-account P A)])]])
+         ;; The probe's recheck of the code
+         (let [[t _] (invited t0 (invite i1 P C 10))
+               E (enter e1 A 20 :email (h 1) :code (h 2))
+               ;; E probes the code's claim, which has no record, and goes
+               ;; on to the email's.
+               [t oE] (run-until t E [:enter/step-1 {}] :enter/step-2-probe 1)
+               ;; Meanwhile Q is invited under the code, and P's invitation
+               ;; under the email is taken back: at every moment one of the
+               ;; two lets E in.
+               [t _] (invited t (invite i2 Q C2 20))
+               [t _] (taken-back t (s/->TakeBackEvent C P i1 20))
+               [t rE] (result-of (run-until t E (:next oE)))]
+           ["The probe rechecks the code once when both probes failed: an enter whose email's invitation is taken back while an invitation under its code is made, one of the two letting it in at every moment, is let in by the code."
+            (and (= Q (:person rE)) (= e1 (get-in t [:accounts A :link-op])))
+            [rE (get-in t [:accounts A]) (get-in t [:claims C2])]])
          ;; C
          (let [[t _] (invited t-in (her-invite i2 P C 30))
                [t r-2] (result-of (run-until t (enter e2 A2 40 :email (h 1))))

@@ -6,9 +6,12 @@
 
   What sign-in keeps lives in Auth, and the store holds none of it: what
   the provider said of her, her account's number and her email among it, is
-  in Auth, with the link, and in no act. Auth is handed the hash of her
-  email and never the address (`softland.runtime.seam/email-hash`). An
-  invitation is a person id that waits for an account until its end.
+  in Auth, with the link, and in no act. To match her email, Auth is handed
+  its hash (`softland.runtime.seam/email-hash`), so that an invitation holds
+  no address; what the provider said, `:says`, is handed as it came and can
+  hold the address, kept with the link until `unlink` and in Auth's log
+  until a migration. An invitation is a person id that waits for an account
+  until its end.
 
   Auth first, the store second. A first sign-in writes in two modules: the
   link in Auth, and the act that makes her own lane in the store. Auth
@@ -124,7 +127,7 @@
   "An account that its provider has proven comes in. `:account` is
   [provider subject]; `:says`, what the provider said, a map of texts;
   `:email`, the address that the provider vouches for, or nil, of which
-  Auth is given the hash;
+  Auth is given the hash (`:says`, given as it came, can hold it too);
   `:code-hash`, the hash of an invitation's code that came with the
   sign-in, or nil. An account that has no person and proves no claim gets
   `:take-that` with `:why :not-invited`. A person whose lane is marked as

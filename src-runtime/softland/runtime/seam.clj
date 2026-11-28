@@ -705,8 +705,10 @@
 (defn email-hash
   "The hash by which Auth knows an email address: SHA-256, as 64 lower-case
   hex characters, of the text `softland/email/` and the address lower-cased
-  in the root locale. Auth is given this and never the address (its spec,
-  \"What can be erased later\"), and the runtime owns the address's form:
+  in the root locale. To match an email, Auth is given this, so that an
+  invitation holds no address anywhere; what the provider said, `:says`,
+  can hold the address, with the link until `unlink` and in the log until a
+  migration (its spec, \"What can be erased later\"). The runtime owns the address's form:
   every copy makes the same hash of one address however its letters came.
   This is the one definition; Auth's tests keep a copy of it,
   `softland.auth.module-harness/email-hash`, which must make the same."

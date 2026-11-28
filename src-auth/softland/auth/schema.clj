@@ -650,7 +650,7 @@
             [ph ck] (if cc [:code cc] [:email ec])]
         {:hop-key ck
          :next-step :enter/step-2-probe
-         :next-st {:target t :phase ph :curr-claim ck :code-was-nil? false}}))))
+         :next-st {:target t :phase ph :curr-claim ck}}))))
 
 (defn enter-step-1
   "Step E1, on H(Acc). A mark of an unlink is finished first (`E1u`), and
@@ -746,9 +746,11 @@
             :own-lane-made? (boolean (when (instance? RootEntered r) (:own-lane-made? r)))}})
 
 (defn enter-step-2-probe
-  "Step E2, on H(curr-claim): strictly read-only probe of `$$claims[C]`,
-  with `:code-recheck` when `:code` had no record and the email's claim
-  has one that this op cannot use."
+  "Step E2, on H(curr-claim): strictly read-only probe of `$$claims[C]`.
+  When both probes failed, the code's claim is read once more
+  (`:code-recheck`): one read more, on a refusal only, so that an
+  invitation under the code made while the email's was taken back is
+  seen."
   [^EnterEvent ev st c]
   (let [target (:target st)
         op (:op-id target)
@@ -766,16 +768,14 @@
        :next-step :enter/step-2-probe
        :next-st {:target target
                  :phase :email
-                 :curr-claim (:email-claim-key target)
-                 :code-was-nil? (nil? c)}}
+                 :curr-claim (:email-claim-key target)}}
 
-      (and (= :email phase) (:code-was-nil? st) (some? c))
+      (and (= :email phase) (some? (:code-claim-key target)))
       {:hop-key (:code-claim-key target)
        :next-step :enter/step-2-probe
        :next-st {:target target
                  :phase :code-recheck
-                 :curr-claim (:code-claim-key target)
-                 :code-was-nil? false}}
+                 :curr-claim (:code-claim-key target)}}
 
       :else
       {:hop-key ak
@@ -934,12 +934,13 @@
                               :present-flag (boolean (:own-lane-made? r')))}}))
 
 (defn enter-step-5-link
-  "Step E5, on H(Acc). The target's linking, in any round, becomes its link;
-  a link of the target op answers its person. Anything else (no record, a
-  mark of an unlink, a link or a linking of another op) releases what the
-  use and step E4 wrote (`E5r`) and starts again at step E1 for this
-  chain's own op. A helper with a strictly later `:at` hops to H(self-op)
-  (`E1a`) to verify not refused before updating `:says`."
+  "Step E5, on H(Acc). The target's linking, in any round, becomes its link,
+  unless it is `:failing`: its enter is told `:not-invited`. A link of the
+  target op answers its person. Anything else (no record, a mark of an
+  unlink, a link or a linking of another op, a linking that is `:failing`)
+  releases what the use and step E4 wrote (`E5r`) and starts again at step
+  E1 for this chain's own op. A helper with a strictly later `:at` hops to
+  H(self-op) (`E1a`) to verify not refused before updating `:says`."
   [^EnterEvent ev st acc]
   (let [target (:target st)
         op (:op-id target)
@@ -951,7 +952,8 @@
         fms (:fixed-making-session target)
         flag (boolean (:present-flag target))
         helping? (not= op self-op)
-        linking-this? (and (instance? AccountLinking acc) (= (:op-id acc) op))
+        linking-this? (and (instance? AccountLinking acc) (= (:op-id acc) op)
+                           (not= :failing (:status acc)))
         linked-base (cond
                       linking-this?
                       (->AccountLinked P fl fmu fms (:says target) (:at target) (:won-claim-key target) op)

@@ -26,7 +26,7 @@ free again once it is erased or unlinked, an invitation that ends and can be
 taken back) turns question 3, and adds 35 to 40, which are a session's
 readings and his to turn. The rules that came with them, the steps of the
 module and every name are a session's too (the spec says each). A review of
-that build added 41, a session's reading too.
+that build added 41 and 42, a session's readings too.
 
 ## Forms
 
@@ -650,6 +650,30 @@ is written again, which is the owner's way back in through the setup.
 **A session's reading, for Sid to see**, with the question it leaves:
 whether the first inviter may bring back a person who unlinked everything.
 The broken copy `:anyone-invites-beside-links` takes (b).
+
+**42. An enter that runs again after its account was unlinked.** The spec
+said "no step reads an old event again", and that an enter that runs again
+after its account was unlinked cannot prove an invitation made after it.
+Rama runs a record again from the log after a failure, so an enter whose
+account was linked and then unlinked can run again with nothing of its link
+left. A entered as P by a code; her email's claim holds an invitation of Q
+made before that enter; P unlinks A; the enter, run again, finds no record,
+proves Q's invitation and links A to Q with its `:says`, and nobody signed
+in.
+
+- (a) It is judged as a new enter at its old `:at`: only an invitation made
+  at or before it, that still waits, lets it in. What it does is what A's
+  next sign-in would do.
+- (b) It is refused. That takes a record for every sign-in, a mark that
+  stays under the account's key after an unlink, or Auth's writes on a
+  topology whose updates are exactly-once, with results read by op.
+
+The reference takes (a), as the module does, and so does the spec, which
+says it as the rule that holds and as not closed: (b) is each of three
+things that are Sid's. A failed mark under the op of the enter that linked
+closes one of the two cases and is not built, for the reason that a memory
+of what an enter gave was not (Sid's call of 22 November). **A session's
+reading, for Sid to see.**
 
 ## What the state keeps
 

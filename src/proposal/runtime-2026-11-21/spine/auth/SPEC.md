@@ -431,7 +431,8 @@ proven.
   November). An enter that is sent again while its link stands is
   answered so like any other: Auth keeps no memory of what an enter gave.
   An enter that is sent again after its link was removed is judged afresh,
-  as any enter of an account that has no link (28 November, later).
+  at its own `:at`, as any enter of an account that has no link (28
+  November, later).
 - An account that has none takes the person of the claim that it proves: the
   code's, when `:code-hash` names an invitation that lets it in; else the
   email's, when `:email-hash` names one. An invitation lets in an enter
@@ -457,17 +458,31 @@ two copies of the runtime, give one person, one own lane and one `:making`.
 Two accounts that prove one invitation at the same moment: one becomes the
 person and the other is refused. An enter that is run again after a failure,
 while its link stands, gives the person, the own lane and the `:making` that
-it gave, and `:own-lane-made?` as it stands. An enter that the module runs
+it gave, and `:own-lane-made?` as it stands. **An enter that runs again
+after its account was unlinked is judged as a new enter at its old `:at`:
+only an invitation made at or before it, that still waits, lets it in** (a
+session's reading, QUESTIONS.md, 42). So an enter that the module runs
 again, after its account was unlinked and its claim invited for another
 person, cannot prove that later invitation: that rests on the rule that an
 invitation lets in no enter whose `:at` is before its own, and so on the
-clocks of the runtime's copies, as an invitation's end does. An honest
+clocks of the runtime's copies, as an invitation's end does. It can prove
+an invitation of another person that was made before it and still waits,
+under the email's claim when it came by a code or the other way round:
+then it links the account to that person, with its `:says`, though nobody
+signed in. That is what the account's next sign-in would do, since her
+address is invited as that person; what is wrong is that it happens with
+no sign-in and brings the `:says` back after an unlink. It is said and not
+closed. Closing it takes one of three things, each Sid's: a record for
+every sign-in; a mark that stays under the account's key after an unlink,
+so that her subject stays in a key; or Auth's writes on a topology whose
+updates are exactly-once, with results read by op. An honest
 enter from a copy whose clock is behind the inviter's is refused
 `:not-invited` until its clock passes the invitation's `:at`, and an
 invitation made by a clock far ahead lets nobody in until then; its inviter
 takes it back and invites again. When the module has used an invitation
 for an enter and cannot then link the account, as when another write
-removed what the enter was making, it takes the link out of the claim and
+removed what the enter was making, or when the enter was told
+`:not-invited` meanwhile, it takes the link out of the claim and
 the account out of her accounts; the invitation that the enter used is
 spent and is not put back, since putting it back could bring back one that
 was taken back meanwhile.
@@ -729,11 +744,15 @@ What names a human being is her account, her email, and what her provider
 said. All of it must be erasable from everything that Auth keeps, its
 events too. What it takes (28 November, later):
 
-- **Auth only ever matches an email; it never reads one. So it is given a
-  hash, never the address.** A claim is `{:by :email :hash H}` or
+- **Auth only ever matches an email; it never reads one. So, to match, it
+  is given a hash.** A claim is `{:by :email :hash H}` or
   `{:by :code :hash H}`, and an enter carries `:email-hash`. So an
   invitation holds no address anywhere in Auth, its events too: a person who
-  is invited and never comes leaves none. What is left is the hash.
+  is invited and never comes leaves none, only the hash. What the provider
+  said, `:says`, can hold her address: the runtime hands it as the provider
+  gave it, and it is kept with the link until `unlink`, and in the log of
+  enters until a migration (whether `:says` should carry the address at all
+  is Sid's).
 - **What Auth keeps to be read is removed by its writes, at once.** An
   account's `[provider subject]` and its `:says` sit in the account's link,
   and the account's key in her list of accounts; the hash of a claim sits in
@@ -765,9 +784,11 @@ events too. What it takes (28 November, later):
   accounts that were unlinked does, which Rama applies on read at once and
   rewrites in the background, keeping offsets. That is an operator's step
   and is not built. What the module keeps true so that it stays possible: no
-  step reads an old event of enters or of invites again after that event is
-  done, and an event that a migration cleared or replaced by a tombstone
-  breaks nothing.
+  step looks up an old record of enters or of invites. Rama runs a record
+  again from the log after a failure (an enter that runs again after an
+  unlink is judged as "What each write does" says), so a record that a
+  migration cleared, or replaced by a tombstone, must still be one that the
+  topology can take.
 
 Left for Sid: the hash is plain, so whoever holds the log can test a guessed
 address against it; a hash keyed by a secret that the runtime holds would

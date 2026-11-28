@@ -602,9 +602,14 @@
     (check "An enter that is run again after a failure, while its link stands, gives the person, the own lane and the :making that it gave, and :own-lane-made? as it stands."
            (= (nth results 1) (nth results 2))))
 
-  (let [{:keys [results]} (run (conj asha-in (c :unlink) (c :invite :person bo :at 200) (c :enter)))]
-    (check "An enter that is run again after its link was removed is judged afresh, and an invitation made after it lets it in no more: after Asha's account is unlinked and her code is invited for Bo, the first enter, sent again, is refused with :not-invited (turned on 28 November)."
-           (= [{:unlinked asha} {:invited bo} {:refused :not-invited}] (take-last 3 results))))
+  (let [{:keys [results]} (run (conj asha-in (c :unlink) (c :invite :person bo :at 200) (c :enter)))
+        first-enter (c :enter :email-hash (h 2))
+        before (:results (run [(c :invite) (c :invite :person bo :claim bo-email :at 105) first-enter
+                               (c :unlink) first-enter]))]
+    (check "An enter that is run again after its link was removed is judged as a new enter at its old :at (a session's reading, QUESTIONS.md, 42): an invitation made after it lets it in no more, so after Asha's account is unlinked and her code is invited for Bo, the first enter, sent again, is refused with :not-invited (turned on 28 November); and an invitation of Bo under its email, made before it and still waiting, lets it in as Bo, though nobody signed in."
+           (and (= [{:unlinked asha} {:invited bo} {:refused :not-invited}] (take-last 3 results))
+                (= [asha {:unlinked asha} bo] [(:person (nth before 2)) (nth before 3) (:person (nth before 4))]))
+           [results before]))
 
   (let [{:keys [state results]} (run (conj asha-in (c :unlink :person bo) (c :unlink :link (UUID. 7 7)) (c :unlink)
                                            (c :unlink :at 170)))]

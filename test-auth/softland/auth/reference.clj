@@ -611,7 +611,9 @@
   and nothing of it is kept. The link keeps the `:says` of the enter with
   the latest `:at`, with that `:at`: an enter whose `:at` is not later
   leaves it. Nothing remembers what an enter gave (Sid's call of 22
-  November). The broken copy `:enter-repeats-what-it-gave` keeps that
+  November), so an enter that runs again after its account was unlinked is
+  judged as a new enter at its old `:at`: only an invitation made at or
+  before it, that still waits, lets it in (QUESTIONS.md, 42). The broken copy `:enter-repeats-what-it-gave` keeps that
   memory, under `:decided`, as the reading that the call set aside did;
   `:one-account-a-person` refuses an account that proves an invitation of
   a person who has entered."
