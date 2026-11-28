@@ -354,14 +354,14 @@
          (every? #(= unfit (last-of (conj asha-waits (c :enter :account %))))
                  [["google" "1082"] [:google] [:google "1082" "more"] (list :google "1082")]))
 
-  (check "A provider is a keyword whose name is at most 256 characters, and :own-lane is a UUID: forms, which Auth checks (Sid's call of 22 November). An enter whose provider's name has 257 characters, its namespace counted, or whose :own-lane is no UUID or nil, does not fit; a provider's name of 256 characters fits."
+  (check "A provider is a keyword whose name is at most 256 characters, and :own-lane is a UUID: forms, which Auth checks (a session's default of 22 November, Sid's to turn). An enter whose provider's name has 257 characters, its namespace counted, or whose :own-lane is no UUID or nil, does not fit; a provider's name of 256 characters fits."
          (and (every? #(= unfit (last-of (conj asha-waits %)))
                       [(c :enter :account [(keyword (text-of 257)) "1"])
                        (c :enter :account [(keyword "g" (text-of 255)) "1"])
                        (c :enter :own-lane "a lane") (c :enter :own-lane (str lane-1)) (c :enter :own-lane nil)])
               (= asha (:person (last-of (conj asha-waits (c :enter :account [(keyword (text-of 256)) "1"])))))))
 
-  (check ":making holds two UUIDs, its act's and its session's (QUESTIONS.md, 4, which Sid's call of 22 November let stand): a :making without its session, or whose session is no UUID, does not fit."
+  (check ":making holds two UUIDs, its act's and its session's (QUESTIONS.md, 4, which a session's default of 22 November, Sid's to turn, let stand): a :making without its session, or whose session is no UUID, does not fit."
          (every? #(= unfit (last-of (conj asha-waits %)))
                  [(c :enter :making {:uuid (id 51)}) (c :enter :making {:uuid (id 51) :session "s"})]))
 
@@ -410,7 +410,7 @@
                     (r/who-is state {:root (str asha) :sign-in sign-in-1 :session nil})
                     (r/ask-of state "ABCD234") (r/under state (str asha)) (r/live-under state (str asha))])))
 
-  (check "Every part that the contract names must be there, an -or-nil one as nil, and no other part may be (Sid's call of 22 November): an enter without :email-hash or :code-hash, a begin-sign-in without :label, an answer without :new-agent, an invite without :ends or :op-id and an invite with one part more do not fit; :driven-by alone may be left out."
+  (check "Every part that the contract names must be there, an -or-nil one as nil, and no other part may be (a session's default of 22 November, Sid's to turn): an enter without :email-hash or :code-hash, a begin-sign-in without :label, an answer without :new-agent, an invite without :ends or :op-id and an invite with one part more do not fit; :driven-by alone may be left out."
          (and (every? #(= unfit (last-of (conj asked %)))
                       [(without :enter :email-hash) (without :enter :code-hash) (without :begin-sign-in :label)
                        (without :invite :ends) [:invite (dissoc (second (c :invite)) :op-id)]
@@ -587,16 +587,16 @@
   (let [{:keys [state]} (run (conj asha-in (c :enter :says {"name" "Asha K"} :at 300)
                                    (c :enter :says {"name" "Asha, from a clock behind"} :at 250)
                                    (c :enter :says {"name" "Asha, at the same time"} :at 300)))]
-    (check ":says is kept from the enter with the latest :at, with that :at; an enter whose :at is not later, earlier or the same, leaves it (Sid's call of 22 November)."
+    (check ":says is kept from the enter with the latest :at, with that :at; an enter whose :at is not later, earlier or the same, leaves it (a session's default of 22 November, Sid's to turn)."
            (= {:person asha :says {"name" "Asha K"} :said-at 300}
               (select-keys (get-in state [:links asha-google]) [:person :says :said-at]))))
 
-  (check "A copy of an enter, sent again after a later enter of the account, gives its person, own lane and :making, and leaves :says as the later enter left it: nothing changes (Sid's call of 22 November)."
+  (check "A copy of an enter, sent again after a later enter of the account, gives its person, own lane and :making, and leaves :says as the later enter left it: nothing changes (a session's default of 22 November, Sid's to turn)."
          (unchanged? (conj asha-in (c :enter :says {"name" "Asha K"} :at 300)) (c :enter)
                      {:person asha :own-lane lane-1 :making making-1 :own-lane-made? false}))
 
   (let [{:keys [state]} (run (into asha-in (map (fn [i] (c :enter :says {"n" (str i)} :at (+ 200 i)))) (range 100)))]
-    (check "The link keeps no memory of each enter: after a hundred enters of one account, its link holds the person, one :says and one :at, its claim, its id and the :at of its making, and nothing more (Sid's call of 22 November)."
+    (check "The link keeps no memory of each enter: after a hundred enters of one account, its link holds the person, one :says and one :at, its claim, its id and the :at of its making, and nothing more (a session's default of 22 November, Sid's to turn)."
            (= {:person asha :says {"n" "99"} :said-at 299 :claim asha-code :link first-link :linked-at 110}
               (get-in state [:links asha-google]))))
 
@@ -659,11 +659,11 @@
               (r/accounts-of state asha))))
 
   (let [{:keys [results]} (run (conj asha-in (c :enter :at 115) (c :own-lane-made) (c :enter :at 125)))]
-    (check "Until own-lane-made, every enter says :own-lane-made? false; after it, an enter says true (Sid's call of 22 November)."
+    (check "Until own-lane-made, every enter says :own-lane-made? false; after it, an enter says true (a session's default of 22 November, Sid's to turn)."
            (= [false false true] (map :own-lane-made? [(nth results 1) (nth results 2) (nth results 4)]))))
 
   (let [{:keys [results]} (run (conj asha-in (c :own-lane-made) (c :enter)))]
-    (check "A copy of the first enter, sent again after own-lane-made, gives the person, the own lane and the :making that the first gave, and :own-lane-made? true: an enter says the flag as it stands at that enter (Sid's call of 22 November)."
+    (check "A copy of the first enter, sent again after own-lane-made, gives the person, the own lane and the :making that the first gave, and :own-lane-made? true: an enter says the flag as it stands at that enter (a session's default of 22 November, Sid's to turn)."
            (and (= {:person asha :own-lane lane-1 :making making-1 :own-lane-made? false} (nth results 1))
                 (= {:person asha :own-lane lane-1 :making making-1 :own-lane-made? true} (nth results 3)))))
 
@@ -756,7 +756,7 @@
          (unchanged? (conj signed-in (c :replace-secret)) (c :replace-secret :until 7 :previous-until 8 :at 145)
                      {:replaced sign-in-1}))
 
-  (check "A replacement that arrives after a newer one is no repeat, and is refused with :wrong-secret when its old hash is no longer the hash now (Sid's call of 22 November)."
+  (check "A replacement that arrives after a newer one is no repeat, and is refused with :wrong-secret when its old hash is no longer the hash now (a session's default of 22 November, Sid's to turn)."
          (= {:refused :wrong-secret}
             (last-of (conj signed-in (c :replace-secret) (c :replace-secret :old-hash (h 102) :new-hash (h 103) :at 145)
                            (c :replace-secret :at 146)))))
@@ -780,7 +780,7 @@
 
   (let [cycled (conj signed-in (c :replace-secret) (c :replace-secret :old-hash (h 102) :new-hash (h 101) :at 141))
         {:keys [state last]} (run (conj cycled (c :replace-secret :at 142)))]
-    (check "A replacement is judged by the present hash and the one before it alone, and a sign-in keeps no history of its replacements (Sid's call of 22 November): after H1 to H2 and H2 to H1, H1 to H2 again is taken, since H1 is the hash now, and the secret is then H2 with H1 before it; a replacement whose old and new hash are one is taken."
+    (check "A replacement is judged by the present hash and the one before it alone, and a sign-in keeps no history of its replacements (a session's default of 22 November, Sid's to turn): after H1 to H2 and H2 to H1, H1 to H2 again is taken, since H1 is the hash now, and the secret is then H2 with H1 before it; a replacement whose old and new hash are one is taken."
            (and (= {:replaced sign-in-1} last)
                 (= {:hash (h 102) :until 200000 :previous {:hash (h 101) :until 150000}}
                    (select-keys (:sign-in (who state sign-in-1)) [:hash :until :previous]))
@@ -1116,7 +1116,7 @@
   (check "A no to an ask that waits, at or after its :ends, is refused with :over, as every answer to an ask that waits is (QUESTIONS.md, 21)."
          (= {:refused :over} (last-of (conj asked (c :answer-ask :yes? false :at 1000)))))
 
-  (check "A live agent of hers is any live agent of her root: a yes as an agent that her agent made is taken (QUESTIONS.md, 24, which Sid's call of 22 November let stand)."
+  (check "A live agent of hers is any live agent of her root: a yes as an agent that her agent made is taken (QUESTIONS.md, 24, which a session's default of 22 November, Sid's to turn, let stand)."
          (= {:yes {:root asha :actor agent-2 :sign-in sign-in-2}}
             (last-of (conj with-agent (c :make-actor :actor agent-2 :made-by agent-1 :at 131) (c :ask) (c :answer-ask :actor agent-2 :new-agent nil)))))
 
@@ -1129,7 +1129,7 @@
          (and (= {:no code-1} (last-of (conj asked (c :answer-ask :yes? false :actor agent-3 :sign-in sign-in-1))))
               (= {:refused :no-such-actor} (last-of [(c :invite) (c :ask) (c :answer-ask :yes? false)]))))
 
-  (check "The parts of a no that it does not judge must still fit (Sid's call of 22 November): a no whose actor or sign-in is no UUID, or whose :until is no time, does not fit."
+  (check "The parts of a no that it does not judge must still fit (a session's default of 22 November, Sid's to turn): a no whose actor or sign-in is no UUID, or whose :until is no time, does not fit."
          (every? (fn [[k v]] (= unfit (last-of (conj asked (c :answer-ask :yes? false k v)))))
                  [[:actor "an actor"] [:sign-in "a sign-in"] [:until "later"]]))
 
@@ -1141,12 +1141,12 @@
          (and (= {:refused :over} (last-of (conj asked (c :answer-ask :actor agent-3 :at 1000))))
               (= {:refused :no-such-ask} (last-of (conj asha-in (c :answer-ask :code "ZZZZ9999" :actor agent-3 :at 1000))))))
 
-  (check "After the ask's end, every answer to an ask that has an answer gives what stands and changes nothing: the same answer again, and another answer, a no (Sid's call of 22 November)."
+  (check "After the ask's end, every answer to an ask that has an answer gives what stands and changes nothing: the same answer again, and another answer, a no (a session's default of 22 November, Sid's to turn)."
          (let [once (conj asked (c :answer-ask))]
            (and (unchanged? once (c :answer-ask :at 2000) {:yes {:root asha :actor agent-4 :sign-in sign-in-2}})
                 (unchanged? once (c :answer-ask :yes? false :at 2000) {:yes {:root asha :actor agent-4 :sign-in sign-in-2}}))))
 
-  (check "An answer that was told what stands is told it again when it comes again, before the ask's end or after: its result comes from what stands (Sid's call of 22 November)."
+  (check "An answer that was told what stands is told it again when it comes again, before the ask's end or after: its result comes from what stands (a session's default of 22 November, Sid's to turn)."
          (let [once (conj asked (c :answer-ask) (c :answer-ask :yes? false :at 141))]
            (and (= {:yes {:root asha :actor agent-4 :sign-in sign-in-2}} (last-of once))
                 (= {:yes {:root asha :actor agent-4 :sign-in sign-in-2}} (last-of (conj once (c :answer-ask :yes? false :at 2000))))))))

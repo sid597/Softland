@@ -7,18 +7,27 @@ must do and what must hold. It names no depot, no table and no topology: the
 plan does.
 
 Sid's decisions that it stands on are entries 2, 5, 7, 8 and 12 of the
-runtime's page, and his go of 21 November to the sheet for sign-in: a
-deployment is born by one setup command; an invitation is a person id that
-waits for an account; a break between Auth and the store is met by writing
-Auth first. Everything else here is this session's, and his to turn.
+runtime's page, and his go of 21 November to the sheet for sign-in, which
+let two picks of a session stand: a deployment is born by one setup
+command; an invitation is a person id that waits for an account. The sheet
+put a third to him as engineering and not his, and his go did not answer
+it: a break between Auth and the store is met by writing Auth first. That
+one is a session's default, Sid's to turn (the review of 26 November, run 5,
+break 6). Everything else here is this session's, and his to turn.
 
-**22 November 2026.** Sid's calls on the contract, in the prompt that he
-pasted to the build of the reference, are written below where each belongs,
-each marked "Sid's call of 22 November". Two of them are rules: what fits,
-and that a repeat's result comes from what stands, never from a memory of
-calls. With them, questions 1 to 7, 12, 20 and 23 of the reference's
-questions (`test-auth/softland/auth/QUESTIONS.md`) are settled. Questions
-10, 17 and 24 stand as the reference took them, and stay his to turn.
+**22 November 2026.** What this page marked until 28 November as "Sid's
+calls of 22 November" are a session's. A session proposed them and wrote
+them into a prompt in his first person ("My calls of 22 November on Auth's
+contract"), which he pasted to the build of the reference; he typed no line
+on them, so they are no line of his (the review of 26 November, run 5,
+break 2; F2). Each is written below where it belongs, marked "a session's
+default of 22 November, Sid's to turn", and so is each place where "Sid
+let the reference's reading stand". Two of them are rules: what fits, and
+that a repeat's result comes from what stands, never from a memory of
+calls. With them a session took questions 1 to 7, 12, 20 and 23 of the
+reference's questions (`test-auth/softland/auth/QUESTIONS.md`) as settled,
+and let questions 10, 17 and 24 stand as the reference took them. The rules
+stay as they are built.
 
 **28 November 2026.** Sid said yes to three changes of what Auth stores, as a
 session put them to him (the review of 26 November, rows F6, F17 and F30:
@@ -163,7 +172,7 @@ Rules for every call:
   Auth trusts that, and checks an id only within its root.
 - A write that arrives twice, from one copy of the runtime or from two,
   leaves the same state as once. Its result comes from what stands, never
-  from a memory of calls (Sid's call of 22 November). The second call gives
+  from a memory of calls (a session's default of 22 November, Sid's to turn). The second call gives
   the result of the first, which says that the write was taken; it does not
   say how the thing stands now, which a read says. One part is the
   exception: an `enter` gives `:own-lane-made?` as it stands at that
@@ -203,7 +212,7 @@ Rules for every call:
   `{:kind :person}` or `{:kind :model :model text}` (with `:model` a text of
   at most 256 characters). A `:says` map holds at most 32 entries, each
   from a string of at most 256 characters to a string of at most 2,048.
-- What fits (Sid's call of 22 November): every part that the contract
+- What fits (a session's default of 22 November, Sid's to turn): every part that the contract
   names is there, a part written `-or-nil` as nil when it holds nothing,
   each in its stated form, and nothing that the contract does not name.
   `:driven-by` alone may be left out. A provider's name and `:own-lane`
@@ -447,8 +456,7 @@ proven.
 
 - An account that has a link gives its person, whatever claim came with it,
   with the own lane and the `:making` that were fixed, and
-  `:own-lane-made?` as it stands at that enter (Sid's call of 22
-  November). An enter that is sent again while its link stands is
+  `:own-lane-made?` as it stands at that enter (a session's default of 22 November, Sid's to turn). An enter that is sent again while its link stands is
   answered so like any other: Auth keeps no memory of what an enter gave.
   An enter that is sent again after its link was removed is judged afresh,
   at its own `:at`, as any enter of an account that has no link (28
@@ -469,7 +477,7 @@ proven.
   enter of another of her accounts among them.
 - `:says` is kept with the link from the enter with the latest `:at`, with
   that `:at`: an enter whose `:at` is not later than the kept one's leaves
-  it (Sid's call of 22 November). What other enters said is in the events
+  it (a session's default of 22 November, Sid's to turn). What other enters said is in the events
   alone. The link keeps no memory of each enter: at full life that would
   grow with every sign-in.
 
@@ -523,7 +531,8 @@ enter again until an invitation names her; her own lane and `:making` stay,
 and her next enter gives them.
 
 `:own-lane` and `:making` are how a break between Auth and the store is
-met. The runtime writes Auth first. Then it sends the act that makes her own
+met. The runtime writes Auth first (a session's default, Sid's to turn: his
+go of 21 November did not answer it). Then it sends the act that makes her own
 lane. That act is the system's: its who is the store's `system`, and
 `:making` holds its UUID and the id that it names as its session. Auth keeps
 the two and gives them back, and nothing more: that session is no session of
@@ -553,7 +562,7 @@ replacement again, which is so when `H'` is the sign-in's hash now and `H`
 is the one before it. A replacement that arrives after a newer one is no
 repeat. Like every replacement, it is judged by the present hash and the one
 before it alone, for a sign-in keeps no history of its replacements, which
-would grow with every one (Sid's call of 22 November): it is refused with
+would grow with every one (a session's default of 22 November, Sid's to turn): it is refused with
 `:wrong-secret` when its old hash is no longer the hash now, and a hash that
 has come back is taken when the replacement's old hash is the hash now. The
 old secret keeps standing until `t2` and no longer. No session changes. A
@@ -562,8 +571,7 @@ someone ended it or its actor, or its `:until` is at or before that `:at`.
 A replacement whose new `:until` is at or before its own `:at` is taken:
 the sign-in then has that `:until`, is not watched, and is not ended, and
 its sessions are not closed; the standing of each follows the sign-in's at
-each read. (Question 10. On 22 November Sid let the reference's reading
-stand, in which such a replacement ended the sign-in with its sessions; his
+each read. (Question 10. On 22 November a session's default, Sid's to turn, let the reference's reading stand, in which such a replacement ended the sign-in with its sessions; his
 yes of 28 November, that a time which passes ends nothing, turns it.)
 
 **end-sign-in.** The sign-in ends, and every session under it is closed,
@@ -600,8 +608,7 @@ own `:at`, and its sign-in is live at that `:at`. A session that someone
 closed stays closed. One whose time has passed at the repeat's `:at` is not
 moved on, and is not closed for that: the same repeat with an `:at` before
 the session's `:until`, from a copy whose clock is right, moves it on. Only
-`who-is` says how the session stands. (Question 17. On 22 November Sid let
-the reference's reading stand, in which a session whose time had passed was
+`who-is` says how the session stands. (Question 17. On 22 November a session's default, Sid's to turn, let the reference's reading stand, in which a session whose time had passed was
 closed for good; his yes of 28 November turns that part.) A session whose
 `:until` is at or before the `:at` of its opening is taken, not watched and
 not closed. A session's id that is another sign-in's, open or not, is
@@ -623,7 +630,7 @@ person answers once:
 The first answer stands. Once an ask has an answer, every answer that fits
 gives what stands, before any refusal, and changes nothing but what its time
 thins from what is watched (below): the same answer again, another answer, and one at or
-after the ask's `:ends` alike (Sid's call of 22 November). An answer to an ask that still waits is judged: one
+after the ask's `:ends` alike (a session's default of 22 November, Sid's to turn). An answer to an ask that still waits is judged: one
 whose `:at` is at or after the ask's `:ends` is refused with `:over`, and
 then come the refusals of the actor and of the ids, in the contract's order.
 Two persons who answer one ask at the same moment: one answer stands, and
@@ -633,13 +640,12 @@ runtime's.
 A yes names the actor that the program becomes, and it is an agent: a new
 agent, which is made by her and ends with her; or a live agent of hers that
 exists, which is
-any live agent of her root, in any depth. (Question 24: Sid let the
-reference's reading stand on 22 November, and it stays his to turn.) A yes
+any live agent of her root, in any depth. (Question 24: A session's default of 22 November, Sid's to turn, let the reference's reading stand.) A yes
 that names the person herself is refused with `:is-a-person` (Sid's yes of
 28 November): no sign-in of kind `:program` is hers, so every program is an
 agent. The sign-in that a yes begins has the ask's `:asks` as its label. A no needs a
 person who has entered, and judges no other part; its other parts must fit
-all the same (Sid's call of 22 November). `ask-of` judges no time:
+all the same (a session's default of 22 November, Sid's to turn). `ask-of` judges no time:
 it says `:waiting` for an ask that nobody answered, and the runtime holds
 `:ends` against its clock. A code is bound for good: an ask that is over
 keeps its code, so that a program that still asks under an old code never
