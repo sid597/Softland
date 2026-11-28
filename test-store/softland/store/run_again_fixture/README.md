@@ -33,8 +33,11 @@ make-fixture".
 
 ## How it was made, and how it is made
 
-This fixture was made on 28 November 2026. It is the eleventh making. It
-replaced the tenth for the form of an act, changed on purpose on Sid's
+This fixture was made on 28 November 2026. It is the twelfth making. It
+replaced the eleventh, of the same day, so that the kept acts hold what the
+form of an act of 28 November 2026 changed: facts under a key that is a UUID,
+and things that carry a part that left the act. The eleventh replaced the
+tenth for the form of an act, changed on purpose on Sid's
 decisions of 28 November 2026 (`src-store/README.md`, "Decisions of 28 November
 2026 — the form of an act"). The tenth was made on 28 November 2026 (27
 November 2026 UTC), and replaced the ninth for the permission rules changed on purpose,
@@ -289,8 +292,8 @@ that form:
   `:act-id-of-the-other-gate` is gone: an act-id with a depot word in it is
   `:act-id-malformed`;
 - `:subjects` and `:claimed-when` are no parts of an act;
-- a fact's key may be a UUID as well as a keyword. The hand sends no such
-  key, so the kept acts hold none.
+- a fact's key may be a UUID as well as a keyword. The hand sent no such
+  key then, so the eleventh making held none.
 
 The hand changed with the rules: in each gate the two strays under an act-id
 of the other gate are now two strays under an act-id with a depot word in it,
@@ -320,6 +323,29 @@ things and 195 rows of the task's table; in the microbatch gate 201, 78, 6, 7,
 case of the stray word that went, and in each gate one row fewer of the task's
 table, that word's under the strays. The run of the proof on it passed, 48
 checks.
+
+The twelfth making ran on 28 November 2026 at 17:56 IST, with the same rules
+as the eleventh, and replaced it so that the kept acts hold the change: the
+eleventh held no fact under a key that is a UUID and no thing that carries a
+part that left the act, so that its tables stood said nothing of a second run
+of either. The hand changed: at its end, in each gate, a mark of a key that is
+a UUID and under it a first write, its replace, the retract of that and a fact
+that stays, each accepted; and by the hand three things that carry `:depot`,
+`:subjects` and `:claimed-when`, each refused `:unknown-part`. The making
+holds the word of each, that the fact that stays holds its value and the
+retracted place none, and that the facts by value hold one row under the key.
+
+It wrote `acts.edn`, 129,947 bytes, 415 records (the streaming depot's four
+partitions 171, 0, 17 and 5; the microbatch depot's 5, 0, 217 and 0), and
+`tables.edn`, 367,526 bytes, 1,807 rows: in the streaming gate 182 answers,
+77 facts, 31 facts by value, 13 permissions by holder, 182 line rows, 182
+things and 203 rows of the task's table; in the microbatch gate 209, 80, 7, 7,
+209, 209 and 216. Against the eleventh: eight records more in each gate, and
+in each gate eight answers, line rows and things more, two facts more (the
+place that was retracted and the one that stays), one row of the facts by
+value more and eight rows more of the task's table. The run of the proof on it
+passed, 49 checks: one more than on the eleventh, check 1's hold of the
+words of these things in both modules.
 
 From the repository root, behind the lock of this machine's cluster runs:
 

@@ -1261,6 +1261,42 @@
     {:x x :y y :x-at (where-it-stands before-x before-y) :y-at (where-it-stands before-y (ends-of :microbatch))
      :x-answered x-answered :by-act-before-y by-act-before-y}))
 
+(def ^:private key-that-is-an-id
+  "A fact's key that is a UUID, the same at each making of the fixture."
+  #uuid "7e3a9c41-5b2d-4f60-9a18-c2d4e6f80b13")
+
+(def ^:private words-of-keys-and-parts-that-left
+  "The words that a gate gives the things of `keys-that-are-ids-and-parts-that-left!`,
+  in the order in which they are sent."
+  [:accepted :accepted :accepted :accepted :accepted
+   :unknown-part :unknown-part :unknown-part])
+
+(defn- keys-that-are-ids-and-parts-that-left!
+  "Sends by the hand, to the depot of the gate given, what the form of an
+  act of 28 November 2026 changed: a mark of a key that is a UUID
+  (`key-that-is-an-id`), and under it a first write, the replace of it, the
+  retract of that, and a fact on another entity that stays; then three
+  things that each carry a part that left the act, `:depot`, `:subjects`
+  and `:claimed-when`. Takes the gate, a lane that it has made, the holder
+  who writes its marks and her permission, the keys that the lane marks
+  already, a maker and her permission, and a plain key of the lane. Waits
+  for the microbatch gate when the things are its. Gives the things in the
+  order sent; `words-of-keys-and-parts-that-left` holds the word of each."
+  [gate lane setter setter-permission marked who permission k]
+  (let [id-key key-that-is-an-id
+        mark (arrived lane setter setter-permission [{:e lane :k marks-key :v (conj marked id-key)}])
+        first-write (arrived lane who permission [{:e :keyed-1 :k id-key :v "first"}])
+        replaced (arrived lane who permission [{:e :keyed-1 :k id-key :v "second" :replaces [(:act-id first-write) 0]}])
+        retract (arrived lane who permission [{:e :keyed-1 :k id-key :replaces [(:act-id replaced) 0]}])
+        stays (arrived lane who permission [{:e :keyed-2 :k id-key :v "it stays"}])
+        mine (fn [entity says] (arrived lane who permission [{:e entity :k k :v says}]))
+        things [mark first-write replaced retract stays
+                (assoc (mine :left-1 "a depot on the thing") :depot gate)
+                (assoc (mine :left-2 "whom the act is about") :subjects #{who})
+                (assoc (mine :left-3 "the maker's own clock") :claimed-when 1700000000000)]]
+    (run! (fn [thing] (if (= :microbatch gate) (alone! thing) (by-hand! :streaming thing))) things)
+    things))
+
 (defn- plays-the-hand!
   "Plays the whole hand on the store of `*hand*`, for the numbers given
   (`numbers-of-check-1`, `numbers-of-the-fixture`). In this order:
@@ -1289,6 +1325,9 @@
     7. seven more streaming lanes, with their acts in turn (`rooms!`)
     8. the load (`load!`), and two acts that write one place
        (`two-acts-on-one-place!`)
+    9. in each gate: facts under a key that is a UUID, and three things
+       that carry a part that left the act
+       (`keys-that-are-ids-and-parts-that-left!`)
 
   Gives the cases by name, each with the things as they were sent or with
   what the door gave: `what-the-cases-gave` reads a store's tables for
@@ -1325,8 +1364,13 @@
                     :microbatch (who-may-read-acts! :microbatch :base :system system-own)}
         in-rooms (rooms!)
         _ (load! numbers)
-        x-and-y (two-acts-on-one-place!)]
+        x-and-y (two-acts-on-one-place!)
+        keyed {:streaming (keys-that-are-ids-and-parts-that-left! :streaming :alice (person :alice) alice-own #{:text :title}
+                                                                 (person :alice) alice-own :text)
+               :microbatch (keys-that-are-ids-and-parts-that-left! :microbatch :base :system system-own #{:kind :colour}
+                                                                  (person :alice) alice-in-base :name)}]
     {:numbers numbers
+     :keyed keyed
      :before-made {:streaming alices-before :microbatch base-before}
      :other-gate {:on-the-streaming-depot-before [:streaming base-on-streaming-before]
                   :on-the-streaming-depot-after [:streaming base-on-streaming-after]
@@ -1709,6 +1753,19 @@
      :ends (in-each (fn [gate] (mapv (fn [thing] (word gate thing)) (get-in cases [:ends gate]))))
      :covers (in-each (fn [gate] (mapv (fn [thing] (word gate thing)) (get-in cases [:covers gate]))))
      :reads-acts (in-each (fn [gate] (mapv (fn [thing] (word gate thing)) (get-in cases [:reads-acts gate]))))
+     ;; of one gate: the word of each thing; whether the fact that stays is at its place, and the fact
+     ;; that was retracted is not; and how many rows of the facts by value are under the key that is a UUID
+     :keyed (in-each (fn [gate]
+                       (let [things (get-in cases [:keyed gate])
+                             lane (first (:act-id (first things)))
+                             id-text (declaration/id-text key-that-is-an-id)]
+                         {:words (mapv (fn [thing] (word gate thing)) things)
+                          :stays (record/holds-this-value? (row-held held gate :facts (record/place-key lane :keyed-2 key-that-is-an-id)) "it stays")
+                          :retracted (some? (:value (row-held held gate :facts (record/place-key lane :keyed-1 key-that-is-an-id))))
+                          :by-value (count (distinct (for [rows (vals (get-in held [gate :facts-by-value]))
+                                                           [k _] rows
+                                                           :when (str/includes? k (str " " id-text " "))]
+                                                       k)))})))
      ;; of one gate: how many answers and line rows, and the key of each answer whose line row, at its
      ;; stamp, is not there or holds another uuid, word, time or digest
      :line (in-each (fn [gate]
@@ -1783,6 +1840,10 @@
    [:reads-acts (str "the line that writes who may read the lane's acts, by gate, the word of each thing in the order sent: "
                      "everyone by the first holder, a give, the setting by the holder of the give, on another entity, with "
                      "no value, with a word that is neither, and members again")]
+   [:keyed (str "facts under a key that is a UUID, by gate: the word of each thing in the order sent, the mark of the key, "
+                "a first write, its replace, the retract of that, and a fact that stays, then three things that carry "
+                "`:depot`, `:subjects` and `:claimed-when`; whether the fact that stays holds its value and the retracted one "
+                "a value; and how many rows of the facts by value are under that key")]
    [:line (str "each gate's line against its answers: how many answers, how many line rows, and the answers whose line "
                "row at their stamp is not there or says another uuid, word, time or digest")]
    [:strays "the strays that each gate keeps: how many digests under each word"]
@@ -2420,6 +2481,9 @@
          (is (= {:streaming words-of-what-a-permission-covers :microbatch words-of-what-a-permission-covers}
                 (into {} (:covers gave-first))
                 (into {} (:covers gave-again))))
+         (is (= {:streaming words-of-keys-and-parts-that-left :microbatch words-of-keys-and-parts-that-left}
+                (into {} (map (fn [[gate got]] [gate (:words got)])) (:keyed gave-first))
+                (into {} (map (fn [[gate got]] [gate (:words got)])) (:keyed gave-again))))
          (shown "of the" (count met)
                 "places that the load's acts of the system write from several first entities, the two modules hold the fact of two different acts at"
                 (count (filter (fn [k] (not= (:by-act (row-held first-held :microbatch :facts k))
@@ -3225,7 +3289,10 @@
       (each-gate? (fn [gate] (let [{:keys [lanes not-counted]} (get-in gave [:counted gate])]
                                (and (pos? lanes) (empty? not-counted)))))]
      ["the place that X wrote and then Y holds the fact of Y"
-      (= "Y" (:x-and-y gave))]]))
+      (= "Y" (:x-and-y gave))]
+     ["under a key that is a UUID, a lane marks the key, and a first write, its replace, the retract of that and a fact that stays are each accepted; the fact that stays holds its value, the retracted place holds none, and the facts by value hold one row under the key; a thing that carries :depot, :subjects or :claimed-when is refused :unknown-part, in each gate"
+      (each-gate? (fn [gate] (= {:words words-of-keys-and-parts-that-left :stays true :retracted false :by-value 1}
+                                (get-in gave [:keyed gate]))))]]))
 
 (defn- makes-the-fixture!
   "Makes the fixture. Takes the folder to write into. Launches `Store` with
