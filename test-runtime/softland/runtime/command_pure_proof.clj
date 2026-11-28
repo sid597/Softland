@@ -1,8 +1,8 @@
 (ns softland.runtime.command-pure-proof
-  "The proof of the command line's parts that need no runtime: how many
-  plain arguments a command takes, under which UUID an act of a file is
-  sent, and the exit status of a result. One command, from the repository
-  root:
+  "The proof of the command line's parts that need no runtime: how each
+  command is typed, which plain arguments and flags it takes, under which
+  UUID an act of a file is sent, and the exit status of a result. One
+  command, from the repository root:
 
     clojure -M:runtime -m softland.runtime.command-pure-proof
 
@@ -25,7 +25,7 @@
     (apply f args)
     :no-such-function))
 
-;; ------------------------------------------------------- the plain arguments
+;; ------------------------------------------------- how a command is typed
 
 (def ^:private as-typed
   "Each command with as many plain arguments as it takes."
@@ -34,34 +34,87 @@
    ["agent" "new" "importer"] ["agent" "end" "a-uuid"] ["under"] ["end-sign-in" "a-uuid"]
    ["replace-secret"] ["new-session"] ["sign-out"]])
 
+(def ^:private how-each-is-typed
+  "How each command is typed, written out here a second time as literals,
+  beside the command line's one list of its commands: a change of a
+  command's arguments or flags is made in two places on purpose."
+  ["sign-in [--url address] [--agent name]"
+   "who"
+   "write e k v [--lane id] [--permission uuid]; a retract is typed with the value nil"
+   "read e k [--lane id]"
+   "watch e k [--lane id]"
+   "send file"
+   "give who lane see|act [--permission uuid]"
+   "invite [--email address]"
+   "agent new name [--out file]"
+   "agent end uuid"
+   "under"
+   "end-sign-in uuid"
+   "replace-secret"
+   "new-session [--model name]"
+   "sign-out"])
+
 (defn- argument-checks []
-  (let [mistyped (fn [[name & args]] (command 'mistyped name args))
-        not-read? (fn [[name :as typed]]
-                    (let [got (mistyped typed)]
-                      (and (map? got)
-                           (= :read-the-command (:could-not got))
-                           (str/starts-with? (str (:said got)) name))))]
-    (check "Each command that is typed with its own number of plain arguments is left to run: sign-in 0, who 0, write 3, read 2, watch 2, send 1, give 3, invite 0, agent new 2, agent end 2, under 0, end-sign-in 1, replace-secret 0, new-session 0, sign-out 0."
-           (every? (fn [typed] (nil? (mistyped typed))) as-typed)
-           (remove (fn [typed] (nil? (mistyped typed))) as-typed))
+  (let [read (fn [[name & args]] (command 'read-command name args))
+        left-to-run? (fn [typed] (let [got (read typed)] (and (map? got) (fn? (:does got)) (not (contains? got :could-not)))))
+        not-read (fn [typed] (let [got (read typed)] (when (and (map? got) (= :read-the-command (:could-not got))) got)))
+        not-read? (fn [[name :as typed]] (str/starts-with? (str (:said (not-read typed))) name))
+        why (fn [typed] (select-keys (not-read typed) [:why :at]))
+        commands @(ns-resolve 'softland.command.main 'commands)]
+    (check "The command line's one list of its commands gives, for each, how it is typed, and each line is the one that this proof holds: the plain arguments by name, then the flags that the command takes beside `--as`, each with the name of its value."
+           (= how-each-is-typed (mapv (fn [[named]] (command 'typed named)) commands))
+           (mapv (fn [[named]] (command 'typed named)) commands))
+    (check "Each entry of that list holds a function that does the command and says what the command does."
+           (every? (fn [[_ entry]] (and (fn? (:does entry)) (string? (:says entry)) (vector? (:args entry)))) commands))
+    (check "Each command that is typed with its own number of plain arguments is left to run: sign-in 0, who 0, write 3, read 2, watch 2, send 1, give 3, invite 0, agent new 1, agent end 1, under 0, end-sign-in 1, replace-secret 0, new-session 0, sign-out 0."
+           (every? left-to-run? as-typed)
+           (remove left-to-run? as-typed))
     (check "Each of them typed with one plain argument more, or with one fewer where it takes any, is not run: the result says that the command could not be read, and how the command is typed."
            (every? not-read? (concat (map (fn [typed] (conj typed "one-more")) as-typed)
                                      (map pop (filter next as-typed))))
            (remove not-read? (concat (map (fn [typed] (conj typed "one-more")) as-typed)
                                      (map pop (filter next as-typed)))))
     (check "A `--flag value` pair is no plain argument: `write e k v --lane l --permission p` is left to run, and `write e k --lane l` is not."
-           (and (nil? (mistyped ["write" ":e" ":k" ":v" "--lane" "l" "--permission" "p"]))
+           (and (left-to-run? ["write" ":e" ":k" ":v" "--lane" "l" "--permission" "p"])
                 (not-read? ["write" ":e" ":k" "--lane" "l"]))
-           [(mistyped ["write" ":e" ":k" ":v" "--lane" "l" "--permission" "p"]) (mistyped ["write" ":e" ":k" "--lane" "l"])])
+           [(read ["write" ":e" ":k" ":v" "--lane" "l" "--permission" "p"]) (read ["write" ":e" ":k" "--lane" "l"])])
     (check "`write e k` with the value left out is not run, and what it says names how a retract is typed: the value nil."
-           (and (not-read? ["write" ":e" ":k"]) (str/includes? (:said (mistyped ["write" ":e" ":k"])) "nil"))
-           (mistyped ["write" ":e" ":k"]))
+           (and (not-read? ["write" ":e" ":k"]) (str/includes? (:said (read ["write" ":e" ":k"])) "nil"))
+           (read ["write" ":e" ":k"]))
     (check "The value that is typed `nil` is read as nil, so `write e k nil` is the retract."
-           (and (nil? (command 'value-of "nil")) (nil? (mistyped ["write" ":e" ":k" "nil"])))
-           [(command 'value-of "nil") (mistyped ["write" ":e" ":k" "nil"])])
-    (check "A command that the command line does not know, and no command at all, are left to run, which names the commands."
-           (and (nil? (mistyped ["fly" "away"])) (nil? (mistyped [nil])))
-           [(mistyped ["fly" "away"]) (mistyped [nil])])))
+           (and (nil? (command 'value-of "nil")) (left-to-run? ["write" ":e" ":k" "nil"]))
+           [(command 'value-of "nil") (read ["write" ":e" ":k" "nil"])])
+    (check "A flag whose value is left out is not run, and the result names the flag: `write e k v --lane`, which would be written into her own lane; `new-session --model`; and `write e k v --lane --as file`, where the next thing typed is another flag."
+           (= [{:why :flag-with-no-value :at "--lane"} {:why :flag-with-no-value :at "--model"} {:why :flag-with-no-value :at "--lane"}]
+              (mapv why [["write" ":e" ":k" ":v" "--lane"] ["new-session" "--model"] ["write" ":e" ":k" ":v" "--lane" "--as" "file"]]))
+           (mapv why [["write" ":e" ":k" ":v" "--lane"] ["new-session" "--model"] ["write" ":e" ":k" ":v" "--lane" "--as" "file"]]))
+    (check "A flag that the command does not take is not run, and the result names the flag: one that no command takes, `write e k v --lain l`; one that another command takes, `who --lane l` and `read e k --permission p`; and one that the other command of two words takes, `agent end uuid --out file`."
+           (= [{:why :flag-not-known :at "--lain"} {:why :flag-not-known :at "--lane"} {:why :flag-not-known :at "--permission"}
+               {:why :flag-not-known :at "--out"}]
+              (mapv why [["write" ":e" ":k" ":v" "--lain" "l"] ["who" "--lane" "l"] ["read" ":e" ":k" "--permission" "p"]
+                         ["agent" "end" "a-uuid" "--out" "file"]]))
+           (mapv why [["write" ":e" ":k" ":v" "--lain" "l"] ["who" "--lane" "l"] ["read" ":e" ":k" "--permission" "p"]
+                      ["agent" "end" "a-uuid" "--out" "file"]]))
+    (check "A flag that is given twice is not run: of `write e k v --lane a --lane b` the command line cannot say which lane is meant."
+           (= {:why :flag-given-twice :at "--lane"} (why ["write" ":e" ":k" ":v" "--lane" "a" "--lane" "b"]))
+           (why ["write" ":e" ":k" ":v" "--lane" "a" "--lane" "b"]))
+    (check "Every command takes `--as file`, before or after its plain arguments."
+           (every? left-to-run? (concat (map (fn [typed] (into typed ["--as" "a-file"])) as-typed)
+                                        (map (fn [[name & args]] (into [name "--as" "a-file"] args)) as-typed)))
+           (remove left-to-run? (concat (map (fn [typed] (into typed ["--as" "a-file"])) as-typed)
+                                        (map (fn [[name & args]] (into [name "--as" "a-file"] args)) as-typed))))
+    (check "A command that the command line does not know, and no command at all, could not be read, and the result names the commands, each once; `agent` with a word that is neither `new` nor `end`, or with none, says how the two commands of `agent` are typed."
+           (let [names "sign-in, who, write, read, watch, send, give, invite, agent, under, end-sign-in, replace-secret, new-session, sign-out"
+                 agents "agent new name [--out file] | agent end uuid"]
+             (= [{:could-not :read-the-command :why :command-not-known :said names}
+                 {:could-not :read-the-command :why :command-not-known :said names}
+                 {:could-not :read-the-command :why :command-not-known :said agents}
+                 {:could-not :read-the-command :why :command-not-known :said agents}]
+                [(read ["fly" "away"]) (read [nil]) (read ["agent" "rename" "importer"]) (read ["agent"])]))
+           [(read ["fly" "away"]) (read [nil]) (read ["agent" "rename" "importer"]) (read ["agent"])])
+    (check "A command that could not be read is not run: `run` gives the same result as the reading, and calls no command's function."
+           (= (read ["write" ":e" ":k" ":v" "--lane"]) (command 'run "write" [":e" ":k" ":v" "--lane"]))
+           (command 'run "write" [":e" ":k" ":v" "--lane"]))))
 
 ;; --------------------------------------------------------------- the journal
 

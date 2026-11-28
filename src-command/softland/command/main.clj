@@ -3,39 +3,20 @@
   same commands: an agent is signed in with a who of its own, and what it
   may do is what it was given.
 
-  The commands:
+  The commands are the entries of `commands`, the one list of them: for
+  each, how it is typed, the flags that it takes, what it does, and the
+  function that does it. A command that is typed with another number of
+  plain arguments, with a flag that it does not take, with a flag whose
+  value is left out, or with a flag twice, is not run and nothing is
+  connected for it: a slip must not become another command. `write e k`
+  with the value left out would be sent as a retract, and `write e k v
+  --lane` with the lane left out would be written into her own lane.
 
-    sign-in [--url address] [--agent name]
-                        asks the runtime, shows a link and a code, waits for
-                        her yes, and keeps the credential. With `--agent`
-                        the yes page offers to make this program an agent
-                        of that name
-    who                 who this program is signed in as
-    write e k v         one fact, written into a lane
-    read e k            one place, read once
-    watch e k           one place, kept live until the program is stopped
-    send file           the acts of a file, sent in order, each once
-    give who lane see|act
-                        gives a permission beneath the one that this
-                        program acts under
-    invite [--email a]  makes a person who waits for an account; prints the
-                        link for her, or names the email
-    agent new name [--out file]
-                        makes an agent beneath this program's who, and
-                        writes the file that the agent signs in with
-    agent end uuid      ends an agent
-    under               the actors and the sign-ins of this person
-    end-sign-in uuid    ends one sign-in of this person
-    replace-secret      a new secret for this sign-in
-    new-session [--model name]
-                        leaves the session and starts another, optionally
-                        naming the model that drives it
-    sign-out            ends this program's sign-in
-
-  Common arguments: `--as file`, the file that holds the sign-in, when it
-  is not the default; `--lane id`, the lane, when it is not the person's
-  own; `--permission edn`, the permission that an act names, when it is
-  not the first permission of the person's own lane.
+  Every command takes `--as file`, the file that holds the sign-in, when
+  it is not the default. A command that writes or reads takes `--lane id`,
+  the lane, when it is not the person's own; one that writes takes
+  `--permission uuid`, the permission that the act names, when it is not
+  the first permission of the lane for its person.
 
   Values. `e`, `k`, `v`, a lane and a permission are read as EDN; a UUID is
   typed bare, or as EDN writes one; a text that is no EDN, or a bare word,
@@ -64,7 +45,12 @@
   sign-in. 0: otherwise.
 
   Three of the words that hold `:could-not` are the command line's own:
-  `:read-the-command`, `:run-the-command` and `:find-a-credential`."
+  `:read-the-command`, `:run-the-command` and `:find-a-credential`.
+  `:read-the-command` says how the command is typed under `:said`, and why
+  it was not read under `:why`: `:command-not-known`,
+  `:wrong-number-of-arguments`, `:argument-not-known`, `:flag-not-known`,
+  `:flag-with-no-value` or `:flag-given-twice`, with the argument or the
+  flag under `:at`."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -175,11 +161,21 @@
 ;; ------------------------------------------------------------- the arguments
 
 (defn- parsed
+  "What was typed after the command, as {:flags {flag value} :rest [plain
+  arguments]}, or {:fault why :at flag} at the first flag that cannot be
+  read: one with no value after it, where the next thing typed is another
+  flag or nothing, and one that was given before. Which flags a command
+  takes is `read-command`'s."
   [args]
   (loop [args args flags {} others []]
     (if-let [[arg & more] (seq args)]
       (if (str/starts-with? arg "--")
-        (recur (rest more) (assoc flags (keyword (subs arg 2)) (first more)) others)
+        (let [flag (keyword (subs arg 2))
+              value (first more)]
+          (cond
+            (or (nil? value) (str/starts-with? value "--")) {:fault :flag-with-no-value :at arg}
+            (contains? flags flag) {:fault :flag-given-twice :at arg}
+            :else (recur (rest more) (assoc flags flag value) others)))
         (recur more flags (conj others arg)))
       {:flags flags :rest others})))
 
@@ -189,34 +185,6 @@
     (UUID/fromString text)
     (let [[outcome form] (frame/read-one text)]
       (if (and (= :ok outcome) (not (symbol? form))) form text))))
-
-(def ^:private typed
-  "How each command is typed, after the number of its plain arguments:
-  those that are no `--flag value` pair."
-  {"sign-in"        [0 "sign-in [--url address] [--agent name]"]
-   "who"            [0 "who"]
-   "write"          [3 "write e k v; a retract is typed with the value nil"]
-   "read"           [2 "read e k"]
-   "watch"          [2 "watch e k"]
-   "send"           [1 "send file"]
-   "give"           [3 "give who lane see|act"]
-   "invite"         [0 "invite [--email a]"]
-   "agent"          [2 "agent new name [--out file] | agent end uuid"]
-   "under"          [0 "under"]
-   "end-sign-in"    [1 "end-sign-in uuid"]
-   "replace-secret" [0 "replace-secret"]
-   "new-session"    [0 "new-session [--model name]"]
-   "sign-out"       [0 "sign-out"]})
-
-(defn- mistyped
-  "A command that is typed with another number of plain arguments is not
-  run, and nothing is connected for it: it opens no session and replaces no
-  secret. `write e k` with the value left out would be sent as a retract.
-  Nil for a command that `typed` does not hold: `run` names the commands."
-  [command args]
-  (when-let [[takes how] (get typed command)]
-    (when (not= takes (count (:rest (parsed args))))
-      {:could-not :read-the-command :said how})))
 
 ;; ------------------------------------------------------------------ the result
 
@@ -370,7 +338,7 @@
 ;; ---------------------------------------------------------------- the commands
 
 (defn- sign-in!
-  [{:keys [url agent] :as flags}]
+  [{:keys [url agent] :as flags} _]
   (let [url (or url (:url (kept (file-of flags))) default-url)
         asks (str (if agent (str "the agent \"" agent "\"") "the command line")
                   " on " (try (.getHostName (java.net.InetAddress/getLocalHost)) (catch Throwable _ "this machine")))
@@ -444,164 +412,277 @@
                                {:act (assoc act :who (:who hello) :session (:session hello)) :act-id uuid})
                              acts uuids)})))
 
+(defn- who!
+  [flags _]
+  (with-line flags (fn [_ hello] hello)))
+
+(defn- write!
+  [flags [e k v]]
+  (with-line flags
+    (fn [connection hello]
+      (client/say connection {:word :send
+                              :act (act-of hello flags [{:e (value-of e) :k (value-of k) :v (value-of v)}])
+                              :act-id (UUID/randomUUID)}))))
+
+(defn- read!
+  [flags [e k]]
+  (with-line flags
+    (fn [connection hello]
+      (client/say connection {:word :read :query (query-of hello flags (value-of e) (value-of k))}))))
+
+(defn- watch!
+  [flags [e k]]
+  (with-line flags
+    (fn [connection hello]
+      (let [ended (promise)
+            sent (client/watch connection (query-of hello flags (value-of e) (value-of k))
+                               (fn [message]
+                                 (println (frame/write message))
+                                 (flush)
+                                 (when (contains? message :ended) (deliver ended (:ended message)))))]
+        (if (:could-not sent) sent {:ended @ended})))))
+
+(defn- send!
+  [flags [path]]
+  (with-line flags (fn [connection hello] (send-file! connection hello path))))
+
+(declare could-not-read)
+
+(defn- give!
+  [flags [to-whom to-lane what]]
+  (with-line flags
+    (fn [connection hello]
+      (let [who (value-of to-whom)
+            lane (value-of to-lane)
+            act (act-of hello (assoc flags :lane to-lane) [])
+            allows (case what
+                     "see" {:see true}
+                     "act" (if (act/borrower? who)
+                             {:see true :write :all}
+                             {:see true :write :all :give #{:see :write :give}})
+                     nil)]
+        (if-not allows
+          (could-not-read "give" :argument-not-known what)
+          (let [perm-id (UUID/randomUUID)
+                lent? (or (act/borrower? (:who hello)) (act/borrower? who))
+                fact {:e perm-id
+                      :k declaration/permission-key
+                      :v (cond-> {:holder who
+                                  :allows allows
+                                  :covers [:default-group lane]
+                                  :given-by (:who hello)
+                                  :under (:permission act)}
+                           lent? (assoc :lent-from (:permission act)))}
+                sent (client/say connection
+                                 {:word :send
+                                  :act (assoc act :subjects #{who} :facts [fact])
+                                  :act-id (UUID/randomUUID)})]
+            (if (:could-not sent)
+              sent
+              (assoc sent :permission perm-id))))))))
+
+(defn- invite!
+  [flags _]
+  (with-line flags
+    (fn [connection _hello]
+      (let [code (credential/make-secret)
+            claim (if-let [email (:email flags)]
+                    {:by :email :email email}
+                    {:by :code :hash (credential/hash-of code)})
+            got (client/say connection {:word :invite :uuid (UUID/randomUUID) :claim claim})]
+        (cond-> got
+          (and (:invited got) (= :code (:by claim)))
+          (assoc :link (str (:url (kept (file-of flags))) "/?invited=" code)))))))
+
+(defn- agent-new!
+  [flags [label]]
+  (with-line flags
+    (fn [connection _hello]
+      (let [secret (credential/make-secret)
+            got (client/say connection {:word :make-agent :uuid (UUID/randomUUID)
+                                        :label label :hash (credential/hash-of secret)})]
+        (if-not (:made got)
+          got
+          (let [out (io/file (or (:out flags) (str "agent-" label ".edn")))]
+            (keep! out {:url (:url (kept (file-of flags)))
+                        :credential (credential/text (:root got) (:sign-in got) secret)})
+            (assoc got :file (.getPath out))))))))
+
+(defn- agent-end!
+  [flags [uuid]]
+  (with-line flags (fn [connection _hello] (client/say connection {:word :end-agent :agent (value-of uuid)}))))
+
+(defn- under!
+  [flags _]
+  (with-line flags (fn [connection _] (client/say connection {:word :under}))))
+
+(defn- end-sign-in!
+  [flags [uuid]]
+  (with-line flags (fn [connection _] (client/say connection {:word :end-sign-in :sign-in (value-of uuid)}))))
+
+(defn- replace-secret!
+  [flags _]
+  (with-line* flags
+    (fn [connection hello promoted? connected-with]
+      (if promoted?
+        {:replaced (:sign-in hello) :until (:until hello)}
+        (replace-on-line! (file-of flags) connected-with connection hello)))
+    false))
+
+(defn- new-session!
+  "The file is moved off the session before that session is closed: a run
+  that is cut off between the two leaves the file in the new session, or
+  in none, and never in one that is closed."
+  [flags _]
+  (let [file (file-of flags)
+        held (kept file)
+        drop-session! (fn [] (update-kept! file (fn [now] (when now (dissoc now :session)))))]
+    (if-not (or (:credential held) (:next-credential held))
+      {:could-not :find-a-credential :said "This program is not signed in. Run: sign-in"}
+      (if (contains? flags :model)
+        (let [open-word {:word :open-session :driven-by {:kind :model :model (:model flags)}}
+              open-then-close
+              (fn []
+                (with-line flags
+                  (fn [connection hello]
+                    (let [opened (client/say connection open-word)]
+                      (if (:could-not opened)
+                        opened
+                        (do (update-kept! file (fn [now]
+                                                 (when (and now (= (:session hello) (:session now)))
+                                                   (assoc now :session (:open opened)))))
+                            (client/say connection {:word :close-session})
+                            opened))))))
+              opened (let [first-try (open-then-close)]
+                       (if (= :find-her-session (:could-not first-try))
+                         (do (drop-session!)
+                             (open-then-close))
+                         first-try))]
+          (if (:could-not opened)
+            opened
+            (with-line flags (fn [_ hello] hello))))
+        (let [closed (with-line flags
+                       (fn [connection hello]
+                         (update-kept! file (fn [now]
+                                              (when (and now (= (:session hello) (:session now)))
+                                                (dissoc now :session))))
+                         (client/say connection {:word :close-session})))]
+          (if (and (:could-not closed) (not= :find-her-session (:could-not closed)))
+            closed
+            (do (when (= :find-her-session (:could-not closed)) (drop-session!))
+                (with-line flags (fn [_ hello] hello)))))))))
+
+(defn- sign-out!
+  [flags _]
+  (with-line flags (fn [connection _] (client/say connection {:word :sign-out}))))
+
+;; ------------------------------------------------------- the one list of commands
+
+(def ^:private commands
+  "Every command, in the order in which they are named to somebody who
+  typed none. A command is one word, or two.
+
+    :args   its plain arguments, by name: a command is typed with exactly
+            that many
+    :flags  the flags that it takes beside `--as`, each with the name of
+            its value
+    :note   what else is to be known of how it is typed
+    :says   what it does
+    :does   the function that does it, which is handed the flags and the
+            plain arguments
+
+  How a command is typed is made of the first three (`typed`), and nothing
+  else says it."
+  [["sign-in"        {:args [] :flags {:url "address" :agent "name"} :does sign-in!
+                      :says "asks the runtime, shows a link and a code, waits for her yes, and keeps the credential. With `--agent` the yes page offers to make this program an agent of that name"}]
+   ["who"            {:args [] :does who!
+                      :says "who this program is signed in as"}]
+   ["write"          {:args ["e" "k" "v"] :flags {:lane "id" :permission "uuid"} :does write!
+                      :note "a retract is typed with the value nil"
+                      :says "one fact, written into a lane"}]
+   ["read"           {:args ["e" "k"] :flags {:lane "id"} :does read!
+                      :says "one place, read once"}]
+   ["watch"          {:args ["e" "k"] :flags {:lane "id"} :does watch!
+                      :says "one place, kept live until the program is stopped"}]
+   ["send"           {:args ["file"] :does send!
+                      :says "the acts of a file, sent in order, each once"}]
+   ["give"           {:args ["who" "lane" "see|act"] :flags {:permission "uuid"} :does give!
+                      :says "gives a permission beneath the one that this program acts under"}]
+   ["invite"         {:args [] :flags {:email "address"} :does invite!
+                      :says "makes a person who waits for an account; prints the link for her, or names the email"}]
+   ["agent new"      {:args ["name"] :flags {:out "file"} :does agent-new!
+                      :says "makes an agent beneath this program's who, and writes the file that the agent signs in with"}]
+   ["agent end"      {:args ["uuid"] :does agent-end!
+                      :says "ends an agent"}]
+   ["under"          {:args [] :does under!
+                      :says "the actors and the sign-ins of this person"}]
+   ["end-sign-in"    {:args ["uuid"] :does end-sign-in!
+                      :says "ends one sign-in of this person"}]
+   ["replace-secret" {:args [] :does replace-secret!
+                      :says "a new secret for this sign-in"}]
+   ["new-session"    {:args [] :flags {:model "name"} :does new-session!
+                      :says "leaves the session and starts another, optionally naming the model that drives it"}]
+   ["sign-out"       {:args [] :does sign-out!
+                      :says "ends this program's sign-in"}]])
+
+(def ^:private command-named
+  (into {} commands))
+
+(defn- typed
+  "How a command of `commands` is typed, as one line."
+  [named]
+  (let [{:keys [args flags note]} (get command-named named)]
+    (str named
+         (apply str (map (fn [arg] (str " " arg)) args))
+         (apply str (map (fn [[flag value]] (str " [--" (name flag) " " value "]")) flags))
+         (when note (str "; " note)))))
+
+(defn- how
+  "What a result says under `:said` of a command that could not be read:
+  how the command is typed; for the first word of commands of two words,
+  how each of those is typed; else the names of the commands."
+  [command]
+  (let [first-word-of (filter (fn [named] (str/starts-with? named (str command " "))) (map first commands))]
+    (cond
+      (contains? command-named command) (typed command)
+      (seq first-word-of) (str/join " | " (map typed first-word-of))
+      :else (str/join ", " (distinct (map (fn [[named]] (first (str/split named #" "))) commands))))))
+
+(defn- could-not-read
+  [command why at]
+  (cond-> {:could-not :read-the-command :why why :said (how command)}
+    (some? at) (assoc :at at)))
+
+(defn- read-command
+  "What was typed, held against `commands`. Gives {:does function :flags
+  flags :rest plain-arguments} for a command that is typed as its entry
+  says, or the result that says that it could not be read. Nothing is
+  connected here."
+  [command args]
+  (let [{:keys [fault at flags] plain :rest} (parsed args)
+        two-words (when (and (string? command) (seq plain)) (str command " " (first plain)))
+        [named plain] (cond
+                        (contains? command-named command) [command plain]
+                        (contains? command-named two-words) [two-words (vec (rest plain))])
+        entry (get command-named named)
+        not-taken (first (remove (conj (set (keys (:flags entry))) :as) (keys flags)))]
+    (cond
+      fault (could-not-read command fault at)
+      (nil? entry) (could-not-read command :command-not-known nil)
+      not-taken (could-not-read named :flag-not-known (str "--" (name not-taken)))
+      (not= (count (:args entry)) (count plain)) (could-not-read named :wrong-number-of-arguments nil)
+      :else {:does (:does entry) :flags flags :rest plain})))
+
 (defn- run
   [command args]
-  (let [{flags :flags [a b c] :rest} (parsed args)]
-    (case command
-      "sign-in" (sign-in! flags)
-
-      "who" (with-line flags (fn [_ hello] hello))
-
-      "write"
-      (with-line flags
-        (fn [connection hello]
-          (client/say connection {:word :send
-                                  :act (act-of hello flags [{:e (value-of a) :k (value-of b) :v (value-of c)}])
-                                  :act-id (UUID/randomUUID)})))
-
-      "read"
-      (with-line flags
-        (fn [connection hello]
-          (client/say connection {:word :read :query (query-of hello flags (value-of a) (value-of b))})))
-
-      "watch"
-      (with-line flags
-        (fn [connection hello]
-          (let [ended (promise)
-                sent (client/watch connection (query-of hello flags (value-of a) (value-of b))
-                                   (fn [message]
-                                     (println (frame/write message))
-                                     (flush)
-                                     (when (contains? message :ended) (deliver ended (:ended message)))))]
-            (if (:could-not sent) sent {:ended @ended}))))
-
-      "send" (with-line flags (fn [connection hello] (send-file! connection hello a)))
-
-      "give"
-      (with-line flags
-        (fn [connection hello]
-          (let [who (value-of a)
-                lane (value-of b)
-                flags (assoc flags :lane b)
-                act (act-of hello flags [])
-                allows (case c
-                         "see" {:see true}
-                         "act" (if (act/borrower? who)
-                                 {:see true :write :all}
-                                 {:see true :write :all :give #{:see :write :give}})
-                         nil)]
-            (if-not allows
-              {:could-not :read-the-command :said "give who lane see|act"}
-              (let [perm-id (UUID/randomUUID)
-                    lent? (or (act/borrower? (:who hello)) (act/borrower? who))
-                    fact {:e perm-id
-                          :k declaration/permission-key
-                          :v (cond-> {:holder who
-                                      :allows allows
-                                      :covers [:default-group lane]
-                                      :given-by (:who hello)
-                                      :under (:permission act)}
-                               lent? (assoc :lent-from (:permission act)))}
-                    sent (client/say connection
-                                     {:word :send
-                                      :act (assoc act :subjects #{who} :facts [fact])
-                                      :act-id (UUID/randomUUID)})]
-                (if (:could-not sent)
-                  sent
-                  (assoc sent :permission perm-id)))))))
-
-      "invite"
-      (with-line flags
-        (fn [connection hello]
-          (let [code (credential/make-secret)
-                claim (if-let [email (:email flags)]
-                        {:by :email :email email}
-                        {:by :code :hash (credential/hash-of code)})
-                got (client/say connection {:word :invite :uuid (UUID/randomUUID) :claim claim})]
-            (cond-> got
-              (and (:invited got) (= :code (:by claim)))
-              (assoc :link (str (:url (kept (file-of flags))) "/?invited=" code))))))
-
-      "agent"
-      (case a
-        "new" (with-line flags
-                (fn [connection _hello]
-                  (let [secret (credential/make-secret)
-                        got (client/say connection {:word :make-agent :uuid (UUID/randomUUID)
-                                                    :label b :hash (credential/hash-of secret)})]
-                    (if-not (:made got)
-                      got
-                      (let [out (io/file (or (:out flags) (str "agent-" b ".edn")))]
-                        (keep! out {:url (:url (kept (file-of flags)))
-                                    :credential (credential/text (:root got) (:sign-in got) secret)})
-                        (assoc got :file (.getPath out)))))))
-        "end" (with-line flags
-                (fn [connection _hello]
-                  (client/say connection {:word :end-agent :agent (value-of b)})))
-        {:could-not :read-the-command :said (second (get typed "agent"))})
-
-      "under" (with-line flags (fn [connection _] (client/say connection {:word :under})))
-
-      "end-sign-in" (with-line flags (fn [connection _] (client/say connection {:word :end-sign-in :sign-in (value-of a)})))
-
-      "replace-secret"
-      (with-line* flags
-        (fn [connection hello promoted? connected-with]
-          (if promoted?
-            {:replaced (:sign-in hello) :until (:until hello)}
-            (replace-on-line! (file-of flags) connected-with connection hello)))
-        false)
-
-      "new-session"
-      ;; The file is moved off the session before that session is closed:
-      ;; a run that is cut off between the two leaves the file in the new
-      ;; session, or in none, and never in one that is closed.
-      (let [file (file-of flags)
-            held (kept file)
-            drop-session! (fn [] (update-kept! file (fn [now] (when now (dissoc now :session)))))]
-        (if-not (or (:credential held) (:next-credential held))
-          {:could-not :find-a-credential :said "This program is not signed in. Run: sign-in"}
-          (if (contains? flags :model)
-            (let [open-word {:word :open-session :driven-by {:kind :model :model (or (:model flags) "")}}
-                  open-then-close
-                  (fn []
-                    (with-line flags
-                      (fn [connection hello]
-                        (let [opened (client/say connection open-word)]
-                          (if (:could-not opened)
-                            opened
-                            (do (update-kept! file (fn [now]
-                                                     (when (and now (= (:session hello) (:session now)))
-                                                       (assoc now :session (:open opened)))))
-                                (client/say connection {:word :close-session})
-                                opened))))))
-                  opened (let [first-try (open-then-close)]
-                           (if (= :find-her-session (:could-not first-try))
-                             (do (drop-session!)
-                                 (open-then-close))
-                             first-try))]
-              (if (:could-not opened)
-                opened
-                (with-line flags (fn [_ hello] hello))))
-            (let [closed (with-line flags
-                           (fn [connection hello]
-                             (update-kept! file (fn [now]
-                                                  (when (and now (= (:session hello) (:session now)))
-                                                    (dissoc now :session))))
-                             (client/say connection {:word :close-session})))]
-              (if (and (:could-not closed) (not= :find-her-session (:could-not closed)))
-                closed
-                (do (when (= :find-her-session (:could-not closed)) (drop-session!))
-                    (with-line flags (fn [_ hello] hello))))))))
-
-      "sign-out" (with-line flags (fn [connection _] (client/say connection {:word :sign-out})))
-
-      {:could-not :read-the-command
-       :said "sign-in, who, write, read, watch, send, give, invite, agent, under, end-sign-in, replace-secret, new-session, sign-out"})))
+  (let [{:keys [does flags] plain :rest :as read} (read-command command args)]
+    (if (:could-not read)
+      read
+      (does flags plain))))
 
 (defn -main
   [& [command & args]]
-  (let [result (try (or (mistyped command args) (run command args))
+  (let [result (try (run command args)
                     (catch Throwable t
                       {:could-not :run-the-command :threw (.getName (class t)) :said (.getMessage t)}))
         status (out! result)]

@@ -54,6 +54,17 @@
                 (= 2 (:exit slip)) (= :read-the-command (:could-not (:out slip)))
                 (= :green after))
            {:before before :slip (seen slip) :after after})
+    (let [no-lane (soft home "write" ":chair-7" ":colour" ":red" "--lane")
+          no-such-flag (soft home "write" ":chair-7" ":colour" ":red" "--lain" ":another-lane")
+          not-its-flag (soft home "read" ":chair-7" ":colour" "--permission" (str (java.util.UUID/randomUUID)))
+          still (value-at home ":chair-7" ":colour")]
+      (check "`write e k v --lane` with the lane left out, and `write e k v --lain l` with a flag that no command takes, each end with 2 and say that the command could not be read, with the flag: neither is written into her own lane, and the place still reads as it did. `read e k --permission p`, a flag that `read` does not take, ends with 2 too."
+             (and (= [2 2 2] (mapv :exit [no-lane no-such-flag not-its-flag]))
+                  (= [[:read-the-command :flag-with-no-value "--lane"] [:read-the-command :flag-not-known "--lain"]
+                      [:read-the-command :flag-not-known "--permission"]]
+                     (mapv (fn [run] ((juxt :could-not :why :at) (:out run))) [no-lane no-such-flag not-its-flag]))
+                  (= :green still))
+             {:no-lane (seen no-lane) :no-such-flag (seen no-such-flag) :not-its-flag (seen not-its-flag) :still still}))
     (check "A command with an argument left out is turned away before the sign-in is looked for: in a home that holds no sign-in it ends with 2 too."
            (and (= 2 (:exit nowhere)) (= :read-the-command (:could-not (:out nowhere))))
            (seen nowhere))))

@@ -376,9 +376,9 @@
 (defn- how-agent-is-typed
   []
   (let [got (#'softland.command.main/run "agent" ["rename" "importer"])
-        [_ how] (get @#'softland.command.main/typed "agent")]
-    (check "`agent` with a first argument that is neither `new` nor `end` could not be read, and says how `agent` is typed in the words of the command line's table of its commands."
-           (and (= :read-the-command (:could-not got)) (string? how) (= how (:said got)))
+        how (str (#'softland.command.main/typed "agent new") " | " (#'softland.command.main/typed "agent end"))]
+    (check "`agent` with a first argument that is neither `new` nor `end` could not be read, and says how the two commands of `agent` are typed, in the words of the command line's one list of its commands."
+           (and (= :read-the-command (:could-not got)) (= how (:said got)))
            got)))
 
 ;; ---------------------------------------------------------------------- main
