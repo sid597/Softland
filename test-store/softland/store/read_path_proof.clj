@@ -1518,7 +1518,7 @@
                            (:places cal-saw)))
         cal-under-it (send! {:version 1 :who (person :cal) :lane :c-studio :permission (perm/permission-id cal-see) :session :s-cal
                              :facts [(fact :x :y 1)]}
-                            [:c-studio :streaming found])
+                            [:c-studio found])
         joe-res (send! (assoc joes :permission (perm/permission-id pa)) nil)
         secret (ask {:asks [:place :secret :dose] :asker (person :ida) :lanes [:c-studio]})
         ;; receipt 3: a live read in a sitting, of a lane that she may not see, while another holder's

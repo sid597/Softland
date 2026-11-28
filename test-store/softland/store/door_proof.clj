@@ -620,7 +620,7 @@
   [{:keys [sent answer]}]
   (if (:could-not sent)
     (pr-str (select-keys sent [:could-not :appended :at]))
-    (str (subs (str (nth (:act-id sent) 2)) 0 8) " " (:ack sent) " " (pr-str answer))))
+    (str (subs (str (nth (:act-id sent) 1)) 0 8) " " (:ack sent) " " (pr-str answer))))
 
 (defn- utf8-bytes
   "How many bytes the UTF-8 of a String has, by the JVM's own encoder and
@@ -1273,6 +1273,7 @@
         making (:making @kept)
         answer-word (with-read-thrown 2 #(answer! d (:act-id making) (:digest making) 600))
         logs-after (log-counts)
+        rows-after [(rows-at :alice :read-thrown-1 :text) (rows-at :alice :read-thrown-2 :text) (rows-at :alice :read-thrown-3 :text)]
         ;; the same act-id again, with the read left alone
         sent-after (send! d (act-of :alice [(value :read-thrown-2 "a value")]) asked-ahead)
         sent-after-answer (when-not (:could-not sent-after) (answer! d asked-ahead (:digest sent-after)))]
@@ -1285,7 +1286,7 @@
            [:read-the-answer :nothing (:act-id making) nil] [(:could-not answer-word) (:appended answer-word) (:act-id answer-word) (:answer answer-word)])
     (check "nothing was appended by those calls, and no row is at the place of a value whose send ended in the word"
            [logs-before [] [] []]
-           [logs-after (rows-at :alice :read-thrown-1 :text) (rows-at :alice :read-thrown-2 :text) (rows-at :alice :read-thrown-3 :text)])
+           (into [logs-after] rows-after))
     (check "the act whose send ended in the word, sent again under the same act-id with the read left alone, goes in and is accepted"
            [nil :gate-ran :accepted] [(:could-not sent-after) (:ack sent-after) (:answer sent-after-answer)])
     (shown "two reads that the proof made throw itself, by standing in for Rama's client call foreign-invoke-query with a function that throws for a call with that query's count of arguments:"
@@ -1325,25 +1326,44 @@
         word (send! d (act-of :alice [{:e :note-9 :k :text}] {:note (Object.)}) id-1)
         answer (answer! d id-1 (:digest word))
         in-log (count (records-of id-1))
-        ;; a throw for an append that went through
-        id-2 (act-id-for! d :alice)
-        [interrupted mark-set?]
+        ;; an interrupt mark set before the call: the read of the lane's
+        ;; depot comes before the append, and it is that read that throws
+        id-0 (act-id-for! d :alice)
+        [read-interrupted read-mark-set?]
         (on-a-thread
          (fn []
            (.interrupt (Thread/currentThread))
-           (let [got (send! d (act-of :alice [{:e :note-10 :k :text}]) id-2)]
+           (let [got (send! d (act-of :alice [{:e :note-11 :k :text}]) id-0)]
              [got (Thread/interrupted)])))
+        ;; a throw for an append that went through: the mark is set after
+        ;; the door's read of the lane's depot, by a stand-in for that read
+        ;; that calls Rama and then sets it, so the throw is the append's
+        id-2 (act-id-for! d :alice)
+        real-query rama/foreign-invoke-query
+        [interrupted mark-set?]
+        (with-redefs [rama/foreign-invoke-query (fn [query & args]
+                                                  (let [got (apply real-query query args)]
+                                                    (when (= 1 (count args)) (.interrupt (Thread/currentThread)))
+                                                    got))]
+          (on-a-thread
+           (fn []
+             (let [got (send! d (act-of :alice [{:e :note-10 :k :text}]) id-2)]
+               [got (Thread/interrupted)]))))
         arrived (loop [tries 0]
                   (let [found (records-of id-2)]
                     (if (or (seq found) (<= 200 tries))
                       found
                       (do (Thread/sleep 50) (recur (inc tries))))))
+        in-log-0 (count (records-of id-0))
         answer-2 (answer! d id-2 (:digest interrupted) 10000)]
     (check "an act with a part that the form does not know, which holds a plain Java object: a real throw of Rama's client. The word carries the act-id and the digest, and says that the door does not know"
            [:append-cleanly :not-known id-1 true true]
            [(:could-not word) (:appended word) (:act-id word) (hex64? (:digest word)) (string? (:threw word))])
     (check "answer-of with that pair gives nothing yet" {:answer :nothing-yet} answer)
-    (check "an act with no value and a given act-id, sent on a thread whose interrupt mark the proof set: Rama's client throws. The word carries the act-id and a digest, and the thread's mark is set again"
+    (check "an act with no value and a given act-id, sent on a thread whose interrupt mark the proof set before the call: the door's read of the lane's depot, which comes before the append, throws in Rama's client. The word says that nothing was appended, the log holds no record under the act-id, and the thread's mark is set again"
+           [:read-the-lanes-depot :nothing :alice "java.lang.InterruptedException" 0 true]
+           [(:could-not read-interrupted) (:appended read-interrupted) (:lane read-interrupted) (:threw read-interrupted) in-log-0 read-mark-set?])
+    (check "an act with no value and a given act-id, sent on a thread whose interrupt mark the proof set after the door's read of the lane's depot: Rama's client throws in the append. The word carries the act-id and a digest, and the thread's mark is set again"
            [:append-cleanly :not-known id-2 "java.lang.InterruptedException" true true]
            [(:could-not interrupted) (:appended interrupted) (:act-id interrupted) (:threw interrupted) (hex64? (:digest interrupted)) mark-set?])
     (check "the append went through all the same: the log holds one record under that act-id, and its digest is the word's"
@@ -1355,7 +1375,8 @@
            "| a real throw of Rama's client")
     (shown "an append that threw and went through:" (pr-str (select-keys interrupted [:could-not :appended :threw]))
            "| the log holds" (count arrived) "record under its act-id, with the word's digest | answer-of:" (pr-str (dissoc answer-2 :stamp))
-           "| the proof set the interrupt mark of its own thread before the call; the throw is Rama's client's")))
+           "| the proof set the interrupt mark of its own thread after the door's read of the lane's depot, by standing in for that call of Rama's client with a function that calls Rama and then sets the mark; the throw is Rama's client's"
+           "| with the mark set before the call:" (pr-str (select-keys read-interrupted [:could-not :appended :threw])))))
 
 (deftest many-makers-at-once
   (let [d (the-door)
@@ -1782,16 +1803,20 @@
         base-other (by-hand! :streaming (system-act [(value :wrong-depot-base-2 "a value")]))
         logs-after-base (log-counts)
         before-the-making (:base-on-the-streaming-depot @kept)
+        ;; what stood before the door sends under one of those act-ids
+        last-after (gates-last-stamp :streaming :alice)
+        rows-before [(rows-at :alice :wrong-depot :text) (rows-at :alice :wrong-depot-2 :text)]
+        told-before [(told no-value) (told with-value)]
         ;; the act of the streaming lane again, through the door, under the act-id that the hand used
         through-the-door (decide! d (act-of :alice [(value :wrong-depot-2 "a value")]) (:act-id with-value))]
     (check "the door sends nothing to the depot of the gate that does not have a lane; an appender that is not the door puts two things of a streaming lane on the microbatch depot, one with no value and one with a value: one record more in that log for the second, and none in the lane's own. The microbatch gate refuses each and keeps the refusal in its own answers, under the thing's act-id, with the word of a lane of the other gate, the digest of the thing and the time on it"
            [[0 1] (refusal-of no-value) (refusal-of with-value)]
            [(mapv - logs-after logs-before) (kept-as :microbatch no-value) (kept-as :microbatch with-value)])
     (check "those refusals take stamps of a count that the microbatch gate keeps for the lane by itself, 0 and 1, and no stamp of the lane's line: the last stamp of the lane in its own gate's record is as it was"
-           [[0 1 1] last-before] [stamps-there (gates-last-stamp :streaming :alice)])
+           [[0 1 1] last-before] [stamps-there last-after])
     (check "no fact of either is in the tables: no gate holds a row at its place, on any task; and the door's read of an answer under each act-id gives nothing yet, since it reads the answers of the lane's own depot"
            [[] [] {:answer :nothing-yet} {:answer :nothing-yet}]
-           [(rows-at :alice :wrong-depot :text) (rows-at :alice :wrong-depot-2 :text) (told no-value) (told with-value)])
+           (into rows-before told-before))
     (check "a thing for a lane that is not made and that starts with the streaming depot, on the microbatch depot: the microbatch gate refuses it with the same word, the word of a lane of the other gate, and not with the word of a lane that is not made; no gate holds a row at its place, on any task, and the door's read gives nothing yet"
            [(refusal-of not-made) [] {:answer :nothing-yet}]
            [(kept-as :microbatch not-made) (rows-at :made-by-nobody :wrong-depot-3 :text) (told not-made)])
@@ -1811,7 +1836,8 @@
            "of its own count for the lane | of a streaming lane that is not made:" (pr-str (:reason (kept-as :microbatch not-made)))
            "| of the base on the streaming depot, before the base was made" (pr-str (:reason before-the-making))
            "and after" (pr-str (:reason (kept-as :streaming base-other)))
-           "| the door's read of an answer under such an act-id:" (pr-str (told with-value)) "until the lane's own gate decides a thing under it")))
+           "| the door's read of an answer under such an act-id:" (pr-str (second told-before)) "until the lane's own gate decides a thing under it, and then"
+           (pr-str (told with-value)))))
 
 (deftest the-module-is-started-again
   (let [d (the-door)

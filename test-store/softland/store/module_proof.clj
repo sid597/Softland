@@ -4235,7 +4235,7 @@
                                                               :refused refused :stamp stamp :rows (mapv content out)})
                                    state)))
         fact-row (some (fn [[which _ row]] (when (= :fact which) row)) out)
-        extra (when fact-row [:fact (left-key (nth act-id 2 nil)) fact-row])
+        extra (when fact-row [:fact (left-key (nth act-id 1 nil)) fact-row])
         [attempt _] (swap-vals! attempt-failure
                                 (fn [state]
                                   (if (contains? (:run state) act-id)
@@ -4417,7 +4417,7 @@
                      []
                      (range n))
         ids (mapv :act-id acts)
-        uuids (mapv #(nth % 2) ids)
+        uuids (mapv #(nth % 1) ids)
         {:keys [results answered? waited]} (decide-with-a-failed-attempt! acts throw-index)
         noted @attempt-failure
         _ (wait-until-processed!)

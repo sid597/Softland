@@ -327,7 +327,7 @@ clojure -M:store-module -m softland.store.door-proof
 ```
 
 The proof plays the door's maker: each act and each
-answer goes through the door's five calls. The checks run in one order on one
+answer goes through the door's six calls. The checks run in one order on one
 cluster. The proof opens seven doors on the module: the door of most checks; a
 second door, opened with a read each 100 ms; one for the count of the handles
 that an opening fetches; two in the check of the opener's number; one that
@@ -337,11 +337,10 @@ the end, which stands for the door of another process.
 A pass shows the door in one process, with a maker that the proof plays. No
 other maker uses the door yet.
 
-The door adds three parts to a maker's act: the act-id, the depot, and the time
-of the clock of the server that runs the door. The first two are known before
-the send. The time is not, so the proof holds it in two steps: a record of the
-log without its time is the maker's act with the act-id and the depot; and the
-time is a fixed-width integer between two readings of the clock that the proof
+The door adds two parts to a maker's act: the act-id, and the time of the clock
+of the server that runs the door. The act-id is known before the send. The time
+is not, so the proof holds it in two steps: a record of the log without its
+time is the maker's act with the act-id; and the time is a fixed-width integer between two readings of the clock that the proof
 makes, one just before the call of the door and one just after. The proof and
 its doors run in one process, so the proof reads the clock that the door reads.
 
@@ -364,7 +363,7 @@ group observed. This page does not retell the checks.
 Clojure lets a proof put a function of its own in the place of Rama's client
 calls `foreign-append!`, `foreign-invoke-query`, `foreign-depot` and
 `foreign-query` for a while. The proof does so
-for four things, and each `SHOWN` line that rests on it says so:
+for five things, and each `SHOWN` line that rests on it says so:
 
 - to count the handles that the opening of a door fetches (the test `the-door-is-opened`);
 - to count the round trips of a call of the door: the function counts and
@@ -373,7 +372,10 @@ for four things, and each `SHOWN` line that rests on it says so:
   asked and what Rama gave (the tests `the-base-through-the-door`, `the-depot-of-a-lane` and `two-sends-into-the-base-are-decided-in-their-order`);
 - to make a read throw (the test `reads-that-throw`): no real throw of a query was found
   that the in-process cluster gives without a fault of the cluster, because the
-  door tests each thing that it passes to a read before it calls.
+  door tests each thing that it passes to a read before it calls;
+- to set a thread's interrupt mark between the door's read of a lane's depot
+  and its append (the test `an-append-that-threw`): the read is Rama's, and the
+  mark is set after it, so that the throw is the append's own.
 
 The other throws are real: a module name under which no module runs; a thing
 that holds a plain Java object, which Rama's client cannot turn into bytes; a
