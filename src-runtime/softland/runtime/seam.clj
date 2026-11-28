@@ -407,6 +407,18 @@
   (when-not (person? caller)
     (words/could-not :do-that-as-an-agent nil)))
 
+(defn word-fault
+  "The one place where a word is held against who says it. The rule is the
+  table's (`softland.wire.words/words`, `:who` and `:in-a-session`), and no
+  word names its own here. Nil when the caller may say the word, or the
+  runtime's word. `call` and `watch` ask it; a face asks it for a word that
+  it does itself (`:leave`)."
+  [^Caller caller word-name]
+  (let [{:keys [who in-a-session]} (get words/words word-name)]
+    (or (when (contains? #{:an-actor :a-person} who) (needs-a-who caller))
+        (when in-a-session (needs-a-session caller))
+        (when (= :a-person who) (needs-the-person caller)))))
+
 (defn- plain-map?
   [x]
   (and (map? x) (not (record? x))))
@@ -681,94 +693,89 @@
   [^Seam seam ^Caller caller word]
   (let [client (.-client seam)
         root (.-root caller)]
-    (case (:word word)
-      :who-am-i (about caller)
+    (or
+     (word-fault caller (:word word))
+     (case (:word word)
+       :who-am-i (about caller)
 
-      :send (or (needs-a-who caller) (needs-a-session caller) (send-now seam caller word))
+       :send (send-now seam caller word)
 
-      :send-all (or (needs-a-who caller) (needs-a-session caller) (send-all-now seam caller word))
+       :send-all (send-all-now seam caller word)
 
-      :answer (or (needs-a-who caller)
-                  (door/answer-of (.-door seam) (:act-id word) (:digest word) (:wait-ms word)))
+       :answer (door/answer-of (.-door seam) (:act-id word) (:digest word) (:wait-ms word))
 
-      :read (or (query-fault caller (:query word))
-                (ration seam caller :read)
-                (read-path/read-once (.-read-path seam) (:query word)))
+       :read (or (query-fault caller (:query word))
+                 (ration seam caller :read)
+                 (read-path/read-once (.-read-path seam) (:query word)))
 
-      :replace-secret
-      (or (needs-a-who caller)
-          (let [now (now-ms)
-                until (+ now (long (:secret-ms (.-numbers seam))))
-                old-hash @(.-hash caller)
-                got (from-auth (auth/replace-secret client {:root root :sign-in (.-sign-in caller)
-                                                            :old-hash old-hash :new-hash (:hash word)
-                                                            :until until
-                                                            :previous-until (+ now (long (:previous-ms (.-numbers seam))))
-                                                            :at now}))]
-            (if (:could-not got)
-              got
-              (do (reset! (.-hash caller) (:hash word))
-                  {:replaced (.-sign-in caller) :until until}))))
+       :replace-secret
+       (let [now (now-ms)
+             until (+ now (long (:secret-ms (.-numbers seam))))
+             old-hash @(.-hash caller)
+             got (from-auth (auth/replace-secret client {:root root :sign-in (.-sign-in caller)
+                                                         :old-hash old-hash :new-hash (:hash word)
+                                                         :until until
+                                                         :previous-until (+ now (long (:previous-ms (.-numbers seam))))
+                                                         :at now}))]
+         (if (:could-not got)
+           got
+           (do (reset! (.-hash caller) (:hash word))
+               {:replaced (.-sign-in caller) :until until})))
 
-      :sign-out
-      (or (needs-a-who caller)
-          (from-auth (auth/end-sign-in client {:root root :sign-in (.-sign-in caller) :at (now-ms)})))
+       :sign-out
+       (from-auth (auth/end-sign-in client {:root root :sign-in (.-sign-in caller) :at (now-ms)}))
 
-      :open-session
-      (or (needs-a-who caller)
-          (session-paced seam (.-sign-in caller))
-          (let [session (UUID/randomUUID)
-                now (now-ms)
-                until (+ now (long (:session-ms (.-numbers seam))))
-                driven-by (:driven-by word)
-                got (from-auth (auth/open-session client
-                                                  (cond-> {:root root :sign-in (.-sign-in caller)
-                                                           :session session :until until :at now}
-                                                    (some? driven-by) (assoc :driven-by driven-by))))]
-            (if (:could-not got)
-              got
-              {:open session :until until :driven-by driven-by})))
+       :open-session
+       (or (session-paced seam (.-sign-in caller))
+           (let [session (UUID/randomUUID)
+                 now (now-ms)
+                 until (+ now (long (:session-ms (.-numbers seam))))
+                 driven-by (:driven-by word)
+                 got (from-auth (auth/open-session client
+                                                   (cond-> {:root root :sign-in (.-sign-in caller)
+                                                            :session session :until until :at now}
+                                                     (some? driven-by) (assoc :driven-by driven-by))))]
+             (if (:could-not got)
+               got
+               {:open session :until until :driven-by driven-by})))
 
-      :close-session
-      (or (needs-a-who caller) (needs-a-session caller)
-          (from-auth (auth/close-session client {:root root :session (.-session caller) :at (now-ms)})))
+       :close-session
+       (from-auth (auth/close-session client {:root root :session (.-session caller) :at (now-ms)}))
 
-      :invite
-      (or (needs-a-who caller) (needs-the-person caller)
-          (from-auth (auth/invite client {:person (derived :person root (:uuid word))
-                                          :claim (let [claim (:claim word)]
-                                                   (cond-> claim
-                                                     (= :email (:by claim)) (update :email #(.toLowerCase ^String % Locale/ROOT))))
-                                          :invited-by (.-actor caller) :at (now-ms)})))
+       :invite
+       (from-auth (auth/invite client {:person (derived :person root (:uuid word))
+                                       :claim (let [claim (:claim word)]
+                                                (cond-> claim
+                                                  (= :email (:by claim)) (update :email #(.toLowerCase ^String % Locale/ROOT))))
+                                       :invited-by (.-actor caller) :at (now-ms)}))
 
-      :make-agent (or (needs-a-who caller) (make-agent-now seam caller word))
+       :make-agent (make-agent-now seam caller word)
 
-      :end-agent (or (needs-a-who caller) (end-agent-now seam caller word))
+       :end-agent (end-agent-now seam caller word)
 
-      :under
-      (or (needs-a-who caller) (needs-the-person caller)
-          (let [got (auth/under client root)]
-            (if (:could-not got)
-              (words/could-not :reach-auth {:got got})
-              (let [now (now-ms)]
-                (update got :sign-ins (fn [sign-ins]
-                                        (filterv (fn [s] (< now (long (:until s)))) sign-ins)))))))
+       :under
+       (let [got (auth/under client root)]
+         (if (:could-not got)
+           (words/could-not :reach-auth {:got got})
+           (let [now (now-ms)]
+             (update got :sign-ins (fn [sign-ins]
+                                     (filterv (fn [s] (< now (long (:until s)))) sign-ins))))))
 
-      :end-sign-in
-      (or (needs-a-who caller) (needs-the-person caller)
-          (let [got (auth/end-sign-in client {:root root :sign-in (:sign-in word) :at (now-ms)})]
-            (if (= :no-such-sign-in (:refused got))
-              (words/could-not :find-the-sign-in nil)
-              (from-auth got))))
+       :end-sign-in
+       (let [got (auth/end-sign-in client {:root root :sign-in (:sign-in word) :at (now-ms)})]
+         (if (= :no-such-sign-in (:refused got))
+           (words/could-not :find-the-sign-in nil)
+           (from-auth got)))
 
-      (words/could-not :read-the-word {:why :word-not-known :at :word}))))
+       (words/could-not :read-the-word {:why :word-not-known :at :word})))))
 
 (defn call
   "`word` must be in its one form (`softland.wire.words/check`). `:watch`
   and `:leave` are a face's, since a face holds the watches of its
   connection. Gives a task of the word's result as plain data, or of one of
-  the runtime's words. A visitor reads; every other word but `:who-am-i`
-  gives her `:find-her-sign-in`.
+  the runtime's words. Who may say a word is the table's
+  (`softland.wire.words/words`, held by `word-fault`): a visitor reads, and
+  every other word but `:who-am-i` gives her `:find-her-sign-in`.
 
   The seam checks nothing of an act's form, as the door checks nothing: a
   gate refuses a wrong act under its act-id, and the log keeps it."
@@ -975,7 +982,8 @@
                          (let [{:keys [handle]} (swap! state assoc :left? true)]
                            (release-once!)
                            (when handle (read-path/leave rp handle))))
-                fault (or (query-fault caller query)
+                fault (or (word-fault caller :watch)
+                          (query-fault caller query)
                           (ration seam caller :watch)
                           (let [capped (acquire-watch! seam caller)]
                             (when-not capped (reset! released? false))

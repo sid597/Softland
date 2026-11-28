@@ -76,13 +76,17 @@
 (def words
   "`:carries` is the part that carries a form of the store's, nil for none.
   `:who` is who may say the word: `:anybody`, a visitor too; `:an-actor`,
-  whoever is signed in; `:a-person`, a person herself and no agent."
+  whoever is signed in; `:a-person`, a person herself and no agent.
+  `:in-a-session` marks a word that only a caller who is in a session
+  says. The two are the rule itself and not a second telling of it: the
+  runtime reads them to hold a word against its caller
+  (`softland.runtime.seam/word-fault`)."
   {:who-am-i       {:says "who the connection is: her who, her root, her session, her own lane; or that it stands for nobody"
                     :carries nil :who :anybody}
    :send           {:says "one act into its depot, and its answer: the door's receipt with the answer that a gate gave, or `:nothing-yet` when the wait passed"
-                    :carries :act :who :an-actor}
+                    :carries :act :who :an-actor :in-a-session true}
    :send-all       {:says "acts of one maker, each under its own UUID, sent in order; a result for each that was tried, ending at the first that could not be sent"
-                    :carries :acts :who :an-actor}
+                    :carries :acts :who :an-actor :in-a-session true}
    :answer         {:says "the answer of an act that was sent before, by its act-id and the digest of its receipt"
                     :carries nil :who :an-actor}
    :read           {:says "a read, once"
@@ -98,7 +102,7 @@
    :open-session   {:says "opens a new session under this sign-in, optionally saying whether a person or a model drives it"
                     :carries nil :who :an-actor}
    :close-session  {:says "closes the session of this connection"
-                    :carries nil :who :an-actor}
+                    :carries nil :who :an-actor :in-a-session true}
    :invite         {:says "makes a person who waits for an account that proves the claim"
                     :carries nil :who :a-person}
    :make-agent     {:says "makes an agent beneath the caller, and a sign-in for it under the hash of a secret that the caller made"

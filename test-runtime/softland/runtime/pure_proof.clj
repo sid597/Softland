@@ -16,12 +16,19 @@
   can open no cluster; and that nothing requires Electric, the rig, the
   server of 20 November, the old server or Inland.
 
+  Then it holds who may say each word: what the seam answers a visitor, an
+  agent and a person, in a session and in none, for each word of the wire's
+  table, against a list that is written out here a second time.
+
   State. It changes nothing outside its own process."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [softland.runtime.google :as google]
             [softland.runtime.google-stand-in :as stand-in]
-            [softland.wire.proof :refer [check finish]]))
+            [softland.runtime.seam :as seam]
+            [softland.wire.proof :refer [check finish]]
+            [softland.wire.words :as words])
+  (:import [java.util UUID]))
 
 ;; -------------------------------------------------------- the check of an ID token
 
@@ -137,9 +144,57 @@
            (empty? (holding (concat runtime wire command) #"env\.clj|\.env\b"))
            (holding (concat runtime wire command) #"env\.clj|\.env\b"))))
 
+;; ------------------------------------------------------ who may say each word
+
+(def ^:private who-says
+  "For each word of the wire, what the seam answers before it does anything
+  of the word: nil when the caller may say it, or the runtime's word. In
+  order: a visitor; an agent in a session; a person in no session; a person
+  in a session. Written out here as literals, a second time beside the
+  wire's table, so that a change of who may say a word is made in two
+  places on purpose."
+  {:who-am-i       [nil               nil                  nil               nil]
+   :send           [:find-her-sign-in nil                  :find-her-session nil]
+   :send-all       [:find-her-sign-in nil                  :find-her-session nil]
+   :answer         [:find-her-sign-in nil                  nil               nil]
+   :read           [nil               nil                  nil               nil]
+   :watch          [nil               nil                  nil               nil]
+   :leave          [nil               nil                  nil               nil]
+   :replace-secret [:find-her-sign-in nil                  nil               nil]
+   :sign-out       [:find-her-sign-in nil                  nil               nil]
+   :open-session   [:find-her-sign-in nil                  nil               nil]
+   :close-session  [:find-her-sign-in nil                  :find-her-session nil]
+   :invite         [:find-her-sign-in :do-that-as-an-agent nil               nil]
+   :make-agent     [:find-her-sign-in nil                  nil               nil]
+   :end-agent      [:find-her-sign-in nil                  nil               nil]
+   :under          [:find-her-sign-in :do-that-as-an-agent nil               nil]
+   :end-sign-in    [:find-her-sign-in :do-that-as-an-agent nil               nil]})
+
+(defn- who-says-checks []
+  (let [root (UUID/randomUUID)
+        agent (UUID/randomUUID)
+        made (fn [actor session]
+               (#'seam/->Caller (keyword (str (if (= actor root) "person." "agent.") actor))
+                                actor root (UUID/randomUUID) session :program (atom "") 0 root nil nil))
+        callers [(seam/visitor) (made agent (UUID/randomUUID)) (made root nil) (made root (UUID/randomUUID))]
+        answered (into {}
+                       (map (fn [word] [word (mapv (fn [caller] (:could-not (seam/word-fault caller word))) callers)]))
+                       (keys words/words))
+        seam-code (code-of (slurp "src-runtime/softland/runtime/seam.clj"))
+        named (fn [f] (count (re-seq (re-pattern (str "(?<![\\w-])" f "(?![\\w-])")) seam-code)))]
+    (check "For each word of the wire's table, the seam answers a visitor, an agent in a session, a person in no session and a person in a session as the list of this proof says: `:find-her-sign-in` for a visitor at each word but `:who-am-i`, `:read`, `:watch` and `:leave`; `:do-that-as-an-agent` for an agent at `:invite`, `:under` and `:end-sign-in`; `:find-her-session` for a caller in no session at `:send`, `:send-all` and `:close-session`."
+           (= who-says answered)
+           (into {} (remove (fn [[word got]] (= got (get who-says word)))) answered))
+    (check "A word that the table does not hold is held back by nothing here: the seam's `call` then says that it does not know the word."
+           (nil? (seam/word-fault (seam/visitor) :no-such-word)))
+    (check "The seam holds a word against its caller in one place: each of its three tests of a caller is named twice in its code, where it is defined and in the one function that reads the table, and no word of `call` names one."
+           (= [2 2 2] (mapv named ["needs-a-who" "needs-a-session" "needs-the-person"]))
+           (mapv named ["needs-a-who" "needs-a-session" "needs-the-person"]))))
+
 (defn -main
   "Runs every check, prints the counts, and ends the process with a status."
   [& _]
   (google-checks)
   (source-checks)
+  (who-says-checks)
   (finish))

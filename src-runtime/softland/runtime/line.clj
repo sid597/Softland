@@ -154,10 +154,17 @@
       (let [id (when (and (map? form) (not (record? form))) (get form :id))]
         (if-not (and (integer? id) (<= 0 id))
           (say! connection (words/could-not :read-the-word {:why :no-number :at :id}))
-          (let [{word :ok why :refuse at :at} (words/check (dissoc form :id))]
+          (let [{word :ok why :refuse at :at} (words/check (dissoc form :id))
+                ;; The line does these two words itself, so it asks the seam
+                ;; who may say them, as the seam asks for each word of its own.
+                fault (when (contains? #{:watch :leave} (:word word))
+                        (seam/word-fault (.-caller connection) (:word word)))]
             (cond
               why
               (say! connection {:id id :gives (words/could-not :read-the-word {:why why :at at})})
+
+              fault
+              (say! connection {:id id :gives fault})
 
               (= :watch (:word word))
               (watch! connection id word)
