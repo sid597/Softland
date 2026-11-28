@@ -2703,7 +2703,7 @@
   (`does-what-is-planned!`), notes that the act is decided, and gives what
   the store's own gives."
   [& args]
-  (let [act-uuid (nth (first args) 2 nil)]
+  (let [act-uuid (nth (first args) 1 nil)]
     (does-what-is-planned! :writes act-uuid)
     (notes! act-uuid :decides)
     (apply (:writes stores-own) args)))

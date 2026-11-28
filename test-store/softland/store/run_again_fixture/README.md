@@ -318,7 +318,8 @@ partitions 163, 0, 17 and 5; the microbatch depot's 5, 0, 209 and 0), and
 things and 195 rows of the task's table; in the microbatch gate 201, 78, 6, 7,
 201, 201 and 208. Against the tenth: two records fewer, in each gate the one
 case of the stray word that went, and in each gate one row fewer of the task's
-table, that word's under the strays.
+table, that word's under the strays. The run of the proof on it passed, 48
+checks.
 
 From the repository root, behind the lock of this machine's cluster runs:
 
