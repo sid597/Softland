@@ -261,8 +261,9 @@
   "The caller is the person herself, signed in at a browser. For a yes,
   `:label` is the name of a new agent, `:agent` the id of a live agent of
   hers. A yes with neither names her, and Auth refuses it `:is-a-person`:
-  no program acts under her own id. A new agent's id is made from her root
-  and the code, so that her page posted twice names one agent. Gives what
+  no program acts under her own id. A new agent's id is made from her root,
+  the code and its name: her page posted twice names one agent, and a new
+  agent of another name is another answer. Gives what
   Auth gave, with `:actor-named`, the actor that this answer named: Auth
   gives the answer that stands, which can be an earlier one."
   [the-seam caller code {:keys [yes? label agent]}]
@@ -270,7 +271,7 @@
     (words/could-not :do-that-as-an-agent nil)
     (let [root (seam/root-of caller)
           now (seam/now-ms)
-          actor (cond (and yes? label) (id-from-text (str "softland/new-agent-at-yes/" root "/" code))
+          actor (cond (and yes? label) (id-from-text (str "softland/new-agent-at-yes/" root "/" code "/" label))
                       (and yes? agent) agent
                       :else root)
           got (auth/answer-ask (seam/auth-of the-seam)
