@@ -37,7 +37,9 @@
             [softland.wire.credential :as credential]
             [softland.wire.frame :as frame]
             [softland.wire.proof :refer [check]])
-  (:import [java.util UUID]))
+  (:import [java.net.http WebSocket]
+           [java.util UUID]
+           [java.util.concurrent CompletableFuture]))
 
 (def short-numbers
   "The seam's numbers of the copy `:c`: a secret lasts six seconds, the
@@ -86,6 +88,13 @@
   "Says a word on an opened line and waits for its result."
   [{:keys [line]} word]
   (client/say line word 40000))
+
+(defn- raw-frame!
+  "Writes a form as one frame on an opened line's socket, past the library:
+  the library reads its own frame before it sends it, and sends none that
+  the runtime could not read."
+  [{:keys [line]} form]
+  (.join ^CompletableFuture (.sendText ^WebSocket (:socket line) (frame/write form) true)))
 
 (defn- act-of
   "Builds one act of one fact. Takes a hello, the lane, the permission
@@ -453,14 +462,27 @@
             ;; ------------------------------------------------------ the bounds
             (let [visitor (line a nil nil)
                   long-number (bigint (apply str (repeat 70000 "7")))]
-              (check "A frame whose one token is longer than any value that the store takes is turned away before it is read as EDN: the runtime says that it could not read the frame, and the connection goes on."
-                     (do (client/say (:line me) {:word :read :query {:asks [:place :n long-number] :asker who :lanes [lane]}} 3000)
-                         (and (= {:could-not :read-the-frame :why :a-token-too-long} (:said @(:state (:line me))))
+              (check "The library sends no frame that the runtime could not read: a word whose one token is longer than any value that the store takes gives `:read-the-frame` with `:a-token-too-long` at once, as a watch of it does, and the runtime is sent nothing and says nothing."
+                     (let [query {:asks [:place :n long-number] :asker who :lanes [lane]}
+                           held-before (count (:watches @(:state (:line me))))
+                           started (System/nanoTime)
+                           word (client/say (:line me) {:word :read :query query} 30000)
+                           watch (client/watch (:line me) query (fn [_] nil))
+                           ms (quot (- (System/nanoTime) started) 1000000)]
+                       (and (= {:could-not :read-the-frame :why :a-token-too-long} word watch)
+                            (< ms 10000)
+                            (nil? (client/said (:line me)))
+                            (empty? (:waits @(:state (:line me))))
+                            (= held-before (count (:watches @(:state (:line me)))))))
+                     (client/said (:line me)))
+              (check "A frame whose one token is longer than any value that the store takes is turned away before it is read as EDN: the runtime says that it could not read the frame, in a word that names no number, and the connection goes on. The frame is sent here past the library, which would not send it."
+                     (do (raw-frame! me {:id 900000 :word :read :query {:asks [:place :n long-number] :asker who :lanes [lane]}})
+                         (and (wait-for (fn [] (= {:could-not :read-the-frame :why :a-token-too-long} (client/said (:line me)))) 10000)
                               (= who (:who (say me {:word :who-am-i})))))
-                     (:said @(:state (:line me))))
-              (check "A visitor's frame over the small bound is not taken into memory: the connection is closed."
-                     (do (client/say (:line visitor) {:word :read :query {:asks [:place :x (apply str (repeat 70000 "x"))]
-                                                                          :not-signed-in true :lanes [lane]}} 3000)
+                     (client/said (:line me)))
+              (check "A visitor's frame over the small bound is not taken into memory: the connection is closed. The frame is sent here past the library."
+                     (do (raw-frame! visitor {:id 900000 :word :read :query {:asks [:place :x (apply str (repeat 70000 "x"))]
+                                                                             :not-signed-in true :lanes [lane]}})
                          (wait-for (fn [] (:gone @(:state (:line visitor)))) 5000))))
 
             ;; ----------------------------------------------- the pages' sign-out

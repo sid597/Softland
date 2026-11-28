@@ -9,10 +9,20 @@
   failed; `:hear-the-runtime` when a wait for a result passed. A word of
   the runtime's comes back as it is: a result, the word with which it
   refused an opening, and the word of its `:bye`, which everything that
-  waits on the connection and each later call on it is handed. One does
-  not: a word that names no number, for a frame that the runtime could not
-  read, is kept and handed to nobody, and the call that sent the frame ends
-  as `:hear-the-runtime`. No call throws for what the runtime did.
+  waits on the connection and each later call on it is handed. No call
+  throws for what the runtime did.
+
+  A frame that the runtime could not read is not sent. The runtime answers
+  such a frame with a word that names no number, since it read none, and
+  no call could be handed it. So the library reads each frame of its own
+  before it sends it, with the function with which the runtime reads it
+  (`softland.wire.frame/read-one`), and a frame that is none gives the
+  runtime's word for it at once, `:read-the-frame` with the reader's
+  `:why`: the word was not sent and nothing was done. It does not hold the
+  bytes of a frame to the runtime's bound: a frame over it closes the
+  connection, and the call is handed that. A word with no number that
+  comes all the same answers no frame of this library; `said` gives the
+  last one.
 
   One connection is one session. A program that was cut off connects again
   under the same session and sends the act again under the same UUID: the
@@ -22,7 +32,8 @@
   thread of the JDK's client that received the frame, one frame at a time:
   a watch's function that stays holds back every result of the connection."
   (:require [softland.wire.credential :as credential]
-            [softland.wire.frame :as frame])
+            [softland.wire.frame :as frame]
+            [softland.wire.words :as words])
   (:import [java.net URI]
            [java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers
             HttpResponse$BodyHandlers WebSocket WebSocket$Listener WebSocketHandshakeException]
@@ -125,8 +136,9 @@
                            (when (contains? form :ended)
                              (swap! state update :watches dissoc (:id form)))
                            (try (f (dissoc form :id)) (catch Throwable _ nil)))
-    ;; One of the runtime's words that names no number: a frame of ours
-    ;; that it could not read.
+    ;; One of the runtime's words that names no number: it could not read
+    ;; a frame. `send!` sends none that it could not, so this answers no
+    ;; call of the library's.
     :else (swap! state assoc :said form)))
 
 (defn- last-word
@@ -195,17 +207,24 @@
   (deref (:hello @(:state connection)) connect-ms {:could-not :hear-the-runtime}))
 
 (defn- send!
-  "Locks the connection, so that concurrent calls never collide on the JDK's
-  `WebSocket.sendText`."
+  "Nil when the frame was sent, or the word for why it was not. The frame's
+  text is read back before it is sent (the namespace's docstring says
+  why). It locks the connection, so that concurrent calls never collide on
+  the JDK's `WebSocket.sendText`."
   [connection form]
-  (try (locking connection
-         (.join ^CompletableFuture (.sendText ^WebSocket (:socket connection) (frame/write form) true)))
-       nil
-       (catch Throwable t (what-threw t))))
+  (let [text (frame/write form)
+        [outcome why] (frame/read-one text)]
+    (if (= :no outcome)
+      (words/could-not :read-the-frame {:why why})
+      (try (locking connection
+             (.join ^CompletableFuture (.sendText ^WebSocket (:socket connection) text true)))
+           nil
+           (catch Throwable t (what-threw t))))))
 
 (defn say
   "A word that did not come back can have been done: for an act, the
-  program sends it again under the same UUID."
+  program sends it again under the same UUID. A word whose frame the
+  runtime could not read gives `:read-the-frame` and was not sent."
   ([connection word] (say connection word 90000))
   ([connection word wait-ms]
    (let [state (:state connection)
@@ -265,6 +284,13 @@
 (defn bye
   [connection]
   (:bye @(:state connection)))
+
+(defn said
+  "The last word of the runtime's that named no number, or nil: its answer
+  to a frame that it could not read. No frame that this library sent earns
+  one."
+  [connection]
+  (:said @(:state connection)))
 
 (defn close!
   "The session stays open in the runtime: the program can connect again
