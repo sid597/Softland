@@ -19,7 +19,12 @@
 
   Then it holds who may say each word: what the seam answers a visitor, an
   agent and a person, in a session and in none, for each word of the wire's
-  table, against a list that is written out here a second time.
+  table, against a list that is written out here a second time, and that a
+  program's sign-in of her root, kept from before, makes no caller. Then the
+  hash by which Auth is handed an email, and that no address is handed it
+  under `:email`. And who
+  may end an agent, against a list of actors in which whose ending ends an
+  agent is not who made it.
 
   Then where a series of acts that the seam sends stops, and what each act
   of it was told, while the proof stands in for Rama's two client calls
@@ -30,11 +35,14 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [com.rpl.rama :as rama]
+            [missionary.core :as m]
+            [softland.auth.client :as auth]
             [softland.runtime.google :as google]
             [softland.runtime.google-stand-in :as stand-in]
             [softland.runtime.seam :as seam]
             [softland.store.door :as door]
             [softland.store.door.digest :as digest]
+            [softland.wire.credential :as credential]
             [softland.wire.proof :refer [check finish]]
             [softland.wire.words :as words])
   (:import [java.util UUID]))
@@ -158,8 +166,8 @@
 (def ^:private who-says
   "For each word of the wire, what the seam answers before it does anything
   of the word: nil when the caller may say it, or the runtime's word. In
-  order: a visitor; an agent in a session; a person in no session; a person
-  in a session. Written out here as literals, a second time beside the
+  order: a visitor; an agent in a session; a person at a browser in no
+  session; a person at a browser in a session. Written out here as literals, a second time beside the
   wire's table, so that a change of who may say a word is made in two
   places on purpose."
   {:who-am-i       [nil               nil                  nil               nil]
@@ -174,6 +182,9 @@
    :open-session   [:find-her-sign-in nil                  nil               nil]
    :close-session  [:find-her-sign-in nil                  :find-her-session nil]
    :invite         [:find-her-sign-in :do-that-as-an-agent nil               nil]
+   :take-back-invite [:find-her-sign-in :do-that-as-an-agent :find-her-session nil]
+   :accounts       [:find-her-sign-in :do-that-as-an-agent :find-her-session nil]
+   :unlink-account [:find-her-sign-in :do-that-as-an-agent :find-her-session nil]
    :make-agent     [:find-her-sign-in nil                  nil               nil]
    :end-agent      [:find-her-sign-in nil                  nil               nil]
    :under          [:find-her-sign-in :do-that-as-an-agent nil               nil]
@@ -182,18 +193,24 @@
 (defn- who-says-checks []
   (let [root (UUID/randomUUID)
         agent (UUID/randomUUID)
-        made (fn [actor session]
+        made (fn [actor session kind]
                (#'seam/->Caller (keyword (str (if (= actor root) "person." "agent.") actor))
-                                actor root (UUID/randomUUID) session :program (atom "") 0 root nil nil))
-        callers [(seam/visitor) (made agent (UUID/randomUUID)) (made root nil) (made root (UUID/randomUUID))]
+                                actor root (UUID/randomUUID) session kind (atom "") 0 root nil nil))
+        callers [(seam/visitor) (made agent (UUID/randomUUID) :program) (made root nil :browser) (made root (UUID/randomUUID) :browser)]
+        ;; Auth begins no sign-in of kind `:program` for her, and the seam
+        ;; makes no caller of one (`kept-program-sign-in-checks`).
+        her-root-as-a-program (made root (UUID/randomUUID) :program)
         answered (into {}
                        (map (fn [word] [word (mapv (fn [caller] (:could-not (seam/word-fault caller word))) callers)]))
                        (keys words/words))
         seam-code (code-of (slurp "src-runtime/softland/runtime/seam.clj"))
         named (fn [f] (count (re-seq (re-pattern (str "(?<![\\w-])" f "(?![\\w-])")) seam-code)))]
-    (check "For each word of the wire's table, the seam answers a visitor, an agent in a session, a person in no session and a person in a session as the list of this proof says: `:find-her-sign-in` for a visitor at each word but `:who-am-i`, `:read`, `:watch` and `:leave`; `:do-that-as-an-agent` for an agent at `:invite`, `:under` and `:end-sign-in`; `:find-her-session` for a caller in no session at `:send`, `:send-all` and `:close-session`."
+    (check "For each word of the wire's table, the seam answers a visitor, an agent in a session, a person in no session and a person in a session as the list of this proof says: `:find-her-sign-in` for a visitor at each word but `:who-am-i`, `:read`, `:watch` and `:leave`; `:do-that-as-an-agent` for an agent at `:invite`, `:take-back-invite`, `:accounts`, `:unlink-account`, `:under` and `:end-sign-in`; `:find-her-session` for a caller in no session at `:send`, `:send-all`, `:close-session`, `:take-back-invite`, `:accounts` and `:unlink-account`."
            (= who-says answered)
            (into {} (remove (fn [[word got]] (= got (get who-says word)))) answered))
+    (check "`person?` says no of a caller made by hand whose actor is her root on a sign-in of a program's, which the seam itself never makes, and yes of her at a browser."
+           (and (not (seam/person? her-root-as-a-program))
+                (seam/person? (nth callers 3))))
     (check "A word that the table does not hold is held back by nothing here: the seam's `call` then says that it does not know the word."
            (nil? (seam/word-fault (seam/visitor) :no-such-word)))
     (check "The seam holds a word against its caller in one place: each of its three tests of a caller is named twice in its code, where it is defined and in the one function that reads the table, and no word of `call` names one."
@@ -304,6 +321,58 @@
            (= [[] []] [(:results none) (:calls none)])
            (:sent none))))
 
+(defn- kept-program-sign-in-checks
+  "Against a stand-in for the two calls of Auth that making a caller can
+  make."
+  []
+  (let [root (UUID/randomUUID)
+        agent (UUID/randomUUID)
+        sign-in (UUID/randomUUID)
+        secret (credential/make-secret)
+        text (credential/text root sign-in secret)
+        opened (atom 0)
+        the-seam (seam/open {:door nil :read-path nil :auth :a-stand-in :standing nil})
+        made (fn [actor request]
+               (with-redefs [auth/who-is (fn [_ _]
+                                           {:sign-in {:actor actor :kind :program :hash (credential/hash-of secret)
+                                                      :until (+ (System/currentTimeMillis) 60000)
+                                                      :ended? false :actor-ended? false}
+                                            :own-lane (UUID/randomUUID)})
+                             auth/open-session (fn [_ _] (swap! opened inc) {:could-not :a-stand-in})]
+                 (m/? (seam/caller the-seam (merge {:credential text :carrier :header} request)))))
+        as-her (mapv (partial made root) [{} {:session (UUID/randomUUID)} {:new-session? true}])
+        as-an-agent (made agent {})]
+    (seam/close! the-seam)
+    (check "No program is a person: a sign-in of a program's whose actor is her root, which Auth begins no more and a store may have kept from before, makes no caller. It is answered as a sign-in that is ended, in no session, in a named one and for a new one, so at every word, and no session is opened for it. A program's sign-in of an agent of hers makes a caller that is no person."
+           (and (= (repeat 3 {:could-not :find-her-sign-in :why :ended}) as-her)
+                (zero? @opened)
+                (seam/caller? as-an-agent) (not (seam/person? as-an-agent)))
+           [as-her @opened as-an-agent])))
+
+(defn- email-checks []
+  (check "Auth is handed an email as its hash, made in one place: SHA-256, in 64 lower-case hex characters, of `softland/email/` and the address lower-cased in the root locale, so one address in other letters gives one hash. The value here was made outside the JVM, with `sha256sum`."
+         (and (= "3ffd44dc74bd01c0d90f733d07c6727eba012689ce82ff1c6ca8eb7a8ae98cb9"
+                 (seam/email-hash "asha@example.com") (seam/email-hash "Asha@EXAMPLE.com"))
+              (not= (seam/email-hash "asha@example.com") (seam/email-hash "asha@example.org")))
+         (seam/email-hash "Asha@EXAMPLE.com"))
+  (let [keyed (fn [file] (re-seq #"(?<!:by |\(= ):email(?![\w-])" (code-of (slurp file))))]
+    (check "No address reaches Auth: in the two files that call Auth's invite, take-back and enter, `:email` is only ever the kind of a claim, never a key that carries an address."
+           (= [nil nil] (mapv keyed ["src-runtime/softland/runtime/sign_in.clj" "src-runtime/softland/runtime/seam.clj"]))
+           (mapv keyed ["src-runtime/softland/runtime/sign_in.clj" "src-runtime/softland/runtime/seam.clj"]))))
+
+(defn- who-ends-an-agent-checks []
+  (let [[person a1 a2 a3] (repeatedly 4 #(UUID/randomUUID))
+        ;; No write of Auth points an agent at another actor than its maker,
+        ;; so the list in which the two differ is made by hand, in the form
+        ;; that `under` gives.
+        actors [{:actor a1 :made-by person :ends-with person}
+                {:actor a2 :made-by a1 :ends-with person}
+                {:actor a3 :made-by person :ends-with a1}]
+        beneath? #'seam/beneath?]
+    (check "Who may end an agent is read from whose ending ends it, at any depth, and not from who made it: an agent that agent 1 made and that ends with the person is not agent 1's to end, an agent that the person made and that ends with agent 1 is, and both are the person's."
+           (= [false true true true]
+              [(beneath? actors a2 a1) (beneath? actors a3 a1) (beneath? actors a2 person) (beneath? actors a3 person)]))))
+
 (defn -main
   "Runs every check, prints the counts, and ends the process with a status."
   [& _]
@@ -311,4 +380,7 @@
   (source-checks)
   (who-says-checks)
   (series-checks)
+  (kept-program-sign-in-checks)
+  (email-checks)
+  (who-ends-an-agent-checks)
   (finish))

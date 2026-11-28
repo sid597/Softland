@@ -56,7 +56,7 @@ check runs from the repository root with plain `clojure -M:runtime -m <ns>`.
 
 ### 2. The yes page (`yes_page.clj`)
 
-- **Sentence:** `The yes page tells the truth: a second answer that names another actor than the one that stands is not told "Done"; a person who says no after her own yes is told that the program is signed in as her.`
+- **Sentence:** `The yes page tells the truth: a second answer that names another actor than the one that stands is not told "Done"; a person who says no after her own yes is told that the program is signed in as an agent of hers.` (Until 28 November it ended "as her": no yes names her since; the output below is of the run that it was written to fail.)
 - **Command:**
   ```sh
   flock "$LOCK" clojure -Sdeps "$SDEPS" -M:runtime -m softland.runtime.attacks.yes-page
@@ -225,10 +225,11 @@ their fixes:
      readers + 1 ping already freezes 24 cores), so both `jetty.clj`'s ping and
      `line.clj`'s `say!` must avoid pinning carriers.
   4. **Yes-page wording check (`yes_page.clj`):** Tests both actor-mismatch
-     directions (`me -> agent` and `agent -> me`) for `409` without `"Done"`,
+     directions (two new agents of other names, each way round; until 28
+     November `me -> agent` and `agent -> me`) for `409` without `"Done"`,
      and for `no` after her own `yes` checks `409`, no `"Done"`, no `"not
-     signed in"`, and `"signed in"` + `"you"`, leaving exact prose to the
-     builder.
+     signed in"`, and `"signed in"` + `"an agent of yours"`, leaving exact
+     prose to the builder.
   5. **Closed-session timing (`closed_session.clj`):** Uses `:session-ms 10000`
      (half-span `5 s`, unmoved re-check `1 s`) and waits `1.8 s` after a session
      closes right before `moved-on!`'s `open-session` with pushes dropped, so

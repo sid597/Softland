@@ -79,14 +79,18 @@ Each is a session's, kept and not decided.
 - **A browser's sign-in is taken from a cookie alone, a program's from a
   header alone,** and Auth holds which a sign-in is.
 - **A push is a signal, and a read decides.** What Auth pushes can be behind a
-  write, so nothing is ended on a push alone, but when the watch itself is
-  lost.
+  write, and it is thinned by the clock of whichever copy wrote last under
+  the root, so a thing that is not in it has not ended for that. Nothing is
+  ended on a push alone, but when the watch itself is lost: a read says
+  whether someone ended the thing, and its time is held against this copy's
+  clock.
 - **Ids are made or derived here.** No system chooses the id of a person, an
   actor, a sign-in or a session.
 - **Words are done one at a time for a connection,** in the order in which
   they arrived.
 - **The numbers:** a secret lasts 7 days, the one before it a minute, a
-  session a day from its last moving on, an ask 10 minutes; a connection holds
+  session a day from its last moving on, an ask 10 minutes, an invitation 7
+  days; a connection holds
   256 waiting words, and 128 watches (a visitor's 8), beneath 256 for all of a
   root's connections and 64 for all visitors in one copy; one copy takes 30
   posts to `/sign-in/*` from one address in 10 seconds, 20 polls of one ask in
@@ -105,7 +109,9 @@ and the caps of live watches by root, for visitors and for one connection.
 The keeping of
 reads, which is the trail's (piece 5). MCP (piece 6). The browser's client
 (piece 7). An agent's branch lane and `promote` (pieces 6 and 8). The
-replacing of a browser's secret by the pages. Erasing a link.
+replacing of a browser's secret by the pages. A word for erasing a person:
+she can unlink each of her accounts and take back the invitations that she
+made, and who else may erase her is not decided.
 
 ## Words a session made
 

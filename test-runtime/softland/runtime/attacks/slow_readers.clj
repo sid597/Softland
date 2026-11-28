@@ -116,10 +116,12 @@
                 prog (drive/program url "slow-reader-probe"
                                     (fn [code] (drive/yes url (:cookie signed) code {})))
                 healthy (h/line url (:credential prog) nil)
+                ;; `:under` is hers alone, said at her browser.
+                at-browser (drive/browser-line url (:cookie signed))
                 hello (:hello healthy)
                 who (:who hello)
                 lane (:own-lane hello)
-                own (perm/first-permission who lane)
+                own (perm/lent-at-yes hello lane)
                 chunk (apply str (repeat 60000 "s"))
                 wrote (h/say healthy {:word :send
                                       :act {:version 1 :who who :session (:session hello)
@@ -142,7 +144,7 @@
             (Thread/sleep (+ (long jetty/ping-ms) 1500))
             (let [page-f (future (get-page-with-timeout port 4000))
                   line-f (future (h/say healthy {:word :who-am-i} 4000))
-                  auth-f (future (h/say healthy {:word :under} 4000))
+                  auth-f (future (h/say at-browser {:word :under} 4000))
                   page-res @page-f
                   line-res @line-f
                   auth-res @auth-f]
@@ -155,7 +157,8 @@
                       :page page-res
                       :line line-res
                       :auth auth-res}))
-            (h/close-line! healthy))
+            (h/close-line! healthy)
+            (h/close-line! at-browser))
           (finally
             ;; Close client sockets first so kernel RST/FIN unblocks any pinned
             ;; server writes before Jetty stops.

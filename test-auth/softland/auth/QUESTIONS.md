@@ -8,13 +8,28 @@ For each: the sentences, the readings, and the reading that the reference takes.
 That is the reading that refuses more or changes less, unless it is said why
 not. A turn changes `reference.clj` and the check that cites the question.
 
-**22 November 2026.** Sid's calls of that day, in the prompts that he pasted to
-the build of the reference, settled questions 1 to 7, 12, 20 and 23, and let
-10, 17 and 24 stand as the reference took them, which stay his to turn. Each
-says so under it, and the spec now says each where it belongs. The calls are
-two rules: what fits, and that a repeat's result comes from what stands, never
-from a memory of calls. The others are his to turn. Question 28 is new: what in
+**22 November 2026.** A session's defaults of that day, Sid's to turn, settled
+questions 1 to 7, 12, 20 and 23, and let 10, 17 and 24 stand as the reference
+took them. Until 28 November this page called them "Sid's calls": a session
+proposed them and wrote them into prompts in his first person, which he pasted
+to the build of the reference, and he typed no line on them (the review of 26
+November, run 5, break 2). Each says so under it, and the spec now says each
+where it belongs. The defaults are two rules: what fits, and that a repeat's
+result comes from what stands, never from a memory of calls. They stay as they
+are built. Question 28 is new: what in
 the reference's state grows with the number of calls.
+
+**28 November 2026.** Sid's yes to three changes of what Auth stores (the
+spec's note of that day) turns questions 9, 10 and 17, each of which says so
+under it, and adds 30 to 34, which are a session's readings and his to turn.
+
+**28 November 2026, later.** Sid's yes to three more changes (the spec's
+second note of that day: several accounts for a person, an email that is
+free again once it is erased or unlinked, an invitation that ends and can be
+taken back) turns question 3, and adds 35 to 40, which are a session's
+readings and his to turn. The rules that came with them, the steps of the
+module and every name are a session's too (the spec says each). A review of
+that build added 41 and 42, a session's readings too.
 
 ## Forms
 
@@ -33,7 +48,7 @@ The reference takes (a), with `:driven-by` free to be left out. So `who-is`
 needs `:session nil` when no session is asked for, an `enter` needs
 `:email nil` and `:code-hash nil`, and an `answer-ask` needs `:new-agent nil`.
 
-**Settled by Sid's call of 22 November: (a).** Every part that the contract
+**Settled by a session's default of 22 November, Sid's to turn: (a).** Every part that the contract
 names is there, nil where the contract says `-or-nil`, each in its stated form,
 and nothing that the contract does not name. `:driven-by` alone may be left
 out. The broken copy `:loose-form` takes (b).
@@ -53,7 +68,7 @@ and the brief, which asks the reference to hold only the order of refusals from
 that section. A provider must still be a keyword, and `:own-lane` must be there
 (1).
 
-**Turned by Sid's call of 22 November, to (a).** A provider's length and
+**Turned by a session's default of 22 November, Sid's to turn, to (a).** A provider's length and
 `:own-lane` being a UUID are forms, and Auth checks them: an input that breaks
 either does not fit. The spec moved both, with the other sentences that Auth
 keeps, out of that heading. A provider's name is counted with its namespace
@@ -74,8 +89,16 @@ so an enter of an account that has a link, with such an email, is not let in,
 though "an account that has a link gives its person, whatever claim came with
 it".
 
-**Stands, by Sid's call of 22 November.** The spec now says it as form. The
+**Stands, by a session's default of 22 November, Sid's to turn.** The spec now says it as form. The
 broken copy `:capital-email-fits` takes (b).
+
+**Turned on 28 November, later, by the design that came with Sid's yes.**
+Auth is given no address: a claim is `{:by :email :hash H}` and an enter
+carries `:email-hash`, so that an invitation holds no address anywhere in
+Auth, its events too. The runtime lower-cases the address and hashes it,
+and the question of case is its own. A claim or an enter that holds an
+address does not fit. The broken copy `:capital-email-fits` is gone with
+the rule it broke.
 
 **4. The two ids of `:making`.** "`:making` holds its UUID and the id that it
 names as its session ... that session is no session of Auth's." And "Ids of
@@ -85,7 +108,7 @@ persons, actors, sign-ins and sessions are UUIDs."
 - (b) The session's id is the store's, of any form, since that session is no
   session of Auth's.
 
-The reference takes (a). **Stands, by Sid's call of 22 November.**
+The reference takes (a). **Stands, by a session's default of 22 November, Sid's to turn.**
 
 **5. A call whose client is no client.** "No call throws for what a caller
 gave", and "a call that could not be made gives `{:could-not <word> ...}`". The
@@ -93,7 +116,7 @@ contract's words are `:read-the-event`, `:reach-the-module`, `:closed` and
 `:find-the-module`, and none is for this.
 
 The reference gives `{:could-not :read-the-event}`, and `close!` of a thing that
-is no client gives nil. **Stands, by Sid's call of 22 November**, and the spec
+is no client gives nil. **Stands, by a session's default of 22 November, Sid's to turn**, and the spec
 now says it.
 
 `open` itself has the contract's form since 22 November: it takes what stands
@@ -145,7 +168,7 @@ The reference took (b), which held all three sentences, and neither reading
 refuses more. A copy that was run again after `own-lane-made` said false, so
 its runtime sent the act once more.
 
-**Turned by Sid's call of 22 November, to (a).** A repeat's result comes from
+**Turned by a session's default of 22 November, Sid's to turn, to (a).** A repeat's result comes from
 what stands, never from a memory of calls. An enter of an account that has a
 link gives its person, the fixed own lane and making, and `:own-lane-made?` as
 it stands at that enter, a copy of the first enter among them. The spec's rule
@@ -170,7 +193,7 @@ The reference took (b), which changes less and holds both sentences. A copy was
 the same input whole, its `:at` among the rest. The reading cost the link a
 memory of each enter that it decided, with what it gave (`:decided`).
 
-**Turned by Sid's call of 22 November, to (c).** `:says` is kept from the enter
+**Turned by a session's default of 22 November, Sid's to turn, to (c).** `:says` is kept from the enter
 with the latest `:at`, and an enter whose `:at` is not later leaves it. The link
 keeps no memory of each enter: at full life that grows with every sign-in. The
 reference no longer keeps `:decided`, and "the same state as once" holds of an
@@ -204,7 +227,12 @@ reads then give.
   has ended, or the session is closed.
 - (b) It is kept as not ended, and is only left out of what is live.
 
-The reference takes (a).
+The reference took (a).
+
+**Turned on 28 November, to (b),** by Sid's yes that a time which passes ends
+nothing: the thing is taken with its time, is not watched, and is not ended
+or closed. An ask so made is still over from its making (19): an ask is not
+part of that change.
 
 **10. A replacement whose new end is at or before its own `:at`.** These bear on
 it:
@@ -236,8 +264,18 @@ replacement: the sessions close because their sign-in's time passed, as by
 `end-sign-in`, and not because its secret was replaced. The checks of both
 sentences say so.
 
-**Stands as taken, by Sid's call of 22 November, and stays his to turn.** The
-spec now says it at replace-secret.
+**Stood as taken, by a session's default of 22 November, Sid's to turn.** The spec said it at
+replace-secret.
+
+**Turned on 28 November,** by Sid's yes that a time which passes ends
+nothing. The replacement is taken; the sign-in has that `:until`, is not
+watched, and is not ended; its sessions are not closed, and the standing of
+each follows the sign-in's at each read. It differs from (b) in one thing:
+the sign-in leaves what is watched at once, since its time is at or before
+the `:at` of its root's latest write, so the "bounded" sentence and the rule
+of the generated histories still hold. A later replacement whose `:at` is
+before that `:until`, from a copy whose clock is behind, is taken. "No
+session changes" now holds of every replacement.
 
 **11. A replacement that arrives after a newer one, when its sign-in is no longer
 live.** "A replacement that arrives after a newer one is no repeat, and is
@@ -262,8 +300,8 @@ the order of 11), which refuses more and changes less. A sign-in kept the pairs
 of hashes of the replacements that it took (`:replaced`). The reference takes
 the second case, as the first sentence says, since no sentence refuses it.
 
-**Turned by Sid's call of 22 November, under his call that a repeat's result
-comes from what stands.** A sign-in keeps its present hash and the one before
+**Turned by a session's default of 22 November, Sid's to turn, under the
+default of that day that a repeat's result comes from what stands.** A sign-in keeps its present hash and the one before
 it, and no history of its replacements: `:replaced` grew with every
 replacement, a memory of calls. A replacement is judged by the present hash and
 the one before it alone. The first case is taken, since H1 is the hash now; a
@@ -320,11 +358,75 @@ said of the sign-in, which may still be live. What follows for the runtime: one
 that keeps a session in use by calling `open-session` again reads `{:open S}`
 for a session that has closed. Only `who-is` tells it so.
 
-**Stands as taken, by Sid's call of 22 November, and stays his to turn.** The
-spec now says it at open-session.
+**Stood as taken, by a session's default of 22 November, Sid's to turn.** The spec said it at
+open-session.
+
+**Turned in part on 28 November.** (a) stands for a session that someone
+closed: the repeat gives `{:open S}` and the session stays closed. A session
+whose time passed is no longer closed for that, so the question's second
+half has a new reading: the repeat gives `{:open S}`; it does not move the
+session on when the session's time, or its sign-in's, has passed at the
+repeat's own `:at`, and it closes nothing; the same repeat with an `:at`
+before both times moves the session on, and the session is then watched
+again. What followed for the runtime still follows: only `who-is` tells it
+how the session stands.
 
 **18. `under` and `live-under` of a root that is no person.** Nothing is said. The
 reference gives no agents, no sign-ins and no sessions.
+
+**30. Who made an agent, and whose ending ends it.** Until 28 November one
+part, `:made-by`, said who made an agent, whose ending ends it and, in the
+runtime, who may end it. Sid's yes of 28 November stores the first two apart:
+`:made-by`, and `:ends-with`, which starts as the maker. `end-actor` follows
+`:ends-with` and reads `:made-by` for nothing, "an actor above" in the standing
+of a sign-in is the one whose ending ends it, and `under` gives both.
+
+What is not decided, and is Sid's: who may point an agent at another actor.
+The reference takes no part that sets `:ends-with`, in `make-actor` or in any
+other write, so no history holds an agent whose two parts differ; the check of
+`end-actor` that tells them apart makes its state by hand. The bound of 32
+stays on who made whom (15). Nothing in the reference takes the two to be
+equal.
+
+**32. What an end does to what is not watched.** Since 28 November a sign-in
+or a session that nobody ended can be out of what is watched. "The sign-in
+ends, and every session under it is closed." "The agent ends ... and every
+sign-in and session of each." Neither says whether that holds of a thing
+that is not watched.
+
+- (a) It holds of every one: `who-is` says `:ended?` of each sign-in of an
+  ended actor and `:closed?` of each session of an ended sign-in; a write
+  that needs such a sign-in live is `:not-live`; ending or closing it again
+  changes nothing.
+- (b) It holds of the watched ones, and the others stay as they were.
+
+The reference takes (a): under (b) an end would be taken back by a clock.
+What it costs a module that finds the things of an actor in what is watched
+is its own; the spec says what this build's module does.
+
+**33. What `:ends` counts.** "A count of the ends written under the root."
+
+- (a) The writes that ended or closed something: an `end-actor` that ends
+  three agents, five sign-ins and nine sessions counts one.
+- (b) The things that ended.
+
+The reference takes (a). The count is there so that every end is a call of a
+watch's function, and one write is one call. A repeat of an end, and an end
+of a thing that has ended with one above it, count nothing.
+
+**34. Whether a session leaves what is watched with its sign-in.** Until 28
+November a sign-in whose time passed took its sessions out with it, whatever
+their own time.
+
+- (a) Each thing leaves by its own time: a session stays watched while its
+  sign-in is not.
+- (b) A session leaves with its sign-in, and is watched only while its
+  sign-in is.
+
+The reference takes (a), which changes less at a write: what is watched says
+nothing of standing any more, so nothing rests on the two agreeing, and a
+watcher that holds a thing which the value does not hold reads `who-is`
+either way.
 
 ## Asks
 
@@ -337,7 +439,7 @@ sentence. The first says that the ask is never live.
 
 The reference refuses every answer to such an ask with `:over`. `ask-of` says
 `:waiting`, since it judges no time. Such an ask never has an answer, so
-Sid's call on question 20 leaves this as it was: an answer to an ask that waits
+the default of 22 November on question 20 leaves this as it was: an answer to an ask that waits
 is judged as before.
 
 **20. Where "another answer gives what stands" falls, and what is "the same
@@ -364,7 +466,7 @@ when it came again after `:ends`; and when the clocks of two copies fell on
 either side of `:ends`, the second person was told `:over`, not which answer
 stands.
 
-**Turned by Sid's call of 22 November, to (a).** Once an ask has an answer,
+**Turned by a session's default of 22 November, Sid's to turn, to (a).** Once an ask has an answer,
 every answer that fits gives what stands, before any refusal, and changes
 nothing but what its time takes out. An answer to an ask that still waits is
 judged as before: `:no-such-ask`, `:over`, then the refusals of the actor and
@@ -381,7 +483,7 @@ refused with `:over`."
 - (a) A no is an answer, and a late one is `:over`.
 - (b) A no judges no time either, and is taken.
 
-The reference takes (a), which refuses more. Since Sid's call on question 20,
+The reference takes (a), which refuses more. Since the default of 22 November on question 20,
 this is of an ask that waits: a no to an ask that has an answer is told what
 stands.
 
@@ -389,7 +491,7 @@ stands.
 entered." The contract's refusals of `answer-ask` have no word for it.
 
 The reference refuses it with `:no-such-actor`, the word for "no actor of this
-root". Since Sid's call on question 20, this is of an ask that waits.
+root". Since the default of 22 November on question 20, this is of an ask that waits.
 
 **23. The other parts of a no.** "Judges no other part", and an input that "does
 not fit gives `{:could-not :read-the-event}`".
@@ -398,7 +500,7 @@ not fit gives `{:could-not :read-the-event}`".
   and are not judged.
 - (b) They may be anything.
 
-The reference takes (a). **Stands, by Sid's call of 22 November**, which the
+The reference takes (a). **Stands, by a session's default of 22 November, Sid's to turn**, which the
 spec now says under "What fits". The broken copy `:no-takes-any-parts` takes
 (b).
 
@@ -413,8 +515,15 @@ that exists."
 agents of the root" (`under`), and the sentence keeps "made by her" for the new
 agent alone.
 
-**Stands as taken, by Sid's call of 22 November, and stays his to turn.** The
+**Stands as taken, by a session's default of 22 November, Sid's to turn.** The
 spec now says it at answer-ask.
+
+Since Sid's yes of 28 November (F15: "only you at a browser are you"), the
+first of the three is gone: a yes that names the person herself is refused
+with `:is-a-person`, and so is `begin-sign-in` of kind `:program` for her. A
+yes names a new agent or a live agent of hers, and (a) and (b) are still the
+reading of the second. The broken copies `:yes-names-the-person` and
+`:person-begins-a-program` take each refusal away.
 
 **25. A yes whose sign-in id is a sign-in already, with the parts that the yes
 would bind.** "`{:refused :in-use}` the new agent's id or the sign-in's id is
@@ -423,13 +532,28 @@ of kind `:program`, with the ask's hash, holds exactly what the yes would bind.
 `begin-sign-in` would take the same as a repeat.
 
 The reference refuses it with `:in-use`, which refuses more: the id is a
-sign-in already, and no answer made it. Since Sid's call on question 20, this
+sign-in already, and no answer made it. Since the default of 22 November on question 20, this
 is of an ask that waits.
 
 **26. `ask-of`'s `:answer` for a no.** "`:answer {:root P :actor A :sign-in G}-or-nil`".
 
 The reference gives nil for a no and for a waiting ask, since a no begins no
 sign-in and names no actor.
+
+**31. Two asks that are the same write.** Until 28 November: "for `ask`, the
+hash". An ask now holds two hashes, `:hash` and `:asking-hash`.
+
+- (a) The same write when both hashes are the same; the same `:hash` with
+  another `:asking-hash`, under a code that is bound, is `:in-use`.
+- (b) The same write when `:hash` is the same; the other hash of a repeat is
+  dropped, as its `:asks` and `:ends` are.
+
+The reference takes (a), which refuses more: both hashes say what is bound,
+and under (b) a second program that knew the first hash could ask under the
+code with a secret for asking of its own and be told `{:asked U}` while its
+polls are refused. The broken copy `:asking-hash-not-bound` takes (b). Auth
+does not compare the two hashes of one ask with each other: that they differ
+is the runtime's to hold. A session's choice of 28 November, Sid's to turn.
 
 ## The client
 
@@ -449,19 +573,135 @@ The reference reads these as follows:
 - A write that `f` makes, which "must return at once" forbids, puts its calls
   after the ones still owed. Each watch is handed the changes in their order.
 
+## Invitations and accounts
+
+**35. An invite that runs again, and a result that comes from a memory.**
+a session's default of 22 November, Sid's to turn: a repeat's result "comes from what stands, never
+from a memory of calls". The spec of 28 November, later: an invite carries
+an op-id, "an invite whose op has a record changes nothing and gives the
+answer it gave", so that an invite that the module runs again, after its
+invitation was taken back or after the link that it let in was removed,
+cannot bring it back.
+
+- (a) The op's answer is kept, and an invite of that op gives it again,
+  whatever stands: a memory of one call, for one write.
+- (b) No answer is kept, and an invite that runs again is judged afresh.
+
+The reference takes (a), with the spec, and keeps the answer under the op
+alone: an op given again with another person or another claim gives the
+answer of the first (the module keeps it at the claim's task, so there an
+op given again under another claim of another task is judged afresh). The
+spec says that such an op is not defined: the runtime makes an op fresh, at
+random, for each word that reaches it, and the setup for each run, so
+neither happens. The answer is a retry's memory and nothing else: no rule
+leans on it (that nobody gives a person who has entered another account is
+41's, held where the claim's links are). It is the one
+place where a result comes from a memory of a call, and it grows by one
+answer for each invite (28). **A session's reading, for Sid to see beside
+a session's default of 22 November, Sid's to turn.** The broken copy `:invite-op-forgotten` takes
+(b).
+
+**36. An invitation whose end is at or before its own time.** "One whose
+`:ends` is at or before its own `:at` is taken and never waits."
+
+The reference takes it, and writes it: it lets nobody in, names nobody, and
+takes the place of an invitation of the same claim that was over. An invite
+of the same person while it stands is no repeat, since it is over: it
+writes the new one.
+
+**37. The order of a person's accounts.** "In the order in which they were
+linked." Two accounts can be linked at one `:at`, from two copies of the
+runtime.
+
+The reference orders them by the `:at` of the enter that linked each, then
+by the provider's name, its namespace counted, then by the subject
+(`account-order`), which the module can give without a counter. An `:at`
+from a clock that went back puts a later link before an earlier one.
+
+**38. The person of a take-back.** "`take-back {:person P :claim C :invite I
+:at t}` gives `{:taken-back P}` always."
+
+The reference takes the invitation back by its op alone and gives the `P`
+that it was given, without holding it against the invitation's person: the
+op names one invitation, and who may take it back is the runtime's.
+
+**39. An unlink of a link that never stood.** "`{:unlinked P}` whenever,
+after it, link `L` does not stand on the account."
+
+The reference gives `{:unlinked P}` for a link that never stood, for an
+account that has no link, and for a link of another person that stands no
+more, and changes nothing. Only a link that stands for another person is
+refused. `:linking` is never given by the reference, in which an enter is
+one step.
+
+**40. An invitation that is over, as read.** "`invitation-of` ... says
+nothing of "over": the caller holds `:ends` against its own time."
+
+The reference gives an invitation that is over as it gives one that waits,
+with its `:ends`, until it is taken back or the claim is invited again. Its
+person is the claim's `:person` though the claim names nobody.
+
+**41. An invitation beside her links.** The spec of 28 November, later, wrote
+an invitation of `P` "beside her links if she has some", whoever made it.
+Then a person who has entered could be given another account by whoever
+invited her, or by a setup run again, until the invitation's end, and
+nobody could close it.
+
+- (a) Beside her links, only her own invite is written: one whose
+  `:invited-by` is `P`. Another's gives `{:invited P}` and changes nothing.
+- (b) Any invite is written beside her links, and who may make one is the
+  runtime's alone.
+
+The reference takes (a), and so does the spec: the rule sits where the fact
+is, the claim's links, and leans on no memory of answers. "Her own" is read
+from what the event holds: the runtime's `:invited-by` for her own word is
+her person id. After she unlinked every account, an invite of her by anyone
+is written again, which is the owner's way back in through the setup.
+**A session's reading, for Sid to see**, with the question it leaves:
+whether the first inviter may bring back a person who unlinked everything.
+The broken copy `:anyone-invites-beside-links` takes (b).
+
+**42. An enter that runs again after its account was unlinked.** The spec
+said "no step reads an old event again", and that an enter that runs again
+after its account was unlinked cannot prove an invitation made after it.
+Rama runs a record again from the log after a failure, so an enter whose
+account was linked and then unlinked can run again with nothing of its link
+left. A entered as P by a code; her email's claim holds an invitation of Q
+made before that enter; P unlinks A; the enter, run again, finds no record,
+proves Q's invitation and links A to Q with its `:says`, and nobody signed
+in.
+
+- (a) It is judged as a new enter at its old `:at`: only an invitation made
+  at or before it, that still waits, lets it in. What it does is what A's
+  next sign-in would do.
+- (b) It is refused. That takes a record for every sign-in, a mark that
+  stays under the account's key after an unlink, or Auth's writes on a
+  topology whose updates are exactly-once, with results read by op.
+
+The reference takes (a), as the module does, and so does the spec, which
+says it as the rule that holds and as not closed: (b) is each of three
+things that are Sid's. A failed mark under the op of the enter that linked
+closes one of the two cases and is not built, for the reason that a memory
+of what an enter gave was not (a session's default of 22 November, Sid's to turn). **A session's
+reading, for Sid to see.**
+
 ## What the state keeps
 
 **28. What grows with the number of calls.** Asked in the prompt that Sid pasted
-on 22 November, after his call on question 12: what in the whole state grows
+on 22 November, after the default on question 12 (a session's, Sid's to turn):
+what in the whole state grows
 with the number of calls and is not history that the spec asks to keep.
 
 Since the calls, a repeat, a refusal and an input that does not fit add nothing
 to the state, and a write that is taken adds only a thing that the spec keeps
-for good: a person and her claim, a link, an agent, a sign-in, a session, an
-ask. `:agent-order` is kept whole because `under` gives every agent, ended
+for good: a person, a link, an agent, a sign-in, a session, an ask; and
+since 28 November, later, a claim's record, which goes when nothing waits
+under it and no link stands, and the answer of each invite's op (35), which
+stays. `:agent-order` is kept whole because `under` gives every agent, ended
 ones too, in the order in which they were made. Kept for a rule, one each and
 not growing: `:first-hash` for each sign-in (8), `:over-when-made?` for each
-ask (19), and `:invited-by`, `:invited-at` and `:entered-at` for each person.
+ask (19), and `:invited-by`, `:invited-at` and `:entered-at` for each person;
+and `:next-link`, one number, from which the reference makes a link's id.
 Two parts grow otherwise:
 
 - `:sign-in-order` keeps every sign-in that a root ever began, ended ones too.

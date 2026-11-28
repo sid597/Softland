@@ -1,7 +1,8 @@
 # The command line — source entry
 
-This tree holds the command line: Softland from a terminal, for a person and
-for an agent, and the library by which any Clojure program speaks to the
+This tree holds the command line: Softland from a terminal, signed in as an
+agent of a person (no program is a person), and the library by which any
+Clojure program speaks to the
 runtime. It is Clojure on the JVM. It shares the wire's forms with the runtime
 as the same files, and it keeps a number of any width as itself.
 

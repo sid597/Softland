@@ -87,27 +87,35 @@
 ;; ------------------------------------------------------ a program's sign-in
 
 (defn ask
-  "The secret's hash is posted, and it is all that the runtime keeps of the
-  secret. The runtime gives {:code :shown :link :ends}: the code under
-  which the ask is found, the code as a person reads it, the link for her
-  to open, and when the ask is over."
+  "Two secrets are made here: `:secret`, which becomes the credential, and
+  `:asking-secret`, which is only for asking. The hash of each is posted,
+  and the hashes are all that the runtime keeps of them. The runtime gives
+  {:code :shown :link :ends}: the code under which the ask is found, the
+  code as a person reads it, the link for her to open, and when the ask is
+  over. Both secrets are added to what is given: `waited` takes it."
   [url asks]
   (let [secret (credential/make-secret)
-        got (post url "/sign-in/program" {:hash (credential/hash-of secret) :asks asks})]
-    (if (:could-not got) got (assoc got :secret secret))))
+        asking-secret (credential/make-secret)
+        got (post url "/sign-in/program" {:hash (credential/hash-of secret)
+                                          :asking-hash (credential/hash-of asking-secret)
+                                          :asks asks})]
+    (if (:could-not got) got (assoc got :secret secret :asking-secret asking-secret))))
 
 (defn waited
-  "The secret is posted with the code: that is how the runtime knows that
-  the program that waits is the one that asked. So the secret is on the
-  wire before her yes, and is as safe as what carries it: over plain http,
-  whoever can read the wire has it.
+  "`asked` is what `ask` gave. The secret for asking is posted with the
+  code: that is how the runtime knows that the program that waits is the
+  one that asked. It is on the wire at each call, and over plain http
+  whoever can read the wire has it; with it one learns how the ask stands
+  and nothing more. The secret that becomes the credential is not posted:
+  it is read only when the runtime has said yes, to put the credential
+  together, so it first crosses a wire as the credential, after her yes.
 
   The runtime says {:state :waiting}, {:state :yes :root :actor :sign-in},
   {:state :no} or {:state :over}."
-  [url code secret]
-  (let [got (post url "/sign-in/program/poll" {:code code :secret secret})]
+  [url asked]
+  (let [got (post url "/sign-in/program/poll" {:code (:code asked) :asking-secret (:asking-secret asked)})]
     (cond-> got
-      (= :yes (:state got)) (assoc :credential (credential/text (:root got) (:sign-in got) secret)))))
+      (= :yes (:state got)) (assoc :credential (credential/text (:root got) (:sign-in got) (:secret asked))))))
 
 ;; ------------------------------------------------------------------- the line
 

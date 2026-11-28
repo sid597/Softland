@@ -16,13 +16,16 @@
   no secret.
 
   Whoever is signed in makes the secret. A program that asks to be signed
-  in makes its own and sends the runtime its hash. While it waits for her
-  yes it sends the secret itself with the code: that is how the runtime
-  knows that the program that waits is the one that asked. So the secret
-  is on the wire before her yes, and is as safe as what carries it. When
-  she has said yes, the program is told the root and the sign-in, and puts
-  the three parts together itself. The runtime makes the secret of a
-  browser's sign-in, and sets it as a cookie.
+  in makes its own and sends the runtime its hash. It makes a second
+  secret only for asking, and sends that one's hash too. While it waits for
+  her yes it sends the secret for asking with the code: that is how the
+  runtime knows that the program that waits is the one that asked. That
+  secret is on the wire, and is as safe as what carries it; it becomes no
+  credential. The secret of the credential crosses no wire before her yes:
+  when she has said yes, the program is told the root and the sign-in, puts
+  the three parts together itself, and sends the secret for the first time
+  as its credential. The runtime makes the secret of a browser's sign-in,
+  and sets it as a cookie.
 
   A code is the short text under which a program's sign-in that is under
   way is found: eight characters of an alphabet that leaves out the letters
@@ -87,6 +90,25 @@
   (when (string? credential)
     (when-let [[_ root sign-in secret] (re-matches credential-pattern credential)]
       {:root (UUID/fromString root) :sign-in (UUID/fromString sign-in) :secret secret})))
+
+(defn lent-at-yes
+  "The ids of what her yes lends to the program that it signs in, made from
+  her root and the sign-in that the yes begins: `:permission`, the id of the
+  permission that the lend writes, and `:act`, the UUID of the act that
+  writes it. Her page posted twice, and a copy of the runtime that was cut
+  off, send the same act; a program that holds the sign-in knows which
+  permission is its lend without being told, and reads it like any other.
+  The first 16 bytes of a SHA-256, marked as a UUID of version 8."
+  [root sign-in]
+  (let [id (fn [kind]
+             (let [digest (.digest (MessageDigest/getInstance "SHA-256")
+                                   (.getBytes (str "softland/lent-at-yes/" kind "/" root "/" sign-in)
+                                              StandardCharsets/UTF_8))
+                   buffer (java.nio.ByteBuffer/wrap digest)
+                   high (-> (.getLong buffer) (bit-and (unchecked-long 0xFFFFFFFFFFFF0FFF)) (bit-or 0x8000))
+                   low (-> (.getLong buffer) (bit-and 0x3FFFFFFFFFFFFFFF) (bit-or (unchecked-long 0x8000000000000000)))]
+               (UUID. high low)))]
+    {:permission (id "permission") :act (id "act")}))
 
 (defn make-code
   []

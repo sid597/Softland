@@ -32,9 +32,11 @@
 
   No system chooses an id. A session's id is random. The id of an agent, of
   its sign-in and of an invited person is a hash of the caller's root and a
-  UUID that the system sent (`derived`): the same UUID gives the same id,
-  so a word said twice is one making, and no UUID that a system can pick
-  gives the id of a thing that is not its own. The UUID is kept nowhere,
+  UUID that the system sent (`derived`), and of the claim too for an
+  invited person: the same UUID gives the same id, so a word said twice is
+  one making, and no UUID that a system can pick gives the id of a thing
+  that is not its own. The op of an invite is fresh at each word, and Auth
+  judges the invite again by what stands. The UUID is kept nowhere,
   not by the runtime, not in Auth and in no act, so a derived id cannot be
   worked back to its root. A person's id says nothing (src-store/README.md,
   9 October 2026, entry 1), and neither does an id made from it. Auth
@@ -86,6 +88,10 @@
                   the requests that were on their way
     :session-ms   how long a session stands from its opening, and from each
                   time that the runtime moves its time on
+    :invitation-ms
+                  how long an invitation lets an account in from its
+                  making, the setup's too; then it is over, and whoever
+                  invited invites again
     :sign-in-window-ms
                   the sliding window over which posts to `/sign-in/*` from
                   one remote address, and the polls of one ask, are counted
@@ -109,6 +115,7 @@
   {:secret-ms (* 7 24 60 60 1000)
    :previous-ms 60000
    :session-ms (* 24 60 60 1000)
+   :invitation-ms (* 7 24 60 60 1000)
    :sign-in-window-ms 10000
    :max-sign-in-posts-per-address 30
    :max-watches-per-root 256
@@ -164,8 +171,14 @@
   (.-own-lane caller))
 
 (defn person?
+  "True for the person herself, signed in at a browser: a caller whose actor
+  is its root, on a sign-in of kind `:browser`. No program is a person:
+  Auth begins no sign-in of kind `:program` for her, `caller` makes no
+  caller of one that a store kept from before, and this holds it too."
   [^Caller caller]
-  (and (some? (.-actor caller)) (= (.-actor caller) (.-root caller))))
+  (and (some? (.-actor caller))
+       (= (.-actor caller) (.-root caller))
+       (= :browser (.-kind caller))))
 
 (defn about
   "What a face may tell the system that holds the credential. It is data,
@@ -352,6 +365,10 @@
                                (:own-lane got) session-driven-by from))]
           (cond
             (= :not verdict) (no-sign-in until-or-why)
+            ;; No program is a person. Auth begins no such sign-in since 28
+            ;; November; one that a store kept from before is ended here, at
+            ;; every word, and is not ended in Auth.
+            (and (= :program kind) (= actor root)) (no-sign-in :ended)
             (some? session) (or (session-fault got sign-in (now-ms))
                                 (do (moved-on! seam root sign-in session (:until (:session got)))
                                     (made session (get-in got [:session :driven-by]))))
@@ -641,10 +658,11 @@
 
 (defn- derived
   "The first 16 bytes of a SHA-256, marked as a UUID of version 8. No choice
-  of the UUID gives an id that another root, or another kind of thing, has."
-  [kind root uuid]
+  of the UUID gives an id that another root, or another kind of thing, has.
+  `more` are texts that the id is made of too, after the UUID."
+  [kind root uuid & more]
   (let [digest (.digest (java.security.MessageDigest/getInstance "SHA-256")
-                        (.getBytes (str "softland/" (name kind) "/" root "/" uuid)
+                        (.getBytes (str/join "/" (concat ["softland" (name kind) root uuid] more))
                                    java.nio.charset.StandardCharsets/UTF_8))
         buffer (java.nio.ByteBuffer/wrap digest)
         high (-> (.getLong buffer) (bit-and (unchecked-long 0xFFFFFFFFFFFF0FFF)) (bit-or 0x8000))
@@ -652,17 +670,18 @@
     (UUID. high low)))
 
 (defn- beneath?
-  "`actors` is `:actors` of `softland.auth.client/under`. True when `actor`
-  was made by `above`, at any depth. The walk stops after as many steps as
-  there are actors."
+  "`actors` is `:actors` of `softland.auth.client/under`. True when the
+  ending of `above` would end `actor`, at any depth: the walk follows
+  `:ends-with`, and reads who made an actor for nothing. It stops after as
+  many steps as there are actors."
   [actors actor above]
-  (let [made-by (into {} (map (juxt :actor :made-by)) actors)]
-    (loop [at (get made-by actor) steps (count actors)]
+  (let [ends-with (into {} (map (juxt :actor :ends-with)) actors)]
+    (loop [at (get ends-with actor) steps (count actors)]
       (cond
         (nil? at) false
         (= at above) true
         (zero? steps) false
-        :else (recur (get made-by at) (dec steps))))))
+        :else (recur (get ends-with at) (dec steps))))))
 
 (defn- make-agent-now
   "Two writes of Auth, the actor and its sign-in, each of which holds when
@@ -687,7 +706,9 @@
           {:made agent :root root :sign-in sign-in :until until})))))
 
 (defn- end-agent-now
-  "An actor is ended by its maker or by anyone above, at any depth."
+  "An agent is ended by whoever's own ending would end it, at any depth.
+  That is its maker and those above the maker while Auth keeps
+  `:ends-with` as the maker."
   [^Seam seam ^Caller caller {:keys [agent]}]
   (let [client (.-client seam)
         root (.-root caller)
@@ -699,6 +720,71 @@
       (not (beneath? (:actors got) agent (.-actor caller)))
       (words/could-not :find-the-agent {:why :not-beneath})
       :else (from-auth (auth/end-actor client {:root root :actor agent :at (now-ms)})))))
+
+;; ------------------------------------------------- invitations and accounts
+
+(defn email-hash
+  "The hash by which Auth knows an email address: SHA-256, as 64 lower-case
+  hex characters, of the text `softland/email/` and the address lower-cased
+  in the root locale. To match an email, Auth is given this, so that an
+  invitation holds no address anywhere; what the provider said, `:says`,
+  can hold the address, with the link until `unlink` and in the log until a
+  migration (its spec, \"What can be erased later\"). The runtime owns the address's form:
+  every copy makes the same hash of one address however its letters came.
+  This is the one definition; Auth's tests keep a copy of it,
+  `softland.auth.module-harness/email-hash`, which must make the same."
+  [^String address]
+  (.formatHex (java.util.HexFormat/of)
+              (.digest (java.security.MessageDigest/getInstance "SHA-256")
+                       (.getBytes (str "softland/email/" (.toLowerCase address Locale/ROOT))
+                                  java.nio.charset.StandardCharsets/UTF_8))))
+
+(defn- claim-of
+  "Auth's claim for a claim of the wire, whose email is an address."
+  [{:keys [by email hash]}]
+  (if (= :email by)
+    {:by :email :hash (email-hash email)}
+    {:by :code :hash hash}))
+
+(defn- invite-now
+  "The person is derived from the inviter's root, the UUID and the claim,
+  so no caller can form the id of a person whom another invited, or of one
+  under another claim. The invite's op is fresh for each word that reaches
+  the runtime, so the same word said again is judged by what stands: while
+  her invitation waits it changes nothing, after it is over or was taken
+  back she is invited anew as the same person, and after she entered by
+  the claim Auth writes nothing beside her links, since an invite there
+  that is not her own adds no account. `:herself` names the caller's own
+  root, to add an account. The table gives the word to a person alone
+  (`person?`), so the caller is she, at a browser, and `:invited-by` is her
+  own id only for her own invite: no program holds her id. The end is this
+  copy's: `:invitation-ms` from now."
+  [^Seam seam ^Caller caller {:keys [uuid claim herself]}]
+  (let [root (.-root caller)
+        claim (claim-of claim)
+        parts [(name (:by claim)) (:hash claim)]
+        person (if herself root (apply derived :person root uuid parts))
+        now (now-ms)]
+    (from-auth (auth/invite (.-client seam)
+                            {:person person :claim claim :invited-by (.-actor caller)
+                             :at now :ends (+ now (long (:invitation-ms (.-numbers seam))))
+                             :op-id (UUID/randomUUID)}))))
+
+(defn- take-back-now
+  "Takes back the invitation that waits under the claim, by the op that
+  made it, as it was read, and only when the caller made it: an invitation
+  that is not the caller's and one that is not there are told alike, so
+  that whoever names a claim learns nothing of whom it names."
+  [^Seam seam ^Caller caller {:keys [claim]}]
+  (let [client (.-client seam)
+        claim (claim-of claim)
+        got (auth/invitation-of client claim)
+        {:keys [invite invited-by]} (:invitation got)]
+    (cond
+      (:could-not got) (words/could-not :reach-auth {:got got})
+      (or (nil? invite) (not= (.-actor caller) invited-by)) (words/could-not :find-the-invitation nil)
+      :else (from-auth (auth/take-back client {:person (:person got) :claim claim :invite invite
+                                               :at (now-ms)})))))
 
 (defn- call-now
   [^Seam seam ^Caller caller word]
@@ -753,12 +839,16 @@
        :close-session
        (from-auth (auth/close-session client {:root root :session (.-session caller) :at (now-ms)}))
 
-       :invite
-       (from-auth (auth/invite client {:person (derived :person root (:uuid word))
-                                       :claim (let [claim (:claim word)]
-                                                (cond-> claim
-                                                  (= :email (:by claim)) (update :email #(.toLowerCase ^String % Locale/ROOT))))
-                                       :invited-by (.-actor caller) :at (now-ms)}))
+       :invite (invite-now seam caller word)
+
+       :take-back-invite (take-back-now seam caller word)
+
+       :accounts
+       (let [got (auth/accounts-of client root)]
+         (if (:could-not got) (words/could-not :reach-auth {:got got}) got))
+
+       :unlink-account
+       (from-auth (auth/unlink client {:account (:account word) :link (:link word) :person root :at (now-ms)}))
 
        :make-agent (make-agent-now seam caller word)
 
@@ -834,7 +924,10 @@
 
 (defn- seems-gone?
   "`until` is the end that is held for her sign-in, and `value` what Auth
-  pushed as live under her root. True is a reason to read, and no judgment."
+  pushed as watched under her root. True is a reason to read, and no
+  judgment: a sign-in or a session that the value does not hold has not
+  ended for that, and it stays true at each push for as long as the value
+  does not hold her, so each push is then a read."
   [^Caller caller until value]
   (let [sign-in (get-in value [:sign-ins (.-sign-in caller)])]
     (or (nil? sign-in)
@@ -850,9 +943,13 @@
 
   It listens for her root first and reads Auth after, so no change falls
   between the two. A push that does not show her as she is held is only a
-  reason to read, since a push can be behind a write: the read decides. A
-  read also comes when the time of her secret or of her session comes near,
-  and it moves the session's time on when that is due. A secret that was
+  reason to read: a push can be behind a write, and what Auth watches under
+  her root is thinned by the clock of whichever copy wrote last, so she can
+  stand and not be in it. The read decides: a sign-in or a session that
+  someone ended is over for good; one that nobody ended is held against
+  this copy's clock, and stands until its time passes here. A read also
+  comes when the time of her secret or of her session comes near, and it
+  moves the session's time on when that is due. A secret that was
   replaced moves the sign-in's end; a session is never ended by that.
 
   When Auth's watch of her root is lost, the flow ends with `:reach-auth`

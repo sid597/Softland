@@ -1,7 +1,13 @@
 (ns softland.command.main
-  "The command line: Softland from a terminal. A person and an agent use the
-  same commands: an agent is signed in with a who of its own, and what it
-  may do is what it was given.
+  "The command line: Softland from a terminal. It is signed in as an agent
+  of hers, with a who of its own, and what it may do is what it was given:
+  at her yes, what she ticked in her own lane, and what was given it since.
+  No program is a person: the commands that only she may say, at a browser
+  (`invite`, `under`, `end-sign-in`), are in the list and get the runtime's
+  refusal, since whether one of them can be lent to a program is open.
+  `give` to a person is refused by a gate today: passing to a person needs
+  `:give`, what her yes lends holds none, and no page lends it. To an agent
+  or a run it lends beneath what this program holds.
 
   The commands are the entries of `commands`, the one list of them: for
   each, how it is typed, the flags that it takes, what it does, and the
@@ -18,7 +24,8 @@
   it is not the default. A command that writes or reads takes `--lane id`,
   the lane, when it is not the person's own; one that writes takes
   `--permission uuid`, the permission that the act names, when it is not
-  the first permission of the lane for its person.
+  the one that her yes lent this sign-in
+  (`softland.wire.credential/lent-at-yes`).
 
   Values. `e`, `k`, `v`, a who, a lane, a permission and an id are read as
   EDN; a UUID is typed bare, or as EDN writes one. Plain words stay text:
@@ -65,7 +72,6 @@
             [softland.command.client :as client]
             [softland.store.act :as act]
             [softland.store.door.declaration :as declaration]
-            [softland.store.gate.first-act :as first-act]
             [softland.wire.credential :as credential]
             [softland.wire.frame :as frame])
   (:import [java.io File PushbackReader]
@@ -340,15 +346,20 @@
    (with-line* flags (fn [connection hello _ _] (f connection hello)) auto-replace?)))
 
 (defn- act-of
-  "With no `--permission`, the act names the first permission of the lane
-  for its person."
+  "With no `--permission`, the act names the permission that her yes lent
+  this sign-in, which covers her own lane alone. A sign-in that her yes
+  lent nothing (an agent signed in again with no box ticked, which holds
+  what it held) and one that `agent new` began name one with
+  `--permission`."
   [hello flags facts]
   (let [lane (if (contains? flags :lane) (:lane flags) (:own-lane hello))]
     {:version 1
      :who (:who hello)
      :session (:session hello)
      :lane lane
-     :permission (if (contains? flags :permission) (:permission flags) (first-act/first-permission-id lane))
+     :permission (if (contains? flags :permission)
+                   (:permission flags)
+                   (:permission (credential/lent-at-yes (:root hello) (:sign-in hello))))
      :facts facts}))
 
 (defn- query-of
@@ -372,9 +383,9 @@
           (println "Open this link where you are signed in, and say yes only if it shows the same code:")
           (println " " (:link asked))
           (println "  code:" (:shown asked))
-          (when agent (println (str "  On that page, choose \"an agent of its own\" and call it: " agent))))
+          (when agent (println (str "  On that page, say yes as a new agent and call it: " agent))))
         (loop []
-          (let [got (client/waited url (:code asked) (:secret asked))]
+          (let [got (client/waited url asked)]
             (cond
               (= :waiting (:state got))
               (do (Thread/sleep 1000) (recur))
@@ -625,7 +636,7 @@
   How a command is typed is made of the first three (`typed`), and nothing
   else says it."
   [["sign-in"        {:args [] :flags {:url (text "address") :agent (text "name")} :does sign-in!
-                      :says "asks the runtime, shows a link and a code, waits for her yes, and keeps the credential. With `--agent` the yes page offers to make this program an agent of that name"}]
+                      :says "asks the runtime, shows a link and a code, waits for her yes, and keeps the credential. She signs it in as a new agent or as one of hers; with `--agent` it asks her to call a new agent by that name"}]
    ["who"            {:args [] :does who!
                       :says "who this program is signed in as"}]
    ["write"          {:args [(value "e") (value "k") (value "v")]
@@ -639,17 +650,17 @@
    ["send"           {:args [(text "file")] :does send!
                       :says "the acts of a file, sent in order, each once"}]
    ["give"           {:args [(value "who") (value "lane") (text "see|act")] :flags {:permission (value "uuid")} :does give!
-                      :says "gives a permission beneath the one that this program acts under"}]
+                      :says "gives a permission beneath the one that this program acts under; to a person, refused while it holds no :give"}]
    ["invite"         {:args [] :flags {:email (text "address")} :does invite!
-                      :says "makes a person who waits for an account; prints the link for her, or names the email"}]
+                      :says "makes a person who waits for an account; prints the link for her, or names the email. Today only a person at a browser may say it: the runtime refuses it to a program"}]
    ["agent new"      {:args [(text "name")] :flags {:out (text "file")} :does agent-new!
                       :says "makes an agent beneath this program's who, and writes the file that the agent signs in with"}]
    ["agent end"      {:args [(value "uuid")] :does agent-end!
                       :says "ends an agent"}]
    ["under"          {:args [] :does under!
-                      :says "the actors and the sign-ins of this person"}]
+                      :says "the actors and the sign-ins of this person. Today only a person at a browser may say it: the runtime refuses it to a program"}]
    ["end-sign-in"    {:args [(value "uuid")] :does end-sign-in!
-                      :says "ends one sign-in of this person"}]
+                      :says "ends one sign-in of this person. Today only a person at a browser may say it: the runtime refuses it to a program"}]
    ["replace-secret" {:args [] :does replace-secret!
                       :says "a new secret for this sign-in"}]
    ["new-session"    {:args [] :flags {:model (text "name")} :does new-session!

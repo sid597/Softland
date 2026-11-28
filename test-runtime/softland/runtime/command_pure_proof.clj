@@ -1,21 +1,32 @@
 (ns softland.runtime.command-pure-proof
   "The proof of the command line's parts that need no runtime: how each
   command is typed, which plain arguments and flags it takes, under which
-  UUID an act of a file is sent, and the exit status of a result. One
-  command, from the repository root:
+  UUID an act of a file is sent, which permission an act names when none
+  is given, the exit status of a result, and what the
+  library posts while a program waits to be signed in. One command, from
+  the repository root:
 
     clojure -M:runtime -m softland.runtime.command-pure-proof
 
   It calls private functions of `softland.command.main` through their vars,
   with values that the proof makes. What the command line does with them as
-  a program, against a runtime, is `command_review_proof.clj`.
+  a program, against a runtime, is `command_review_proof.clj`. The library's
+  sign-in is run against a stand-in that this proof starts, which keeps
+  every body that is posted to it.
 
-  State. None."
+  State. A port of this machine's loopback address, for the stand-in, until
+  the check of the sign-in is done."
   (:require [clojure.string :as str]
+            [softland.command.client :as client]
             [softland.command.main]
             [softland.store.act :as act]
+            [softland.wire.credential :as credential]
+            [softland.wire.frame :as frame]
             [softland.wire.proof :refer [check finish]])
-  (:import [java.util UUID]))
+  (:import [com.sun.net.httpserver HttpExchange HttpHandler HttpServer]
+           [java.net InetAddress InetSocketAddress]
+           [java.nio.charset StandardCharsets]
+           [java.util UUID]))
 
 (defn- command
   "Calls a private function of the command line by its name. A name that
@@ -204,6 +215,20 @@
              (and (whole? got 3) (empty? (filter (set uuids) (:uuids got))))
              got))))
 
+;; ------------------------------------------- the permission that an act names
+
+(defn- permission-checks []
+  (let [hello {:who (keyword (str "agent." (UUID/randomUUID))) :root (UUID/randomUUID) :sign-in (UUID/randomUUID)
+               :session (UUID/randomUUID) :own-lane (UUID/randomUUID)}
+        named (UUID/randomUUID)
+        by-default (command 'act-of hello {} [])
+        by-flag (command 'act-of hello {:permission named} [])]
+    (check "With no `--permission`, an act of the command line names the permission that her yes lent this sign-in, whose id is made from her root and the sign-in, and goes into her own lane; with the flag, it names the permission that the flag gives."
+           (and (= (:permission (credential/lent-at-yes (:root hello) (:sign-in hello))) (:permission by-default))
+                (= (:own-lane hello) (:lane by-default))
+                (= named (:permission by-flag)))
+           [by-default by-flag])))
+
 ;; ------------------------------------------------------------ the exit status
 
 (defn- status-checks []
@@ -236,10 +261,66 @@
            (mapv status [accepted {:results [accepted accepted]} {:who (UUID/randomUUID)}
                          {:place {:value :green}} {:answer {:answer :nothing-yet}} {:answer {:answer :not-mine}}]))))
 
+;; ------------------------------------------- what crosses before her yes
+
+(defn- stand-in
+  "A runtime's two requests of a program's sign-in, as far as the library
+  needs them: the ask is given a code, and the ask's state is `:waiting`
+  twice and then `:yes`. `posted` is an atom of `[path body]`, each body as
+  its text."
+  [posted answer]
+  (let [polls (atom 0)
+        handler (reify HttpHandler
+                  (handle [_ exchange]
+                    (let [^HttpExchange exchange exchange
+                          path (.getPath (.getRequestURI exchange))
+                          body (String. (.readAllBytes (.getRequestBody exchange)) StandardCharsets/UTF_8)
+                          _ (swap! posted conj [path body])
+                          gives (if (= "/sign-in/program" path)
+                                  {:code "ABCD2345" :shown "ABCD-2345" :link "a link" :ends 1}
+                                  (if (< (swap! polls inc) 3) {:state :waiting} (assoc answer :state :yes)))
+                          bytes (.getBytes ^String (frame/write gives) StandardCharsets/UTF_8)]
+                      (.sendResponseHeaders exchange 200 (alength bytes))
+                      (with-open [out (.getResponseBody exchange)]
+                        (.write out bytes)))))]
+    (doto (HttpServer/create (InetSocketAddress. (InetAddress/getLoopbackAddress) 0) 0)
+      (.createContext "/" handler)
+      (.start))))
+
+(defn- sign-in-checks []
+  (let [posted (atom [])
+        answer {:root (UUID/randomUUID) :actor (UUID/randomUUID) :sign-in (UUID/randomUUID)}
+        ^HttpServer server (stand-in posted answer)]
+    (try
+      (let [url (str "http://127.0.0.1:" (.getPort (.getAddress server)))
+            asked (client/ask url "the proof")
+            waits (vec (repeatedly 3 #(client/waited url asked)))
+            before-her-yes @posted
+            secret (:secret (credential/parts (:credential (peek waits))))
+            read-body (fn [[_ body]] (second (frame/read-one body)))
+            [ask-form & poll-forms] (map read-body before-her-yes)]
+        (check "The secret that becomes a program's credential crosses no wire before her yes: of what the library posts to ask and to wait, three times, no body holds it; the ask holds its hash and the hash of a second secret, and each wait holds that second secret and the code alone."
+               (and (= [:waiting :waiting :yes] (mapv :state waits))
+                    (credential/secret? secret)
+                    (= 4 (count before-her-yes))
+                    (not-any? (fn [[_ body]] (str/includes? body secret)) before-her-yes)
+                    (= #{:hash :asking-hash :asks} (set (keys ask-form)))
+                    (= (credential/hash-of secret) (:hash ask-form))
+                    (not= (:hash ask-form) (:asking-hash ask-form))
+                    (every? (fn [form] (and (= #{:code :asking-secret} (set (keys form)))
+                                            (= (:asking-hash ask-form) (credential/hash-of (:asking-secret form)))))
+                            poll-forms))
+               {:states (mapv :state waits) :posted (mapv first before-her-yes)})
+        (check "At her yes the library puts the credential together from what the runtime said and the secret that it kept."
+               (= (credential/text (:root answer) (:sign-in answer) (:secret asked)) (:credential (peek waits)))))
+      (finally (.stop server 0)))))
+
 (defn -main
   "Runs every check, prints the counts, and ends the process with a status."
   [& _]
   (argument-checks)
   (journal-checks)
+  (permission-checks)
   (status-checks)
+  (sign-in-checks)
   (finish))

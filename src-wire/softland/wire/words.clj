@@ -22,8 +22,10 @@
 
   A system chooses no id but an act's UUID. `:invite` and `:make-agent`
   carry a `:uuid` that the system made; the runtime derives the id of the
-  person or of the agent from it and from the caller's root, and gives the
-  id back (`softland.runtime.seam`).
+  person or of the agent from it and from the caller's root, and the
+  person's from the claim too, and gives the id back
+  (`softland.runtime.seam`). An email of a claim crosses the wire as the
+  address; the runtime hashes it before Auth is given it.
 
   What the check reads, and what it leaves. A word's shape, in the language
   of `softland.store.act/shapes`, holds every part of a word but the one
@@ -76,7 +78,9 @@
 (def words
   "`:carries` is the part that carries a form of the store's, nil for none.
   `:who` is who may say the word: `:anybody`, a visitor too; `:an-actor`,
-  whoever is signed in; `:a-person`, a person herself and no agent.
+  whoever is signed in; `:a-person`, a person herself, signed in at a
+  browser, and no agent: no program is a person, so a program says none of
+  these. Whether one of them can be lent to a program is not decided.
   `:in-a-session` marks a word that only a caller who is in a session
   says. The two are the rule itself and not a second telling of it: the
   runtime reads them to hold a word against its caller
@@ -107,13 +111,20 @@
                     :carries nil :who :an-actor}
    :close-session  {:says "closes the session of this connection"
                     :carries nil :who :an-actor :in-a-session true :can-end-its-connection true}
-   :invite         {:says "makes a person who waits for an account that proves the claim"
+   :invite         {:says "makes a person who waits, until the invitation's end, for an account that proves the claim; with `:herself`, the caller herself waits, to add an account"
                     :carries nil :who :a-person}
+   :take-back-invite
+                   {:says "takes back the invitation that waits under the claim, when the caller made it"
+                    :carries nil :who :a-person :in-a-session true}
+   :accounts       {:says "the caller's accounts, each with its link and when it was linked"
+                    :carries nil :who :a-person :in-a-session true}
+   :unlink-account {:says "removes one of the caller's accounts, named with its link; it ends no sign-in and no session"
+                    :carries nil :who :a-person :in-a-session true}
    :make-agent     {:says "makes an agent beneath the caller, and a sign-in for it under the hash of a secret that the caller made"
                     :carries nil :who :an-actor}
-   :end-agent      {:says "ends an agent beneath the caller, with every actor that it made and every sign-in of each"
+   :end-agent      {:says "ends an agent beneath the caller, with every actor that ends with it and every sign-in of each"
                     :carries nil :who :an-actor}
-   :under          {:says "the actors of the caller's root, and its live sign-ins"
+   :under          {:says "the actors of the caller's root, and its sign-ins that are watched and whose time has not passed"
                     :carries nil :who :a-person}
    :end-sign-in    {:says "ends one sign-in of the caller's root"
                     :carries nil :who :a-person :can-end-its-connection true}})
@@ -156,7 +167,17 @@
          :invite         [:parts
                           [:word  [:enum :invite]]
                           [:uuid  :uuid  {:absent :uuid-not-given :reason :uuid-is-no-uuid}]
+                          [:claim :value {:absent :claim-not-given :reason :claim-has-no-form}]
+                          [:herself [:enum true false] {:optional true :reason :herself-is-no-yes}]]
+         :take-back-invite
+                         [:parts
+                          [:word  [:enum :take-back-invite]]
                           [:claim :value {:absent :claim-not-given :reason :claim-has-no-form}]]
+         :accounts       [:parts [:word [:enum :accounts]]]
+         :unlink-account [:parts
+                          [:word    [:enum :unlink-account]]
+                          [:account :value {:absent :account-not-named :reason :account-has-no-form}]
+                          [:link    :uuid  {:absent :link-not-named :reason :link-is-no-uuid}]]
          :make-agent     [:parts
                           [:word  [:enum :make-agent]]
                           [:uuid  :uuid  {:absent :uuid-not-given :reason :uuid-is-no-uuid}]
@@ -188,14 +209,16 @@
     :label-is-no-text    the label is no text of 1 to `max-text` characters
     :claim-has-no-form     the claim is neither {:by :email :email text} nor
                            {:by :code :hash hash}
+    :account-has-no-form   the account is no [provider subject]: a keyword
+                           of at most `max-text` characters and a text
     :driven-by-has-no-form :driven-by is neither {:kind :person} nor
                            {:kind :model :model text}
 
   and each word that a part of `shapes` names."
   (into #{:not-a-word :word-not-known :part-not-known :part-has-no-form :not-given
           :not-a-plain-map :acts-not-a-series :too-many-acts :digest-is-no-text
-          :hash-has-no-form :label-is-no-text :claim-has-no-form :driven-by-has-no-form
-          :act-id-is-no-uuid}
+          :hash-has-no-form :label-is-no-text :claim-has-no-form :account-has-no-form
+          :driven-by-has-no-form :act-id-is-no-uuid}
         (for [word (keys words)
               [_ _ opts] (rest (get shapes word))
               reason (keep #(get opts %) [:reason :absent :empty])]
@@ -230,6 +253,12 @@
          :code (and (= #{:by :hash} (set (keys x)))
                     (credential/hash? (:hash x)))
          false)))
+
+(defn account?
+  [x]
+  (and (vector? x) (= 2 (count x))
+       (keyword? (first x)) (text? (name (first x)))
+       (text? (second x))))
 
 (defn- carried-fault
   [part thing]
@@ -274,6 +303,7 @@
     (and (contains? word :hash) (not (credential/hash? (:hash word)))) {:refuse :hash-has-no-form :at :hash}
     (and (contains? word :label) (not (text? (:label word)))) {:refuse :label-is-no-text :at :label}
     (and (contains? word :claim) (not (claim? (:claim word)))) {:refuse :claim-has-no-form :at :claim}
+    (and (contains? word :account) (not (account? (:account word)))) {:refuse :account-has-no-form :at :account}
     (and (contains? word :driven-by) (some? (:driven-by word)) (not (driven-by? (:driven-by word))))
     {:refuse :driven-by-has-no-form :at :driven-by}))
 
@@ -353,7 +383,7 @@
    {:says "the act or the query names another who, session or asker than the caller's; `:at` is the part. Nobody acts for another"
     :status 403}
    :do-that-as-an-agent
-   {:says "the word is a person's own, and the caller is an agent"
+   {:says "the word is a person's own, said at a browser, and the caller is an agent: every program is one"
     :status 403}
    :find-the-agent
    {:says "the agent that was named is not beneath the caller; `:why` is `:not-known` or `:not-beneath`"
@@ -363,6 +393,9 @@
     :status 404}
    :find-the-watch
    {:says "this connection holds no watch under that number"
+    :status 404}
+   :find-the-invitation
+   {:says "no invitation that the caller made waits under that claim; one that another made is told so too"
     :status 404}
    :find-the-ask
    {:says "no sign-in is under way under that code and secret"

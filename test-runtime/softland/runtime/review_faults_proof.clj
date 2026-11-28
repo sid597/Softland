@@ -105,7 +105,7 @@
         hello (client/hello me)
         lane (:own-lane hello)
         who (:who hello)
-        own (perm/first-permission who lane)
+        own (perm/lent-at-yes hello lane)
         big-val (apply str (repeat 60000 "x"))
         _ (client/say me {:word :send
                           :act {:version 1 :who who :session (:session hello) :lane lane
@@ -152,42 +152,47 @@
                    (drive/request :post (str url "/yes")
                                   {:cookie cookie :origin url :form (assoc form :code code)}))
         ask-code (fn [label]
-                   (let [secret (credential/make-secret)
-                         [_ asked] (frame/read-one
+                   (let [[_ asked] (frame/read-one
                                     (:body (drive/request :post (str url "/sign-in/program")
-                                                          {:edn {:hash (credential/hash-of secret) :asks label}})))]
+                                                          {:edn {:hash (credential/hash-of (credential/make-secret))
+                                                                 :asking-hash (credential/hash-of (credential/make-secret))
+                                                                 :asks label}})))]
                      (:code asked)))
-        ;; Case 1: yes as me, then yes as agent
-        c1 (ask-code "yes-me-then-agent")
-        r1a (post-yes cookie-a c1 {:say "yes" :as "me"})
-        r1b (post-yes cookie-a c1 {:say "yes" :as "agent" :label "helper"})
-        ;; Case 2: yes as agent, then yes as me
-        c2 (ask-code "yes-agent-then-me")
-        r2a (post-yes cookie-a c2 {:say "yes" :as "agent" :label "helper"})
-        r2b (post-yes cookie-a c2 {:say "yes" :as "me"})
-        ;; Case 3: yes as me, then no by same person
+        ;; No yes names her: each yes is as an agent of hers.
+        ;; Case 1: yes as a new agent, then yes as a new agent of another name
+        r1 (atom nil)
+        p1 (drive/program url "yes-agent-then-another"
+                          (fn [code] (reset! r1 [(post-yes cookie-a code {:say "yes" :as "new-agent" :label "helper"})
+                                                 (post-yes cookie-a code {:say "yes" :as "new-agent" :label "another helper"})])))
+        [r1a r1b] @r1
+        ;; Case 2: yes as a new agent, then yes as the agent of case 1
+        c2 (ask-code "yes-agent-then-mine")
+        r2a (post-yes cookie-a c2 {:say "yes" :as "new-agent" :label "helper 2"})
+        r2b (post-yes cookie-a c2 {:say "yes" :as "my-agent" :agent (str (:actor p1))})
+        ;; Case 3: yes as an agent, then no by same person
         c3 (ask-code "yes-then-no-same")
-        r3a (post-yes cookie-a c3 {:say "yes" :as "me"})
-        r3b (post-yes cookie-a c3 {:say "no" :as "me"})
-        ;; Case 4: yes as me by A, then no by B
+        r3a (post-yes cookie-a c3 {:say "yes" :as "new-agent" :label "helper 3"})
+        r3b (post-yes cookie-a c3 {:say "no"})
+        ;; Case 4: yes as an agent by A, then no by B
         c4 (ask-code "yes-a-then-no-b")
-        r4a (post-yes cookie-a c4 {:say "yes" :as "me"})
-        r4b (post-yes cookie-b c4 {:say "no" :as "me"})]
-    (check "A second yes on the yes page that names another actor than the one that stands is refused with 409 and does not say Done."
-           (and (= 200 (:status r1a)) (str/includes? (:body r1a) "Done")
+        r4a (post-yes cookie-a c4 {:say "yes" :as "new-agent" :label "helper 4"})
+        r4b (post-yes cookie-b c4 {:say "no"})]
+    (check "A second yes on the yes page that names another actor than the one that stands is refused with 409 and does not say Done: a new agent of another name, and an agent of hers that exists."
+           (and (uuid? (:actor p1))
+                (= 200 (:status r1a)) (str/includes? (:body r1a) "Done")
                 (= 409 (:status r1b)) (not (str/includes? (:body r1b) "Done"))
                 (= 200 (:status r2a)) (str/includes? (:body r2a) "Done")
                 (= 409 (:status r2b)) (not (str/includes? (:body r2b) "Done")))
-           {:me-then-agent [(:status r1b) (:body r1b)]
-            :agent-then-me [(:status r2b) (:body r2b)]})
-    (check "A person who says no on the yes page after her own yes is told with 409 that the program is signed in as her, while another person is not told whose sign-in stands."
+           {:agent-then-another [(:status r1b) (:body r1b)]
+            :agent-then-mine [(:status r2b) (:body r2b)]})
+    (check "A person who says no on the yes page after her own yes is told with 409 that the program is signed in as an agent of hers, by its name, while another person is not told whose sign-in stands."
            (and (= 200 (:status r3a))
                 (= 409 (:status r3b))
                 (str/includes? (:body r3b) "signed in")
-                (str/includes? (:body r3b) "as you")
+                (str/includes? (:body r3b) "an agent of yours, helper 3")
                 (= 200 (:status r4a))
                 (= 409 (:status r4b))
-                (not (str/includes? (:body r4b) "as you")))
+                (not (str/includes? (:body r4b) "of yours")))
            {:no-after-own-yes [(:status r3b) (:body r3b)]
             :no-by-other [(:status r4b) (:body r4b)]})))
 
@@ -297,7 +302,7 @@
             retry-replace (run-cmd "replace-secret" [])
             final-who (run-cmd "who" [])]
         (check "When a secret replacement is taken by Auth and its answer is lost, the command line is not locked out after the previous secret expires and can still run commands and retry replacement."
-               (and (= (perm/person (:root before)) (:who before))
+               (and (= (perm/agent (:actor prog)) (:who before))
                     @took-replace
                     (= :hear-the-runtime (:could-not lost-after))
                     (= (:who before) (:who after-who))
@@ -326,12 +331,11 @@
     (try
       (sign-in/setup! (:the-seam copy) {:email (:email first-person)})
       (let [cookie-a (:cookie (drive/sign-in url first-person))
-            prog-a (drive/program url "inviter" (fn [code] (drive/yes url cookie-a code {})))
-            conn-a (client/connect {:url url :credential (:credential prog-a)})
-            _ (client/hello conn-a)
-            _ (client/say conn-a {:word :invite :uuid (UUID/randomUUID)
-                                  :claim {:by :email :email (:email second-person)}})
-            _ (client/close! conn-a)
+            ;; Only she, at a browser, invites.
+            at-browser (drive/browser-line url cookie-a)
+            _ (client/say (:line at-browser) {:word :invite :uuid (UUID/randomUUID)
+                                              :claim {:by :email :email (:email second-person)}})
+            _ (client/close! (:line at-browser))
             cookie-b (:cookie (drive/sign-in url second-person))]
         (check-pings! cluster first-person)
         (check-yes-page! url cookie-a cookie-b)

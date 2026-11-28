@@ -95,7 +95,8 @@
         ada-b (line url-b (:credential ada-prog) nil)
         ada-who (:who (:hello ada-a))
         lane (:own-lane (:hello ada-a))
-        ada-own (perm/first-permission ada-who lane)
+        ;; Ada's program is an agent of hers, and acts under what her yes lent it.
+        ada-own (perm/lent-at-yes (:hello ada-a) lane)
         ;; Make two agents beneath Ada: Bea and Cal
         bea-secret (credential/make-secret)
         bea-made (say ada-a {:word :make-agent :uuid (UUID/randomUUID) :label "bea"

@@ -60,7 +60,7 @@
                     who (:who hello)
                     session (:session hello)
                     lane (:own-lane hello)
-                    own (perm/first-permission who lane)]
+                    own (perm/lent-at-yes hello lane)]
                 (reset! closed-before-renew {:session session :root (:root hello) :closed-now? false})
                 ;; Wait for the half-span check (~5.05 s) to trigger renewal.
                 (h/wait-for (fn [] (:closed-now? @closed-before-renew)) 8000)

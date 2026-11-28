@@ -10,13 +10,13 @@ call. It reads no clock, opens no cluster and requires nothing outside Clojure.
 
 | File | What it is | State that it changes |
 |---|---|---|
-| [reference.clj](reference.clj) | The twelve writes as a pure state machine, the pure reads of a state, a thing that stands for a cluster in which Auth is launched under the names it is given, and the eighteen functions of the contract, `open` among them, so that a program can stand on it. | The atoms of a cluster, in memory, one for each name: the state, the watches, which clients are closed. Every client opened under one name shares its atom, as copies of the runtime share one Auth. |
+| [reference.clj](reference.clj) | The fourteen writes as a pure state machine, the pure reads of a state, a thing that stands for a cluster in which Auth is launched under the names it is given, and the twenty-two functions of the contract, `open` among them, so that a program can stand on it. | The atoms of a cluster, in memory, one for each name: the state, the watches, which clients are closed. Every client opened under one name shares its atom, as copies of the runtime share one Auth. |
 | [reference_proof.clj](reference_proof.clj) | The checks of the reference: by cases, by generated histories, by broken copies. | None outside its process. |
-| [histories.clj](histories.clj) | The generator of the histories that both checks send: random sequences of calls made to meet the state often, with repeats, inputs that do not fit, and a clock that now and then goes back. | None: a world is a value, with a random source of its own. |
+| [histories.clj](histories.clj) | The generator of the histories that both checks send: random sequences of calls made to meet the state often, with repeats, inputs that do not fit, a clock that now and then goes back, and now and then one write from a clock far ahead. | None: a world is a value, with a random source of its own. |
 | [module_check.clj](module_check.clj) | The run that holds a module against the reference through the contract alone: every result, every read and what every watch came to, compared call by call. | It writes to the module that it is given. Run on the reference, nothing outside its process. |
-| [module_harness.clj](module_harness.clj) | The launcher of the real module that `module_check.clj` is given (`launch-module`), and the checks of the module that the contract cannot show: `:says` as stored, the slices of the build with carbon's concurrent scenarios, a watch's `:not-reached`, a proxy that opens after its wait (`late-open`), a partial outage (`partial-outage`), and a depot record that does not have the client's form (`unfit-record`). | It launches in-process clusters and writes to them. |
+| [module_harness.clj](module_harness.clj) | The launcher of the real module that `module_check.clj` is given (`launch-module`), and the checks of the module that the contract cannot show: `:says` as stored, the slices of the build with carbon's concurrent scenarios, a watch's `:not-reached`, a proxy that opens after its wait (`late-open`), a partial outage (`partial-outage`), a depot record that does not have the client's form (`unfit-record`), that the plan of `end-actor` follows whose ending ends an agent and not who made it (`ends-with`, which needs no cluster), two writes of invitations and accounts at one moment with the three cases of the yes of 28 November read from Auth's tables and the records of its depots (`invitations`), and the steps of a record that runs again, called by hand (`reruns`, which needs no cluster). | It launches in-process clusters and writes to them. |
 | [full_life_measure.clj](full_life_measure.clj) | The measures of the real module at full life: what a `who-is` reads, writes under 20,000 watched roots, a heavy `end-actor`, an `end-actor` over a long ended history, and that no person's calls go through a shared task. | It launches in-process clusters and writes to them. |
-| [QUESTIONS.md](QUESTIONS.md) | Each place where the spec does not say what happens, or says two things, with the reading that the reference takes, and which of them Sid's calls of 22 November settled. | None. |
+| [QUESTIONS.md](QUESTIONS.md) | Each place where the spec does not say what happens, or says two things, with the reading that the reference takes, and which of them a session's defaults of 22 November, Sid's to turn, settled. | None. |
 
 The docstrings of `reference.clj` and the sentences of `reference_proof.clj`
 cite `QUESTIONS.md` where a rule or a check stands on one of its readings. A
@@ -56,11 +56,12 @@ makes the same ones again.
   makes 32 agents in a line in a quarter of them, against the reference too.
 - The client's lock is checked by three races of two threads, a hundred times
   each. No race of many threads is written.
-- Where no read of the contract shows a fact (which account is linked to whom,
-  which claim names whom, a link's `:says`), the histories read the
+- Where no read of the contract shows a fact (which claim a link stands under,
+  what an invite's op answered, a link's `:says`), the histories read the
   reference's state map, whose form `reference.clj` gives. A check of a module
-  can read those facts only through results, and `:says` not at all.
-- Erasing, which the spine does not build.
+  can read those facts only through results and reads, and `:says` not at all.
+- The migration of the depots that would clear what an unlinked account's
+  events hold, which is an operator's step and is not built.
 
 ## module_check.clj
 
@@ -75,10 +76,15 @@ a repeat of a write that was taken, a write whose input does not fit, a read,
 or a watch registered or stopped. Each write goes through one client or the
 other. After it the run makes `under`, and `who-is` of each of the history's
 sign-ins and sessions, for every root that the write could change, and
-`ask-of` of each of its codes after an ask or an answer. It compares each
+`ask-of` of each of its codes after an ask or an answer, and `invitation-of`
+of each of its claims and `accounts-of` of each of its persons after an
+invite, an enter, a take-back or an unlink. A link's id is the module's own:
+the run pairs it with the reference's by the account and the time of each
+link that `accounts-of` gives, and sends an unlink the module's id. It
+compares each
 result and each read with the reference's, and what each watch came to with
-what is live under its root in the reference. It reads nothing of the module
-but what the eighteen functions give.
+what is watched under its root in the reference. It reads nothing of the module
+but what the twenty-two functions give.
 
 What a real module needs of it, and what the run does:
 
@@ -94,7 +100,7 @@ What a real module needs of it, and what the run does:
   has written to.
 - A quarter of the histories make 32 agents in a line, then one more under the
   deepest, which is `:too-deep`, and a sign-in for the deepest. Two rules of
-  Sid's calls are met in every run: after an `own-lane-made`, a copy of the
+  a session's defaults of 22 November, Sid's to turn, are met in every run: after an `own-lane-made`, a copy of the
   person's first enter is sent again, now and then; and after a replacement
   whose new hash is the one before the present one, the replacement before it.
 - A watch that says `:softland.auth.client/not-reached` differs: in a run on one
@@ -144,8 +150,9 @@ argument.
 
 ## The build of 22 November 2026
 
-Asked for in a prompt that Sid pasted: bring Auth's spec and its reference to
-his two calls of 22 November, then a third on question 12, and write the run
+Asked for in a prompt that Sid pasted, which a session wrote in his first
+person: bring Auth's spec and its reference to two calls of 22 November, then a
+third on question 12, each a session's default, Sid's to turn, and write the run
 that holds a module against the reference. Three commits:
 `234960bd` (the spec), `7cebbac2` (the spec and the reference brought to the
 calls, with question 12), and the commit that holds this section (the run).
@@ -253,7 +260,8 @@ be, since no result and no read gives `:says`.
 - Question 17 bears on the runtime. Another session's review of the runtime's
   spine (`177d252a`) says: "the seam reads a repeat's {:open S} as moved on; a
   closed session is then kept only when its close is never pushed, up to half a
-  span." The reference keeps question 17 as Sid let it stand.
+  span." The reference keeps question 17 as a session let it stand on 22
+  November, as its default, Sid's to turn.
 - Question 28 of `QUESTIONS.md`, named and not changed: `:sign-in-order`
   keeps every sign-in that ever began, which only a read of live ones uses, and
   a cluster's atom keeps in `:closed` every client that was ever closed.

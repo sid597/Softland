@@ -6,8 +6,12 @@
 
   What sign-in keeps lives in Auth, and the store holds none of it: what
   the provider said of her, her account's number and her email among it, is
-  in Auth, with the link, and in no act. An invitation is a person id that
-  waits for an account.
+  in Auth, with the link, and in no act. To match her email, Auth is handed
+  its hash (`softland.runtime.seam/email-hash`), so that an invitation holds
+  no address; what the provider said, `:says`, is handed as it came and can
+  hold the address, kept with the link until `unlink` and in Auth's log
+  until a migration. An invitation is a person id that waits for an account
+  until its end.
 
   Auth first, the store second. A first sign-in writes in two modules: the
   link in Auth, and the act that makes her own lane in the store. Auth
@@ -35,7 +39,7 @@
   (:import [java.nio ByteBuffer]
            [java.nio.charset StandardCharsets]
            [java.security MessageDigest]
-           [java.util Locale UUID]))
+           [java.util UUID]))
 
 (def name-key
   "The key under which a person's own id holds the name that she
@@ -121,7 +125,8 @@
 (defn enter!
   "An account that its provider has proven comes in. `:account` is
   [provider subject]; `:says`, what the provider said, a map of texts;
-  `:email`, the address that the provider vouches for, or nil;
+  `:email`, the address that the provider vouches for, or nil, of which
+  Auth is given the hash (`:says`, given as it came, can hold it too);
   `:code-hash`, the hash of an invitation's code that came with the
   sign-in, or nil. An account that has no person and proves no claim gets
   `:take-that` with `:why :not-invited`. A person whose lane is marked as
@@ -130,7 +135,7 @@
   (let [client (seam/auth-of the-seam)
         entered (auth/enter client {:account account
                                     :says says
-                                    :email (some-> ^String email (.toLowerCase Locale/ROOT))
+                                    :email-hash (some-> email seam/email-hash)
                                     :code-hash code-hash
                                     :own-lane (UUID/randomUUID)
                                     :making {:uuid (UUID/randomUUID) :session (UUID/randomUUID)}
@@ -205,16 +210,18 @@
 ;; -------------------------------------------------- a program's sign-in
 
 (defn ask!
-  "`:hash` is the hash of the secret that the program made and keeps;
-  `:asks`, what the program says of itself. A code is made here at random;
-  one that is in use is made again, five times at most."
-  [the-seam {:keys [hash asks]}]
+  "`:hash` is the hash of the secret that becomes the program's credential
+  at her yes, and `:asking-hash` the hash of the secret with which it asks
+  how its ask stands; the program made both and keeps both. `:asks` is what
+  the program says of itself. A code is made here at random; one that is in
+  use is made again, five times at most."
+  [the-seam {:keys [hash asking-hash asks]}]
   (let [client (seam/auth-of the-seam)]
     (loop [tries 5]
       (let [code (credential/make-code)
             now (seam/now-ms)
             ends (+ now ask-ms)
-            got (auth/ask client {:code code :hash hash :asks asks :ends ends :at now})]
+            got (auth/ask client {:code code :hash hash :asking-hash asking-hash :asks asks :ends ends :at now})]
         (cond
           (:could-not got) (words/could-not :reach-auth {:got got})
           (:asked got) {:code code :ends ends}
@@ -222,16 +229,20 @@
           :else (words/could-not :take-that {:why (:refused got)}))))))
 
 (defn asked
-  "What a program that waits is told. With `:state :yes` come the three
-  parts from which the program makes its credential. A code that names no
-  ask and a secret that is not the ask's give the same word,
-  `:find-the-ask`: whoever holds a wrong secret learns nothing of an ask."
-  [the-seam code secret]
+  "What a program that waits is told, against the secret for asking alone:
+  the ask's other hash, of the secret that becomes the credential, is not
+  read here, so that secret sent in this one's place is a wrong secret.
+  With `:state :yes` come the root, the actor and the sign-in, to which the
+  program adds the secret that it kept. A code that names no ask and a
+  secret that is not the ask's give the same word, `:find-the-ask`: whoever
+  holds a wrong secret learns nothing of an ask."
+  [the-seam code asking-secret]
   (let [got (auth/ask-of (seam/auth-of the-seam) code)]
     (cond
       (and (map? got) (:could-not got)) (words/could-not :reach-auth {:got got})
       (nil? got) (words/could-not :find-the-ask nil)
-      (not (credential/same-hash? (credential/hash-of secret) (:hash got))) (words/could-not :find-the-ask nil)
+      (not (credential/same-hash? (credential/hash-of asking-secret) (:asking-hash got)))
+      (words/could-not :find-the-ask nil)
       (= :yes (:state got)) (assoc (select-keys (:answer got) [:root :actor :sign-in]) :state :yes)
       (= :no (:state got)) {:state :no}
       (<= (long (:ends got)) (seam/now-ms)) {:state :over}
@@ -246,18 +257,26 @@
 
 (defn answer!
   "The caller is the person herself, signed in at a browser. For a yes,
-  `:label` is the name of a new agent, or nil to sign the program in as
-  herself."
-  [the-seam caller code {:keys [yes? label]}]
+  `:label` is the name of a new agent, `:agent` the id of a live agent of
+  hers. A yes with neither names her, and Auth refuses it `:is-a-person`:
+  no program acts under her own id. A new agent's id is made from her root,
+  the code and its name: her page posted twice names one agent, and a new
+  agent of another name is another answer. Gives what
+  Auth gave, with `:actor-named`, the actor that this answer named: Auth
+  gives the answer that stands, which can be an earlier one."
+  [the-seam caller code {:keys [yes? label agent]}]
   (if-not (seam/person? caller)
     (words/could-not :do-that-as-an-agent nil)
     (let [root (seam/root-of caller)
           now (seam/now-ms)
+          actor (cond (and yes? label) (id-from-text (str "softland/new-agent-at-yes/" root "/" code "/" label))
+                      (and yes? agent) agent
+                      :else root)
           got (auth/answer-ask (seam/auth-of the-seam)
                                {:code code
                                 :yes? (boolean yes?)
                                 :root root
-                                :actor (if (and yes? label) (UUID/randomUUID) root)
+                                :actor actor
                                 :new-agent (when (and yes? label) {:label label})
                                 :sign-in (UUID/randomUUID)
                                 :until (+ now (long (:secret-ms (seam/numbers-of the-seam))))
@@ -265,7 +284,65 @@
       (cond
         (:could-not got) (words/could-not :reach-auth {:got got})
         (:refused got) (words/could-not :take-that {:why (:refused got)})
-        :else got))))
+        :else (assoc got :actor-named actor)))))
+
+(defn- agent-party
+  "The store's party ID for an agent UUID (`CONTRACT.md` §2.1: `:agent.<id>`)."
+  [id]
+  (keyword (str "agent." id)))
+
+(defn lend!
+  "What her yes lends to the agent that it signed in: her own act, sent for
+  her as she posts the page, in the session of her browser, which the seam
+  derives from the act's UUID (`softland.wire.credential/lent-at-yes`), so
+  that a page posted twice is one act in one session. Its one fact is a
+  permission in her own lane, held by the agent, that allows `allows`,
+  covers her lane's default group, is given by her, and is under and lent
+  from her first permission there. No program writes it. `standing` is
+  what Auth's answer gave, `{:root :actor :sign-in}`. Gives what the send
+  gave."
+  [the-seam caller standing allows]
+  (let [who (seam/who-of caller)
+        lane (seam/own-lane-of caller)
+        first-id (first-act/first-permission-id lane)
+        agent (agent-party (:actor standing))
+        ids (credential/lent-at-yes (:root standing) (:sign-in standing))]
+    (m/? (seam/call the-seam caller
+                    {:word :send
+                     :act {:version 1
+                           :who who
+                           :session (seam/session-of caller)
+                           :lane lane
+                           :permission first-id
+                           :facts [{:e (:permission ids)
+                                    :k declaration/permission-key
+                                    :v {:holder agent
+                                        :allows allows
+                                        :covers [:default-group lane]
+                                        :given-by who
+                                        :under first-id
+                                        :lent-from first-id}}]}
+                     :act-id (:act ids)
+                     :wait-ms answer-wait-ms}))))
+
+(defn lent-now
+  "What the permission at the id of the lend of `standing` allows the agent
+  as it stands now, read as her in her own lane: `{:allows allows}`, with
+  nil when it holds nothing for that agent (never written, or ended), or the
+  read path's word when the read failed."
+  [the-seam caller standing]
+  (let [who (seam/who-of caller)
+        id (:permission (credential/lent-at-yes (:root standing) (:sign-in standing)))
+        answer (m/? (seam/call the-seam caller
+                               {:word :read
+                                :query {:asks [:place id declaration/permission-key]
+                                        :asker who
+                                        :lanes [(seam/own-lane-of caller)]
+                                        :stores-own-facts true}}))
+        value (get-in answer [:place :value])]
+    (if (:could-not answer)
+      answer
+      {:allows (when (= (agent-party (:actor standing)) (:holder value)) (:allows value))})))
 
 ;; ------------------------------------------------------- a deployment's birth
 
@@ -291,18 +368,38 @@
   the first person's account, as her provider vouches for it; `:person` is
   the id that an earlier run of this call printed, or nil for a new one.
 
-  Auth first: the first person waits under her email; then the base is
-  made, when it is not; then the system gives her a permission in the base,
-  beneath its own, to see and to act. Each step holds when it is done
-  twice. A run that was cut off after the first step is run again with the
-  same `:person`: a new id would be refused, since the claim names the
-  first id for good. Her own lane is made at her first sign-in, as
-  everybody's is."
+  Auth first: the first person waits under her email, until `:ends`, the
+  seam's `:invitation-ms` from now, as every invitation does; then the base
+  is made, when it is not; then the system gives her a permission in the
+  base, beneath its own, to see and to act. Each step holds when it is done
+  twice. A run that was cut off is run again with the same `:person`: while
+  her invitation waits, or once she has entered, a new id is refused
+  `:claim-in-use`, since the claim names the first.
+
+  Each run is a new invite, with an op of its own, so that a run after her
+  invitation is over invites her anew. When she comes late, her sign-in is
+  turned away as one that no invitation lets in, with the page that says
+  so; the owner runs the setup again with `:person` and she has as long
+  again. A run then with no `:person` would make another person, given a
+  permission in the base too, and the first id would stay a holder whom
+  nobody becomes. A run with her id after she has entered writes no
+  invitation: the system's invite is not her own, and Auth writes only
+  hers beside her links. A run after she unlinked every account invites her
+  anew, which is the owner's way back in. Her own lane is made at her first
+  sign-in, as everybody's is.
+
+  Gives `{:person :ends :entered? :base :gave}`: `:ends` is the end of the
+  invitation that waits under her email after the run, nil when none does
+  or when the read failed; `:entered?` is true when none waits and a link
+  of hers stands under her email."
   [the-seam {:keys [email person]}]
   (let [client (seam/auth-of the-seam)
         person (or person (UUID/randomUUID))
-        invited (auth/invite client {:person person :claim {:by :email :email (.toLowerCase ^String email Locale/ROOT)}
-                                     :invited-by :system :at (seam/now-ms)})]
+        now (seam/now-ms)
+        ends (+ now (long (:invitation-ms (seam/numbers-of the-seam))))
+        claim {:by :email :hash (seam/email-hash email)}
+        invited (auth/invite client {:person person :claim claim
+                                     :invited-by :system :at now :ends ends :op-id (UUID/randomUUID)})]
     (cond
       (:could-not invited) (words/could-not :reach-auth {:got invited})
       (:refused invited) (words/could-not :take-that {:why (:refused invited) :person person})
@@ -344,6 +441,13 @@
                        answer-wait-ms)]
             (if (:could-not given)
               given
-              {:person person
-               :base (if (= :was-made made) :was-made :made)
-               :gave (:answer given)})))))))
+              ;; Not `ends`: a run while her invitation waits changes
+              ;; nothing, and the end that stands is the first run's.
+              (let [stands (auth/invitation-of client claim)
+                    read? (and (map? stands) (not (:could-not stands)))
+                    waits (when read? (:invitation stands))]
+                {:person person
+                 :ends (:ends waits)
+                 :entered? (boolean (and read? (nil? waits) (pos? (long (or (:links stands) 0)))))
+                 :base (if (= :was-made made) :was-made :made)
+                 :gave (:answer given)}))))))))
