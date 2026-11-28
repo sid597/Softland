@@ -240,14 +240,19 @@
                                    (fn [code]
                                      (reset! twice-code code)
                                      (swap! pages assoc :twice [(post-yes code {:agent "twice"}) (post-yes code {:agent "twice"})])))
-              try-it (fn [p n]
+              ;; A program writes under the lend of its own sign-in, or under
+              ;; the one that is named: an agent signed in again holds the lend
+              ;; of its first sign-in.
+              try-it (fn try-it
+                       ([p n] (try-it p n (lend-of p)))
+                       ([p n lend]
                        (let [opened (line a (:credential p) nil)
                              hello (:hello opened)
-                             wrote (say opened {:word :send :act (act-of hello her-lane (lend-of p) (keyword (str "lent-" n)) :v n)
+                             wrote (say opened {:word :send :act (act-of hello her-lane lend (keyword (str "lent-" n)) :v n)
                                                 :act-id (UUID/randomUUID)})
                              seen (:value (:place (place opened her-lane :lend-shelf :colour)))]
                          (close-line! opened)
-                         {:who (:who hello) :wrote (get-in wrote [:answer :answer]) :seen seen}))
+                         {:who (:who hello) :wrote (get-in wrote [:answer :answer]) :seen seen})))
               _ (say her {:word :send :act (act-of (:hello her) her-lane (perm/first-permission her-who her-lane) :lend-shelf :colour :green)
                           :act-id (UUID/randomUUID)})
               tried (into {} (map (fn [[k p n]] [k (try-it p n)])) [[:both both 1] [:looker looker 2] [:writer writer 3] [:idle idle 4]])
@@ -289,7 +294,7 @@
                 page (:body (drive/request :get (str a "/yes?code=" looked-at) {:cookie cookie}))
                 again (signed "the agent that was lent both, again" {:mine (:actor both)})
                 woken (signed "the idle agent, again, lent to see" {:mine (:actor idle) :see true})
-                tried-again (try-it again 6)
+                tried-again (try-it again 6 (lend-of both))
                 first-stands (line a (:credential both) nil)]
             (close-line! first-stands)
             (check "The yes page lists her live agents by name, each to be signed in again, with both boxes unticked, and says that such an agent keeps what it holds."
