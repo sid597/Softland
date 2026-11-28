@@ -1253,7 +1253,7 @@
     (check "the thing was acked" :acked (:ack result))
     (check "the gate's digest of the thing as it arrived is the digest that the door took before the append"
            sent-digest (:digest (:answer result)))
-    (check "a thing that is no act, with a usable act-id, gets a recorded refusal" :unknown-part (:word result))
+    (check "a thing that is no act, with a usable act-id, gets a recorded refusal: it names no version, and that is said before its part that no form names" :unknown-version (:word result))
     (check "the thing holds no time, and it is the first thing that the gate decides in its lane: the stamp of its refusal is 0, and that is the lane's last stamp"
            [nil 0 0] [(time-on x) (:stamp (:answer result)) (last-stamp :carrier)])
     (check "the record read back from the depot's log is another object than the one sent: it was serialised"
@@ -1433,7 +1433,7 @@
            [(:answer other-under-used) (:mine? other-under-used)])
     (check "and nothing of the second act is written" nil (fact-row :alice :note-8 :text))
     (check "a thing that is no act uses its act-id: a good act sent under it reads the first thing's refusal"
-           [:unknown-part true :unknown-part false]
+           [:unknown-version true :unknown-version false]
            [(:word junk) (:mine? junk) (:word good-under-junk) (:mine? good-under-junk)])
     (check "a stale replaces is refused: a fact that is not the current fact of the place" :replaced-fact-not-current (:word stale))
     (check "a fact that names something to replace on an empty place is stale" :replaced-fact-not-current (:word empty-place))
@@ -2715,7 +2715,7 @@
     (check "the first thing wrote its fact, on every task, and nothing of the second is written on any"
            [tasks {}] [(count written-a) written-b])
     (check "eighteen things appended in a row with no wait for the gate, each decided against the rows that the things before it wrote: a thing that is no act uses its act-id, and a good act under it reads that refusal; a fact is written; a replaces on an empty place is stale; the current fact is named and replaced; the replaced fact named again is stale; the accepted replace sent again is still accepted; a fact that names nothing writes over; a retract; a fact that names the retract; a retract on an empty place, twice; a value onto a retract; a value and its retract; a fact on the lane's own entity; a place named twice; and a fact that replaces a fact of its own act"
-           [:unknown-part :unknown-part :accepted :replaced-fact-not-current :accepted :replaced-fact-not-current :accepted :accepted
+           [:unknown-version :unknown-version :accepted :replaced-fact-not-current :accepted :replaced-fact-not-current :accepted :accepted
             :accepted :accepted :accepted :accepted :accepted :accepted :accepted :accepted :place-named-twice :replaces-own-fact]
            (mapv :word walked))
     (check "each of the eighteen read an answer of its own digest, but the good act under the junk's act-id"
