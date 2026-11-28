@@ -361,7 +361,7 @@
                        (c :enter :own-lane "a lane") (c :enter :own-lane (str lane-1)) (c :enter :own-lane nil)])
               (= asha (:person (last-of (conj asha-waits (c :enter :account [(keyword (text-of 256)) "1"])))))))
 
-  (check ":making holds two UUIDs, its act's and its session's (QUESTIONS.md, 4, which a session's default of 22 November, Sid's to turn, let stand): a :making without its session, or whose session is no UUID, does not fit."
+  (check ":making holds two UUIDs, its act's and its session's (QUESTIONS.md, 4, which a session let stand on 22 November, as its default, Sid's to turn): a :making without its session, or whose session is no UUID, does not fit."
          (every? #(= unfit (last-of (conj asha-waits %)))
                  [(c :enter :making {:uuid (id 51)}) (c :enter :making {:uuid (id 51) :session "s"})]))
 
@@ -1116,7 +1116,7 @@
   (check "A no to an ask that waits, at or after its :ends, is refused with :over, as every answer to an ask that waits is (QUESTIONS.md, 21)."
          (= {:refused :over} (last-of (conj asked (c :answer-ask :yes? false :at 1000)))))
 
-  (check "A live agent of hers is any live agent of her root: a yes as an agent that her agent made is taken (QUESTIONS.md, 24, which a session's default of 22 November, Sid's to turn, let stand)."
+  (check "A live agent of hers is any live agent of her root: a yes as an agent that her agent made is taken (QUESTIONS.md, 24, which a session let stand on 22 November, as its default, Sid's to turn)."
          (= {:yes {:root asha :actor agent-2 :sign-in sign-in-2}}
             (last-of (conj with-agent (c :make-actor :actor agent-2 :made-by agent-1 :at 131) (c :ask) (c :answer-ask :actor agent-2 :new-agent nil)))))
 

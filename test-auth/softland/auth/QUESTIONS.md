@@ -300,7 +300,8 @@ the order of 11), which refuses more and changes less. A sign-in kept the pairs
 of hashes of the replacements that it took (`:replaced`). The reference takes
 the second case, as the first sentence says, since no sentence refuses it.
 
-**Turned by a session's default of 22 November, Sid's to turn, under its default that a repeat's result comes from what stands.** A sign-in keeps its present hash and the one before
+**Turned by a session's default of 22 November, Sid's to turn, under the
+default of that day that a repeat's result comes from what stands.** A sign-in keeps its present hash and the one before
 it, and no history of its replacements: `:replaced` grew with every
 replacement, a memory of calls. A replacement is judged by the present hash and
 the one before it alone. The first case is taken, since H1 is the hash now; a
@@ -597,7 +598,7 @@ leans on it (that nobody gives a person who has entered another account is
 41's, held where the claim's links are). It is the one
 place where a result comes from a memory of a call, and it grows by one
 answer for each invite (28). **A session's reading, for Sid to see beside
-his call of 22 November.** The broken copy `:invite-op-forgotten` takes
+a session's default of 22 November, Sid's to turn.** The broken copy `:invite-op-forgotten` takes
 (b).
 
 **36. An invitation whose end is at or before its own time.** "One whose
@@ -687,7 +688,8 @@ reading, for Sid to see.**
 ## What the state keeps
 
 **28. What grows with the number of calls.** Asked in the prompt that Sid pasted
-on 22 November, after his call on question 12: what in the whole state grows
+on 22 November, after the default on question 12 (a session's, Sid's to turn):
+what in the whole state grows
 with the number of calls and is not history that the spec asks to keep.
 
 Since the calls, a repeat, a refusal and an input that does not fit add nothing

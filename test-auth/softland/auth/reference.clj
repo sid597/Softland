@@ -916,8 +916,9 @@
 
 (defn- same-answer?
   "The broken copy `:answered-ask-judged-first`, which keeps under
-  `:answered` the parts of the answer that stands, as the reading that a session's default of 22 November, Sid's to turn, set aside did: whether `input` is that answer, by the
-  same yes or no, the same root, and for a yes the same actor and sign-in,
+  `:answered` the parts of the answer that stands, as the reading did that
+  a session set aside on 22 November (its default, Sid's to turn): whether
+  `input` is that answer, by the same yes or no, the same root, and for a yes the same actor and sign-in,
   with a new agent or with none as that one."
   [k {:keys [yes? root actor new-agent sign-in]}]
   (let [given (:answered k)]
@@ -1014,8 +1015,9 @@
 
 (def breaks
   "The broken copies of the rules. Each key, given to `step`, breaks one
-  rule, and its value says how. Eight take, each, a reading that a session's defaults of 22 November, Sid's to turn, set aside or let stand against another, and two the
-  rules that his yes of 28 November turned (`:person-has-one-claim`,
+  rule, and its value says how. Eight take, each, a reading that a session,
+  by its defaults of 22 November (Sid's to turn), set aside or let stand
+  against another, and two the rules that his yes of 28 November turned (`:person-has-one-claim`,
   `:one-account-a-person`); a module built on that reading is one of them."
   {:link-moves
    "an enter of an account that has a link, which proves another invitation that waits, moves the link to that invitation's person"

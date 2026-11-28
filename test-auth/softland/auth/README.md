@@ -150,8 +150,9 @@ argument.
 
 ## The build of 22 November 2026
 
-Asked for in a prompt that Sid pasted: bring Auth's spec and its reference to
-his two calls of 22 November, then a third on question 12, and write the run
+Asked for in a prompt that Sid pasted, which a session wrote in his first
+person: bring Auth's spec and its reference to two calls of 22 November, then a
+third on question 12, each a session's default, Sid's to turn, and write the run
 that holds a module against the reference. Three commits:
 `234960bd` (the spec), `7cebbac2` (the spec and the reference brought to the
 calls, with question 12), and the commit that holds this section (the run).
@@ -259,8 +260,8 @@ be, since no result and no read gives `:says`.
 - Question 17 bears on the runtime. Another session's review of the runtime's
   spine (`177d252a`) says: "the seam reads a repeat's {:open S} as moved on; a
   closed session is then kept only when its close is never pushed, up to half a
-  span." The reference keeps question 17 as a session's default of 22 November let
-  it stand, Sid's to turn.
+  span." The reference keeps question 17 as a session let it stand on 22
+  November, as its default, Sid's to turn.
 - Question 28 of `QUESTIONS.md`, named and not changed: `:sign-in-order`
   keeps every sign-in that ever began, which only a read of live ones uses, and
   a cluster's atom keeps in `:closed` every client that was ever closed.

@@ -578,8 +578,10 @@ someone ended it or its actor, or its `:until` is at or before that `:at`.
 A replacement whose new `:until` is at or before its own `:at` is taken:
 the sign-in then has that `:until`, is not watched, and is not ended, and
 its sessions are not closed; the standing of each follows the sign-in's at
-each read. (Question 10. On 22 November a session's default, Sid's to turn, let the reference's reading stand, in which such a replacement ended the sign-in with its sessions; his
-yes of 28 November, that a time which passes ends nothing, turns it.)
+each read. (Question 10. On 22 November a session let the reference's
+reading stand, as its default, Sid's to turn: in it such a replacement ended
+the sign-in with its sessions. His yes of 28 November, that a time which
+passes ends nothing, turns it.)
 
 **end-sign-in.** The sign-in ends, and every session under it is closed,
 watched or not. Ending it again changes nothing. A sign-in whose time has
@@ -615,8 +617,10 @@ own `:at`, and its sign-in is live at that `:at`. A session that someone
 closed stays closed. One whose time has passed at the repeat's `:at` is not
 moved on, and is not closed for that: the same repeat with an `:at` before
 the session's `:until`, from a copy whose clock is right, moves it on. Only
-`who-is` says how the session stands. (Question 17. On 22 November a session's default, Sid's to turn, let the reference's reading stand, in which a session whose time had passed was
-closed for good; his yes of 28 November turns that part.) A session whose
+`who-is` says how the session stands. (Question 17. On 22 November a
+session let the reference's reading stand, as its default, Sid's to turn: in
+it a session whose time had passed was closed for good. His yes of 28
+November turns that part.) A session whose
 `:until` is at or before the `:at` of its opening is taken, not watched and
 not closed. A session's id that is another sign-in's, open or not, is
 `:in-use`.
@@ -647,7 +651,8 @@ runtime's.
 A yes names the actor that the program becomes, and it is an agent: a new
 agent, which is made by her and ends with her; or a live agent of hers that
 exists, which is
-any live agent of her root, in any depth. (Question 24: A session's default of 22 November, Sid's to turn, let the reference's reading stand.) A yes
+any live agent of her root, in any depth. (Question 24: a session let the
+reference's reading stand on 22 November, as its default, Sid's to turn.) A yes
 that names the person herself is refused with `:is-a-person` (Sid's yes of
 28 November): no sign-in of kind `:program` is hers, so every program is an
 agent. The sign-in that a yes begins has the ask's `:asks` as its label. A no needs a
