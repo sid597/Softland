@@ -93,13 +93,16 @@
              (= asha again) again)
       (check "What Google said at her latest sign-in is on her entity, under Google's own names, for the system to read."
              (= "Asha K" (get (:value (:place says)) "name")) says)
-      (check "Each act of sign-in that is about a person names her id as its subject, in the store's own form of an act: the act that writes what Google said, and the act that makes her own lane. The act that makes the system's lane names nobody."
+      (check "Each act of sign-in that is about a person names her id in a fact of its own, in the store's own form of an act, which holds no part for it: the act that writes what Google said has her as the entity of its fact, and the act that makes her own lane has her as the holder of its first permission. The act that makes the system's lane names nobody but the system."
              (let [whole (fn [act] (:ok (act/parse (assoc act :who :system :session (UUID/randomUUID)))))
-                   person (:who asha)]
-               (= [#{person} #{person} #{}]
-                  [(:subjects (whole (#'sign-in/in-people [{:e person :k sign-in/says-key :v {"sub" "1"}}] person)))
-                   (:subjects (whole (#'sign-in/making-act (:own-lane asha) person)))
-                   (:subjects (whole (#'sign-in/making-act sign-in/people :system)))])))
+                   holders (fn [act] (set (keep (comp :holder :v) (:facts act))))
+                   person (:who asha)
+                   said (whole (#'sign-in/in-people [{:e person :k sign-in/says-key :v {"sub" "1"}}]))
+                   hers (whole (#'sign-in/making-act (:own-lane asha) person))
+                   systems (whole (#'sign-in/making-act sign-in/people :system))]
+               (= [#{person} #{person} #{:system} [false false false]]
+                  [(set (map :e (:facts said))) (holders hers) (holders systems)
+                   (mapv #(contains? % :subjects) [said hers systems])])))
       (check "Her own lane is where sign-in said: `own-lane-of` gives it for her id, and nothing for an id that is no person."
              (= [(:own-lane asha) nil] [(m/? (sign-in/own-lane-of a (:who asha))) (m/? (sign-in/own-lane-of a (UUID/randomUUID)))]))
       (let [both (m/? (m/join vector
