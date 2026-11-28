@@ -22,7 +22,8 @@
   signed in again, or no. A yes never names her: only she, at a browser,
   is she. She ticks what the agent is lent in her own lane, to see and to
   write: both for a new agent, neither for one of hers, which keeps what it
-  holds. The
+  holds. After a yes the page says what the agent is lent by it, read as
+  it stands. The
   program asks for the ask's state with its code and its secret for asking
   until she has answered, and puts its credential together from what it is
   told and the other secret, which it has sent nowhere until then. An ask
@@ -257,6 +258,18 @@
   [{:keys [origins]} request]
   (contains? origins (get-in request [:headers "origin"])))
 
+(defn- cookie-caller
+  "As `of-cookie`, with the runtime's word in place of nil when the cookie
+  stands for nobody or the session could not be opened; nil when the
+  request carries no cookie."
+  [{:keys [the-seam] :as options} request act]
+  (when-let [text (credential/of-cookie (get-in request [:headers "cookie"]))]
+    (m/? (seam/caller the-seam (cond-> {:credential text
+                                        :carrier :cookie
+                                        :from (from options :pages request)}
+                                 (uuid? act) (assoc :session-for act
+                                                    :driven-by {:kind :person}))))))
+
 (defn- of-cookie
   "The caller that the request's cookie stands for, or nil. `act` is the
   UUID of the one act that a page will send: the caller is then in the
@@ -264,14 +277,9 @@
   page opens a session only when it sends, and a form that is posted twice
   is in one session."
   ([options request] (of-cookie options request nil))
-  ([{:keys [the-seam] :as options} request act]
-   (when-let [text (credential/of-cookie (get-in request [:headers "cookie"]))]
-     (let [caller (m/? (seam/caller the-seam (cond-> {:credential text
-                                                      :carrier :cookie
-                                                      :from (from options :pages request)}
-                                               (uuid? act) (assoc :session-for act
-                                                                  :driven-by {:kind :person}))))]
-       (when (seam/caller? caller) caller)))))
+  ([options request act]
+   (let [caller (cookie-caller options request act)]
+     (when (seam/caller? caller) caller))))
 
 ;; -------------------------------------------------------------------- the pages
 
@@ -528,10 +536,11 @@
 
   Auth first, then the lend. A yes is written in Auth; when the program is
   signed in as the agent that she chose and she ticked a box, her act that
-  lends it what she ticked is sent after. A lend that could not be sent
-  leaves a program that is signed in and holds nothing of it, and the page
-  says so: the same post again sends the same act, and a lend can be made
-  later, as any permission is given."
+  lends it what she ticked is sent after. Then the page reads the lend as
+  it stands and says what the agent is lent by it, whatever the send
+  answered: 200 when that is what she ticked; else 503 when sending again
+  may lend it, and 409 when it cannot, since the same post again sends the
+  same act."
   [{:keys [the-seam] :as options} request]
   (let [form (form-of request)
         code (credential/of-shown (get form "code"))
@@ -575,13 +584,38 @@
           (let [ids (credential/lent-at-yes (:root standing) (:sign-in standing))
                 ;; The session is left open: the same post again must find it,
                 ;; to send the same act. It ends when its time passes.
-                in-session (of-cookie options request (:act ids))
-                sent (when in-session (sign-in/lend! the-seam in-session standing allows))]
-            (if (= :accepted (get-in sent [:answer :answer]))
+                in-session (cookie-caller options request (:act ids))
+                sent (if (seam/caller? in-session)
+                       (sign-in/lend! the-seam in-session standing allows)
+                       in-session)
+                ;; What stands, whatever the send answered: a post again of
+                ;; a page that was lent before is answered from the first
+                ;; act, and one from her other browser is in a session that
+                ;; is not its own.
+                stands (sign-in/lent-now the-seam caller standing)
+                holds (cond (:could-not stands) "what it is lent could not be read"
+                            (:allows stands) (str "it is lent " (lent-words (:allows stands)) " in your own lane")
+                            :else "this page has lent it nothing")
+                ;; A send that was answered cannot lend it when it is sent
+                ;; again: the same act is answered as it was first, after an
+                ;; end too, another content under its UUID is not this act,
+                ;; and a session that is not this sign-in's, or is closed,
+                ;; stays so.
+                for-good? (or (contains? #{:accepted :refused :not-mine} (get-in sent [:answer :answer]))
+                              (= :find-her-session (:could-not sent)))]
+            (cond
+              (= allows (:allows stands))
               (page 200 (str "<p>Done. The program is signed in as " (escaped named) ", and it is lent "
                              (lent-words allows) " in your own lane; go back to it.</p>"))
-              (page 503 (str "<p>The program is signed in as " (escaped named) ", but what you ticked could not be "
-                             "lent: it holds nothing of it. Send this page again to lend it, or lend it later.</p>"))))
+
+              for-good?
+              (page 409 (str "<p>The program is signed in as " (escaped named) ", but what you ticked was not lent: "
+                             holds ". To change it, start the program's sign-in again as this agent.</p>"))
+
+              :else
+              (page 503 (str "<p>The program is signed in as " (escaped named) ", but what you ticked could not be lent: "
+                             holds ". Send this page again; if it is still not lent, start the program's sign-in "
+                             "again as this agent and tick again.</p>"))))
 
           actor-matches?
           (page 200 (if new?

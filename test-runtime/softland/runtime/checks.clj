@@ -240,6 +240,20 @@
                                    (fn [code]
                                      (reset! twice-code code)
                                      (swap! pages assoc :twice [(post-yes code {:agent "twice"}) (post-yes code {:agent "twice"})])))
+              changed-code (atom nil)
+              changed (drive/program a "a program whose page is posted again with another box ticked"
+                                     (fn [code]
+                                       (reset! changed-code code)
+                                       (swap! pages assoc :changed [(post-yes code {:agent "changed" :write false})
+                                                                    (post-yes code {:agent "changed"})])))
+              other-browser (:cookie again)
+              _elsewhere (drive/program a "a program whose page is posted again from her other browser"
+                                        (fn [code]
+                                          (swap! pages assoc :elsewhere
+                                                 [(post-yes code {:agent "elsewhere"})
+                                                  (drive/request :post (str a "/yes")
+                                                                 {:cookie other-browser :origin a
+                                                                  :form (drive/yes-form code {:agent "elsewhere"})})])))
               ;; A program writes under the lend of its own sign-in, or under
               ;; the one that is named: an agent signed in again holds the lend
               ;; of its first sign-in.
@@ -286,6 +300,24 @@
                         (str/includes? (:body two) "lent to see and to write")
                         (= :accepted (:wrote (try-it twice 5)))))
                  (mapv #(select-keys % [:status :body]) (:twice @pages)))
+          (let [[lent-first posted-again] (:changed @pages)
+                [_ from-elsewhere] (:elsewhere @pages)
+                tried-changed (try-it changed 7)
+                _ended (say her {:word :send
+                                 :act (act-of (:hello her) her-lane (perm/first-permission her-who her-lane)
+                                              (lend-of changed) :softland.store/permission nil)
+                                 :act-id (UUID/randomUUID)})
+                after-end (post-yes @changed-code {:agent "changed" :write false})
+                bodies (map :body [posted-again from-elsewhere after-end])]
+            (check "After her yes the page says what her lend holds as it stands, whatever the send answered: the same page posted again with another box ticked is answered 409, with what the agent is lent, to see, and how to change it, and its write is still refused; posted again from her other browser sign-in, 200, lent to see and to write; posted again after she ended the lend, 409, lent nothing. No answer says to lend it later."
+                   (and (= [200 409 200 409] (mapv :status [lent-first posted-again from-elsewhere after-end]))
+                        (str/includes? (:body posted-again) "it is lent to see in your own lane")
+                        (str/includes? (:body posted-again) "start the program's sign-in again as this agent")
+                        (= [:refused :green] ((juxt :wrote :seen) tried-changed))
+                        (str/includes? (:body from-elsewhere) "lent to see and to write")
+                        (str/includes? (:body after-end) "this page has lent it nothing")
+                        (not-any? #(str/includes? % "later") bodies))
+                   [(mapv #(select-keys % [:status :body]) [lent-first posted-again from-elsewhere after-end]) tried-changed]))
           (let [looked-at (let [shown (atom nil)]
                             ;; An ask that waits, which she only looks at; the
                             ;; driver waits while the runtime paces this address.

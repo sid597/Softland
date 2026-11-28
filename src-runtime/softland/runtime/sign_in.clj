@@ -323,6 +323,25 @@
                      :act-id (:act ids)
                      :wait-ms answer-wait-ms}))))
 
+(defn lent-now
+  "What the permission at the id of the lend of `standing` allows the agent
+  as it stands now, read as her in her own lane: `{:allows allows}`, with
+  nil when it holds nothing for that agent (never written, or ended), or the
+  read path's word when the read failed."
+  [the-seam caller standing]
+  (let [who (seam/who-of caller)
+        id (:permission (credential/lent-at-yes (:root standing) (:sign-in standing)))
+        answer (m/? (seam/call the-seam caller
+                               {:word :read
+                                :query {:asks [:place id declaration/permission-key]
+                                        :asker who
+                                        :lanes [(seam/own-lane-of caller)]
+                                        :stores-own-facts true}}))
+        value (get-in answer [:place :value])]
+    (if (:could-not answer)
+      answer
+      {:allows (when (= (agent-party (:actor standing)) (:holder value)) (:allows value))})))
+
 ;; ------------------------------------------------------- a deployment's birth
 
 (defn- not-made?
