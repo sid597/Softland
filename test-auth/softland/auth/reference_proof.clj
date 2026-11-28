@@ -660,9 +660,14 @@
   "The checks of make-actor."
   []
   (let [{:keys [state last]} (run with-agent)]
-    (check "make-actor gives {:made A}: the agent is under the root, made by the live actor B, with its label."
+    (check "make-actor gives {:made A}: the agent is under the root, made by the live actor B, with its label; under gives who made it and whose ending ends it, and the second starts as the maker."
            (and (= {:made agent-1} last)
-                (= [{:actor agent-1 :made-by asha :label "importer" :ended? false}] (:actors (r/under state asha))))))
+                (= [{:actor agent-1 :made-by asha :ends-with asha :label "importer" :ended? false}]
+                   (:actors (r/under state asha)))
+                (= [agent-1 agent-1]
+                   ((juxt :made-by :ends-with)
+                    (second (:actors (r/under (:state (run (conj with-agent (c :make-actor :actor agent-2 :made-by agent-1 :at 131))))
+                                              asha))))))))
 
   (check "make-actor whose maker is not an actor of the root is refused with :no-such-maker: an id that is nobody's, an agent of another root, and a person who waits."
          (= (repeat 3 {:refused :no-such-maker})
@@ -708,7 +713,7 @@
                     (c :open-session)
                     (c :end-actor))
         {:keys [state last]} (run calls)]
-    (check "end-actor gives {:ended A}: the agent ends with every actor that it made, in any depth, and every sign-in and session of each; the person's own go on."
+    (check "end-actor gives {:ended A}: the agent ends with every actor that ends with it, in any depth, and every sign-in and session of each; the person's own go on."
            (and (= {:ended agent-1} last)
                 (every? :ended? (:actors (r/under state asha)))
                 (:ended? (:sign-in (who state sign-in-3)))
@@ -719,6 +724,27 @@
 
   (check "end-actor of an actor that the root does not have is refused with :no-such-actor."
          (= {:refused :no-such-actor} (last-of (conj with-agent (c :end-actor :actor agent-3)))))
+
+  ;; No write points an agent at another actor than its maker, so the state
+  ;; in which the two differ is made by hand.
+  (let [made (:state (run (conj with-agent
+                                (c :make-actor :actor agent-2 :made-by agent-1 :at 131)
+                                (c :make-actor :actor agent-3 :made-by asha :at 132)
+                                (c :begin-sign-in :actor agent-2 :sign-in sign-in-2 :hash (h 102) :at 133)
+                                (c :begin-sign-in :actor agent-3 :sign-in sign-in-3 :hash (h 103) :at 134))))
+        pointed (-> made
+                    (assoc-in [:roots asha :agents agent-2 :ends-with] asha)
+                    (assoc-in [:roots asha :agents agent-3 :ends-with] agent-1))
+        [state result] (r/step pointed (c :end-actor))
+        actors (into {} (map (juxt :actor identity)) (:actors (r/under state asha)))]
+    (check "Who made an agent and whose ending ends it are two things, and end-actor reads the second alone: when an agent that agent 1 made ends with the person, and an agent that the person made ends with agent 1, ending agent 1 ends the second with its sign-in and leaves the first with its own; under still says who made each."
+           (and (= {:ended agent-1} result)
+                (= [false true] [(:ended? (get actors agent-2)) (:ended? (get actors agent-3))])
+                (= [agent-1 asha] [(:made-by (get actors agent-2)) (:made-by (get actors agent-3))])
+                (= [false true] [(:ended? (:sign-in (who state sign-in-2))) (:ended? (:sign-in (who state sign-in-3)))])
+                (= [false true] [(:actor-ended? (:sign-in (who state sign-in-2)))
+                                 (:actor-ended? (:sign-in (who state sign-in-3)))]))
+           [result actors]))
 
   (let [{:keys [state results]} (run (conj signed-in (c :end-actor :actor asha :at 140) (c :begin-sign-in :sign-in sign-in-2 :at 141)))]
     (check "end-actor of the person is refused with :is-a-person, and she is not ended: her sign-in goes on and she begins another."
@@ -820,9 +846,10 @@
                    (select-keys (r/ask-of state code-1) [:state :answer])))))
 
   (let [{:keys [state last]} (run (conj asked (c :answer-ask :actor agent-1 :new-agent {:label "the importer"})))]
-    (check "yes, as a new agent: the agent is made under her, by her, with the label, and the sign-in begins for it."
+    (check "yes, as a new agent: the agent is made under her, by her, with the label, and ends with her; and the sign-in begins for it."
            (and (= {:yes {:root asha :actor agent-1 :sign-in sign-in-2}} last)
-                (= [{:actor agent-1 :made-by asha :label "the importer" :ended? false}] (:actors (r/under state asha)))
+                (= [{:actor agent-1 :made-by asha :ends-with asha :label "the importer" :ended? false}]
+                   (:actors (r/under state asha)))
                 (= agent-1 (:actor (:sign-in (who state sign-in-2)))))))
 
   (let [{:keys [state last]} (run (conj with-agent (c :ask) (c :answer-ask :actor agent-1)))]
@@ -1184,7 +1211,7 @@
    [:no-revival "an end is never taken back: no later call makes an ended sign-in, a closed session or an ended actor live again"]
    [:time "what is live under a root holds no sign-in and no session whose time is at or before the :at of that root's latest write"]
    [:standing "what is live under a root holds no open session whose sign-in is not live in it"]
-   [:end-actor "end-actor ends every actor beneath it, in any depth, with every sign-in and session of each, and an actor that an ended one made has ended"]
+   [:end-actor "end-actor ends every actor that ends with it, in any depth, with every sign-in and session of each, and an actor that ends with an ended one has ended"]
    [:answer "the first answer to an ask stands, and the ask keeps its hash, :asks and :ends; every answer to an ask that has an answer gives what stands; and an answer to an ask that waits, at or after its :ends or to an ask that was over when it was made, is refused with :over"]
    [:driven-by "who-is of a session gives the :driven-by that it was opened with"]
    [:fit "an input that does not fit gives {:could-not :read-the-event} and changes nothing, and an input that fits is judged"]])
@@ -1340,23 +1367,24 @@
     [:session-of-no-live-sign-in P S]))
 
 (defn- below
-  "The agent `A` and every agent beneath it, from the pairs of `made-by`."
-  [made-by A]
+  "The agent `A` and every agent that ends with it, in any depth, from the
+  pairs of an agent and the actor that it ends with."
+  [ends-with A]
   (loop [found #{A}]
-    (let [more (into found (keep (fn [[B m]] (when (contains? found m) B))) made-by)]
+    (let [more (into found (keep (fn [[B m]] (when (contains? found m) B))) ends-with)]
       (if (= more found) found (recur more)))))
 
 (defn- end-actor-violations
-  "Checks that after a taken end-actor every agent beneath it has ended, with
-  its sign-ins and their sessions; and that at every step an agent that an
-  ended agent made has ended."
+  "Checks that after a taken end-actor every agent that ends with it, in any
+  depth, has ended, with its sign-ins and their sessions; and that at every
+  step an agent that ends with an ended agent has ended."
   [[kind input] result after vs]
   (concat
    (when (and (= kind :end-actor) (contains? result :ended))
      (let [P (:root input)
            actors (get-in vs [P :under :actors])
            ended (into #{} (keep #(when (:ended? %) (:actor %))) actors)
-           all (below (map (juxt :actor :made-by) actors) (:actor input))
+           all (below (map (juxt :actor :ends-with) actors) (:actor input))
            sign-ins (for [G (sign-ins-of after P)
                           :let [g (:sign-in (r/who-is after {:root P :sign-in G :session nil}))]
                           :when (contains? all (:actor g))]
@@ -1372,8 +1400,8 @@
    (for [[P {:keys [under]}] vs
          :let [ended (into #{} (keep #(when (:ended? %) (:actor %))) (:actors under))]
          a (:actors under)
-         :when (and (contains? ended (:made-by a)) (not (:ended? a)))]
-     [:made-by-an-ended-agent P (:actor a)])))
+         :when (and (contains? ended (:ends-with a)) (not (:ended? a)))]
+     [:ends-with-an-ended-agent P (:actor a)])))
 
 (defn- answer-violations
   "Checks that each ask keeps its hash, :asks and :ends; that a standing

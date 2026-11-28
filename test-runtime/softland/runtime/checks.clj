@@ -328,8 +328,9 @@
                       [(:could-not (say agent {:word :invite :uuid (UUID/randomUUID) :claim {:by :email :email (:email (account 5 "nobody"))}}))
                        (:could-not (say agent {:word :under}))]))
             (let [listed (say me {:word :under})]
-              (check "She sees what is under her: the agent, with who made it and its name, and her live sign-ins, the agent's among them."
-                     (and (some (fn [actor] (and (= (:made made) (:actor actor)) (= (:root hello) (:made-by actor)) (= "importer" (:label actor))))
+              (check "She sees what is under her: the agent, with who made it, whose ending ends it, which is its maker, and its name, and her live sign-ins, the agent's among them."
+                     (and (some (fn [actor] (and (= (:made made) (:actor actor)) (= (:root hello) (:made-by actor) (:ends-with actor))
+                                                 (= "importer" (:label actor))))
                                 (:actors listed))
                           (some (fn [sign-in] (= (:sign-in made) (:sign-in sign-in))) (:sign-ins listed)))
                      listed))

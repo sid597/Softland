@@ -641,17 +641,18 @@
     (UUID. high low)))
 
 (defn- beneath?
-  "`actors` is `:actors` of `softland.auth.client/under`. True when `actor`
-  was made by `above`, at any depth. The walk stops after as many steps as
-  there are actors."
+  "`actors` is `:actors` of `softland.auth.client/under`. True when the
+  ending of `above` would end `actor`, at any depth: the walk follows
+  `:ends-with`, and reads who made an actor for nothing. It stops after as
+  many steps as there are actors."
   [actors actor above]
-  (let [made-by (into {} (map (juxt :actor :made-by)) actors)]
-    (loop [at (get made-by actor) steps (count actors)]
+  (let [ends-with (into {} (map (juxt :actor :ends-with)) actors)]
+    (loop [at (get ends-with actor) steps (count actors)]
       (cond
         (nil? at) false
         (= at above) true
         (zero? steps) false
-        :else (recur (get made-by at) (dec steps))))))
+        :else (recur (get ends-with at) (dec steps))))))
 
 (defn- make-agent-now
   "Two writes of Auth, the actor and its sign-in, each of which holds when
@@ -676,7 +677,9 @@
           {:made agent :root root :sign-in sign-in :until until})))))
 
 (defn- end-agent-now
-  "An actor is ended by its maker or by anyone above, at any depth."
+  "An agent is ended by whoever's own ending would end it, at any depth.
+  That is its maker and those above the maker while Auth keeps
+  `:ends-with` as the maker."
   [^Seam seam ^Caller caller {:keys [agent]}]
   (let [client (.-client seam)
         root (.-root caller)

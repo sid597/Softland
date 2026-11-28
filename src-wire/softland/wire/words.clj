@@ -111,7 +111,7 @@
                     :carries nil :who :a-person}
    :make-agent     {:says "makes an agent beneath the caller, and a sign-in for it under the hash of a secret that the caller made"
                     :carries nil :who :an-actor}
-   :end-agent      {:says "ends an agent beneath the caller, with every actor that it made and every sign-in of each"
+   :end-agent      {:says "ends an agent beneath the caller, with every actor that ends with it and every sign-in of each"
                     :carries nil :who :an-actor}
    :under          {:says "the actors of the caller's root, and its live sign-ins"
                     :carries nil :who :a-person}

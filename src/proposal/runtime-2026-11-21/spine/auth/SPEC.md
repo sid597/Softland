@@ -20,6 +20,16 @@ calls. With them, questions 1 to 7, 12, 20 and 23 of the reference's
 questions (`test-auth/softland/auth/QUESTIONS.md`) are settled. Questions
 10, 17 and 24 stand as the reference took them, and stay his to turn.
 
+**28 November 2026.** Sid said yes to three changes of what Auth stores, as a
+session put them to him (the review of 26 November, rows F6, F17 and F30:
+`src/proposal/design-pitfalls-review-2026-11-26/DECISIONS-AND-FIXES.md`). His
+yes covers each change; the names and shapes are a session's, and his to
+turn. Each is written below where it belongs, marked "28 November".
+
+- Who made an agent and whose ending ends it are stored apart (F30). The
+  second starts as the maker. Who may point an agent at another actor is not
+  decided, and no write does it.
+
 ## What Auth is
 
 Auth is a Rama module of its own beside the module `Store`. It holds what
@@ -51,7 +61,11 @@ Auth never reads the store, and the store never reads Auth.
 - **Actor.** A who: something that sends acts. A person is an actor. An
   **agent** is an actor that another actor made; it has an id of its own, a
   random UUID. The **root** of an actor is the person at the top of who made
-  whom. A person is her own root.
+  whom. A person is her own root. An agent's record says two things apart
+  (28 November): who made it (`:made-by`), which is a fact of the past, and
+  whose ending ends it (`:ends-with`). The second starts as the maker, and
+  no write sets it. The actor **above** an agent is the one whose ending
+  ends it.
 - **Sign-in.** The standing of one browser or one program to act as one
   actor, from her yes until it ends. It has an id, a kind (`:browser` or
   `:program`), and one **secret**, which is replaced over time. Auth holds
@@ -229,11 +243,13 @@ reads
 (ask-of client U) -> {:hash H :asks text :ends t1 :state :waiting|:yes|:no
                       :answer {:root P :actor A :sign-in G}-or-nil}, or nil
 
-(under client P)  -> {:actors [{:actor A :made-by B :label text :ended? bool} ...]
+(under client P)  -> {:actors [{:actor A :made-by B :ends-with B' :label text
+                                :ended? bool} ...]
                       :sign-ins [{:sign-in G :actor A :kind K :label text-or-nil
                                   :begun t :until t1} ...]}
                      the agents of the root, ended ones too, in the order
-                     in which they were made; and its live sign-ins, in the
+                     in which they were made, each with who made it and
+                     whose ending ends it; and its live sign-ins, in the
                      order in which they began
 
 (watch-root client P f)
@@ -339,9 +355,13 @@ Ending it again changes nothing.
 **make-actor.** Makes the agent `A` under the root `P`, made by the live
 actor `B` of that root. Who made whom goes 32 deep at most, the store's own
 bound on how deep a permission can be; no read costs more with the depth.
+The agent ends with its maker: its `:ends-with` starts as `B`, and
+`make-actor` takes no part that sets it (28 November).
 
-**end-actor.** The agent ends, with every actor that it made, in any depth,
-and every sign-in and session of each. A person is not ended by this call.
+**end-actor.** The agent ends, with every actor that ends with it, in any
+depth, and every sign-in and session of each. It follows `:ends-with`, and
+reads who made an agent for nothing (28 November). A person is not ended by
+this call.
 
 **open-session, close-session.** A session is opened under a live sign-in,
 with a time `:until` and an optional `:driven-by` (`{:kind :person}` or
@@ -383,7 +403,8 @@ both are told which; what of that the runtime shows the other person is the
 runtime's.
 
 A yes names the actor that the program becomes: the person herself; a new
-agent, which is made by her; or a live agent of hers that exists, which is
+agent, which is made by her and ends with her; or a live agent of hers that
+exists, which is
 any live agent of her root, in any depth. (Question 24: Sid let the
 reference's reading stand on 22 November, and it stays his to turn.) The
 sign-in that a yes begins has the ask's `:asks` as its label. A no needs a
@@ -427,6 +448,11 @@ is watched for ever. So:
   ends it whatever its `t2`.
 
 ## What the runtime does, and Auth does not check
+
+- Who may end an agent. `end-actor` checks no caller. The runtime lets an
+  actor end an agent when that actor's own ending would end it, in any
+  depth: it reads `:ends-with` from `under`, and not who made the agent.
+  While the two are the same, that is the maker and those above the maker.
 
 - No sign-in of a person begins before her own lane is made. That is the
   runtime's order of calls: an enter whose `own-lane-made` did not go

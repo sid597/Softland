@@ -25,8 +25,8 @@
                          :entered-at}
     :claims   claim -> the person whom it names, for good
     :links    account -> {:person :says :said-at}
-    :roots    person -> {:agents {agent {:made-by :label :made-at :depth
-                                         :ended?}}
+    :roots    person -> {:agents {agent {:made-by :ends-with :label :made-at
+                                         :depth :ended?}}
                          :agent-order [agent ...]
                          :sign-ins {sign-in {:actor :kind :hash :first-hash
                                              :until :previous :label :begun
@@ -339,17 +339,18 @@
 
 (defn- actor-live?
   "Whether the actor `A` of the root `P` is there, has not ended, and has no
-  actor above it that has ended. Walks up who made whom, which is 32 deep
-  at most."
+  actor above it that has ended. The actor above an agent is the one whose
+  ending ends it (`:ends-with`), which is not read as who made it. The walk
+  up stops after as many steps as the root has agents."
   [state P A]
   (loop [A A
-         steps 0]
+         steps (count (get-in state [:roots P :agents]))]
     (let [a (actor-of state P A)]
       (cond (nil? a) false
             (:person? a) true
             (:ended? a) false
-            (> steps deepest) false
-            :else (recur (:made-by a) (inc steps))))))
+            (neg? steps) false
+            :else (recur (:ends-with a) (dec steps))))))
 
 (defn- passed?
   "Whether a thing whose end is `end` has passed at the time `at`: a thing
@@ -570,10 +571,11 @@
 (defn- make-agent
   "Makes the agent `A` of the root `P`, made by `B` with `label` at the time
   `at`, `depth` makers below the root, last in the order of the root's
-  agents."
+  agents. The actor whose ending ends it starts as its maker; no write
+  sets it."
   [state P A B label at depth]
   (-> state
-      (assoc-in [:roots P :agents A] {:made-by B :label label :made-at at :depth depth :ended? false})
+      (assoc-in [:roots P :agents A] {:made-by B :ends-with B :label label :made-at at :depth depth :ended? false})
       (update-in [:roots P :agent-order] conj A)))
 
 (defn- write-make-actor
@@ -595,19 +597,20 @@
       :else [(make-agent state root actor made-by label at (inc (:depth maker))) {:made actor}])))
 
 (defn- beneath
-  "The agent `A` of the root record `r` and every agent that it made, in any
-  depth; in the broken copy `:end-reaches-one-down`, only those that it
-  made itself."
+  "The agent `A` of the root record `r` and every agent that ends with it,
+  in any depth, by `:ends-with`; who made an agent is read for nothing. In
+  the broken copy `:end-reaches-one-down`, only those that end with `A`
+  itself."
   [r A broken]
   (if (= broken :end-reaches-one-down)
-    (into #{A} (keep (fn [[B b]] (when (= A (:made-by b)) B))) (:agents r))
+    (into #{A} (keep (fn [[B b]] (when (= A (:ends-with b)) B))) (:agents r))
     (loop [found #{A}]
-      (let [more (into found (keep (fn [[B b]] (when (contains? found (:made-by b)) B))) (:agents r))]
+      (let [more (into found (keep (fn [[B b]] (when (contains? found (:ends-with b)) B))) (:agents r))]
         (if (= more found) found (recur more))))))
 
 (defn- write-end-actor
-  "end-actor: the agent ends, with every actor that it made, in any depth,
-  and every sign-in and session of each. An agent that has ended already,
+  "end-actor: the agent ends, with every actor that ends with it, in any
+  depth, and every sign-in and session of each. An agent that has ended already,
   by this call or with one above it, gives the same and nothing changes
   (QUESTIONS.md, 16). An actor that is not of this root is `:no-such-actor`;
   the person is `:is-a-person`."
@@ -830,7 +833,7 @@
    :end-leaves-sessions-open
    "end-sign-in ends the sign-in and leaves its sessions open"
    :end-reaches-one-down
-   "end-actor ends the agent and the agents that it made itself, and none further down"
+   "end-actor ends the agent and the agents that end with it itself, and none further down"
    :end-actor-leaves-sessions-open
    "end-actor ends the actors and their sign-ins, and leaves the sessions of those open"
    :later-answer-stands
@@ -934,14 +937,15 @@
 
 (defn- under-in
   "under of a state: the agents of the root, ended ones too, in the order in
-  which they were made, and its live sign-ins, in the order in which they
-  began."
+  which they were made, each with who made it and whose ending ends it, and
+  its live sign-ins, in the order in which they began."
   [state P]
   (if-not (id? P)
     {:could-not :read-the-event}
     (let [r (get-in state [:roots P])]
       {:actors (mapv (fn [A] (let [a (get-in r [:agents A])]
-                               {:actor A :made-by (:made-by a) :label (:label a) :ended? (boolean (:ended? a))}))
+                               {:actor A :made-by (:made-by a) :ends-with (:ends-with a) :label (:label a)
+                                :ended? (boolean (:ended? a))}))
                      (:agent-order r))
        :sign-ins (mapv (fn [[G g]] {:sign-in G :actor (:actor g) :kind (:kind g) :label (:label g)
                                     :begun (:begun g) :until (:until g)})
@@ -1185,7 +1189,7 @@
 
 (defn under
   "Takes a client or a state, and a root. Gives `{:actors [{:actor :made-by
-  :label :ended?} ...] :sign-ins [{:sign-in :actor :kind :label :begun
+  :ends-with :label :ended?} ...] :sign-ins [{:sign-in :actor :kind :label :begun
   :until} ...]}`: the agents of the root, ended ones too, in the order in
   which they were made, and its live sign-ins, in the order in which they
   began, as they stood at the root's latest event."

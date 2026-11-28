@@ -18,7 +18,9 @@
 
   Then it holds who may say each word: what the seam answers a visitor, an
   agent and a person, in a session and in none, for each word of the wire's
-  table, against a list that is written out here a second time.
+  table, against a list that is written out here a second time. And who
+  may end an agent, against a list of actors in which whose ending ends an
+  agent is not who made it.
 
   State. It changes nothing outside its own process."
   (:require [clojure.java.io :as io]
@@ -191,10 +193,24 @@
            (= [2 2 2] (mapv named ["needs-a-who" "needs-a-session" "needs-the-person"]))
            (mapv named ["needs-a-who" "needs-a-session" "needs-the-person"]))))
 
+(defn- who-ends-an-agent-checks []
+  (let [[person a1 a2 a3] (repeatedly 4 #(UUID/randomUUID))
+        ;; No write of Auth points an agent at another actor than its maker,
+        ;; so the list in which the two differ is made by hand, in the form
+        ;; that `under` gives.
+        actors [{:actor a1 :made-by person :ends-with person}
+                {:actor a2 :made-by a1 :ends-with person}
+                {:actor a3 :made-by person :ends-with a1}]
+        beneath? #'seam/beneath?]
+    (check "Who may end an agent is read from whose ending ends it, at any depth, and not from who made it: an agent that agent 1 made and that ends with the person is not agent 1's to end, an agent that the person made and that ends with agent 1 is, and both are the person's."
+           (= [false true true true]
+              [(beneath? actors a2 a1) (beneath? actors a3 a1) (beneath? actors a2 person) (beneath? actors a3 person)]))))
+
 (defn -main
   "Runs every check, prints the counts, and ends the process with a status."
   [& _]
   (google-checks)
   (source-checks)
   (who-says-checks)
+  (who-ends-an-agent-checks)
   (finish))

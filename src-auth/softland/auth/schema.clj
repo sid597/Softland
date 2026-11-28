@@ -84,9 +84,9 @@
                         linked-provider linked-subject own-lane making-uuid making-session
                         own-lane-made? next-actor-seq next-sign-in-seq]
   IRootDatum)
-(defrecord ActorRec [actor made-by depth label ended? seq]
+(defrecord ActorRec [actor made-by ends-with depth label ended? seq]
   IRootDatum)
-(defrecord ActorOrderRec [actor made-by depth label ended? seq]
+(defrecord ActorOrderRec [actor made-by ends-with depth label ended? seq]
   IRootDatum)
 (defrecord SignInRec [sign-in actor kind initial-hash hash until prev-hash prev-until
                       ended? begun label seq own-lane own-lane-made-at-begin?]
@@ -185,8 +185,9 @@
 
 (defn k-ao
   "An agent's order record stays here while the agent is live, and moves to
-  `k-ae` when it ends: so `end-actor`, which scans for the live agents made
-  after the one it ends, reads no agent that ended before."
+  `k-ae` when it ends: so `end-actor`, which scans the live agents made
+  after the one it ends for those that end with it, reads no agent that
+  ended before."
   ^String [^UUID p ^long seq-n]
   (str p "\u0000ao:" (hex16 seq-n)))
 
@@ -1112,8 +1113,9 @@
       (let [seq-n (long (:next-actor-seq r))
             depth (inc (if (= B P) 0 (long (:depth maker-rec))))]
         {:rd-upserts [[(k-root P) (assoc r :next-actor-seq (inc seq-n))]
-                      [(k-actor P A) (->ActorRec A B depth lbl false seq-n)]
-                      [(k-ao P seq-n) (->ActorOrderRec A B depth lbl false seq-n)]]
+                      ;; `ends-with` starts as the maker: no input sets it.
+                      [(k-actor P A) (->ActorRec A B B depth lbl false seq-n)]
+                      [(k-ao P seq-n) (->ActorOrderRec A B B depth lbl false seq-n)]]
          :result {:made A}}))))
 
 (defn actor-needs-end?
@@ -1146,9 +1148,16 @@
   "Revision 2: 3 seeks and 2 scans (`a:<A>`, a forward `ao:` scan from the
   target's `seq`, and a scan of the root's map in `$$live`). `ao:` holds
   live agents alone, so the scan reads the live agents made after the target
-  and none that ended before. A live descendant of the target is reached
-  through live makers alone: an agent that ended took its whole subtree
-  with it."
+  and none that ended before. What ends with the target is followed by
+  `ends-with`, in any depth, and `made-by` is read for nothing. It is
+  reached through live actors alone: an agent that ended took with it
+  everything that ends with it.
+
+  Relied on and not checked: what ends with an agent was made after it, so
+  that the scan from the target's `seq`, taken in the order of `seq`, meets
+  an agent after the one that it ends with. That holds while `ends-with` is
+  the maker, and no write makes it anything else; a write that points an
+  agent at another must scan all of `ao:`, to a fixed point."
   [root ^ActorRec target-rec ao-map live-map]
   (let [target-id (:actor target-rec)
         ended-as (volatile! #{target-id})
@@ -1156,18 +1165,18 @@
         rd-upserts (transient [])
         rd-deletes (transient [])
         live-deletes (transient [])]
-    ;; Pass 1: single forward scan over ao-map sorted by ascending :seq
-    ;; (seq(maker) < seq(child) always holds).
+    ;; Pass 1: single forward scan over ao-map sorted by ascending :seq.
     (doseq [^ActorOrderRec ao (sort-by :seq (vals ao-map))]
       (let [aid (:actor ao)]
         (when (and (not (:ended? ao))
                    (or (= aid target-id)
-                       (contains? @ended-as (:made-by ao))))
+                       (contains? @ended-as (:ends-with ao))))
           (vswap! ended-as conj aid)
           (conj! rd-deletes (k-ao root (:seq ao)))
           (conj! rd-upserts [(k-ae root (:seq ao)) (assoc ao :ended? true)])
           (conj! rd-upserts [(k-actor root aid)
-                             (->ActorRec aid (:made-by ao) (:depth ao) (:label ao) true (:seq ao))]))))
+                             (->ActorRec aid (:made-by ao) (:ends-with ao) (:depth ao) (:label ao) true
+                                         (:seq ao))]))))
     ;; Pass 2a: live sign-ins of any ended actor (0 point seeks on g:).
     (let [as @ended-as]
       (doseq [[lk lv] live-map]
@@ -1385,8 +1394,8 @@
                 born-ended? (<= (long until) (long at))
                 own-lane (:own-lane r)
                 made-at-begin? (boolean (:own-lane-made? r))
-                arec (->ActorRec actor root 1 new-agent-label false a-seq)
-                aorec (->ActorOrderRec actor root 1 new-agent-label false a-seq)
+                arec (->ActorRec actor root root 1 new-agent-label false a-seq)
+                aorec (->ActorOrderRec actor root root 1 new-agent-label false a-seq)
                 srec (->SignInRec sign-in actor :program hash hash until nil nil
                                   born-ended? at asks g-seq own-lane made-at-begin?)
                 out (->AskOutcomeYes root actor sign-in)]
@@ -1530,6 +1539,7 @@
                   (mapv (fn [^ActorOrderRec ao]
                           {:actor (:actor ao)
                            :made-by (:made-by ao)
+                           :ends-with (:ends-with ao)
                            :label (:label ao)
                            :ended? (boolean (:ended? ao))})))
              [])

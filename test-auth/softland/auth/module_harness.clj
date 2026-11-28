@@ -587,6 +587,31 @@
           (println "FAILED" label (str "seen=" (pr-str seen)))))
       (every? second checks))))
 
+(defn check-ends-with!
+  "Needs no cluster: no write points an agent at another actor than its
+  maker, so the records in which the two differ are made by hand and given
+  to the plan of `end-actor` itself."
+  []
+  (let [P (UUID/randomUUID)
+        [A1 A2 A3 A4] (repeatedly 4 #(UUID/randomUUID))
+        ;; who made it, whose ending ends it
+        agents [[A1 P P] [A2 A1 P] [A3 P A1] [A4 A2 A3]]
+        ao-map (into {} (map-indexed (fn [i [A made-by ends-with]]
+                                       [(s/k-ao P i) (s/->ActorOrderRec A made-by ends-with 1 "an agent" false i)]))
+                     agents)
+        plan (s/plan-end-actor-2scan P (s/->ActorRec A1 P P 1 "an agent" false 0) ao-map {})
+        ended (into {} (keep (fn [[k v]] (when (instance? softland.auth.schema.ActorRec v)
+                                           [(:actor v) [(:made-by v) (:ends-with v) (:ended? v)]])))
+                    (s/plan-rd-upserts plan))
+        checks [["The plan of end-actor follows whose ending ends an agent, in any depth, and reads who made it for nothing: of agent 2, which agent 1 made and which ends with the person, agent 3, which the person made and which ends with agent 1, and agent 4, which agent 2 made and which ends with agent 3, ending agent 1 ends agents 3 and 4 and leaves agent 2; and each record that it writes keeps who made the agent and whose ending ends it."
+                 (= {A1 [P P true] A3 [P A1 true] A4 [A2 A3 true]} ended)
+                 ended]]]
+    (doseq [[label ok? seen] checks]
+      (if ok?
+        (println "PASSED" label)
+        (println "FAILED" label (str "seen=" (pr-str seen)))))
+    (every? second checks)))
+
 (defn -main
   "Entry point for slice checks:
     `says`      — run direct `$$accounts` `:says` check;
@@ -597,7 +622,8 @@
     `step3`     — run full carbon step3 suite (all 9 scenarios with live watches, 2..8 threads) + `:says` + `:not-reached`;
     `late-open` — a watch whose opening outlasts its wait leaves no proxy behind;
     `partial-outage` — a partial outage is swept within one probe deadline;
-    `unfit-record` — a depot record of another form is refused and holds no partition."
+    `unfit-record` — a depot record of another form is refused and holds no partition;
+    `ends-with` — the plan of `end-actor` follows whose ending ends an agent (no cluster)."
   [& [mode rounds-str]]
   (let [rounds (or (some-> rounds-str parse-long) 2)
         ok? (case mode
@@ -617,6 +643,7 @@
               "late-open" (check-late-open!)
               "partial-outage" (check-partial-outage!)
               "unfit-record" (check-unfit-records!)
+              "ends-with" (check-ends-with!)
               "step3" (and (check-says-table!)
                            (check-watch-not-reached!)
                            (run-step3-scenarios! {:allowed-prefixes nil

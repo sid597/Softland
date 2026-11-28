@@ -326,6 +326,20 @@ spec now says it at open-session.
 **18. `under` and `live-under` of a root that is no person.** Nothing is said. The
 reference gives no agents, no sign-ins and no sessions.
 
+**30. Who made an agent, and whose ending ends it.** Until 28 November one
+part, `:made-by`, said who made an agent, whose ending ends it and, in the
+runtime, who may end it. Sid's yes of 28 November stores the first two apart:
+`:made-by`, and `:ends-with`, which starts as the maker. `end-actor` follows
+`:ends-with` and reads `:made-by` for nothing, "an actor above" in the standing
+of a sign-in is the one whose ending ends it, and `under` gives both.
+
+What is not decided, and is Sid's: who may point an agent at another actor.
+The reference takes no part that sets `:ends-with`, in `make-actor` or in any
+other write, so no history holds an agent whose two parts differ; the check of
+`end-actor` that tells them apart makes its state by hand. The bound of 32
+stays on who made whom (15). Nothing in the reference takes the two to be
+equal.
+
 ## Asks
 
 **19. An ask that is over when it is made, and an answer from a slower clock.** "A
