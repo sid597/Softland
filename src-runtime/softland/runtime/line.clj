@@ -33,6 +33,18 @@
   a result under n says nothing of a live watch under n. A text that holds
   no word with a number gets the \"could not\" bare, with no number.
 
+  A word that ends its own connection. `:sign-out`, `:close-session` and
+  an `:end-sign-in` of the caller's own sign-in end what the connection
+  stands on, and the standing can say so before the word's work has
+  returned. The system that said the word is owed its result all the same:
+  without it, a sign-out that worked reads as a connection that was lost.
+  So while the connection's thread does such a word
+  (`softland.wire.words/words`, `:can-end-its-connection`), an end that the
+  standing says waits for the word's result: the watches are left at once
+  and no further word is done, the result is written, and then the last
+  word and the close. An end for any other reason, and an end during any
+  other word, is not held.
+
   One word at a time. The words of one connection are done in the order in
   which they arrived, on one thread of the connection's own: two acts that
   a maker sends one after the other reach their depot in that order. A send
@@ -112,6 +124,28 @@
       (try ((.-close! connection) status reason) (catch Throwable _ nil))))
   nil)
 
+(defn- end-with!
+  "Says the last word and ends the connection. While the connection's
+  thread does a word that can end its own connection, the end is kept for
+  that thread, which says it after the word's result (`word!`); the watches
+  are left now, since what they rest on has ended. Of two ends that come
+  during one such word, the first is kept."
+  [^Connection connection word status reason]
+  (let [[before _] (swap-vals! (.-state connection)
+                               (fn [s]
+                                 (if (and (:own-end? s) (not (:closed? s)) (not (:end-waits s)))
+                                   (assoc s :end-waits {:word word :status status :reason reason} :watches {})
+                                   s)))]
+    (cond
+      (or (:closed? before) (not (:own-end? before)))
+      (do (say! connection {:bye word})
+          (end! connection status reason))
+
+      (not (:end-waits before))
+      (doseq [{:keys [leave]} (vals (:watches before))]
+        (try (when leave (leave)) (catch Throwable _ nil)))))
+  nil)
+
 (defn- watch!
   "The watch is under the number of its word. When the flow ends, the
   number is free again."
@@ -178,10 +212,20 @@
                   (say! connection {:id id :gives (words/could-not :find-the-watch {:why :not-known})})))
 
               :else
-              (let [result (try (m/? (seam/call (.-the-seam connection) (.-caller connection) word))
-                                (catch Throwable t
-                                  (words/could-not :do-the-word {:threw (.getName (class t))})))]
-                (say! connection {:id id :gives result})))))))))
+              (let [state (.-state connection)
+                    own-end? (boolean (get-in words/words [(:word word) :can-end-its-connection]))]
+                (when own-end? (swap! state assoc :own-end? true))
+                (try
+                  (let [result (try (m/? (seam/call (.-the-seam connection) (.-caller connection) word))
+                                    (catch Throwable t
+                                      (words/could-not :do-the-word {:threw (.getName (class t))})))]
+                    (say! connection {:id id :gives result}))
+                  (finally
+                    (when own-end?
+                      (let [[before _] (swap-vals! state dissoc :own-end? :end-waits)]
+                        (when-let [{:keys [word status reason]} (:end-waits before)]
+                          (say! connection {:bye word})
+                          (end! connection status reason))))))))))))))
 
 (defn open
   "`:send!` takes a text and writes it as one frame; `:close!` takes a
@@ -205,11 +249,9 @@
       (when (:closed? @(.-state connection)) (.interrupt worker)))
     (let [end-unwatched! (fn [reason word]
                            (when-not (:closed? @(.-state connection))
-                             (say! connection {:bye word})
-                             (end! connection 1011 reason)))
+                             (end-with! connection word 1011 reason)))
           leave ((m/reduce (fn [_ word]
-                             (say! connection {:bye word})
-                             (end! connection 1008 "the sign-in or the session ended")
+                             (end-with! connection word 1008 "the sign-in or the session ended")
                              nil)
                            nil
                            (seam/standing the-seam caller))

@@ -80,7 +80,11 @@
   `:in-a-session` marks a word that only a caller who is in a session
   says. The two are the rule itself and not a second telling of it: the
   runtime reads them to hold a word against its caller
-  (`softland.runtime.seam/word-fault`)."
+  (`softland.runtime.seam/word-fault`).
+  `:can-end-its-connection` marks a word whose work can end the sign-in or
+  the session that the connection it was said on stands on. The line reads
+  it: the result of such a word is written before the connection is told
+  its end (`softland.runtime.line`)."
   {:who-am-i       {:says "who the connection is: her who, her root, her session, her own lane; or that it stands for nobody"
                     :carries nil :who :anybody}
    :send           {:says "one act into its depot, and its answer: the door's receipt with the answer that a gate gave, or `:nothing-yet` when the wait passed"
@@ -98,11 +102,11 @@
    :replace-secret {:says "the sign-in's secret becomes the one whose hash is given; the session stays as it is"
                     :carries nil :who :an-actor}
    :sign-out       {:says "ends the sign-in of this connection, on every copy of the runtime"
-                    :carries nil :who :an-actor}
+                    :carries nil :who :an-actor :can-end-its-connection true}
    :open-session   {:says "opens a new session under this sign-in, optionally saying whether a person or a model drives it"
                     :carries nil :who :an-actor}
    :close-session  {:says "closes the session of this connection"
-                    :carries nil :who :an-actor :in-a-session true}
+                    :carries nil :who :an-actor :in-a-session true :can-end-its-connection true}
    :invite         {:says "makes a person who waits for an account that proves the claim"
                     :carries nil :who :a-person}
    :make-agent     {:says "makes an agent beneath the caller, and a sign-in for it under the hash of a secret that the caller made"
@@ -112,7 +116,7 @@
    :under          {:says "the actors of the caller's root, and its live sign-ins"
                     :carries nil :who :a-person}
    :end-sign-in    {:says "ends one sign-in of the caller's root"
-                    :carries nil :who :a-person}})
+                    :carries nil :who :a-person :can-end-its-connection true}})
 
 (def ^:private wait-part
   [:wait-ms [:int {:min 0}] {:optional true :reason :wait-is-no-span}])

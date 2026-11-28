@@ -10,7 +10,8 @@
 
   How each part is seen. What the line itself sends is read as frames, by a
   WebSocket of the JDK's that the proof opens and that keeps each frame as
-  it came; the bound on the words that wait is staged on a connection that
+  it came; the bound on the words that wait, and the end that comes while
+  a word that brought it is still at work, are staged on a connection that
   the proof opens with the line's own `open`. What the library does is seen
   through the library. The command line's commands run inside the proof,
   through the var of its `run`, each with a file of its own.
@@ -29,7 +30,8 @@
             [softland.runtime.seam :as seam]
             [softland.wire.credential :as credential]
             [softland.wire.frame :as frame]
-            [softland.wire.proof :refer [check finish]])
+            [softland.wire.proof :refer [check finish]]
+            [softland.wire.words :as words])
   (:import [java.net URI]
            [java.net.http HttpClient WebSocket WebSocket$Listener]
            [java.nio.file Files]
@@ -190,6 +192,58 @@
                     (not (line/open? connection)))
                {:stays? stays? :open-at-the-bound? open-at-the-bound? :sent @sent :close close})))))
 
+(defn- a-word-that-ends-its-own-connection
+  "The connection is the proof's own, as in `too-many-words-waiting`, and
+  what it is handed is kept in the order in which it came, with the moment
+  at which its watch is left. The seam's `standing` is replaced by a flow
+  that the proof tells its one word by hand, its `watch` by a flow of one
+  answer, and its `call` by one that tells the standing's end while the
+  word's work is still under way, and only then gives the word's result:
+  the order that a sign-out can meet, made to happen each time."
+  [{:keys [the-seam]}]
+  (let [the-end {:could-not :find-her-sign-in :why :ended}
+        staged (fn [word]
+                 (let [seen (atom [])
+                       closed (promise)
+                       tell (promise)]
+                   (with-redefs [seam/standing (fn [_ _]
+                                                 (m/eduction (take 1) (m/observe (fn [!] (deliver tell !) (fn [] nil)))))
+                                 seam/watch (fn [_ _ _]
+                                              (m/observe (fn [!]
+                                                           (! {:anew {:lanes [] :left-out [] :place {:holds :no-fact-given}}})
+                                                           (fn [] (swap! seen conj :the-watch-is-left)))))
+                                 seam/call (fn [_ _ _]
+                                             (m/via m/blk
+                                                    (@tell the-end)
+                                                    (Thread/sleep 300)
+                                                    {:ended :the-sign-in}))]
+                     (let [connection (line/open the-seam (seam/visitor)
+                                                 {:send! (fn [frame-text] (swap! seen conj (second (frame/read-one frame-text))))
+                                                  :close! (fn [status reason] (deliver closed [status reason]))})]
+                       (line/text! connection (frame/write {:id 0 :word :watch
+                                                            :query {:asks [:place :x :k] :not-signed-in true :lanes [:base]}}))
+                       (h/wait-for (fn [] (some :anew @seen)) 10000)
+                       (line/text! connection (frame/write (assoc word :id 1)))
+                       (let [close (deref closed 10000 :still-open)]
+                         {:seen (vec (rest @seen)) :close close :open? (line/open? connection)})))))
+        sign-out (staged {:word :sign-out})
+        who-am-i (staged {:word :who-am-i})
+        anew {:id 0 :anew {:lanes [] :left-out [] :place {:holds :no-fact-given}}}]
+    (check "When the standing says the end while `:sign-out` is still at work, the connection is handed, in this order: its watch is left, then the result of the word under the word's number, then the last word, and then the close. The seam's `standing`, `watch` and `call` are replaced here, so that the end comes during the word."
+           (and (= [anew :the-watch-is-left {:id 1 :gives {:ended :the-sign-in}} {:bye the-end}] (:seen sign-out))
+                (= 1008 (first (:close sign-out)))
+                (not (:open? sign-out)))
+           sign-out)
+    (check "The same end during a word that cannot end its own connection, `:who-am-i`, is not held: the last word is written at once, the connection is closed, and no result follows it."
+           (and (= #{anew :the-watch-is-left {:bye the-end}} (set (:seen who-am-i)))
+                (= {:bye the-end} (last (remove keyword? (:seen who-am-i))))
+                (= 1008 (first (:close who-am-i)))
+                (not (:open? who-am-i)))
+           who-am-i)
+    (check "The three words whose result is written before the end are those that the wire's table marks: `:sign-out`, `:close-session` and `:end-sign-in`."
+           (= #{:sign-out :close-session :end-sign-in}
+              (set (keep (fn [[word entry]] (when (:can-end-its-connection entry) word)) words/words))))))
+
 ;; --------------------------------------------------------------- the library
 
 (defn- a-watch-that-was-not-opened
@@ -266,16 +320,15 @@
         _ (spit file (frame/write {:url url :credential (:credential program)}))
         before (command file "who")
         twin (h/line url (:credential program) (:session before))
-        ;; The result of `:close-session` is not held here: the session's end
-        ;; closes the connection that said the word, and can come first.
         closed (h/say twin {:word :close-session})
         _ (h/close-line! twin)
         _ (h/wait-for (fn [] (refused url (:credential program) (:session before))) 10000)
         after (command file "who")
         fresh (command file "new-session")
         then (command file "who")]
-    (check "A command whose kept session is not open gives the runtime's own word, `:find-her-session`, says to run `new-session`, and ends with 1; `new-session` then leaves that session and starts another, and the next command is in it. The commands run here inside the proof."
+    (check "A connection that closes its own session reads the result of `:close-session`, though the session's end closes that connection. A command whose kept session is not open gives the runtime's own word, `:find-her-session`, says to run `new-session`, and ends with 1; `new-session` then leaves that session and starts another, and the next command is in it. The commands run here inside the proof."
            (and (uuid? (:session before))
+                (= {:closed (:session before)} closed)
                 (= :find-her-session (:could-not after))
                 (str/includes? (str (:said after)) "new-session")
                 (= 1 (status-of after))
@@ -357,7 +410,8 @@
             (the-credential-that-waits)
             (how-agent-is-typed)
             (h/close-line! me)
-            (too-many-words-waiting with))
+            (too-many-words-waiting with)
+            (a-word-that-ends-its-own-connection with))
           (check "The proof ran to its end without a throw." true)
           (catch Throwable t
             (check "The proof ran to its end without a throw." false (str t))
