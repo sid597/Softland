@@ -11,6 +11,8 @@
   connected for it: a slip must not become another command. `write e k`
   with the value left out would be sent as a retract, and `write e k v
   --lane` with the lane left out would be written into her own lane.
+  The same holds for a value that begins as data and does not read: it is
+  not stored as a text.
 
   Every command takes `--as file`, the file that holds the sign-in, when
   it is not the default. A command that writes or reads takes `--lane id`,
@@ -18,9 +20,15 @@
   `--permission uuid`, the permission that the act names, when it is not
   the first permission of the lane for its person.
 
-  Values. `e`, `k`, `v`, a lane and a permission are read as EDN; a UUID is
-  typed bare, or as EDN writes one; a text that is no EDN, or a bare word,
-  is taken as a string.
+  Values. `e`, `k`, `v`, a who, a lane, a permission and an id are read as
+  EDN; a UUID is typed bare, or as EDN writes one. Plain words stay text:
+  a bare word (`oak`), and words that are no EDN (`hello world`), are
+  taken as a string. A value that begins as data is held to being data:
+  when what is typed begins as a map, a vector, a list, a set or a tagged
+  form, a string, a keyword, a character or a number, and does not read as
+  one EDN form, the command is not run. `{:a 1` with its brace left open
+  was stored as the text `{:a 1`. A text that begins so is typed as EDN
+  writes a string, in quotes: `\"3 chairs\"`.
 
   What it keeps. One file, `sign-in.edn` under `$SOFTLAND_HOME` or
   `~/.config/softland`: the runtime's address, the credential, and the id
@@ -49,8 +57,8 @@
   `:read-the-command` says how the command is typed under `:said`, and why
   it was not read under `:why`: `:command-not-known`,
   `:wrong-number-of-arguments`, `:argument-not-known`, `:flag-not-known`,
-  `:flag-with-no-value` or `:flag-given-twice`, with the argument or the
-  flag under `:at`."
+  `:flag-with-no-value`, `:flag-given-twice` or `:value-does-not-read`,
+  with the argument or the flag under `:at`."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -179,12 +187,26 @@
         (recur more flags (conj others arg)))
       {:flags flags :rest others})))
 
+(defn- begins-as-data?
+  "Whether what is typed begins as EDN writes a thing that is no bare word:
+  a map, a vector, a list, a set or a tagged form, a string, a keyword, a
+  character, or a number, with a sign or without."
+  [^String text]
+  (boolean (re-find #"^\s*(?:[\[{(#\":\\0-9]|[+-][0-9])" text)))
+
 (defn- value-of
+  "What is typed, read as a value: [:ok value], or [:no why] for a text
+  that begins as data and does not read as one EDN form, with the wire's
+  reader's word for why. A bare UUID is a UUID. A bare word, and a text
+  that neither reads nor begins as data, is that text."
   [text]
   (if (re-matches #"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" (str text))
-    (UUID/fromString text)
+    [:ok (UUID/fromString text)]
     (let [[outcome form] (frame/read-one text)]
-      (if (and (= :ok outcome) (not (symbol? form))) form text))))
+      (cond
+        (and (= :ok outcome) (not (symbol? form))) [:ok form]
+        (and (= :no outcome) (begins-as-data? text)) [:no form]
+        :else [:ok text]))))
 
 ;; ------------------------------------------------------------------ the result
 
@@ -320,20 +342,20 @@
 (defn- act-of
   "With no `--permission`, the act names the first permission of the lane
   for its person."
-  [hello {:keys [lane permission]} facts]
-  (let [lane (if lane (value-of lane) (:own-lane hello))]
+  [hello flags facts]
+  (let [lane (if (contains? flags :lane) (:lane flags) (:own-lane hello))]
     {:version 1
      :who (:who hello)
      :session (:session hello)
      :lane lane
-     :permission (if permission (value-of permission) (first-act/first-permission-id lane))
+     :permission (if (contains? flags :permission) (:permission flags) (first-act/first-permission-id lane))
      :facts facts}))
 
 (defn- query-of
-  [hello {:keys [lane]} e k]
+  [hello flags e k]
   {:asks [:place e k]
    :asker (:who hello)
-   :lanes [(if lane (value-of lane) (:own-lane hello))]})
+   :lanes [(if (contains? flags :lane) (:lane flags) (:own-lane hello))]})
 
 ;; ---------------------------------------------------------------- the commands
 
@@ -421,21 +443,21 @@
   (with-line flags
     (fn [connection hello]
       (client/say connection {:word :send
-                              :act (act-of hello flags [{:e (value-of e) :k (value-of k) :v (value-of v)}])
+                              :act (act-of hello flags [{:e e :k k :v v}])
                               :act-id (UUID/randomUUID)}))))
 
 (defn- read!
   [flags [e k]]
   (with-line flags
     (fn [connection hello]
-      (client/say connection {:word :read :query (query-of hello flags (value-of e) (value-of k))}))))
+      (client/say connection {:word :read :query (query-of hello flags e k)}))))
 
 (defn- watch!
   [flags [e k]]
   (with-line flags
     (fn [connection hello]
       (let [ended (promise)
-            sent (client/watch connection (query-of hello flags (value-of e) (value-of k))
+            sent (client/watch connection (query-of hello flags e k)
                                (fn [message]
                                  (println (frame/write message))
                                  (flush)
@@ -449,12 +471,10 @@
 (declare could-not-read)
 
 (defn- give!
-  [flags [to-whom to-lane what]]
+  [flags [who lane what]]
   (with-line flags
     (fn [connection hello]
-      (let [who (value-of to-whom)
-            lane (value-of to-lane)
-            act (act-of hello (assoc flags :lane to-lane) [])
+      (let [act (act-of hello (assoc flags :lane lane) [])
             allows (case what
                      "see" {:see true}
                      "act" (if (act/borrower? who)
@@ -510,7 +530,7 @@
 
 (defn- agent-end!
   [flags [uuid]]
-  (with-line flags (fn [connection _hello] (client/say connection {:word :end-agent :agent (value-of uuid)}))))
+  (with-line flags (fn [connection _hello] (client/say connection {:word :end-agent :agent uuid}))))
 
 (defn- under!
   [flags _]
@@ -518,7 +538,7 @@
 
 (defn- end-sign-in!
   [flags [uuid]]
-  (with-line flags (fn [connection _] (client/say connection {:word :end-sign-in :sign-in (value-of uuid)}))))
+  (with-line flags (fn [connection _] (client/say connection {:word :end-sign-in :sign-in uuid}))))
 
 (defn- replace-secret!
   [flags _]
@@ -578,49 +598,61 @@
 
 ;; ------------------------------------------------------- the one list of commands
 
+(defn- value
+  "An argument, or a flag's value, that is read as a value (`value-of`)
+  before the command is run; the function is handed what was read."
+  [named]
+  {:named named :value? true})
+
+(defn- text
+  "An argument, or a flag's value, that is handed on as it was typed."
+  [named]
+  {:named named})
+
 (def ^:private commands
   "Every command, in the order in which they are named to somebody who
   typed none. A command is one word, or two.
 
-    :args   its plain arguments, by name: a command is typed with exactly
-            that many
-    :flags  the flags that it takes beside `--as`, each with the name of
-            its value
+    :args   its plain arguments, each a `value` or a `text` with its name:
+            a command is typed with exactly that many
+    :flags  the flags that it takes beside `--as`, each with a `value` or a
+            `text` that names what follows the flag
     :note   what else is to be known of how it is typed
     :says   what it does
     :does   the function that does it, which is handed the flags and the
-            plain arguments
+            plain arguments, each value read
 
   How a command is typed is made of the first three (`typed`), and nothing
   else says it."
-  [["sign-in"        {:args [] :flags {:url "address" :agent "name"} :does sign-in!
+  [["sign-in"        {:args [] :flags {:url (text "address") :agent (text "name")} :does sign-in!
                       :says "asks the runtime, shows a link and a code, waits for her yes, and keeps the credential. With `--agent` the yes page offers to make this program an agent of that name"}]
    ["who"            {:args [] :does who!
                       :says "who this program is signed in as"}]
-   ["write"          {:args ["e" "k" "v"] :flags {:lane "id" :permission "uuid"} :does write!
+   ["write"          {:args [(value "e") (value "k") (value "v")]
+                      :flags {:lane (value "id") :permission (value "uuid")} :does write!
                       :note "a retract is typed with the value nil"
                       :says "one fact, written into a lane"}]
-   ["read"           {:args ["e" "k"] :flags {:lane "id"} :does read!
+   ["read"           {:args [(value "e") (value "k")] :flags {:lane (value "id")} :does read!
                       :says "one place, read once"}]
-   ["watch"          {:args ["e" "k"] :flags {:lane "id"} :does watch!
+   ["watch"          {:args [(value "e") (value "k")] :flags {:lane (value "id")} :does watch!
                       :says "one place, kept live until the program is stopped"}]
-   ["send"           {:args ["file"] :does send!
+   ["send"           {:args [(text "file")] :does send!
                       :says "the acts of a file, sent in order, each once"}]
-   ["give"           {:args ["who" "lane" "see|act"] :flags {:permission "uuid"} :does give!
+   ["give"           {:args [(value "who") (value "lane") (text "see|act")] :flags {:permission (value "uuid")} :does give!
                       :says "gives a permission beneath the one that this program acts under"}]
-   ["invite"         {:args [] :flags {:email "address"} :does invite!
+   ["invite"         {:args [] :flags {:email (text "address")} :does invite!
                       :says "makes a person who waits for an account; prints the link for her, or names the email"}]
-   ["agent new"      {:args ["name"] :flags {:out "file"} :does agent-new!
+   ["agent new"      {:args [(text "name")] :flags {:out (text "file")} :does agent-new!
                       :says "makes an agent beneath this program's who, and writes the file that the agent signs in with"}]
-   ["agent end"      {:args ["uuid"] :does agent-end!
+   ["agent end"      {:args [(value "uuid")] :does agent-end!
                       :says "ends an agent"}]
    ["under"          {:args [] :does under!
                       :says "the actors and the sign-ins of this person"}]
-   ["end-sign-in"    {:args ["uuid"] :does end-sign-in!
+   ["end-sign-in"    {:args [(value "uuid")] :does end-sign-in!
                       :says "ends one sign-in of this person"}]
    ["replace-secret" {:args [] :does replace-secret!
                       :says "a new secret for this sign-in"}]
-   ["new-session"    {:args [] :flags {:model "name"} :does new-session!
+   ["new-session"    {:args [] :flags {:model (text "name")} :does new-session!
                       :says "leaves the session and starts another, optionally naming the model that drives it"}]
    ["sign-out"       {:args [] :does sign-out!
                       :says "ends this program's sign-in"}]])
@@ -633,8 +665,8 @@
   [named]
   (let [{:keys [args flags note]} (get command-named named)]
     (str named
-         (apply str (map (fn [arg] (str " " arg)) args))
-         (apply str (map (fn [[flag value]] (str " [--" (name flag) " " value "]")) flags))
+         (apply str (map (fn [arg] (str " " (:named arg))) args))
+         (apply str (map (fn [[flag value]] (str " [--" (name flag) " " (:named value) "]")) flags))
          (when note (str "; " note)))))
 
 (defn- how
@@ -651,13 +683,33 @@
 (defn- could-not-read
   [command why at]
   (cond-> {:could-not :read-the-command :why why :said (how command)}
-    (some? at) (assoc :at at)))
+    (some? at) (assoc :at at)
+    (= :value-does-not-read why)
+    (update :said str ". What is typed at " at " begins as data and does not read as one EDN form;"
+            " a text that begins so is typed as EDN writes a string, in quotes")))
+
+(defn- as-its-entry-says
+  "The plain arguments and the flags of a command that is typed with the
+  arguments and the flags of its entry, each `value` among them read. Gives
+  {:flags :rest} with what was read in the place of what was typed, or
+  {:not-read name} at the first value that begins as data and does not
+  read: a plain argument by its name, a flag as it is typed."
+  [entry flags plain]
+  (let [read (fn [spec typed] (if (:value? spec) (value-of typed) [:ok typed]))
+        args (map (fn [spec typed] [(:named spec) (read spec typed)]) (:args entry) plain)
+        given (map (fn [[flag typed]] [flag (read (get (:flags entry) flag) typed)]) flags)
+        not-read (or (some (fn [[named [outcome]]] (when (= :no outcome) named)) args)
+                     (some (fn [[flag [outcome]]] (when (= :no outcome) (str "--" (name flag)))) given))]
+    (if not-read
+      {:not-read not-read}
+      {:flags (into {} (map (fn [[flag [_ v]]] [flag v])) given)
+       :rest (mapv (fn [[_ [_ v]]] v) args)})))
 
 (defn- read-command
   "What was typed, held against `commands`. Gives {:does function :flags
   flags :rest plain-arguments} for a command that is typed as its entry
-  says, or the result that says that it could not be read. Nothing is
-  connected here."
+  says, with each value of it read, or the result that says that it could
+  not be read. Nothing is connected here."
   [command args]
   (let [{:keys [fault at flags] plain :rest} (parsed args)
         two-words (when (and (string? command) (seq plain)) (str command " " (first plain)))
@@ -671,7 +723,10 @@
       (nil? entry) (could-not-read command :command-not-known nil)
       not-taken (could-not-read named :flag-not-known (str "--" (name not-taken)))
       (not= (count (:args entry)) (count plain)) (could-not-read named :wrong-number-of-arguments nil)
-      :else {:does (:does entry) :flags flags :rest plain})))
+      :else (let [{:keys [not-read] :as read} (as-its-entry-says entry flags plain)]
+              (if not-read
+                (could-not-read named :value-does-not-read not-read)
+                (assoc read :does (:does entry)))))))
 
 (defn- run
   [command args]

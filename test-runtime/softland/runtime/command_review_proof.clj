@@ -65,6 +65,22 @@
                      (mapv (fn [run] ((juxt :could-not :why :at) (:out run))) [no-lane no-such-flag not-its-flag]))
                   (= :green still))
              {:no-lane (seen no-lane) :no-such-flag (seen no-such-flag) :not-its-flag (seen not-its-flag) :still still}))
+    (let [open-brace (soft home "write" ":review-note" ":body" "{:a 1")
+          nothing-there (:out (soft home "read" ":review-note" ":body"))
+          a-word (soft home "write" ":review-note" ":body" "oak")
+          word-there (value-at home ":review-note" ":body")
+          words (soft home "write" ":review-note" ":body" "hello world")
+          words-there (value-at home ":review-note" ":body")
+          a-map (soft home "write" ":review-note" ":body" "{:a 1}")
+          map-there (value-at home ":review-note" ":body")]
+      (check "`write e k {:a 1`, a map with its brace left open, ends with 2 and says that the value does not read: nothing is stored at the place. A bare word and words that are no EDN are stored as the text that was typed, and the map with its brace closed as the map."
+             (and (= 2 (:exit open-brace))
+                  (= [:read-the-command :value-does-not-read "v"] ((juxt :could-not :why :at) (:out open-brace)))
+                  (= :no-fact-given (get-in nothing-there [:place :holds]))
+                  (= [0 "oak"] [(:exit a-word) word-there])
+                  (= [0 "hello world"] [(:exit words) words-there])
+                  (= [0 {:a 1}] [(:exit a-map) map-there]))
+             {:open-brace (seen open-brace) :nothing-there nothing-there :a-word word-there :words words-there :a-map map-there}))
     (check "A command with an argument left out is turned away before the sign-in is looked for: in a home that holds no sign-in it ends with 2 too."
            (and (= 2 (:exit nowhere)) (= :read-the-command (:could-not (:out nowhere))))
            (seen nowhere))))

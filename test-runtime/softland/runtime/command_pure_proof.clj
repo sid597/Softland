@@ -82,8 +82,37 @@
            (and (not-read? ["write" ":e" ":k"]) (str/includes? (:said (read ["write" ":e" ":k"])) "nil"))
            (read ["write" ":e" ":k"]))
     (check "The value that is typed `nil` is read as nil, so `write e k nil` is the retract."
-           (and (nil? (command 'value-of "nil")) (left-to-run? ["write" ":e" ":k" "nil"]))
+           (and (= [:ok nil] (command 'value-of "nil")) (left-to-run? ["write" ":e" ":k" "nil"])
+                (= [:e :k nil] (:rest (read ["write" ":e" ":k" "nil"]))))
            [(command 'value-of "nil") (read ["write" ":e" ":k" "nil"])])
+    (let [texts ["oak" "hello world" "it's" "oak}" "a/b/c" "-" "+x" ""]
+          values [[":green" :green] ["12" 12] ["-5" -5] ["1.50" 1.5] ["{:a 1}" {:a 1}] ["#{1 2}" #{1 2}] ["[1 [2]]" [1 [2]]]
+                  ["\"3 chairs\"" "3 chairs"] ["true" true]
+                  ["0d6ffa10-3c2e-4b9e-9a55-0f2f3c1b2a11" (UUID/fromString "0d6ffa10-3c2e-4b9e-9a55-0f2f3c1b2a11")]
+                  ["#uuid \"0d6ffa10-3c2e-4b9e-9a55-0f2f3c1b2a11\"" (UUID/fromString "0d6ffa10-3c2e-4b9e-9a55-0f2f3c1b2a11")]]
+          broken ["{:a 1" "[1 2" "(1" "#{1" "\"open" ":a :b" ":" "#no-such-tag 1" "3 chairs" "1.2.3" "12O" "-5x" "\\no-such-character"]
+          of (fn [typed] (command 'value-of typed))]
+      (check "Plain words stay text: a bare word, words that are no EDN, a word with an apostrophe, with a stray brace at its end or with two slashes, a sign alone, and nothing at all are each the text that was typed."
+             (= (mapv (fn [typed] [:ok typed]) texts) (mapv of texts))
+             (mapv of texts))
+      (check "What is typed as EDN writes a value is that value: a keyword, a number, a negative one, a decimal, a map, a set, a vector, a text in quotes, true, and a UUID typed bare or as EDN writes one."
+             (= (mapv (fn [[_ value]] [:ok value]) values) (mapv (comp of first) values))
+             (mapv (comp of first) values))
+      (check "A value that begins as data and does not read as one EDN form is no text: a map, a vector, a list or a set left open, a string left open, two keywords, a colon alone, a tag that EDN does not know, a number followed by words, a number with two points or a letter in it, and a character that is none. Each begins as a map, a vector, a list, a set or a tagged form, a string, a keyword, a number or a character does."
+             (every? (fn [typed] (= :no (first (of typed)))) broken)
+             (mapv (juxt identity of) broken)))
+    (check "`write e k v` with a value that begins as data and does not read is not run, and the result names the argument and says how a text is typed; the same for a lane that does not read, by its flag. Before, `{:a 1` with its brace left open was stored as the text `{:a 1`."
+           (and (= [{:why :value-does-not-read :at "v"} {:why :value-does-not-read :at "--lane"}]
+                   (mapv why [["write" ":note" ":body" "{:a 1"] ["write" ":note" ":body" "oak" "--lane" "[:l"]]))
+                (not-read? ["write" ":note" ":body" "{:a 1"])
+                (str/includes? (:said (read ["write" ":note" ":body" "{:a 1"])) "in quotes"))
+           [(read ["write" ":note" ":body" "{:a 1"]) (read ["write" ":note" ":body" "oak" "--lane" "[:l"])])
+    (check "A command's function is handed each value read and each text as it was typed: of `write :e :k 12 --lane :l --as {f` the entity, the key, the number and the lane as values, and the file's name as text; of `agent new {x --out [y` and `send {acts`, which take texts, the texts."
+           (= [{:flags {:lane :l :as "{f"} :rest [:e :k 12]} {:flags {:out "[y"} :rest ["{x"]} {:flags {} :rest ["{acts"]}]
+              (mapv (fn [typed] (dissoc (read typed) :does))
+                    [["write" ":e" ":k" "12" "--lane" ":l" "--as" "{f"] ["agent" "new" "{x" "--out" "[y"] ["send" "{acts"]]))
+           (mapv (fn [typed] (dissoc (read typed) :does))
+                 [["write" ":e" ":k" "12" "--lane" ":l" "--as" "{f"] ["agent" "new" "{x" "--out" "[y"] ["send" "{acts"]]))
     (check "A flag whose value is left out is not run, and the result names the flag: `write e k v --lane`, which would be written into her own lane; `new-session --model`; and `write e k v --lane --as file`, where the next thing typed is another flag."
            (= [{:why :flag-with-no-value :at "--lane"} {:why :flag-with-no-value :at "--model"} {:why :flag-with-no-value :at "--lane"}]
               (mapv why [["write" ":e" ":k" ":v" "--lane"] ["new-session" "--model"] ["write" ":e" ":k" ":v" "--lane" "--as" "file"]]))
