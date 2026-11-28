@@ -6,25 +6,29 @@
 
   What it gives:
 
-  - `step`, the twelve writes as a pure state machine: `(step state call)`
+  - `step`, the fourteen writes as a pure state machine: `(step state call)`
     gives `[state' result]`, where a call is `[:invite {...}]`,
     `[:enter {...}]` and so on. `empty-state` is where it starts.
-  - The pure reads of a state: `who-is`, `ask-of`, `under`, and
-    `live-under`, which is what is watched under a root: the value that
-    `watch-root` hands to its function.
+  - The pure reads of a state: `who-is`, `ask-of`, `under`,
+    `invitation-of`, `accounts-of`, and `live-under`, which is what is
+    watched under a root: the value that `watch-root` hands to its function.
   - `cluster`, a thing that stands for a cluster in which Auth is launched
-    under the names that it is given; and the eighteen functions of the
+    under the names that it is given; and the twenty-two functions of the
     contract under their own names, `open` among them, which takes such a
     thing and a module's name, so that a program can stand on it. The reads
     take a client or a state.
 
   The state is one map:
 
-    :persons  person -> {:claim :invited-by :invited-at, and from her first
-                         enter :account :own-lane :making :own-lane-made?
-                         :entered-at}
-    :claims   claim -> the person whom it names, for good
-    :links    account -> {:person :says :said-at}
+    :persons  person -> from her first enter {:invited-by :invited-at
+                         :own-lane :making :own-lane-made? :entered-at}, who
+                         invited her by the claim of that enter, and when
+    :claims   claim -> the invitation that stands under it, {:person
+                       :invited-by :invited-at :ends :used?}; `:used?` from
+                       the enter that a link was made by, until that link
+                       is removed, which removes the invitation too
+    :links    account -> {:person :says :said-at :claim :linked-at}, `:claim`
+                         being the claim that the link was made by proving
     :roots    person -> {:agents {agent {:made-by :ends-with :label :made-at
                                          :depth :ended?}}
                          :agent-order [agent ...]
@@ -38,16 +42,21 @@
     :asks     code -> {:hash :asking-hash :asks :ends :asked-at
                        :over-when-made? :state :answer}
 
-  A person is in `:roots` from her first enter on. She is then an actor of
-  her root, at depth 0, and is not one of its `:agents`. Nothing is ever
-  taken out of the map: an end is a flag. The reference keeps no log of
-  events, and a refused enter leaves nothing. A result comes from what
+  A person is in `:persons` and `:roots` from her first enter on, and stays
+  there when her accounts are unlinked. She is then an actor of her root,
+  at depth 0, and is not one of its `:agents`. A person who waits is a
+  claim that names her and nothing else. Nothing of a root is ever taken
+  out of the map: an end is a flag. What is taken out is what names a
+  human being: a link, by `unlink`, with the invitation that it was made
+  by; and an invitation that waits, by `take-back`. The reference keeps no
+  log of events, and a refused enter leaves nothing. A result comes from what
   stands, never from a memory of calls (Sid's calls of 22 November): a
   link keeps one `:says`, an ask keeps the answer that stands, and a
   sign-in keeps its present hash and the one before it, with no history of
   its replacements. A sign-in keeps, as `:first-hash`, the hash that its
   begin bound, one for each sign-in, by which a repeat of that begin is
-  known (QUESTIONS.md, 8).
+  known (QUESTIONS.md, 8). An email is never in the state: a claim holds
+  its hash, which the runtime makes (28 November).
 
   Approach. `step` reads the form of the call first: an input that does
   not fit gives `{:could-not :read-the-event}` and the state as it was. A
@@ -57,9 +66,11 @@
   an answer to an ask that has an answer is told what stands; then come the
   refusals in the order in which the contract lists them, and only then is
   the write taken. A refusal leaves the state as the thinning left it.
-  Nothing reads a clock: every time is the `:at` of a call. Standing is
-  worked out as the spec words it (`actor-live?`, `sign-in-live?`); what a
-  read costs is not modelled.
+  Nothing reads a clock: every time is the `:at` of a call, and an
+  invitation is over at a write whose `:at` is at or after its `:ends`,
+  which nothing writes down. Standing is worked out as the spec words it
+  (`actor-live?`, `sign-in-live?`, `waits?`); what a read costs is not
+  modelled.
 
   Two things are kept apart for a sign-in and a session. `:ended?` and
   `:closed?` say that someone ended it: `end-sign-in`, `close-session` and
@@ -88,8 +99,7 @@
   holds the state, the watches, the calls that the watches are owed, which
   clients are closed, and the broken rule, if any. A lock on the atom puts
   the writes, and the calls of the watches that follow each write, in one
-  order."
-  (:import [java.util Locale]))
+  order.")
 
 ;; ------------------------------------------------------------------ the bounds
 
@@ -154,12 +164,6 @@
   [x]
   (and (string? x) (<= (count x) longest-text) (carried? x)))
 
-(defn- email?
-  "Whether `x` is an email: a text in lower case. The spec says that the
-  runtime gives emails so, and Auth holds it as form (QUESTIONS.md, 3)."
-  [x]
-  (and (text? x) (= x (.toLowerCase ^String x Locale/ROOT))))
-
 (defn- provider?
   "Whether `x` is a provider: a keyword whose name, with its namespace when
   it has one, is at most 256 characters (Sid's call of 22 November), and can
@@ -205,12 +209,13 @@
   (fn [x] (= k x)))
 
 (defn- claim?
-  "Whether `x` is a claim: `{:by :email :email e}` or `{:by :code :hash h}`.
-  `email-ok?` is the test of the email."
-  ([x] (claim? x email?))
-  ([x email-ok?]
-   (or (shaped? x {:by (is :email) :email email-ok?} {})
-       (shaped? x {:by (is :code) :hash hash?} {}))))
+  "Whether `x` is a claim: `{:by :email :hash h}` or `{:by :code :hash h}`,
+  two kinds of one form. Auth only matches an email and never reads one, so
+  it is given the hash that the runtime makes of it (QUESTIONS.md, 3, as
+  turned on 28 November)."
+  [x]
+  (or (shaped? x {:by (is :email) :hash hash?} {})
+      (shaped? x {:by (is :code) :hash hash?} {})))
 
 (defn- kind?
   "Whether `x` is the kind of a sign-in: `:browser` or `:program`."
@@ -247,9 +252,11 @@
   contract writes `-or-nil` must be there, and may be nil; a part that the
   contract does not name does not fit; `:own-lane` is a UUID (Sid's call
   of 22 November)."
-  {:invite {:person id? :claim claim? :invited-by maker-or-system? :at time?}
-   :enter {:account account? :says says? :email (or-nil email?) :code-hash (or-nil hash?)
+  {:invite {:person id? :claim claim? :invited-by maker-or-system? :ends time? :at time?}
+   :enter {:account account? :says says? :email-hash (or-nil hash?) :code-hash (or-nil hash?)
            :own-lane id? :making making? :at time?}
+   :take-back {:person id? :claim claim? :at time?}
+   :unlink {:account account? :person id? :at time?}
    :own-lane-made {:person id? :at time?}
    :begin-sign-in {:root id? :actor id? :sign-in id? :kind kind? :hash hash? :until time?
                    :label (or-nil text?) :at time?}
@@ -277,10 +284,7 @@
                         (assoc-in [:make-actor :label] string?))
    :provider-and-lane-unchecked (-> forms
                                      (assoc-in [:enter :account] #(account? % keyword?))
-                                     (assoc-in [:enter :own-lane] any?))
-   :capital-email-fits (-> forms
-                           (assoc-in [:invite :claim] #(claim? % text?))
-                           (assoc-in [:enter :email] (or-nil text?)))})
+                                     (assoc-in [:enter :own-lane] any?))})
 
 (defn- form-of
   "The form by which the input of the write `kind` is judged in the copy
@@ -337,9 +341,10 @@
     (catch Throwable _ false)))
 
 (defn- entered?
-  "Whether the person `P` has entered: an account is linked to her."
+  "Whether the person `P` has entered: an enter made her an actor. She stays
+  so when her accounts are unlinked."
   [state P]
-  (some? (get-in state [:persons P :account])))
+  (contains? (:persons state) P))
 
 (defn- actor-of
   "The actor `A` of the root `P`: `{:person? true :depth 0}` for the person
@@ -369,6 +374,14 @@
   is live while the time that it is held against is before its end."
   [end at broken]
   (if (= broken :edge-is-after-the-end) (< end at) (<= end at)))
+
+(defn- waits?
+  "Whether the invitation `c` waits at the time `at`: no account has used
+  it, and it is not over. In the broken copy `:over-invitation-lets-in`, an
+  invitation is never over."
+  [c at broken]
+  (boolean (and c (not (:used? c))
+                (or (not (passed? (:ends c) at broken)) (= broken :over-invitation-lets-in)))))
 
 (defn- sign-in-time
   "The time of the sign-in `g`: its present secret's `:until` alone."
@@ -440,23 +453,77 @@
   [state word]
   [state {:refused word}])
 
+(defn- free?
+  "Whether the claim, whose invitation is `c` or nil, is free at the time
+  `at` of an invite of `person`: nothing stands under it, or an invitation
+  that no account used and that is over at `at`. In the broken copy
+  `:over-invitation-stands`, an invitation that is over keeps its claim; in
+  `:used-claim-names-another`, a used one is free for another person."
+  [c person at broken]
+  (boolean (or (nil? c)
+               (and (not (:used? c)) (passed? (:ends c) at broken) (not= broken :over-invitation-stands))
+               (and (= broken :used-claim-names-another) (:used? c) (not= person (:person c))))))
+
 (defn- write-invite
-  "invite: makes the person wait under the claim. A claim that names this
-  person already is a repeat, also after she has entered; a claim that
-  names another person is `:claim-in-use`; a person under another claim is
-  `:person-in-use`. `:invited-by` is kept as given."
-  [state {:keys [person claim invited-by at]} broken]
-  (let [named (get-in state [:claims claim])
-        has (get-in state [:persons person :claim])]
+  "invite: makes the person wait under the claim until `:ends`. A claim
+  names one person at a time. A free claim is taken, for this person or
+  another, with this invite's `:at` and `:ends`; an invite whose `:ends` is
+  at or before its own `:at` is taken and never waits. A claim that names
+  this person already, by an invitation that waits and is not over or one
+  that an account of hers used, is a repeat, whose `:invited-by` and
+  `:ends` are dropped; one that names another person is `:claim-in-use`. A
+  person may wait under several claims, and be invited after she has
+  entered: that is how she adds an account (28 November). `:invited-by` is
+  kept as given. In the broken copy `:person-has-one-claim`, a person whom
+  another claim names is `:person-in-use`."
+  [state {:keys [person claim invited-by ends at]} broken]
+  (let [c (get-in state [:claims claim])]
     (cond
-      (= named person) [state {:invited person}]
-      (and (some? named) (not (and (= broken :used-claim-names-another) (entered? state named))))
-      (refuse state :claim-in-use)
-      (and (some? has) (not= broken :second-claim-taken)) (refuse state :person-in-use)
-      :else [(-> state
-                 (assoc-in [:claims claim] person)
-                 (update-in [:persons person] assoc :claim claim :invited-by invited-by :invited-at at))
+      (and (not (free? c person at broken)) (= person (:person c))) [state {:invited person}]
+      (not (free? c person at broken)) (refuse state :claim-in-use)
+      (and (= broken :person-has-one-claim)
+           (some (fn [[k x]] (and (not= k claim) (= person (:person x)))) (:claims state)))
+      (refuse state :person-in-use)
+      :else [(assoc-in state [:claims claim] {:person person :invited-by invited-by :invited-at at :ends ends :used? false})
              {:invited person}])))
+
+(defn- write-take-back
+  "take-back: the invitation of the person that waits under the claim is
+  removed, whether or not its time has passed, and the claim is free. It
+  gives `{:taken-back P}` whenever, after it, nothing of `P` waits under
+  the claim: no invitation, or another person's, which it never touches.
+  A claim that an account of `P` used is `:used`: `unlink` is the write
+  for that. In the broken copy `:take-back-of-another`, it removes the
+  invitation that waits under the claim whoever it names; in
+  `:taken-back-keeps-the-claim`, it removes nothing."
+  [state {:keys [person claim]} broken]
+  (let [c (get-in state [:claims claim])]
+    (cond
+      (and c (:used? c) (= person (:person c))) (refuse state :used)
+      (and c (not (:used? c))
+           (or (= person (:person c)) (= broken :take-back-of-another))
+           (not= broken :taken-back-keeps-the-claim))
+      [(update state :claims dissoc claim) {:taken-back person}]
+      :else [state {:taken-back person}])))
+
+(defn- write-unlink
+  "unlink: the link of the account to the person goes, with its `:says`;
+  the claim that it was made by proving is free; her accounts lose it. It
+  gives `{:unlinked P}` whenever, after it, the account is no account of
+  `P`: an account that has no link too. An account of another person is
+  `:another-persons`. It ends no sign-in and no session, which are the
+  person's: a person whose last account is unlinked keeps what she has
+  until it ends, and cannot enter again until an invitation names her. In
+  the broken copy `:unlink-keeps-the-claim`, the claim stays used; in
+  `:unlink-of-another`, the account of another person is unlinked too."
+  [state {:keys [account person]} broken]
+  (let [link (get-in state [:links account])]
+    (cond
+      (nil? link) [state {:unlinked person}]
+      (and (not= person (:person link)) (not= broken :unlink-of-another)) (refuse state :another-persons)
+      :else [(cond-> (update state :links dissoc account)
+               (not= broken :unlink-keeps-the-claim) (update :claims dissoc (:claim link)))
+             {:unlinked person}])))
 
 (defn- entered
   "What an enter of an account that is linked to the person `P` gives: her
@@ -472,22 +539,27 @@
   with it, with the own lane and the `:making` that were fixed, and
   `:own-lane-made?` as it stands. One that has none takes the person of
   the claim that it proves, the code's when `:code-hash` names an
-  invitation that waits, else the email's: the link is written, the claim
-  is used up, and the person becomes an actor, her own root, with the
-  offered own lane and `:making` fixed. One that proves no claim is
-  `:not-invited`, and nothing of it is kept. The link keeps the `:says` of
-  the enter with the latest `:at`, with that `:at`: an enter whose `:at`
-  is not later leaves it. Nothing remembers what an enter gave (Sid's call
-  of 22 November). The broken copy `:enter-repeats-what-it-gave` keeps
-  that memory, under `:decided`, as the reading that the call set aside
-  did."
-  [state {:keys [account says email code-hash own-lane making at] :as input} broken]
+  invitation that waits and is not over at the enter's `:at`, else the
+  email's (`:email-hash`): the link is written, with the claim that it was
+  made by proving and its `:at`, and the invitation is used. A person who
+  has not entered becomes an actor, her own root, with the offered own lane
+  and `:making` fixed, and who invited her by that claim; one who has
+  entered is left as she is, and the account becomes one more of hers. One
+  that proves no claim is `:not-invited`, and nothing of it is kept. The
+  link keeps the `:says` of the enter with the latest `:at`, with that
+  `:at`: an enter whose `:at` is not later leaves it. Nothing remembers
+  what an enter gave (Sid's call of 22 November). The broken copy
+  `:enter-repeats-what-it-gave` keeps that memory, under `:decided`, as the
+  reading that the call set aside did; `:one-account-a-person` refuses an
+  account that proves an invitation of a person who has entered."
+  [state {:keys [account says email-hash code-hash own-lane making at] :as input} broken]
   (let [link (get-in state [:links account])
-        waits (fn [claim]
-                (when-let [P (get-in state [:claims claim])]
-                  (when-not (entered? state P) P)))
+        waits (fn [claim] (when (waits? (get-in state [:claims claim]) at broken) claim))
         proven (or (when code-hash (waits {:by :code :hash code-hash}))
-                   (when email (waits {:by :email :email email})))
+                   (when email-hash (waits {:by :email :hash email-hash})))
+        invitation (get-in state [:claims proven])
+        P (:person invitation)
+        proven (when-not (and proven (= broken :one-account-a-person) (entered? state P)) proven)
         remembering? (= broken :enter-repeats-what-it-gave)]
     (cond
       (and link (not (and proven (= broken :link-moves))))
@@ -498,12 +570,15 @@
                        (entered state' (:person link)))]
         [(cond-> state' remembering? (assoc-in [:decided account input] result)) result])
       proven
-      (let [state' (-> state
-                       (assoc-in [:links account] {:person proven :says says :said-at at})
-                       (update-in [:persons proven] assoc :account account :own-lane own-lane
-                                  :making making :own-lane-made? false :entered-at at)
-                       (update-in [:roots proven] #(or % empty-root)))
-            result (entered state' proven)]
+      (let [state' (cond-> (-> state
+                               (assoc-in [:links account] {:person P :says says :said-at at :claim proven :linked-at at})
+                               (assoc-in [:claims proven :used?] true))
+                     (not (entered? state P))
+                     (-> (assoc-in [:persons P] {:invited-by (:invited-by invitation) :invited-at (:invited-at invitation)
+                                                 :own-lane own-lane :making making :own-lane-made? false
+                                                 :entered-at at})
+                         (assoc-in [:roots P] empty-root)))
+            result (entered state' P)]
         [(cond-> state' remembering? (assoc-in [:decided account input] result)) result])
       :else (refuse state :not-invited))))
 
@@ -845,6 +920,8 @@
   "Each write's keyword, with the function that judges it."
   {:invite write-invite
    :enter write-enter
+   :take-back write-take-back
+   :unlink write-unlink
    :own-lane-made write-own-lane-made
    :begin-sign-in write-begin-sign-in
    :replace-secret write-replace-secret
@@ -858,21 +935,37 @@
 
 (def names-a-root
   "The writes that name a `:root`, and so thin what is watched under it.
-  `invite`, `enter`, `own-lane-made` and `ask` name none."
+  `invite`, `enter`, `take-back`, `unlink`, `own-lane-made` and `ask` name
+  none."
   #{:begin-sign-in :replace-secret :end-sign-in :make-actor :end-actor
     :open-session :close-session :answer-ask})
 
 (def breaks
   "The broken copies of the rules. Each key, given to `step`, breaks one
-  rule, and its value says how. The last eight take, each, a reading that
-  Sid's calls of 22 November set aside or let stand against another; a
-  module built on that reading is one of them."
+  rule, and its value says how. Eight take, each, a reading that Sid's
+  calls of 22 November set aside or let stand against another, and two the
+  rules that his yes of 28 November turned (`:person-has-one-claim`,
+  `:one-account-a-person`); a module built on that reading is one of them."
   {:link-moves
    "an enter of an account that has a link, which proves another invitation that waits, moves the link to that invitation's person"
    :used-claim-names-another
-   "a claim that an account has used up is bound to another person by a new invite"
-   :second-claim-taken
-   "a person who has a claim is invited under another, which takes the place of the first"
+   "a claim that an account has used is bound to another person by a new invite"
+   :person-has-one-claim
+   "a person whom one claim names is refused with :person-in-use under another"
+   :one-account-a-person
+   "an account that proves an invitation of a person who has entered is not let in"
+   :over-invitation-lets-in
+   "an enter proves an invitation whose :ends is at or before the enter's :at"
+   :over-invitation-stands
+   "an invitation that is over keeps its claim, so an invite under the claim is :claim-in-use"
+   :take-back-of-another
+   "take-back removes the invitation that waits under the claim, whoever it names"
+   :taken-back-keeps-the-claim
+   "take-back gives {:taken-back P} and leaves the invitation waiting"
+   :unlink-keeps-the-claim
+   "unlink removes the link and leaves the claim that it was made by used, so that the address names nobody else"
+   :unlink-of-another
+   "unlink removes the link of an account that is another person's"
    :refusal-takes-nothing-out
    "a write that is refused thins nothing of what is watched"
    :edge-is-after-the-end
@@ -919,8 +1012,6 @@
    "a part that the contract names may be left out, and reads as nil, and a part that it does not name is dropped"
    :provider-and-lane-unchecked
    "a provider's name of more than 256 characters, and an :own-lane that is no UUID, fit"
-   :capital-email-fits
-   "an email with a capital letter fits, and is compared as given"
    :no-takes-any-parts
    "the parts of a no that it does not judge may be anything"
    :enter-repeats-what-it-gave
@@ -996,6 +1087,37 @@
     (when-let [k (get-in state [:asks code])]
       {:hash (:hash k) :asking-hash (:asking-hash k) :asks (:asks k) :ends (:ends k) :state (:state k)
        :answer (:answer k)})))
+
+(defn- invitation-of-in
+  "invitation-of of a state: the invitation that stands under the claim,
+  `{:person :invited-by :ends :state}` with `:state` `:waiting`, or `:used`
+  from the enter that linked an account by it until that link is removed;
+  or nil when none stands, as after a take-back or an unlink. It judges no
+  time: an invitation that is over says `:waiting`, and the caller holds
+  `:ends` against its clock."
+  [state claim]
+  (if-not (try (claim? claim) (catch Throwable _ false))
+    {:could-not :read-the-event}
+    (when-let [c (get-in state [:claims claim])]
+      {:person (:person c) :invited-by (:invited-by c) :ends (:ends c) :state (if (:used? c) :used :waiting)})))
+
+(defn account-order
+  "The order of a person's accounts in `accounts-of`: by the `:at` of the
+  enter that linked each, then by the provider's name, its namespace
+  counted, then by the subject (QUESTIONS.md, 37)."
+  [{[provider subject] :account linked-at :linked-at}]
+  [linked-at (subs (str provider) 1) subject])
+
+(defn- accounts-of-in
+  "accounts-of of a state: the accounts that are linked to the person `P`,
+  each with the `:at` of the enter that linked it, in `account-order`."
+  [state P]
+  (if-not (id? P)
+    {:could-not :read-the-event}
+    {:accounts (->> (:links state)
+                    (keep (fn [[account l]] (when (= P (:person l)) {:account account :linked-at (:linked-at l)})))
+                    (sort-by account-order)
+                    vec)}))
 
 (defn- watched-sign-ins
   "The sign-ins of the root `P` that are watched. Gives `[id record]` pairs
@@ -1179,15 +1301,26 @@
   nil)
 
 (defn invite
-  "invite through the client: `{:person P :claim C :invited-by B :at t}`."
+  "invite through the client: `{:person P :claim C :invited-by B :ends t1
+  :at t}`."
   [client input]
   (write! client :invite input))
 
 (defn enter
-  "enter through the client: `{:account :says :email :code-hash :own-lane
-  :making :at}`."
+  "enter through the client: `{:account :says :email-hash :code-hash
+  :own-lane :making :at}`."
   [client input]
   (write! client :enter input))
+
+(defn take-back
+  "take-back through the client: `{:person P :claim C :at t}`."
+  [client input]
+  (write! client :take-back input))
+
+(defn unlink
+  "unlink through the client: `{:account [provider subject] :person P :at t}`."
+  [client input]
+  (write! client :unlink input))
 
 (defn own-lane-made
   "own-lane-made through the client: `{:person P :at t}`."
@@ -1269,6 +1402,19 @@
   `who-is` says."
   [client-or-state P]
   (read-with client-or-state #(under-in % P)))
+
+(defn invitation-of
+  "Takes a client or a state, and a claim. Gives `{:person :invited-by :ends
+  :state}`, where `:state` is `:waiting` or `:used`; or nil when no
+  invitation stands under the claim. It judges no time."
+  [client-or-state claim]
+  (read-with client-or-state #(invitation-of-in % claim)))
+
+(defn accounts-of
+  "Takes a client or a state, and a person. Gives `{:accounts [{:account
+  [provider subject] :linked-at t} ...]}`, her accounts in `account-order`."
+  [client-or-state P]
+  (read-with client-or-state #(accounts-of-in % P)))
 
 (defn live-under
   "Takes a client or a state, and a root. Gives what is watched under the

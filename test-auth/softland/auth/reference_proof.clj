@@ -92,7 +92,13 @@
 (def ^:private asha-google [:google "108200000000000000001"])
 (def ^:private bo-google [:google "208300000000000000002"])
 (def ^:private asha-code {:by :code :hash (h 1)})
-(def ^:private bo-email {:by :email :email "bo@example.org"})
+(def ^:private bo-email
+  "The claim of Bo's email: Auth is given its hash, never the address."
+  {:by :email :hash (h 2)})
+(def ^:private asha-email
+  "The claim of the email of Asha's second account."
+  {:by :email :hash (h 3)})
+(def ^:private asha-github [:github "asha-k"])
 (def ^:private code-1 "ABCD2345")
 
 (def ^:private auth-name
@@ -113,11 +119,14 @@
 
 (def ^:private defaults
   "One call of each write, as Asha's first day would make it: invited at
-  100, in at 110, signed in at 130 until 100000, a session at 140 until
-  50000, an agent at 130, an ask at 130 that ends at 1000."
-  {:invite {:person asha :claim asha-code :invited-by :system :at 100}
-   :enter {:account asha-google :says {"name" "Asha"} :email nil :code-hash (h 1)
+  100 until 100000000, in at 110, signed in at 130 until 100000, a session
+  at 140 until 50000, an agent at 130, an ask at 130 that ends at 1000; her
+  invitation taken back at 105, and her account unlinked at 160."
+  {:invite {:person asha :claim asha-code :invited-by :system :ends 100000000 :at 100}
+   :enter {:account asha-google :says {"name" "Asha"} :email-hash nil :code-hash (h 1)
            :own-lane lane-1 :making making-1 :at 110}
+   :take-back {:person asha :claim asha-code :at 105}
+   :unlink {:account asha-google :person asha :at 160}
    :own-lane-made {:person asha :at 120}
    :begin-sign-in {:root asha :actor asha :sign-in sign-in-1 :kind :browser :hash (h 101)
                    :until 100000 :label nil :at 130}
@@ -178,7 +187,7 @@
 (def ^:private asha-in [(c :invite) (c :enter)])
 (def ^:private bo-in
   [(c :invite :person bo :claim bo-email :at 101)
-   (c :enter :account bo-google :email "bo@example.org" :code-hash nil :own-lane lane-2
+   (c :enter :account bo-google :email-hash (h 2) :code-hash nil :own-lane lane-2
       :making making-2 :at 111)])
 (def ^:private signed-in (conj asha-in (c :begin-sign-in)))
 (def ^:private sitting (conj signed-in (c :open-session)))
@@ -188,14 +197,19 @@
 ;; ------------------------------------------------- the rules for every call
 
 (def ^:private write-fns
-  "The twelve writes of the client, in the order of the contract."
-  [r/invite r/enter r/own-lane-made r/begin-sign-in r/replace-secret r/end-sign-in r/make-actor
-   r/end-actor r/open-session r/close-session r/ask r/answer-ask])
+  "The fourteen writes of the client, in the order of the contract."
+  [r/invite r/enter r/take-back r/unlink r/own-lane-made r/begin-sign-in r/replace-secret r/end-sign-in
+   r/make-actor r/end-actor r/open-session r/close-session r/ask r/answer-ask])
+
+(def ^:private read-fns
+  "The reads of the client that take a client or a state, and one argument."
+  [r/who-is r/ask-of r/under r/invitation-of r/accounts-of r/live-under])
 
 (def ^:private contract-names
-  "The eighteen functions of the contract."
-  '[open close! invite enter own-lane-made begin-sign-in replace-secret end-sign-in make-actor
-    end-actor open-session close-session ask answer-ask who-is ask-of under watch-root])
+  "The twenty-two functions of the contract."
+  '[open close! invite enter take-back unlink own-lane-made begin-sign-in replace-secret end-sign-in
+    make-actor end-actor open-session close-session ask answer-ask who-is ask-of under invitation-of
+    accounts-of watch-root])
 
 (defn- rules-checks
   "The checks of \"Rules for every call\" and of the forms."
@@ -207,8 +221,8 @@
         outcomes (concat
                   (for [f write-fns v odd] (could-not? (f cl v)))
                   (for [f write-fns v odd] (could-not? (f v (second (c :invite)))))
-                  (for [f [r/who-is r/ask-of r/under r/live-under] v odd] (could-not? (f cl v)))
-                  (for [f [r/who-is r/ask-of r/under r/live-under] v odd] (could-not? (f v asha)))
+                  (for [f read-fns v odd] (could-not? (f cl v)))
+                  (for [f read-fns v odd] (could-not? (f v asha)))
                   (for [v odd] (could-not? (r/watch-root cl v v)))
                   (for [v odd] (could-not? (r/watch-root v asha (fn [_] nil))))
                   (for [v odd] (= {:could-not :find-the-module} (r/open v auth-name)))
@@ -216,7 +230,7 @@
                   (for [v odd] (nil? (r/close! v)))
                   (for [v odd] (= unfit (second (r/step r/empty-state v))))
                   (for [v odd] (= unfit (second (r/step r/empty-state [:invite v])))))]
-    (check "No call throws for what a caller gives: each of the eighteen functions, given things of no form (an infinite sequence and a map whose order throws among them), gives a map that holds :could-not, close! gives nil, and step gives :read-the-event."
+    (check "No call throws for what a caller gives: each of the twenty-two functions, given things of no form (an infinite sequence and a map whose order throws among them), gives a map that holds :could-not, close! gives nil, and step gives :read-the-event."
            (every? true? outcomes)))
 
   (check "Auth checks an id only within its root: an id of a sign-in, an agent and a session that another root holds is taken under this one."
@@ -228,6 +242,8 @@
 
   (let [cases [[[] (c :invite)]
                [asha-waits (c :enter)]
+               [asha-waits (c :take-back)]
+               [asha-in (c :unlink)]
                [asha-in (c :own-lane-made)]
                [asha-in (c :begin-sign-in)]
                [signed-in (c :replace-secret)]
@@ -245,13 +261,14 @@
                                  (= (:state once) (:state twice))
                                  (= (:last once) (:last twice)))))
                         cases)]
-    (check "A write that arrives twice leaves the same state as once, and the second call gives the result of the first: so for each of the twelve writes."
-           (and (= 12 (count cases)) (empty? failing)) (map (comp first second) failing)))
+    (check "A write that arrives twice leaves the same state as once, and the second call gives the result of the first: so for each of the fourteen writes."
+           (and (= 14 (count cases)) (empty? failing)) (map (comp first second) failing)))
 
-  (let [{:keys [state last]} (run [(c :invite) (c :invite :invited-by agent-1 :at 999)])]
-    (check "Two invites are the same write when the person and the claim are: a repeat with another :invited-by and :at gives {:invited P} and keeps the first ones."
+  (let [{:keys [state last]} (run [(c :invite) (c :invite :invited-by agent-1 :ends 5000 :at 999)])]
+    (check "Two invites are the same write when the person and the claim are: a repeat with another :invited-by, :ends and :at, while the invitation waits and is not over, gives {:invited P} and keeps the first ones."
            (and (= {:invited asha} last)
-                (= [:system 100] [(get-in state [:persons asha :invited-by]) (get-in state [:persons asha :invited-at])]))))
+                (= {:person asha :invited-by :system :ends 100000000 :state :waiting} (r/invitation-of state asha-code))
+                (= 100 (get-in state [:claims asha-code :invited-at])))))
 
   (check "Two begin-sign-ins are the same write when the root, the actor, the kind and the hash are: a repeat with another :until, :label and :at gives {:begun G} and changes nothing."
          (unchanged? signed-in (c :begin-sign-in :until 7 :label "another" :at 135) {:begun sign-in-1}))
@@ -348,10 +365,10 @@
 
   (let [lone (str (char 0xD800))
         lone-low (str (char 0xDC00))]
-    (check "A string that UTF-8 cannot carry, one that holds a surrogate character without its pair, does not fit wherever the contract takes a string (QUESTIONS.md, 29: the build's default of 23 November, for Sid to turn): a subject, a provider's name, an email, a key and a value of :says, a label, an ask's :asks and code, and a :model; a pair that stands together fits."
+    (check "A string that UTF-8 cannot carry, one that holds a surrogate character without its pair, does not fit wherever the contract takes a string (QUESTIONS.md, 29: the build's default of 23 November, for Sid to turn): a subject, a provider's name, a key and a value of :says, a label, an ask's :asks and code, and a :model; a pair that stands together fits."
            (and (every? #(= unfit (last-of (conj asha-waits (c :enter %))))
                         [{:account [:google (str lone "x")]} {:account [:google (str "x" lone-low)]}
-                         {:account [(keyword (str "goo" lone)) "1"]} {:email (str "asha" lone "@example.com")}
+                         {:account [(keyword (str "goo" lone)) "1"]}
                          {:says {"name" (str "A" lone)}} {:says {(str lone-low "k") "v"}}])
                 (every? #(= unfit (last-of (conj signed-in %)))
                         [(c :open-session :driven-by {:kind :model :model (str "m" lone)})])
@@ -368,29 +385,37 @@
            (and (= unfit got) (= before after) (= 1 (count (:sessions (r/live-under after asha)))))))
 
   (let [state (:state (run sitting))]
-    (check "A read whose input does not fit gives {:could-not :read-the-event}: who-is with a part left out, one part more or a root that is no UUID; ask-of with a code of 7 characters; under and live-under of a text."
+    (check "A read whose input does not fit gives {:could-not :read-the-event}: who-is with a part left out, one part more or a root that is no UUID; ask-of with a code of 7 characters; under, accounts-of and live-under of a text; invitation-of of a claim that holds an address, or a part more."
            (every? #(= unfit %)
                    [(r/who-is state {:root asha :sign-in sign-in-1})
                     (r/who-is state {:root asha :sign-in sign-in-1 :session nil :more 1})
                     (r/who-is state {:root (str asha) :sign-in sign-in-1 :session nil})
-                    (r/ask-of state "ABCD234") (r/under state (str asha)) (r/live-under state (str asha))])))
+                    (r/ask-of state "ABCD234") (r/under state (str asha)) (r/live-under state (str asha))
+                    (r/accounts-of state (str asha)) (r/invitation-of state {:by :email :email "bo@example.org"})
+                    (r/invitation-of state (assoc asha-code :more 1))])))
 
-  (check "Every part that the contract names must be there, an -or-nil one as nil, and no other part may be (Sid's call of 22 November): an enter without :email or :code-hash, a begin-sign-in without :label, an answer without :new-agent and an invite with one part more do not fit; :driven-by alone may be left out."
+  (check "Every part that the contract names must be there, an -or-nil one as nil, and no other part may be (Sid's call of 22 November): an enter without :email-hash or :code-hash, an invite without :ends, a begin-sign-in without :label, an answer without :new-agent and an invite with one part more do not fit; :driven-by alone may be left out."
          (and (every? #(= unfit (last-of (conj asked %)))
-                      [(without :enter :email) (without :enter :code-hash) (without :begin-sign-in :label)
-                       (without :answer-ask :new-agent) (c :invite :more 1) (c :open-session :at 140 :more 1)])
+                      [(without :enter :email-hash) (without :enter :code-hash) (without :invite :ends)
+                       (without :begin-sign-in :label) (without :answer-ask :new-agent) (c :invite :more 1)
+                       (c :open-session :at 140 :more 1) (without :unlink :person) (without :take-back :claim)])
               (= {:open session-1} (last-of (conj signed-in (without :open-session :driven-by))))))
 
-  (check "Two emails are the same when their texts are the same: an enter whose email is another text than the invitation's, by one character, does not prove it."
-         (and (= bo (:person (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email "bo@example.org")))))
-              (every? #(= {:refused :not-invited}
-                          (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email %))))
-                      ["bo@example.or" "b0@example.org" "bo@example.org."])))
+  (check "Two claims are the same when their kind and their hash are: an enter whose :email-hash is another hash than the invitation's does not prove it, and an email's hash given as :code-hash does not prove the email's claim, nor a code's given as :email-hash the code's."
+         (and (= bo (:person (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email-hash (h 2))))))
+              (every? #(= {:refused :not-invited} (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email-hash %))))
+                      [(h 4) (h 20)])
+              (= {:refused :not-invited} (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash (h 2) :email-hash nil))))
+              (= {:refused :not-invited} (last-of [(c :invite) (c :enter :code-hash nil :email-hash (h 1))]))))
 
-  (check "The runtime gives every email in lower case, and Auth holds that as form (QUESTIONS.md, 3, which Sid's call of 22 November let stand): an email with a capital letter does not fit, in a claim or in an enter, also an enter of an account that has a link."
-         (and (= unfit (last-of [(c :invite :claim {:by :email :email "Bo@example.org"})]))
-              (= unfit (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email "Bo@example.org"))))
-              (= unfit (last-of (conj asha-in (c :enter :email "Asha@example.org" :at 120))))))
+  (check "Auth only matches an email and never reads one, so it is given a hash (QUESTIONS.md, 3, as turned on 28 November): a claim that holds an address, and an enter that holds one in any part, do not fit; a hash in capitals does not fit either."
+         (and (= unfit (last-of [(c :invite :claim {:by :email :email "bo@example.org"})]))
+              (= unfit (last-of [(c :invite :claim {:by :email :hash "bo@example.org"})]))
+              (= unfit (last-of [(c :invite :claim {:by :email :hash (str/upper-case (h 2))})]))
+              (= unfit (last-of (conj (vec (take 1 bo-in)) (c :enter :account bo-google :code-hash nil :email-hash "bo@example.org"))))
+              (= unfit (last-of (conj (vec (take 1 bo-in)) (assoc-in (c :enter :account bo-google :code-hash nil :email-hash (h 2))
+                                                                     [1 :email] "bo@example.org"))))
+              (= unfit (last-of [(c :take-back :claim {:by :email :email "bo@example.org"})]))))
 
   (let [cl (r/cluster auth-name "Another")
         a (r/open cl auth-name)
