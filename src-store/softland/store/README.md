@@ -549,7 +549,9 @@ The act (6 October): the twelve decisions of "Decisions of 6 October 2026".
 them again. Decision 3 stands in its first half: the act holds plain values. Its other
 half, that the door seals and a gate refuses an unsealed value, is set aside by
 entry 2 of 12 October.
-Decision 5 is the act-id, `[lane depot uuid]`.
+Decision 5 is the act-id. It was `[lane depot uuid]` until entry 3 of 28 November
+2026 took the depot word out of it: it is `[lane uuid]` (`:act-id` in
+[act.clj](act.clj)).
 
 The store's module (7 October):
 
@@ -582,7 +584,7 @@ The door's four questions (9 October):
 | ?4 A | A person's id is a UUID that says nothing; her sign-in accounts are joined to it by links | Nowhere yet: no code makes a person. An id can be a UUID in [act.clj](act.clj) |
 | H1 A | One lock seals one value | Nowhere: entry 2 of 12 October sets it aside, and [the store source entry](../../README.md) says where the code of the locks is |
 | K3 A | The system can hold many lanes | The form of a making act in [first_act.clj](gate/first_act.clj): `system` can be the first holder of any lane |
-| K4 B | The store's own keys carry the namespace `softland.store`, and the word for a lane's kind is "depot". A gate refuses a key in that namespace that the store does not know | `store-namespace`, `store-keys` and the rule `:store-key-is-known` in [declaration.clj](door/declaration.clj); the part `:depot` of what arrives, and "depot" in each name of this tree |
+| K4 B | The store's own keys carry the namespace `softland.store`, and the word for a lane's kind is "depot". A gate refuses a key in that namespace that the store does not know | `store-namespace`, `store-keys` and the rule `:store-key-is-known` in [declaration.clj](door/declaration.clj); the store key `:softland.store/depot`, and "depot" in each name of this tree. Since 28 November 2026 no part of what arrives is named `:depot` |
 
 Reading back out (11 and 12 October), the entries that the gates carry, and the
 entries that the read path carries. [The read path's own page](read_path/README.md)
@@ -604,9 +606,9 @@ Before real data is kept (12 October), the entries that show in code:
 | Entry | Decision | Where it shows |
 |---|---|---|
 | 1 | Every table can be made again from the logs | By a second run of the gates over the two logs of acts. `add-gates-and-reads` in [module.clj](module.clj) adds the gates and the reads to any module that has the two depots, or mirrors of them, under their names; such a module decides every thing again from the beginning of each depot, into tables of its own. Rule 19 says what that rests on. The box that a session had put under this entry, a log of what a gate decided and a rebuild that applies it, is set aside by decision 5 of 13 October: the module holds neither |
-| 2 | Every value is plain in the log, and the store keeps no locks | [door.clj](door.clj) appends the maker's act with `:act-id`, `:depot` and `:door-time` added, and nothing else changed. In [declaration.clj](door/declaration.clj) what arrives as a fact is the maker's fact, and a part that the shape does not name is refused `:unknown-part`. No PState and no query of the module holds a lock |
+| 2 | Every value is plain in the log, and the store keeps no locks | [door.clj](door.clj) appends the maker's act with `:act-id` and `:door-time` added, and nothing else changed. In [declaration.clj](door/declaration.clj) what arrives as a fact is the maker's fact, and a part that the shape does not name is refused `:unknown-part`. No PState and no query of the module holds a lock |
 | 6, its fourth | The limit of four on the depth of a permission is lifted, and a bound on the size of an act takes its place | `nesting` in [act.clj](act.clj) gives a permission the value's own number, 32. `max-act-bytes` in [declaration.clj](door/declaration.clj), held by the last step of the check with the word `:act-too-large`. "Engineering choices" says what each counts |
-| 7 | An act from a maker who may not act is written to the log, and then refused. The door checks nothing first | The door's three tests and no other, `reading` in [additions.clj](door/additions.clj): each is of what its three additions need. `standing` in [decision.clj](gate/decision.clj) refuses such an act under its own act-id, and no fact of it is in the tables |
+| 7 | An act from a maker who may not act is written to the log, and then refused. The door checks nothing first | The door's three tests and no other, `reading` in [additions.clj](door/additions.clj): each is of what its two additions need. `standing` in [decision.clj](gate/decision.clj) refuses such an act under its own act-id, and no fact of it is in the tables |
 
 So that the store comes out the same when it is run again (13 October). Sid sent
 eight decisions that day, and the numbers here are those of his list.
@@ -618,7 +620,7 @@ changed on 14 October, below.
 
 | Decision | What Sid sent | What it shapes here |
 |---|---|---|
-| 1 | "The clock comes before the depot. The door writes the time on the act. No gate reads a clock." | The door adds `:door-time` to a maker's thing, beside `:act-id` and `:depot` ([door.clj](door.clj)). The walk takes the time from the thing (`time-on` in [decision.clj](gate/decision.clj)) and writes it as a label; since 14 October no stamp holds it. The digest leaves the time out ([digest.clj](door/digest.clj)). No code of the module reads a clock |
+| 1 | "The clock comes before the depot. The door writes the time on the act. No gate reads a clock." | The door adds `:door-time` to a maker's thing, beside `:act-id` ([door.clj](door.clj)). The walk takes the time from the thing (`time-on` in [decision.clj](gate/decision.clj)) and writes it as a label; since 14 October no stamp holds it. The digest leaves the time out ([digest.clj](door/digest.clj)). No code of the module reads a clock |
 | 2 | "There is local ordering: the order Rama gives inside one partition." | The one order that a decision rests on is the order of a lane's partition in its depot. The module makes no order between two partitions or between the two depots: no gate reads a table of the other gate, and a decision reads rows of the act's own lane only |
 | 3 | "Every act is placed by its layer key, the base too. A layer is one line." | [module.clj](module.clj) declares both depots with the hash of the thing's `:lane`. The routing id of an act-id is its lane, for both depots (`routing-id` in [rows.clj](record/rows.clj)), and both reads of the door go to the lane's task ([door_reads.clj](module/door_reads.clj)) |
 | 4 | "The base's rows: a copy on every task. One task decides, in the line's order." | [microbatch_gate.clj](module/microbatch_gate.clj): for each thing of the partition, in the depot's order, the walk on the lane's task, and then the copy of an accept's rows of facts, and of facts by value, to every other task. That the answers and the lane's last stamp stay on the lane's task alone is the builder's, under "Engineering choices" |
@@ -965,8 +967,8 @@ above). The rest is a session's, each for Sid to review:
   label, like an accepted act's. A thing with none has an answer with no
   `:time`.
 - Where the time stands in the order of the reasons. A part that the form does
-  not know, and a `:depot` that is no depot word, are told before a missing
-  time; each of the maker's own parts after it. It follows from where the part
+  not know is told before a missing time; each of the maker's own parts after
+  it. It follows from where the part
   stands in the shape ([declaration.clj](door/declaration.clj)).
 - Two strays that differ only in the time are one stray. It follows from the
   digest, which leaves the time out for every thing alike.
@@ -1084,7 +1086,7 @@ nowhere.
 **The placing of the checks that the contract does not place.** The making and
 the counting of the values' texts is the last step of the declaration's check:
 it is the most costly. The time on the act is a part of the shape of what
-arrives, checked behind `:depot` and before each of the maker's own parts. What
+arrives, checked behind `:act-id` and before each of the maker's own parts. What
 a store key does not take comes after check (g). A
 check that examines facts takes them in the act's order.
 
@@ -1217,7 +1219,7 @@ check that examines facts takes them in the act's order.
 ## Words a session made, Sid's to change
 
 Each says what the thing is. None comes from the rig's code. Carried from the
-contract and the decisions, not made here: `:act-id`, `:depot`,
+contract and the decisions, not made here: `:act-id`,
 the two store keys of 8 October, `:system`, `:base`,
 `:streaming`, `:microbatch`, `:accepted`, `:refused`; "stray", "place", "holder",
 "making act". "Act-id" is Sid's to change, and each word below that holds it
@@ -1306,7 +1308,7 @@ is one line" and "run again" are Sid's words, of 13 October. "Batch" and
 
 | Word | What it is |
 |---|---|
-| the time on the act; `:door-time` | The part that the door adds to a maker's thing beside `:act-id` and `:depot`: the clock of the server that runs the door, in milliseconds since 1970. `:door-time` is a working name, kept for now and not decided |
+| the time on the act; `:door-time` | The part that the door adds to a maker's thing beside `:act-id`: the clock of the server that runs the door, in milliseconds since 1970. `:door-time` is a working name, kept for now and not decided |
 | `time-part` | In [declaration.clj](door/declaration.clj): the one def that holds the name of that part |
 | `usable-time` | In [declaration.clj](door/declaration.clj): a thing as it arrived → its time when the shape takes it, or nil |
 | `:no-door-time` | The reason word of a thing whose time is absent, no fixed-width integer, or below zero; in the list of the declaration's reason words, below |
@@ -1322,7 +1324,7 @@ is one line" and "run again" are Sid's words, of 13 October. "Batch" and
 | run again | A second run of the gates over the two depots from their beginning, by a second module, into tables of its own |
 | out of its line | Said of an act whose decision is not in the order of its lane's partition; "The order of a lane's acts after a failure" gives the rule |
 | routing id | The first argument of `answer-by-act-id`: the lane of the act-id, for both depots. `routing-id` in [rows.clj](record/rows.clj) |
-| `server-clock`, `parts-added`, `without-the-time` | Private names of the door's code, in [door.clj](door.clj), [additions.clj](door/additions.clj) and [digest.clj](door/digest.clj): the read of the server's clock, the three parts that the door adds, and a thing with its time taken out for the digest |
+| `server-clock`, `parts-added`, `without-the-time` | Private names of the door's code, in [door.clj](door.clj), [additions.clj](door/additions.clj) and [digest.clj](door/digest.clj): the read of the server's clock, the two parts that the door adds, and a thing with its time taken out for the digest |
 
 **What Rama cannot change once real data is kept.** Read in Rama's docs and not
 run: Rama cannot change the name of a depot or of a PState, the keys of a
@@ -1400,16 +1402,14 @@ word.
 | Word | What it is |
 |---|---|
 | `:no-act-id` | The thing is no plain map, or holds no act-id |
-| `:act-id-malformed` | Its act-id is not `[lane depot uuid]` |
+| `:act-id-malformed` | Its act-id is not `[lane uuid]` |
 | `:id-too-long` | The lane slot of its act-id prints to more than 256 characters. The same word is a reason word of the declaration, for every other id |
-| `:act-id-of-the-other-gate` | The depot slot of its act-id is not the depot of the gate where it arrived |
 | `:act-id-of-another-lane` | The lane slot of its act-id is not its own `:lane` |
 
 **The reason words of the declaration**, beside `act.clj`'s seven.
 
 | Word | What it is |
 |---|---|
-| `:depot-not-the-act-ids-depot` | `:depot` is absent, is no depot word, or is not the depot slot of the act-id |
 | `:no-door-time` | The time on the act, under `:door-time`, is absent, nil, no fixed-width integer, below zero, or 2^45 milliseconds or more |
 | `:too-many-facts` | More than 256 facts in one act |
 | `:too-many-based-on` | More than 1,024 entries of `:based-on` |
@@ -1434,7 +1434,7 @@ word.
 
 **The names in the declaration.** Its shapes: `:arrived-act`,
 `:depot-word`, `:who-may-see-word`, `:who-may-read-acts-word`, `:lane-list`, `:key-set`.
-Its rules, each named for what must hold: `:depot-is-the-act-ids-depot`,
+Its rules, each named for what must hold:
 `:facts-within-the-limit`, `:based-on-within-the-limit`, `:store-key-is-known`,
 `:depot-fact-holds-a-depot-word`,
 `:permission-fact-holds-a-permission`, `:permission-fact-is-of-its-key`,

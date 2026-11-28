@@ -5,7 +5,7 @@
 
   A thing is an act as its maker makes it, with the act-id that she holds:
 
-    {:act-id [lane :streaming uuid]
+    {:act-id [lane uuid]
      :who :person.asha   :lane :lab   :session :sit-1
      :permission <the id of the give it acts under, or nil>
      :facts [{:e .. :k .. :v ..} ...]}
@@ -70,10 +70,10 @@
   71)
 
 (defn act-id-of
-  "The act-id of a step's thing: the lane, its depot, and the step's number
-  as the uuid; with `j`, the j-th act-id more of that step."
+  "The act-id of a step's thing: the lane, and the step's number as the
+  uuid; with `j`, the j-th act-id more of that step."
   ([n] (act-id-of n 0))
-  ([n j] [lane :streaming (UUID. (long j) (long n))]))
+  ([n j] [lane (UUID. (long j) (long n))]))
 
 (defn give-id-of
   "The id that a giver makes for the j-th give of the step with number n."
@@ -924,6 +924,6 @@
 (defn act-id-mark
   "An act-id as a short mark: its step's number, with the j-th more after a
   dot."
-  [[_ _ ^UUID u]]
+  [[_ ^UUID u]]
   (let [hi (.getMostSignificantBits u) lo (.getLeastSignificantBits u)]
     (if (zero? hi) (str "#" lo) (str "#" lo "." hi))))

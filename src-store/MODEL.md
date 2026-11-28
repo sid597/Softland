@@ -30,13 +30,13 @@ store, with one total order in each lane and overlay reads, built on Rama.
 | The store's word | What it is | An engineer would say |
 |---|---|---|
 | fact | One statement: entity, key, value. It may name an earlier fact that it replaces. A fact with no value is a retract: it says "nothing here". | EAV triple; tombstone |
-| key | What a fact says of its entity: a readable keyword. | attribute |
+| key | What a fact says of its entity: an id, a readable keyword or a UUID. | attribute |
 | place | One entity and one key. A lane holds one current fact at each place. | cell |
 | act | One or more facts that one maker sends into one lane, taken or refused whole. | atomic batch, transaction |
-| act-id | `[lane depot uuid]`. The door makes it on request, before the act is sent. | transaction id |
+| act-id | `[lane uuid]`. The door makes it on request, before the act is sent, with no read. It names no depot: the lane's own fact says which depot the lane is on. | transaction id |
 | fact id | `[act-id index]`: one fact of one act. | version id |
 | lane | A home for facts, with its own line of acts in one order. | namespace |
-| depot | Where a lane's acts arrive: `:streaming`, each act decided as it arrives, or `:microbatch`, acts decided in batches. The base is the one microbatch lane. | write mode; log |
+| depot | Where a lane's acts arrive: `:streaming`, each act decided as it arrives, or `:microbatch`, acts decided in batches. The base is the one microbatch lane. A lane's depot is written in a fact of its own, `[lane :softland.store/depot]`, by its making act. | write mode; log |
 | stack | The lanes that one read looks through, nearest first. | overlay view |
 | permission | The right to see a lane, or to see it and act in it: `[who lane granted-in]`, or a given one that holds the permission above it. A given one can say what it covers: one run, or one act; with nothing said it covers the lane. It can be ended, and what was given beneath it ends with it. | grant; capability; scope; revocation |
 | a yes | A permission for one act: on an id of its own, which its giver makes, for the act as its maker made it, and used up by the act that is taken under it. | one-time grant; approval |
@@ -60,8 +60,8 @@ a "lock".
 maker      a converter, the screen, an agent
   │ an act
   ▼
-door       adds the act-id, the lane's depot and the time of its server's clock;
-  │        checks nothing of the act
+door       reads the lane's depot; adds the act-id and the time of its server's
+  │        clock; checks nothing of the act
   ▼
 depot      the lane's line: each act as it arrived, taken or refused, never trimmed
   │

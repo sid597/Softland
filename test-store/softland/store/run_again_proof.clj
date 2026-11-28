@@ -879,15 +879,15 @@
     {:by-hand thing :by-door first-send}))
 
 (defn- chain-of-replaces
-  "Builds a chain and sends nothing. Takes a depot word, a lane, a maker,
-  her permission, an entity, a key and a count. Gives that many things as
+  "Builds a chain and sends nothing. Takes a lane, a maker, her
+  permission, an entity, a key and a count. Gives that many things as
   they arrive with no door and with no time. The first writes the place of
   the entity and the key. Each later one writes it again and names the fact
   of the one before as the fact that it replaces. A gate refuses a fact
   that names another than the current fact of its place: so each link is
   accepted only when the gate decides it after the one before it and before
   the one behind it."
-  [depot lane who permission entity k n]
+  [lane who permission entity k n]
   (loop [i 0
          before nil
          out []]
@@ -895,7 +895,7 @@
       out
       (let [fact (cond-> {:e entity :k k :v (str "link " i)}
                    before (assoc :replaces [(:act-id before) 0]))
-            thing (arrived depot lane who permission [fact])]
+            thing (arrived lane who permission [fact])]
         (recur (inc i) thing (conj out thing))))))
 
 (def ^:private chain-length "How many acts a chain of the hand holds, its last act counted." 12)
@@ -906,9 +906,9 @@
   retract of the chain's place that names the fact of the last link as the
   fact that it replaces. Takes what `chain-of-replaces` takes, but for the
   count."
-  [depot lane who permission entity k]
-  (let [links (chain-of-replaces depot lane who permission entity k (dec chain-length))]
-    (conj links (arrived depot lane who permission [{:e entity :k k :replaces [(:act-id (peek links)) 0]}]))))
+  [lane who permission entity k]
+  (let [links (chain-of-replaces lane who permission entity k (dec chain-length))]
+    (conj links (arrived lane who permission [{:e entity :k k :replaces [(:act-id (peek links)) 0]}]))))
 
 (defn- chains!
   "Sends two chains (`chain-with-its-end`) by the hand, each under a key
@@ -920,8 +920,8 @@
   must hold for the keys to be marked: `order-in-a-streaming-lane!` and
   `order-in-the-base!` were played."
   []
-  (let [in-alices (chain-with-its-end :streaming :alice (person :alice) alice-own :chain :text)
-        in-the-base (chain-with-its-end :microbatch :base (person :alice) alice-in-base :chain :kind)]
+  (let [in-alices (chain-with-its-end :alice (person :alice) alice-own :chain :text)
+        in-the-base (chain-with-its-end :base (person :alice) alice-in-base :chain :kind)]
     (run! (fn [thing] (by-hand! :streaming thing)) in-alices)
     (in-one-batch! in-the-base)
     {:streaming in-alices :microbatch in-the-base}))
@@ -1157,7 +1157,7 @@
                         (arrived-making room made-by holder))
                       rooms)
         chains (mapv (fn [{:keys [room holder] :as of-room}]
-                       (chain-of-replaces :streaming room holder (own of-room) :table :text rounds-in-a-room))
+                       (chain-of-replaces room holder (own of-room) :table :text rounds-in-a-room))
                      rooms)
         round-by-round (apply mapcat vector chains)]
     (run! (fn [thing] (by-hand! :streaming thing)) (concat makings round-by-round))

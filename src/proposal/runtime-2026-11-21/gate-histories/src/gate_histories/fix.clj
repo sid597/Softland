@@ -131,7 +131,7 @@
   answer under the thing's act-id, held against the digest that the door
   gave her when it sent the thing."
   [rec thing]
-  (let [[lane _ act-uuid] (:act-id thing)]
+  (let [[lane act-uuid] (:act-id thing)]
     (words/answer (record/answer-of (get (:answers rec) (record/answer-key lane act-uuid)))
                   (digest/readable-hex-of thing))))
 
@@ -232,7 +232,7 @@
    :start {:rec memory/empty-record}
    :send (fn [gs _ref named sent]
            (let [act-id (:act-id sent)
-                 [_ _ act-uuid] act-id
+                 [_ act-uuid] act-id
                  thing (through-the-door (said named sent) act-id)
                  answered? (some? (get (:answers (:rec gs)) (record/answer-key lane act-uuid)))]
              (if-let [word (when-not answered?
