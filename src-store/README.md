@@ -113,14 +113,21 @@ session read the photographs and wrote down a mark for each question
    one kind of fact. Its half on sealing was set aside on 12 October (entry 2
    of that day): the door seals nothing, and the store keeps no locks.
 4. **Parts: `:version` and `:session` required; `:because-of` and
-   `:claimed-when` optional.** Sid decided. The version is the edition of this
+   `:claimed-when` optional.** A session's default, Sid's to turn: no line of
+   his says it. It is a session's reading of his tick on the photographs
+   («3d4ee664»), over picks of a session's that he had been shown and that
+   said the opposite (`src/proposal/design-pitfalls-review-2026-11-26/run-5-pages-that-say-decided.md`, break 4). The version is the edition of this
    list of parts, and the code knows 1. `:because-of` is an act-id.
    `:claimed-when` is an integer, the maker's own clock, a claim. Expected
    versions are not a part: `:based-on` and `:replaces` carry them. On
    28 November 2026 `:claimed-when` left the act (entry 2 of that day).
-5. **The class and the act-id are not parts of the act.** Sid decided. The
+5. **The class and the act-id are not parts of the act.** A session's
+   default, Sid's to turn: a session's reading of the photographs, as for
+   entry 4. The
    door reads the layer and adds the class; an act that the store places
-   itself always carries the class. The door makes act-ids. An act-id is
+   itself always carries the class. The door makes act-ids: a session's
+   default, Sid's to turn; the picks that he had been shown said that the
+   maker makes the id (the same review, break 4). An act-id is
    `[layer class uuid]`: three slots, no scheme word, the last a random UUID.
    (That is the act-id of then. Since 28 November 2026 it is `[lane uuid]`,
    and no act-id names a depot: entry 3 of that day.)
@@ -986,7 +993,9 @@ everything is partitioned by the layer key."
    means the rule on the page and the fixture; the code still knows one
    version." A session proposed the rule to him that day, as the answer to
    what a second run does with an old act when a rule of a gate has changed
-   since, and he took it into his prompt as his decision. What comes with it,
+   since, and he took it into his prompt as his decision. A session's
+   default, Sid's to turn: no line of his says it (`src/proposal/design-pitfalls-review-2026-11-26/run-5-pages-that-say-decided.md`, its inventory of 13
+   October). What comes with it,
    a session's: a second run decides an act under the rules of the act's own
    version, so a fault in an old rule stays the answer of the acts that it
    answered; the correction is a new version, from then on.
