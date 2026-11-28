@@ -11,7 +11,8 @@
 
   Then it reads the source and holds what the trees' pages say of their
   boundaries: which files may reach the store's door, its read path and
-  Auth's client; that one place calls the door's `send-act`; that the
+  Auth's client; that one place calls the door's `send-act`, and one its
+  `send-acts`; that the
   system's acts are sent from one file; that the wire and the command line
   can open no cluster; and that nothing requires Electric, the rig, the
   server of 20 November, the old server or Inland.
@@ -25,14 +26,22 @@
   may end an agent, against a list of actors in which whose ending ends an
   agent is not who made it.
 
+  Then where a series of acts that the seam sends stops, and what each act
+  of it was told, while the proof stands in for Rama's two client calls
+  that the door makes after its opening (`series-run`): no cluster is
+  started.
+
   State. It changes nothing outside its own process."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
+            [com.rpl.rama :as rama]
             [missionary.core :as m]
             [softland.auth.client :as auth]
             [softland.runtime.google :as google]
             [softland.runtime.google-stand-in :as stand-in]
             [softland.runtime.seam :as seam]
+            [softland.store.door :as door]
+            [softland.store.door.digest :as digest]
             [softland.wire.credential :as credential]
             [softland.wire.proof :refer [check finish]]
             [softland.wire.words :as words])
@@ -122,9 +131,9 @@
            (= #{"door/open" "read-path/open"}
               (set (re-seq #"(?<![\w.-])(?:door|read-path)/[\w!?*-]+" main-code)))
            (set (re-seq #"(?<![\w.-])(?:door|read-path)/[\w!?*-]+" main-code)))
-    (check "The seam calls the door's send-act in one place: no act reaches a depot but through the one function behind which each sender's act has been held against its sender."
-           (= 1 (count (re-seq #"door/send-act" seam-code)))
-           (count (re-seq #"door/send-act" seam-code)))
+    (check "The seam calls the door's send-act in one place and its send-acts in one place: no act reaches a depot but through the two functions behind which each sender's act has been held against its sender, one act or a series."
+           (= {"door/send-act" 1 "door/send-acts" 1} (frequencies (re-seq #"door/send-acts?\b" seam-code)))
+           (frequencies (re-seq #"door/send-acts?\b" seam-code)))
     (check "Four files of the runtime require Auth's client: the program that opens it, the seam, the standing, and the file that writes what sign-in writes. No face requires it."
            (= (in "main" "seam" "sign_in" "standing") (holding runtime #"softland\.auth\.client"))
            (holding runtime #"softland\.auth\.client"))
@@ -208,6 +217,110 @@
            (= [2 2 2] (mapv named ["needs-a-who" "needs-a-session" "needs-the-person"]))
            (mapv named ["needs-a-who" "needs-a-session" "needs-the-person"]))))
 
+;; ------------------------------------------- a series, with Rama's client stood in for
+
+(defn- series-run
+  "Sends `acts`, each {:act :act-id}, through the seam's `send-all-now` on a
+  thread of its own, while the proof stands in for Rama's two client calls
+  that the door makes after its opening, and for nothing else: no cluster
+  is started. The read of a lane's depot gives nothing, so each lane is on
+  the depot that it starts with. An append notes the thing's digest, and
+  the read of an answer gives an accept under that digest, so a receipt's
+  answer is `:accepted`. As Rama's client does, each call throws when the
+  thread's interrupt mark is set, and clears it. `plan` may hold
+  `:throw-at`, the count of appends before the one that throws, and
+  `:interrupt-after`, the count of appends before the one after which the
+  mark is set. `interrupt-first?` sets the mark before the call. Gives
+  {:results :calls :mark}: the calls in their order, each [:depot-read
+  lane], [:append lane] or [:answer-read], and whether the mark was set
+  when the call returned."
+  [plan acts interrupt-first?]
+  (let [calls (atom [])
+        digests (atom {})
+        query (fn [_query & args]
+                (when (Thread/interrupted) (throw (InterruptedException. "the proof's query")))
+                (if (= 1 (count args))
+                  (do (swap! calls conj [:depot-read (first args)]) nil)
+                  (do (swap! calls conj [:answer-read])
+                      (when-let [hex (get @digests (second args))]
+                        {:verdict :accepted :reason nil :stamp 0 :time 1 :digest hex}))))
+        append (fn [_depot thing _ack]
+                 (let [n (count (filter #(= :append (first %)) @calls))]
+                   (swap! calls conj [:append (:lane thing)])
+                   (when (Thread/interrupted) (throw (InterruptedException. "the proof's append")))
+                   (when (= n (:throw-at plan)) (throw (RuntimeException. "the proof's append throws")))
+                   (swap! digests assoc (:act-id thing) (digest/readable-hex-of thing))
+                   (when (= n (:interrupt-after plan)) (.interrupt (Thread/currentThread)))
+                   nil))
+        a-door (#'door/->Door "the proof's module" :streaming-depot :microbatch-depot :answer-query :depot-query {:read-every-ms 1})
+        a-seam (#'seam/->Seam a-door nil nil nil {} nil nil nil)
+        caller (#'seam/->Caller :person.asha nil nil nil :sitting-1 nil nil nil nil nil nil)
+        out (promise)
+        thread (Thread. (fn []
+                          (when interrupt-first? (.interrupt (Thread/currentThread)))
+                          (deliver out (try (with-redefs [rama/foreign-invoke-query query
+                                                          rama/foreign-append! append]
+                                              [(#'seam/send-all-now a-seam caller {:acts acts :wait-ms 0})
+                                               (.isInterrupted (Thread/currentThread))])
+                                            (catch Throwable t [{:threw (str t)} nil])))))]
+    (.start thread)
+    (.join thread 60000)
+    (let [[sent mark] (deref out 0 [{:no-return true} nil])]
+      {:results (:results sent) :calls @calls :mark mark :sent sent})))
+
+(defn- told
+  "Each result of a series as the sentences compare it: a receipt and its
+  answer, or the word with what it carries that a sentence names."
+  [results]
+  (mapv (fn [r]
+          (if (:could-not r)
+            (cond-> [(:could-not r)]
+              (:why r) (conj (:why r))
+              (:appended r) (conj (:appended r)))
+            [:receipt (or (:could-not (:answer r)) (:answer (:answer r)))]))
+        results))
+
+(defn- appends [run] (count (filter #(= :append (first %)) (:calls run))))
+
+(defn- series-checks []
+  (let [act (fn [lane & {:as more}]
+              (merge {:version 1 :who :person.asha :session :sitting-1 :lane lane :facts [{:e :note :k :text :v 1}]} more))
+        sent (fn [a] {:act a :act-id (UUID/randomUUID)})
+        fault-at-two (series-run {} [(sent (act :lane-1)) (sent (act :lane-1 :who :person.ben)) (sent (act :lane-1))] false)
+        thrown-at-two (series-run {:throw-at 1} [(sent (act :lane-1)) (sent (act :lane-1)) (sent (act :lane-1 :who :person.ben))] false)
+        interrupted-first (series-run {} [(sent (act :lane-1)) (sent (act :lane-1))] true)
+        interrupted-after-one (series-run {:interrupt-after 0} [(sent (act :lane-1)) (sent (act :lane-1)) (sent (act :lane-1))] false)
+        no-uuid-at-two (series-run {} [(sent (act :lane-1)) {:act (act :lane-1) :act-id 7} (sent (act :lane-1))] false)
+        two-lanes (series-run {} [(sent (act :lane-1)) (sent (act :base)) (sent (act :lane-1)) (sent (act :base))] false)
+        none (series-run {} [] false)
+        kinds (fn [run] (mapv first (:calls run)))
+        last-append (fn [run] (.lastIndexOf ^java.util.List (kinds run) :append))
+        first-answer (fn [run] (.indexOf ^java.util.List (kinds run) :answer-read))]
+    (check "A series through the seam whose second act of three names another who than its sender: every act is held against its sender before the first is sent, so the first is sent and its receipt given with its answer, the second's word `:send-as-another` is the last result, and the third is not tried. One append."
+           (= [[[:receipt :accepted] [:send-as-another]] 1] [(told (:results fault-at-two)) (appends fault-at-two)])
+           (:sent fault-at-two))
+    (check "A series whose append throws at the second act, and whose third act names another who: a receipt, then the door's `:append-cleanly`, which does not know whether the depot holds the act, as the last result. The third act's fault is not told: the door's word ends the series. Two appends."
+           (= [[[:receipt :accepted] [:append-cleanly :not-known]] 2] [(told (:results thrown-at-two)) (appends thrown-at-two)])
+           (:sent thrown-at-two))
+    (check "A series sent on a thread whose interrupt mark is set before the call: one result, `:find-her-sign-in` with `:ended`, no call of Rama's client, and the mark still set."
+           (= [[[:find-her-sign-in :ended]] [] true] [(told (:results interrupted-first)) (:calls interrupted-first) (:mark interrupted-first)])
+           (:sent interrupted-first))
+    (check "A series of three whose thread is interrupted during the first append: the second act is handed to Rama's client, whose append throws, so its send ends `:append-cleanly`, not knowing whether the depot holds it, and the third is not tried; the first act's receipt comes back with `:read-the-answer` as its answer, since the read after the last send throws; the mark is set when the call returns."
+           (= [[[:receipt :read-the-answer] [:append-cleanly :not-known]] 2 true]
+              [(told (:results interrupted-after-one)) (appends interrupted-after-one) (:mark interrupted-after-one)])
+           (:sent interrupted-after-one))
+    (check "A series whose second act-id is no UUID: the first act is sent with its receipt, the second ends `:make-an-act-id` with nothing appended for it, and the third is not tried. One append."
+           (= [[[:receipt :accepted] [:make-an-act-id :nothing]] 1] [(told (:results no-uuid-at-two)) (appends no-uuid-at-two)])
+           (:sent no-uuid-at-two))
+    (check "A series of four acts in two lanes, a streaming lane and the base, taken in turn: four receipts with their answers, one read of each lane's depot for the whole series, four appends, and the four reads of the answers after the last append."
+           (= [(vec (repeat 4 [:receipt :accepted])) [[:depot-read :lane-1] [:depot-read :base]] 4 4 true]
+              [(told (:results two-lanes)) (filterv #(= :depot-read (first %)) (:calls two-lanes)) (appends two-lanes)
+               (count (filter #(= :answer-read (first %)) (:calls two-lanes))) (< (last-append two-lanes) (first-answer two-lanes))])
+           (:calls two-lanes))
+    (check "A series of no acts gives no result and calls nothing of Rama's client."
+           (= [[] []] [(:results none) (:calls none)])
+           (:sent none))))
+
 (defn- kept-program-sign-in-checks
   "Against a stand-in for the two calls of Auth that making a caller can
   make."
@@ -266,6 +379,7 @@
   (google-checks)
   (source-checks)
   (who-says-checks)
+  (series-checks)
   (kept-program-sign-in-checks)
   (email-checks)
   (who-ends-an-agent-checks)

@@ -59,9 +59,9 @@ the browser's tree, which reuses its start.
 
 ## Boundaries
 
-- **One function calls the door's `send-act`:** `send-now` of
-  [seam.clj](seam.clj). It writes the actor's who. No other code of the server
-  can put an act on a depot.
+- **One function calls the door's `send-act`, and one its `send-acts`:**
+  `send-now` and `send-all` of [seam.clj](seam.clj). Each writes the actor's
+  who. No other code of the server can put an act on a depot.
 - **The server opens no table of the store.** What it reads of the store, it
   reads through the read path. [sessions.clj](sessions.clj) is the one file
   that calls Rama's client, on the server's own module.

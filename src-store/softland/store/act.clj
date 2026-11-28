@@ -3,8 +3,8 @@
   `parse`, the check of that form. Pure code.
 
   The form is the maker's act: what a maker gives, with plain values, before
-  the door adds an act-id, a depot and a time. A gate accepts the whole act
-  or refuses the whole act.
+  the door adds an act-id and a time. A gate accepts the whole act or
+  refuses the whole act.
 
   The shape is code and not a fact in the store. Each shape that a tool
   gives enters the store as a fact, inside an act, so the shape of the act
@@ -30,9 +30,6 @@
 (def version
   "The edition of the list of parts. This code knows this one version only."
   1)
-
-(def max-subjects
-  256)
 
 (def max-depth
   "How many collections a value can be inside."
@@ -68,23 +65,24 @@
     [:session      :id                                {:absent :no-session}]
     [:based-on     [:map-of :fact-id :carried-stamp]  {:optional true :default {}}]
     [:because-of   :act-id                            {:optional true}]
-    [:claimed-when :int                               {:optional true}]
-    [:subjects     [:set-of :id {:max max-subjects}]  {:optional true :default #{}}]
     [:facts        [:seq-of :fact]                    {:empty :empty-act}]]
 
-   ;; A fact with no value is a retract.
+   ;; A fact with no value is a retract. Its key is an id, as its entity
+   ;; is: a readable keyword, or a UUID, for a key that is a thing of its
+   ;; maker's with a name of its own.
    :fact
    [:parts
     [:e        :id]
-    [:k        :key]
+    [:k        :id]
     [:v        :value   {:optional true}]
     [:replaces :fact-id {:optional true}]]
 
-   ;; [lane depot uuid]. The door makes it. The lane and the depot are there
-   ;; so that the act can be routed and the door can find its answer in the
-   ;; right record.
+   ;; [lane uuid]. The door makes it. The lane is there so that the act can
+   ;; be routed and the door can find its answer on the lane's task. Which
+   ;; depot a lane is on is the lane's to say, in a fact of its own
+   ;; (`:softland.store/depot`), and no id holds it.
    :act-id
-   [:tuple :id [:enum :streaming :microbatch] :uuid]
+   [:tuple :id :uuid]
 
    ;; [act-id index]: one fact of one act.
    :fact-id
@@ -238,7 +236,6 @@
   a shape is code and not data. Each takes a thing and gives [:ok, its
   normal form], or nil when the thing does not fit."
   {:id    (fn [x] (when (or (readable-keyword? x) (uuid? x)) [:ok x]))
-   :key   (fn [x] (when (readable-keyword? x) [:ok x]))
    :uuid  (fn [x] (when (uuid? x) [:ok x]))
    :int   (fn [x] (when (int? x) [:ok (long x)]))
    :value (fn [x] (when (value? x) [:ok (normal-value x)]))
@@ -414,11 +411,11 @@
   that gave no `:v`, or a nil one, holds `:v nil` and is a retract. To parse
   the :ok of a parse gives the same :ok.
 
-  An act that carries an act-id, a depot or a time is refused
-  `:unknown-part`: those three are the door's.
+  An act that carries an act-id or a time is refused `:unknown-part`: those
+  two are the door's.
 
-  Limits. It reads no clock and gives `:claimed-when` no default. It has no
-  rule about a session beyond its shape. Of the permission that the act
+  Limits. It reads no clock. It has no rule about a session beyond its
+  shape. Of the permission that the act
   names it examines that it is an id, and nothing of what that id holds.
   Facts that are a sequence with no end do not come back from it."
   [x]

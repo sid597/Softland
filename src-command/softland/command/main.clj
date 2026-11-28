@@ -506,7 +506,7 @@
                            lent? (assoc :lent-from (:permission act)))}
                 sent (client/say connection
                                  {:word :send
-                                  :act (assoc act :subjects #{who} :facts [fact])
+                                  :act (assoc act :facts [fact])
                                   :act-id (UUID/randomUUID)})]
             (if (:could-not sent)
               sent

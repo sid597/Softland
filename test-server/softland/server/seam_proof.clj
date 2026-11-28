@@ -93,13 +93,16 @@
              (= asha again) again)
       (check "What Google said at her latest sign-in is on her entity, under Google's own names, for the system to read."
              (= "Asha K" (get (:value (:place says)) "name")) says)
-      (check "Each act of sign-in that is about a person names her id as its subject, in the store's own form of an act: the act that writes what Google said, and the act that makes her own lane. The act that makes the system's lane names nobody."
+      (check "Each act of sign-in that is about a person names her id in a fact of its own, in the store's own form of an act, which holds no part for it: the act that writes what Google said has her as the entity of its fact, and the act that makes her own lane has her as the holder of its first permission. The act that makes the system's lane names nobody but the system."
              (let [whole (fn [act] (:ok (act/parse (assoc act :who :system :session (UUID/randomUUID)))))
-                   person (:who asha)]
-               (= [#{person} #{person} #{}]
-                  [(:subjects (whole (#'sign-in/in-people [{:e person :k sign-in/says-key :v {"sub" "1"}}] person)))
-                   (:subjects (whole (#'sign-in/making-act (:own-lane asha) person)))
-                   (:subjects (whole (#'sign-in/making-act sign-in/people :system)))])))
+                   holders (fn [act] (set (keep (comp :holder :v) (:facts act))))
+                   person (:who asha)
+                   said (whole (#'sign-in/in-people [{:e person :k sign-in/says-key :v {"sub" "1"}}]))
+                   hers (whole (#'sign-in/making-act (:own-lane asha) person))
+                   systems (whole (#'sign-in/making-act sign-in/people :system))]
+               (= [#{person} #{person} #{:system} [false false false]]
+                  [(set (map :e (:facts said))) (holders hers) (holders systems)
+                   (mapv #(contains? % :subjects) [said hers systems])])))
       (check "Her own lane is where sign-in said: `own-lane-of` gives it for her id, and nothing for an id that is no person."
              (= [(:own-lane asha) nil] [(m/? (sign-in/own-lane-of a (:who asha))) (m/? (sign-in/own-lane-of a (UUID/randomUUID)))]))
       (let [both (m/? (m/join vector
@@ -143,7 +146,7 @@
                 again (m/? (seam/send b actor act act-id))
                 read-back (m/? (seam/read a actor {:asks [:place :chair-7 :colour] :from-lane lane :with #{:writer}}))]
             (check "The seam gives act-ids of a lane ahead of sending, and gives a visitor none."
-                   (and (= [lane :streaming] (pop act-id)) (not= act-id other-id)
+                   (and (= [lane] (pop act-id)) (not= act-id other-id)
                         (= :find-her-session (:could-not (m/? (seam/act-ids a (seam/visitor) lane 1))))))
             (check "A send gives the door's receipt, the act-id and the digest and the ack, and the answer read with them says accepted."
                    (and (= act-id (:act-id receipt)) (string? (:digest receipt)) (= :gate-ran (:ack receipt))
@@ -178,7 +181,7 @@
                   results (m/? (seam/send-all a actor (mapv (fn [id n] [id (write who lane :chair-8 :n n)]) ids [1 2 3])))
                   after-three (:value (:place (m/? (seam/read a actor {:asks [:place :chair-8 :n] :from-lane lane}))))
                   stopped (m/? (seam/send-all a actor [[(first (m/? (seam/act-ids a actor lane 1))) (write who lane :chair-8 :n 4)]
-                                                      [[:another-lane :streaming (UUID/randomUUID)] (write who lane :chair-8 :n 5)]
+                                                      [[:another-lane (UUID/randomUUID)] (write who lane :chair-8 :n 5)]
                                                       [(first (m/? (seam/act-ids a actor lane 1))) (write who lane :chair-8 :n 6)]]))]
               (check "A series of acts is sent in order and gives a receipt for each, and the last of them is what a read gives."
                      (and (= ids (mapv :act-id results)) (= 3 after-three))

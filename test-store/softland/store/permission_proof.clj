@@ -107,7 +107,7 @@
   "The thing that the door appends for a maker's act under the n-th act-id."
   [n maker]
   (let [the-lane (:lane maker)
-        act-id [the-lane (first-act/depot-at-making the-lane) (UUID. 0 (long n))]]
+        act-id [the-lane (UUID. 0 (long n))]]
     (:thing (additions/thing-to-append (additions/reading maker act-id) act-id 1700000000000))))
 
 (defn- played
@@ -786,7 +786,7 @@
                              (walk/outcome state)))
                   refused-making (:outcome (memory/decide memory/empty-record :streaming
                                                           (arrived 0 (update-in making [:facts 0] assoc
-                                                                                :replaces [[lane :streaming (UUID. 0 7)] 0]))))]
+                                                                                :replaces [[lane (UUID. 0 7)] 0]))))]
               [(:verdict driven) (select-keys refused-making [:verdict :makes?])]))
      [:lane-would-have-no-owner {:verdict :replaced-fact-not-current :makes? false}]]
     ["a party's kind is read from its id, and everyone is a holder that is no author"

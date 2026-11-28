@@ -1518,7 +1518,7 @@
                            (:places cal-saw)))
         cal-under-it (send! {:version 1 :who (person :cal) :lane :c-studio :permission (perm/permission-id cal-see) :session :s-cal
                              :facts [(fact :x :y 1)]}
-                            [:c-studio :streaming found])
+                            [:c-studio found])
         joe-res (send! (assoc joes :permission (perm/permission-id pa)) nil)
         secret (ask {:asks [:place :secret :dose] :asker (person :ida) :lanes [:c-studio]})
         ;; receipt 3: a live read in a sitting, of a lane that she may not see, while another holder's
@@ -2474,10 +2474,10 @@
 (defn- thing-of-act
   "Takes what `act!` gave for an act that the door sent. Gives the thing as
   it arrived on the depot: the act as the proof made it, with the door's
-  three additions."
+  two additions."
   [got who lane facts]
   (assoc {:version 1 :who who :lane lane :permission (perm/permission-id (perm who lane)) :session :read-path-proof :facts facts}
-         :act-id (:act-id got) :depot (nth (:act-id got) 1) :door-time (:time (:answer got))))
+         :act-id (:act-id got) :door-time (:time (:answer got))))
 
 (defn- every-page
   "Reads a lane's acts from stamp 0 in pages of a count, each from where
@@ -2499,12 +2499,12 @@
                                            :permission (perm/permission-id (perm/first-permission (person :cy) lane))
                                            :session :read-path-proof :facts [(fact :note :n 2)]})
         cy-answer (door/answer-of (the-door) (:act-id cy-sent) (:digest cy-sent))
-        no-time {:act-id [lane :streaming (UUID. 51 1)] :depot :streaming :version 1 :who (person :cy) :lane lane
+        no-time {:act-id [lane (UUID. 51 1)] :version 1 :who (person :cy) :lane lane
                  :facts [(fact :x :n 3)]}
         _ (raw! no-time)
-        no-who {:act-id [lane :streaming (UUID. 51 2)] :depot :streaming :door-time 1 :lane lane}
+        no-who {:act-id [lane (UUID. 51 2)] :door-time 1 :lane lane}
         _ (raw! no-who)
-        heavy {:act-id [lane :streaming (UUID. 51 3)] :depot :streaming :version 1 :who (person :cy) :lane lane
+        heavy {:act-id [lane (UUID. 51 3)] :version 1 :who (person :cy) :lane lane
                :blob (apply str (repeat 300000 "h"))}
         _ (raw! heavy)
         bo-facts [(fact :note :n 4)]
@@ -3252,6 +3252,52 @@
     (open-round! ipc)
     (f)))
 
+(deftest a-key-that-is-a-uuid
+  (let [k (UUID/fromString "0b0b0b0b-0000-4000-8000-00000000000b")
+        k-late (UUID/fromString "f0f0f0f0-0000-4000-8000-00000000000f")
+        alice (person :alice)
+        _ (make! :keyed alice)
+        marked (mark! :keyed alice #{k})
+        q (fn [asks] (ask {:asks asks :asker alice :lanes [:keyed]}))
+        wrote (put! alice :keyed [(fact :chair-7 k :oak) (fact :chair-7 :colour :green) (fact :chair-7 k-late 3)])
+        id (:act-id wrote)
+        answer-of-fact (fn [index v] {:holds :value :value v :lane :keyed :fact [id index] :stamp (:stamp wrote)})
+        at-place (:place (q [:place :chair-7 k]))
+        in-entity (:places (q [:entity :chair-7]))
+        to-the-keyword (:places (q [:range [:chair-7 k] [:chair-7 :colour]]))
+        to-the-late-key (:places (q [:range [:chair-7 k] [:chair-7 k-late]]))
+        points (q [:points-at k :oak])
+        replaced (put! alice :keyed [(assoc (fact :chair-7 k :elm) :replaces [id 0])])
+        stale (act! alice :keyed [(assoc (fact :chair-7 k :ash) :replaces [id 0])])
+        after-replace (:place (q [:place :chair-7 k]))
+        points-after [(:places (q [:points-at k :oak])) (set (keys (:places (q [:points-at k :elm]))))]
+        retracted (put! alice :keyed [{:e :chair-7 :k k}])
+        after-retract (:place (q [:place :chair-7 k]))
+        in-the-base (put! :system :base [(fact :chair-7 k "in the base")])
+        base-place (:place (ask {:asks [:place :chair-7 k] :asker :system :lanes [:base]}))]
+    (check "a fact under a key that is a UUID is accepted and read back by its place: its value, its lane, the fact id that the door's act-id and the fact's index make, and the stamp of the door's answer"
+           (answer-of-fact 0 :oak) at-place)
+    (check "the entity gives its three places: one under a keyword key and two under keys that are UUIDs"
+           {[:chair-7 k] (answer-of-fact 0 :oak) [:chair-7 :colour] (answer-of-fact 1 :green) [:chair-7 k-late] (answer-of-fact 2 3)}
+           in-entity)
+    (check "a range goes by the printed text of a key: from the UUID key that begins with a digit to the keyword key it holds those two places, and to the UUID key that begins with a letter, which comes after every keyword, all three"
+           [#{[:chair-7 k] [:chair-7 :colour]} #{[:chair-7 k] [:chair-7 :colour] [:chair-7 k-late]}]
+           [(set (keys to-the-keyword)) (set (keys to-the-late-key))])
+    (check "a lane marks a key that is a UUID: what points at a thing under it gives the place, and the order is level since the stamp of the act that marked the key"
+           [{[:chair-7 k] (answer-of-fact 0 :oak)} (:stamp marked)]
+           [(:places points) (:level-since (first (:orders points)))])
+    (check "the fact is replaced by one that names it, and a second fact that names the same one is refused as stale; the place then holds the new value, and the order by value holds the place under the new value and no longer under the old"
+           [true :replaced-fact-not-current
+            {:holds :value :value :elm :lane :keyed :fact [(:act-id replaced) 0] :stamp (:stamp replaced)}
+            [{} #{[:chair-7 k]}]]
+           [(:accepted? replaced) (:reason (:answer stale)) after-replace points-after])
+    (check "the fact is retracted: the place says nothing here, with the fact and the stamp of the retract"
+           {:holds :nothing-here :lane :keyed :fact [(:act-id retracted) 0] :stamp (:stamp retracted)} after-retract)
+    (check "in the base, through the microbatch gate, a fact under a key that is a UUID is accepted and read back by its place"
+           {:holds :value :value "in the base" :lane :base :fact [(:act-id in-the-base) 0] :stamp (:stamp in-the-base)} base-place)
+    (shown "a fact's key that is a UUID, through the door, each gate and the read path: written and read back by place, in its entity and in a range; marked, and found by what points at a thing; replaced, a stale replace refused"
+           (pr-str (:reason (:answer stale))) "; retracted | a range goes by the printed text, so of one entity the keys that are UUIDs stand on both sides of the keyword keys")))
+
 (defn- the-checks-of-the-first-cluster
   "Runs the checks in the order in which the proof tells them. Later checks
   build on the lanes that earlier ones made. The checks that count the
@@ -3293,6 +3339,7 @@
   (a-transfer-in-one-act-never-shows-a-state-in-between)
   (the-statement-to-prove-with-its-named-exceptions)
   (a-read-of-acts-reads-standing-and-setting-at-one-moment)
+  (a-key-that-is-a-uuid)
   (the-first-thing-a-function-is-given)
   (the-module-is-started-again))
 

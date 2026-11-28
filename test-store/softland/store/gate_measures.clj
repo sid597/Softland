@@ -380,7 +380,7 @@
                     {:took @took :words @words :last (answer-word door @last-sent)}))
           first-time (round)
           second-time (round)]
-      (measured "D2 the streaming gate, 100 acts a second, each act sent under an act-id asked for ahead, so the send reads no depot of a lane | the first send | from the call of send-act to its return:"
+      (measured "D2 the streaming gate, 100 acts a second, each act sent under an act-id asked for ahead; the send reads the lane's depot, as every send does | the first send | from the call of send-act to its return:"
                 (times (:took first-time)) "| sends that came back with a word of the door:" (:words first-time)
                 "| the last act's answer, read once:" (pr-str (:last first-time)))
       (measured "D2 the streaming gate, the same acts sent a second time under the same act-ids, each with the door's time of its second send, appended with :ack, so the gate finds each answer there | from the call of send-act to its return:"

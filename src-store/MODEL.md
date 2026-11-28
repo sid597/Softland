@@ -30,13 +30,13 @@ store, with one total order in each lane and overlay reads, built on Rama.
 | The store's word | What it is | An engineer would say |
 |---|---|---|
 | fact | One statement: entity, key, value. It may name an earlier fact that it replaces. A fact with no value is a retract: it says "nothing here". | EAV triple; tombstone |
-| key | What a fact says of its entity: a readable keyword. | attribute |
+| key | What a fact says of its entity: an id, a readable keyword or a UUID. | attribute |
 | place | One entity and one key. A lane holds one current fact at each place. | cell |
 | act | One or more facts that one maker sends into one lane, taken or refused whole. | atomic batch, transaction |
-| act-id | `[lane depot uuid]`. The door makes it on request, before the act is sent. | transaction id |
+| act-id | `[lane uuid]`. The door makes it on request, before the act is sent, with no read. It names no depot: the lane's own fact says which depot the lane is on. | transaction id |
 | fact id | `[act-id index]`: one fact of one act. | version id |
 | lane | A home for facts, with its own line of acts in one order. | namespace |
-| depot | Where a lane's acts arrive: `:streaming`, each act decided as it arrives, or `:microbatch`, acts decided in batches. The base is the one microbatch lane. | write mode; log |
+| depot | Where a lane's acts arrive: `:streaming`, each act decided as it arrives, or `:microbatch`, acts decided in batches. The base is the one microbatch lane. A lane's depot is written in a fact of its own, `[lane :softland.store/depot]`, by its making act. | write mode; log |
 | stack | The lanes that one read looks through, nearest first. | overlay view |
 | permission | The right to see a lane, or to see it and act in it: `[who lane granted-in]`, or a given one that holds the permission above it. A given one can say what it covers: one run, or one act; with nothing said it covers the lane. It can be ended, and what was given beneath it ends with it. | grant; capability; scope; revocation |
 | a yes | A permission for one act: on an id of its own, which its giver makes, for the act as its maker made it, and used up by the act that is taken under it. | one-time grant; approval |
@@ -46,9 +46,9 @@ store, with one total order in each lane and overlay reads, built on Rama.
 | the base | The one lane that everyone subscribes to. | |
 | the system | The id that makes the base, and each personal lane for its person. | |
 
-An id (an entity, a who, a lane, a session, a subject) is a readable keyword or
-a UUID, and a key is a readable keyword only ([act.clj](softland/store/act.clj),
-`leaves`). A value is nil, a boolean, a string, a readable keyword, a UUID, an
+An id (an entity, a who, a lane, a session, a fact's key) is a readable
+keyword or a UUID ([act.clj](softland/store/act.clj), `leaves`). The store's
+own keys are keywords. A value is nil, a boolean, a string, a readable keyword, a UUID, an
 integer of any width, a finite double, a big integer, a decimal, or a plain map,
 vector or set of these ([act.clj](softland/store/act.clj), `value?`). "Act" and
 "depot" are Sid's words. "Key" is the key of a fact; an encryption key would be
@@ -60,8 +60,8 @@ a "lock".
 maker      a converter, the screen, an agent
   │ an act
   ▼
-door       adds the act-id, the lane's depot and the time of its server's clock;
-  │        checks nothing of the act
+door       reads the lane's depot; adds the act-id and the time of its server's
+  │        clock; checks nothing of the act
   ▼
 depot      the lane's line: each act as it arrived, taken or refused, never trimmed
   │
@@ -110,11 +110,12 @@ chair-7's colour is red and that its material is oak.
 3. **She writes a fact:** chair-7, colour, green. The act names her `:who`, her
    `:session` and the permission that it writes under. It can also carry
    `:based-on`, the facts that she read, each with that fact's stamp as her read
-   gave it; `:because-of`, the one act that it answers; `:subjects`, the people
-   that it is about, so that a person can be forgotten; and `:claimed-when`, her
-   own clock ([act.clj](softland/store/act.clj), `shapes`). The depot keeps all
-   of it, and no read gives those four back
-   ([below](#what-cannot-be-got-back-said-plainly)).
+   gave it; and `:because-of`, the one act that it answers
+   ([act.clj](softland/store/act.clj), `shapes`). The depot keeps all
+   of it, and no read gives those two back
+   ([below](#what-cannot-be-got-back-said-plainly)). Whom an act is about, and
+   when its maker says that it was made, are no parts of the act: a maker who
+   wants either kept says it as a fact of the act.
 4. **The store decides.** asha-draft is streaming, so the gate decides the act
    as it arrives, and her ack says that the gate has run and its rows are
    visible. The answer is taken, or refused with a reason; either way the act
@@ -337,14 +338,14 @@ of a tool.
 - A second run of the gates over the depots makes the same tables.
 - The time on an act is a label: no gate orders or decides by it
   ([decisions of 14 October](README.md#decisions-of-14-october-2026--order-and-time-apart);
-  [gate/stamp.clj](softland/store/gate/stamp.clj)). A maker's own clock,
-  `:claimed-when`, is kept in the depot only.
+  [gate/stamp.clj](softland/store/gate/stamp.clj)). The act has no part for a
+  maker's own clock.
 
 ## What cannot be got back, said plainly
 
 - **What an act carried besides its facts,** for an act over its bound, or
   for an asker who may not read it whole. The depot holds its `:session`,
-  `:because-of`, `:based-on`, `:subjects`, `:claimed-when` and `:version`; the
+  `:because-of`, `:based-on` and `:version`; the
   line holds the act whole when the gate kept it
   ([record/tables.clj](softland/store/record/tables.clj), `things`), and the
   read of a lane's acts gives it to whoever may read it whole. An act over
@@ -427,8 +428,7 @@ Each is said in full where its code is.
 | The keys that one lane marks | `max-marked-keys`, the same |
 | The weight of an act that a gate keeps again, from a sender whose permission stands | `max-kept-weight`, [gate/decision.clj](softland/store/gate/decision.clj) |
 | The same, from a sender with none, or for a thing that the declaration refused | `max-kept-weight-with-no-standing`, the same |
-| The subjects of one act | `max-subjects`, [act.clj](softland/store/act.clj) |
-| How deep a value nests, and a permission | `max-depth`, the same |
+| How deep a value nests, and a permission | `max-depth`, [act.clj](softland/store/act.clj) |
 | The lanes of one read | `max-lanes-of-one-read`, [read_path/query.clj](softland/store/read_path/query.clj) |
 | A read's runs, checks, pushes and wait | `default-numbers`, the same |
 | The decisions of one read of a lane's acts, and the weight of its acts in all | `:max-acts-of-one-read` and `:max-thing-weight-of-one-read`, the same |

@@ -400,8 +400,8 @@
                 other (line b (:credential mine) (:session hello))
                 again (say other {:word :send :act act :act-id uuid})
                 another (say other {:word :send :act (act-of hello lane own :chair-7 :colour :red) :act-id uuid})]
-            (check "A send is one round trip: the whole act goes in with the maker's UUID, and the door's receipt comes back with the answer that a gate gave, accepted."
-                   (and (= :accepted (get-in sent [:answer :answer])) (= uuid (nth (:act-id sent) 2)) (string? (:digest sent)))
+            (check "A send is one round trip: the whole act goes in with the maker's UUID, and the door's receipt comes back with the answer that a gate gave, accepted. Its act-id is the act's lane and the maker's UUID, and names no depot."
+                   (and (= :accepted (get-in sent [:answer :answer])) (= [lane uuid] (:act-id sent)) (string? (:digest sent)))
                    sent)
             (check "The same act sent again under the same UUID, through another copy of the runtime and in the same session, has the same digest and reads the one answer: it is taken once."
                    (and (= (:digest sent) (:digest again)) (= (:answer sent) (:answer again)))
@@ -421,7 +421,7 @@
                                    :act-id uuid})
                 as-session (say me {:word :send :act (assoc (act-of hello lane own :chair-7 :colour :blue) :session (UUID/randomUUID))
                                     :act-id uuid})
-                unsent (say me {:word :answer :act-id [lane :streaming uuid] :digest (apply str (repeat 64 "0"))})
+                unsent (say me {:word :answer :act-id [lane uuid] :digest (apply str (repeat 64 "0"))})
                 as-asker (say me {:word :read :query {:asks [:place :chair-7 :colour] :asker :system :lanes [lane]}})
                 visitor (line a nil nil)]
             (check "An act that names another who than its sender, or another session than the one it is sent in, is refused by the runtime, and nothing is sent for it: nothing is under its UUID."
@@ -507,7 +507,6 @@
                 given (perm/given-permission (:who agent-hello) lane own :see-and-act)
                 gave (say me {:word :send
                               :act {:version 1 :who who :session (:session hello) :lane lane :permission (perm/permission-id own)
-                                    :subjects #{(:who agent-hello)}
                                     :facts [(perm/permission-fact given)]}
                               :act-id (UUID/randomUUID)})
                 after (say agent {:word :send :act (act-of agent-hello lane given :crate-1 :packed true)

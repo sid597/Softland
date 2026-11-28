@@ -7,9 +7,9 @@
   a keyword or a UUID: two classes. A string made of the parts' printed
   texts is one class, equal keys are equal strings, and Rama gives the order
   of string keys, on which each run that a read names rests. No printed
-  text of an id holds a space, so one space parts the parts. The lane and
-  the depot of an id are in no row: the key says the lane, and the gate
-  that owns the PState says the depot.
+  text of an id holds a space, so one space parts the parts. The lane of an
+  act-id is in no row: the key says it. Which depot a lane is on is in no
+  id and no key: a row is in the record of the gate that wrote it.
 
   A fact's value is held as one String, its one text. So the field has one
   class, and a push on the row is told each change of it. Who wrote a row,
@@ -25,8 +25,8 @@
   the two ends of a run, test nothing of what they are given. A thing that
   is no id can print with a space in it, and a key made of it can name a row
   of another place. So a caller that holds what somebody gave it tests
-  first: each id with `softland.store.door.declaration/usable-id?`, a fact's
-  key as a readable keyword within the limit, a value with
+  first: each id, a fact's key among them, with
+  `softland.store.door.declaration/usable-id?`, a value with
   `softland.store.act/value?`. A gate makes keys only of an act that passed
   the declaration."
   (:require [clojure.edn :as edn]
@@ -40,9 +40,13 @@
 ;; ----------------------------------------------------------------- the keys
 
 (defn answer-key
-  "The depot slot of the act-id is not in the key: a gate answers only under
-  an act-id of its own depot. The lane is in it, although the uuid alone is
-  random, so that a uuid used in two lanes of one task is two rows."
+  "The lane is in it, although the uuid alone is random, so that a uuid used
+  in two lanes of one task is two rows. An act-id names no depot, so each
+  gate can hold a row under one key: the gate of the lane's depot, the
+  answer of the act; the other gate, its refusal of a thing that was
+  appended to its depot for a lane that is not its own
+  (`softland.store.gate.decision/standing`). A read by act-id reads the
+  record of the lane's depot alone."
   [lane uuid]
   (str (declaration/id-text lane) " " uuid))
 
@@ -134,11 +138,10 @@
   (assoc row :level-since (text/text since-by-key)))
 
 (defn written-by?
-  [gate-depot lane row fact-id]
-  (let [[[named-lane named-depot named-uuid] named-index] fact-id]
+  [lane row fact-id]
+  (let [[[named-lane named-uuid] named-index] fact-id]
     (boolean (and row
                   (= lane named-lane)
-                  (= gate-depot named-depot)
                   (= (:by-act row) named-uuid)
                   (= (:by-index row) named-index)))))
 
@@ -267,7 +270,7 @@
   [row]
   (let [held (when-let [text (:level-since row)] (first-form text))]
     (if (and (map? held)
-             (every? (fn [[k since]] (and (act/readable-keyword? k) (int? since))) held))
+             (every? (fn [[k since]] (and (or (act/readable-keyword? k) (uuid? k)) (int? since))) held))
       held
       {})))
 
@@ -351,7 +354,7 @@
   [place-key-text]
   (try
     (let [parts (mapv id-of-text (parts-of-key place-key-text))]
-      (when (and (= 3 (count parts)) (every? some? parts) (keyword? (nth parts 2)))
+      (when (and (= 3 (count parts)) (every? some? parts))
         parts))
     (catch Throwable _ nil)))
 
@@ -606,14 +609,15 @@
 ;; ------------------------------------------- what a caller gave a read
 
 (defn answer-read
-  "The test at the head of the read by act-id: nil when no read is to be
-  made.
+  "The test at the head of the read by act-id: the key of the answer, or
+  nil when no read is to be made. Which gate's answers hold the key is the
+  lane's depot, which the read finds in the lane's own fact.
 
   It never throws."
   [lane act-id]
   (when (and (declaration/usable-id? lane)
              (declaration/act-id-in-lane? lane act-id))
-    [(nth act-id 1) (answer-key lane (nth act-id 2))]))
+    (answer-key lane (nth act-id 1))))
 
 (defn depot-read
   "The test at the head of the read of a lane's depot: nil when the thing is
@@ -636,8 +640,9 @@
     (nth act-id 0)))
 
 (defn answer-read-by-routing-id
-  "The test at the head of the query by act-id: nil also when the routing id
-  is not the act-id's lane.
+  "The test at the head of the query by act-id, which gives what
+  `answer-read` gives: nil also when the routing id is not the act-id's
+  lane.
 
   It never throws."
   [given act-id]

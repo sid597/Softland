@@ -15,7 +15,12 @@
   A range is every place of one lane from one end to the other, both ends
   in the range, in the order in which the table keeps its keys: the printed
   text of the entity, then the printed text of the key. So two entities are
-  neighbours only if their ids print as neighbours. An end is `[entity]`,
+  neighbours only if their ids print as neighbours. An id is a keyword or a
+  UUID, and the two kinds are not apart in that order: a keyword prints
+  with a colon first, which stands after the digits and before the
+  letters, so a UUID whose text begins with a digit comes before every
+  keyword and one that begins with a letter, a to f, comes after them all.
+  That holds of the entities of a lane, and of the keys of one entity. An end is `[entity]`,
   `[entity key]`, `:first` (from the lane's first place) or `:last` (to the
   lane's last place). The same two ends are read in each lane of the list.
   The word is not \"run\": a run is a party (`softland.store.act`), and
@@ -118,10 +123,10 @@
   here and one in each of `softland.store.read-path.sources/of-word` and
   `softland.store.read-path.answer/of-word`. The read path's pure proof
   holds that the three have the same keys, but for `:acts`."
-  {:place     {:shape [:tuple [:enum :place] :id :key]        :reason :place-not-named}
+  {:place     {:shape [:tuple [:enum :place] :id :id]         :reason :place-not-named}
    :entity    {:shape [:tuple [:enum :entity] :id]            :reason :entity-not-named}
    :range     {:shape [:tuple [:enum :range] :range-end :range-end] :reason :range-not-named}
-   :points-at {:shape [:tuple [:enum :points-at] :key :value] :reason :points-at-not-named}
+   :points-at {:shape [:tuple [:enum :points-at] :id :value]  :reason :points-at-not-named}
    :acts      {:shape [:tuple [:enum :acts] [:int {:min 0}] [:int {:min 1}]] :reason :acts-not-named}})
 
 (def shapes
@@ -140,7 +145,7 @@
                    [:with             [:set-of [:enum :writer :permission :time] {:max 3}]
                     {:optional true :default #{} :reason :part-of-a-row-not-known}]
                    [:stores-own-facts [:enum true false] {:optional true :default false}]]
-         :range-end [:or [:enum :first :last] [:tuple :id] [:tuple :id :key]]))
+         :range-end [:or [:enum :first :last] [:tuple :id] [:tuple :id :id]]))
 
 (def rules
   "What a query must also keep, with the reason word for each, in the order
@@ -188,25 +193,21 @@
 
 ;; ------------------------------------------------------ the code of the rules
 
-(defn- usable-key?
-  [x]
-  (boolean (and (act/readable-keyword? x) (declaration/id-within-the-limit? x))))
-
 (defn- end-usable?
   [end]
   (or (keyword? end)
       (and (declaration/usable-id? (nth end 0))
-           (or (= 1 (count end)) (usable-key? (nth end 1))))))
+           (or (= 1 (count end)) (declaration/usable-id? (nth end 1))))))
 
 (defn- asks-usable?
   "The thing of a `:points-at` is held to no size: a thing that is larger
   than any value that a gate keeps passes, and the read finds no row."
   [[word a b]]
   (case word
-    :place     (and (declaration/usable-id? a) (usable-key? b))
+    :place     (and (declaration/usable-id? a) (declaration/usable-id? b))
     :entity    (declaration/usable-id? a)
     :range     (and (end-usable? a) (end-usable? b))
-    :points-at (usable-key? a)
+    :points-at (declaration/usable-id? a)
     :acts      true
     false))
 
@@ -342,8 +343,8 @@
 
   It is the test that must come before any key is made
   (`softland.store.record.rows`): after it, each id that a caller gave is an
-  id within the limit, each key a readable keyword within it, and the thing
-  of a `:points-at` is a value.
+  id within the limit, a key among them, and the thing of a `:points-at` is
+  a value.
 
   Limits. A part that has no end, other than `:lanes`, does not come back. A
   thing of a `:points-at` that lies inside as many collections as a value

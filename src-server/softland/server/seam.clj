@@ -577,19 +577,22 @@
 
   The door returns from one append before the next begins, so the acts
   reach a lane's depot in this order (`softland.store.door/send-act`,
-  \"The order of two sends\")."
-  [seam actor acts]
+  \"The order of two sends\"). Every act is held to the seam's test before
+  the first is sent, and the door reads each lane's depot once for the
+  series (`softland.store.door/send-acts`)."
+  [^Seam seam actor acts]
   (on-its-own-thread
    seam
    (fn []
      (or (needs-a-who actor)
-         (reduce (fn [results [act-id act]]
-                   (let [result (send-now seam actor act act-id)]
-                     (if (:could-not result)
-                       (reduced (conj results result))
-                       (conj results result))))
-                 []
-                 acts)))))
+         (let [[pairs stop] (reduce (fn [[pairs _] [act-id act]]
+                                      (if-let [fault (or (holds-a-part :act act) (ration seam actor :act))]
+                                        (reduced [pairs fault])
+                                        [(conj pairs [(as-maker actor act) act-id]) nil]))
+                                    [[] nil]
+                                    acts)
+               receipts (door/send-acts (.-door seam) pairs)]
+           (if (and stop (not-any? :could-not receipts)) (conj receipts stop) receipts))))))
 
 (defn answer
   "Reads the answer of an act back. Takes the seam, an actor, an act-id,

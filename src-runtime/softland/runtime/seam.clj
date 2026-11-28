@@ -587,22 +587,27 @@
   nil)
 
 (defn- act-id-of
-  "One round trip, to the lane's task: the door reads the lane's depot
-  (`softland.store.door/act-id-for`). The maker's UUID takes the place of
-  the one that the door made."
+  "No round trip: an act-id is the lane and a UUID
+  (`softland.store.door/act-id-for`), and the door reads the lane's depot
+  when it sends. The maker's UUID takes the place of the one that the door
+  made."
   [^Seam seam lane uuid]
   (let [got (door/act-id-for (.-door seam) lane)]
-    (if (:could-not got) got (assoc got 2 uuid))))
+    (if (:could-not got) got (assoc got 1 uuid))))
+
+(defn- answered
+  "`ends` is a moment of `System/nanoTime`."
+  [^Seam seam receipt ends]
+  (if (:could-not receipt)
+    receipt
+    (let [left-ms (max 0 (quot (unchecked-subtract (long ends) (System/nanoTime)) 1000000))]
+      (assoc receipt :answer (door/answer-of (.-door seam) (:act-id receipt) (:digest receipt) left-ms)))))
 
 (defn- sent
   "The act must already be held against its sender. `ends` is a moment of
   `System/nanoTime`."
   [^Seam seam act act-id ends]
-  (let [receipt (door/send-act (.-door seam) act act-id)]
-    (if (:could-not receipt)
-      receipt
-      (let [left-ms (max 0 (quot (unchecked-subtract (long ends) (System/nanoTime)) 1000000))]
-        (assoc receipt :answer (door/answer-of (.-door seam) (:act-id receipt) (:digest receipt) left-ms))))))
+  (answered seam (door/send-act (.-door seam) act act-id) ends))
 
 (defn- ends-after
   [wait-ms]
@@ -618,25 +623,31 @@
           (sent seam act full (ends-after wait-ms))))))
 
 (defn- send-all-now
-  "One result for each act that was tried. It stops at the first send that
+  "One result for each act that was tried. It stops at the first act that
   ends with a word, since a later act of a series can rest on an earlier
-  one; the maker sends the rest again under the same UUIDs. The wait is one
+  one; the maker sends the rest again under the same UUIDs. An interrupt
+  that comes while the series is being sent is met by the door, not by the
+  seam's `:find-her-sign-in`: one act more is handed to Rama's client,
+  whose append throws, so its send ends `:append-cleanly` with `:appended
+  :not-known`; no act after it is tried; and each receipt before it comes
+  back with `{:could-not :read-the-answer}` as its answer. The wait is one
   span for the whole series."
   [^Seam seam caller {:keys [acts wait-ms]}]
-  (let [ends (ends-after wait-ms)]
-    {:results
-     (reduce (fn [results {:keys [act act-id]}]
-               (if (.isInterrupted (Thread/currentThread))
-                 (reduced (conj results (words/could-not :find-her-sign-in {:why :ended})))
-                 (let [result (or (act-fault caller act)
-                                  (ration seam caller :act)
-                                  (let [full (act-id-of seam (get act :lane) act-id)]
-                                    (if (:could-not full) full (sent seam act full ends))))]
-                   (if (:could-not result)
-                     (reduced (conj results result))
-                     (conj results result)))))
-             []
-             acts)}))
+  (let [ends (ends-after wait-ms)
+        [pairs stop] (reduce (fn [[pairs _] {:keys [act act-id]}]
+                               (let [full (if (.isInterrupted (Thread/currentThread))
+                                            (words/could-not :find-her-sign-in {:why :ended})
+                                            (or (act-fault caller act)
+                                                (ration seam caller :act)
+                                                (act-id-of seam (get act :lane) act-id)))]
+                                 (if (:could-not full)
+                                   (reduced [pairs full])
+                                   [(conj pairs [act full]) nil])))
+                             [[] nil]
+                             acts)
+        receipts (door/send-acts (.-door seam) pairs)
+        results (mapv #(answered seam % ends) receipts)]
+    {:results (if (and stop (not-any? :could-not receipts)) (conj results stop) results)}))
 
 (defn- from-auth
   [got]

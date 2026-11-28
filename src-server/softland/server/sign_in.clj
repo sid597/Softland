@@ -39,8 +39,9 @@
   And her own lane, made by its first act: the system is the act's who,
   and the lane's first permission is hers.
 
-  Each act that is about a person names her id in `:subjects`, so that
-  what the log holds of her can be found by her id.
+  Each act that is about a person names her id in a fact of its own: the
+  making act of her own lane as the holder of its first permission, and an
+  act in `people` as the entity of its facts.
 
   What is not written: a name, an invitation, a kind of actor, a limit, a
   block, an agent, a record of sessions. A session is the server's own
@@ -131,17 +132,6 @@
        receipt
        (m/? (seam/answer the-seam system (:act-id receipt) (:digest receipt) answer-wait-ms))))))
 
-(defn- about
-  "Takes an act and the id of the person that it is about, or nil. Gives
-  the act with her id as its one subject, or the act as it is for nil. An
-  act names the people that it is about so that a person can be found, and
-  one day forgotten, by her id (src-store/MODEL.md, \"One act, start to
-  finish\", step 3). An act of sign-in holds her account's number and what
-  Google said of her, and the log is never trimmed: an act that was kept
-  without her as its subject cannot be given one later."
-  [act person]
-  (cond-> act person (assoc :subjects #{person})))
-
 (defn- person-party
   "The store's party ID for a person UUID (`CONTRACT.md` §2.1: `:person.<id>`)."
   [id]
@@ -171,27 +161,25 @@
   "Takes a lane and the holder of its first permission. Gives the act
   that makes the lane, without `:who` and `:session`: the lane's depot on
   the lane, and the first permission on its own id
-  (`softland.store.gate.first-act/making-act?`). When the holder is a
-  person, the act is about her."
+  (`softland.store.gate.first-act/making-act?`). Whom the lane is for is
+  what its first permission says, its holder: a making act holds nothing
+  else of her."
   [lane holder]
   (let [permission (first-permission holder lane first-act/system)]
-    (about {:version 1
-            :lane lane
-            :facts [{:e lane :k :softland.store/depot :v (first-act/depot-at-making lane)}
-                    (permission-fact permission)]}
-           (when-not (= first-act/system holder) holder))))
+    {:version 1
+     :lane lane
+     :facts [{:e lane :k :softland.store/depot :v (first-act/depot-at-making lane)}
+             (permission-fact permission)]}))
 
 (defn- in-people
-  "Takes facts, and the id of the person that they are about, or nil. Gives
-  the act that writes them into `people` under the system's first
-  permission there, without `:who` and `:session`, with that person as its
-  subject."
-  [facts person]
-  (about {:version 1
-          :lane people
-          :permission (permission-id (first-permission first-act/system people))
-          :facts facts}
-         person))
+  "Takes facts. Gives the act that writes them into `people` under the
+  system's first permission there, without `:who` and `:session`. A person
+  that the facts are about is their entity."
+  [facts]
+  {:version 1
+   :lane people
+   :permission (permission-id (first-permission first-act/system people))
+   :facts facts})
 
 (defn- not-made?
   "Takes an answer of a read through one lane. Gives true when the answer
@@ -223,8 +211,7 @@
            :else (do (m/? (done the-seam system
                                 (in-people [{:e people
                                              :k :softland.store/marked-keys
-                                             :v (conj (or (:value (:place marks)) #{}) account-key)}]
-                                           nil)))
+                                             :v (conj (or (:value (:place marks)) #{}) account-key)}])))
                      (recur (inc round)))))))))
 
 (defn own-lane-of
@@ -275,8 +262,7 @@
                                    [{:e subject :k says-key :v claims}]
                                    [{:e subject :k account-key :v number}
                                     {:e subject :k own-lane-key :v (UUID/randomUUID)}
-                                    {:e subject :k says-key :v claims}])
-                                 subject)))
+                                    {:e subject :k says-key :v claims}]))))
              after (if known before (m/? (who-holds)))
              person (holder-of after)]
          (cond

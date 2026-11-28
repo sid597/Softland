@@ -55,7 +55,7 @@ for the setup. It is the one caller of the seam's `send-as-system` and
 
 - Two files require the store's door and its read path: `seam.clj`, and
   `main.clj`, which only opens them. The seam calls the door's `send-act` in
-  one place.
+  one place, and its `send-acts`, for a series, in one place.
 - Four files require Auth's client: `main.clj`, `seam.clj`, `standing.clj` and
   `sign_in.clj`. No face does.
 - The runtime opens no table and no depot of Rama's itself.

@@ -10,18 +10,21 @@
   is not zero when a check fails.
 
   The proof is the door's one maker. Each act and each answer of this proof
-  goes through the door's five calls. The proof makes no act-id and appends
-  nothing itself, with one exception: for the check that the door sends what
-  the hand sends, it builds one act with the hand's steps, written out here
-  a second time, and appends that thing itself. The hand writes the time on
-  that thing as the door does: a reading of the clock, under the name that
+  goes through the door's six calls. The proof makes no act-id and appends
+  nothing itself, with two exceptions. For the check that the door sends
+  what the hand sends, it builds one act with the hand's steps, written out
+  here a second time, and appends that thing itself. And it appends things
+  to the depot of the gate that does not have their lane, where the door
+  sends none (`by-hand!`). The hand writes the time on a thing as the door
+  does: a reading of the clock, under the name that
   `softland.store.door.declaration/time-part` holds.
 
   What it reads round the door. The door gives a maker no thing and no row.
   So, as the module's proof does, this proof holds handles of its own: it
   reads each record of the two depots' logs, to see what the door appended,
   with the time that the door wrote on it; the answer under an act-id, by
-  the query `answer-by-act-id`; the row of a place, by a select of the
+  the query `answer-by-act-id`, and by a select of either gate's own table
+  of answers; a gate's last stamp of a lane; the row of a place, by a select of the
   gates' tables of facts, to see what a gate kept of a value and that a
   refused act left no row; and the strays of both gates. A place of a
   streaming lane has its row on the lane's task. A place of the base has
@@ -48,19 +51,22 @@
   took from the return of `send-act` to its answer, as an order of size,
   and holds that time to nothing but the bound of a wait.
 
-  The depot of a lane, and the other depot word. The door reads a lane's
-  depot when it makes an act-id. The proof notes what that read was asked
-  and what it gave, for the base, for a streaming lane and for a lane
-  that is not made. An act under an act-id whose depot word is not the
-  lane's goes to the depot that the act-id names. The proof sends one to
-  each depot, for a lane that is made and for one that is not, and holds
-  the word of the refusal that comes back.
+  The depot of a lane, and the depot of the other gate. An act-id names no
+  depot. The door reads a lane's depot, from the lane's own fact, when it
+  sends, and never when it makes an act-id. The proof notes what that read
+  was asked and what it gave, for the base, for a streaming lane and for a
+  lane that is not made. The door sends nothing to the depot of the gate
+  that does not have a lane; another appender can. The proof appends one
+  such thing to each depot by its own hand, for a lane that is made and
+  for one that is not, and holds what the gate there keeps of it, in which
+  record, with which stamp, and what the door's read of an answer gives
+  for its act-id.
 
-  The time on the act. The door adds three parts to a maker's act: the
-  act-id, the depot, and the time of the clock of the server that runs the
-  door. The first two are known before the send. The time is not, so the
+  The time on the act. The door adds two parts to a maker's act: the
+  act-id, and the time of the clock of the server that runs the door. The
+  first is known before the send. The time is not, so the
   proof holds it in two steps: a record of the log without its time is the
-  maker's act with the act-id and the depot; and the time is a fixed-width
+  maker's act with the act-id; and the time is a fixed-width
   integer between two readings of the clock that the proof makes, one just
   before the call of the door and one just after. The proof and its doors
   run in one process, so the proof reads the clock that the door reads. It
@@ -77,12 +83,15 @@
   Where the proof stands in for a call of Rama's client. Clojure lets a
   proof put a function of its own in the place of `foreign-append!`,
   `foreign-invoke-query`, `foreign-depot` or `foreign-query` for a while.
-  The proof does so for four things, and each line that rests on it says
+  The proof does so for six things, and each line that rests on it says
   so: to count the handles that the opening of a door fetches; to count the
   round trips of a call of the door; to note the calls of the door in their
-  order, and of a read what it was asked and what Rama gave; and to make a
+  order, and of a read what it was asked and what Rama gave; to make a
   read throw, since no real throw of a query was found that the in-process
-  cluster gives without a fault of the cluster. The
+  cluster gives without a fault of the cluster; to set the interrupt mark
+  after the read of a lane's depot; and to give that read another word than
+  the depot that the lane starts with, which no act can make a lane's depot
+  fact say. The
   other throws are real throws of Rama's client: a module name under which
   no module runs, a thing that holds a plain Java object, a thing whose
   `:who` is an object of the proof's own, and a call made on a thread whose
@@ -159,8 +168,9 @@
 
 (def ^:dynamic ^:private *round*
   "What the proof holds of the cluster, round the door: the cluster itself,
-  the name of the module, the two depots, two queries, and four PStates,
-  the table of facts and the task's own table of each gate. And the two
+  the name of the module, the two depots, two queries, and six PStates,
+  the table of facts, the table of answers and the task's own table of each
+  gate. And the two
   doors that are opened at the start: `:door`, and `:paced-door`, which is
   opened with a read each 100 ms. `-main` binds it for the run."
   nil)
@@ -198,6 +208,8 @@
      :microbatch-facts (rama/foreign-pstate ipc m "$$microbatch-facts")
      :streaming-task   (rama/foreign-pstate ipc m "$$streaming-task")
      :microbatch-task  (rama/foreign-pstate ipc m "$$microbatch-task")
+     :streaming-answers  (rama/foreign-pstate ipc m "$$streaming-answers")
+     :microbatch-answers (rama/foreign-pstate ipc m "$$microbatch-answers")
      :door             (noted (door/open ipc m))
      :paced-door       (noted (door/open ipc m {:read-every-ms 100}))}))
 
@@ -274,10 +286,11 @@
   [(log-count :streaming) (log-count :microbatch)])
 
 (defn- records-of
-  "The records of the log under an act-id: of the depot that the act-id
-  names."
-  [act-id]
-  (filterv (fn [r] (and (map? r) (= act-id (get r :act-id)))) (log-of (nth act-id 1))))
+  "The records of a log under an act-id: of the depot that the act-id's
+  lane starts with, where the door sends, or of the depot given."
+  ([act-id] (records-of act-id (first-act/depot-at-making (nth act-id 0))))
+  ([act-id depot-word]
+   (filterv (fn [r] (and (map? r) (= act-id (get r :act-id)))) (log-of depot-word))))
 
 (defn- record-of
   "The one record of the log under an act-id, or nil when the log holds none
@@ -304,7 +317,7 @@
 (defn- without-the-time
   "Takes a record of the log. Gives it without the part that holds the time
   on the act. Of a thing that the door appended, what is left is the maker's
-  act with the door's two other additions, `:act-id` and `:depot`."
+  act with the door's other addition, `:act-id`."
   [r]
   (dissoc r declaration/time-part))
 
@@ -321,8 +334,8 @@
   under it and one from after. Gives, for each record of the log under the
   act-id, [the record without its time, whether its time is a time that the
   door wrote between the two readings]. So one thing that the door appended
-  for a maker's act gives [[the act with `:act-id` and `:depot` added,
-  true]]: the door's three additions, and nothing else changed."
+  for a maker's act gives [[the act with `:act-id` added, true]]: the
+  door's two additions, and nothing else changed."
   [act-id from to]
   (mapv (fn [r] [(without-the-time r) (time-between? (time-on r) from to)]) (records-of act-id)))
 
@@ -331,6 +344,26 @@
   proof's own handle, or nil."
   [act-id]
   (rama/foreign-invoke-query (:answer *round*) (record/routing-id act-id) act-id))
+
+(defn- gates-answer
+  "What one gate's own table of answers holds under an act-id, by a select
+  of that table on the task of the act-id's lane, as
+  `softland.store.record.rows/answer-of` reads the row; nil for no row.
+  Takes :streaming or :microbatch: the door's read by act-id reads the
+  table of the lane's own depot alone, and this reads either."
+  [depot-word act-id]
+  (record/answer-of
+   (rama/foreign-select-one (path/keypath (record/answer-key (nth act-id 0) (nth act-id 1)))
+                            (get *round* (if (= :microbatch depot-word) :microbatch-answers :streaming-answers))
+                            {:pkey (nth act-id 0)})))
+
+(defn- gates-last-stamp
+  "The last stamp that one gate keeps for a lane, on the lane's task, or nil
+  for a lane of which that gate has decided nothing."
+  [depot-word lane]
+  (rama/foreign-select-one (path/keypath :last-stamp (declaration/id-text lane))
+                           (get *round* (if (= :microbatch depot-word) :microbatch-task :streaming-task))
+                           {:pkey lane}))
 
 (defn- row-of
   "The row of a place of a streaming lane, by a select of the streaming
@@ -478,6 +511,22 @@
                       (apply real-query query args)))]
       (f))))
 
+(defn- with-depot-said
+  "Calls f while the proof stands in for Rama's client call
+  `foreign-invoke-query` with a function that gives `said` for the read of
+  `lane`'s depot, one argument after the handle and that lane, and calls
+  Rama for each other read. No act can make a lane's depot fact say another
+  word than the depot that the lane starts with, so this is how the proof
+  gives the door's read another word."
+  [lane said f]
+  (let [real-query rama/foreign-invoke-query]
+    (with-redefs [rama/foreign-invoke-query
+                  (fn [query & args]
+                    (if (= [lane] (vec args))
+                      said
+                      (apply real-query query args)))]
+      (f))))
+
 (defn- on-a-thread
   "Runs f on a thread of its own and gives what it gave, or [:threw text]
   when it threw, or [:no-return] after 60 seconds. For a check that sets the
@@ -537,9 +586,26 @@
   [who permission facts]
   {:version 1 :who who :lane :base :permission (perm/permission-id permission) :session :door-proof :facts facts})
 
+(defn- by-hand!
+  "Appends a maker's act to a depot with the proof's own handle, as an
+  appender that is not the door: under an act-id of the act's lane with a
+  uuid of the proof's making, or the act-id given, and with the time that
+  the proof read from the clock. Takes :streaming or :microbatch: the door
+  sends a thing to its lane's depot alone, and this sends to either. It
+  waits for the gate: for the streaming gate by the ack, for the
+  microbatch gate with `settle-base!`. Gives the thing."
+  ([depot-word act] (by-hand! depot-word act [(:lane act) (UUID/randomUUID)]))
+  ([depot-word act act-id]
+   (let [thing (assoc act :act-id act-id declaration/time-part (clock))]
+     (if (= :microbatch depot-word)
+       (do (rama/foreign-append! (:microbatch-depot *round*) thing :append-ack)
+           (settle-base!))
+       (rama/foreign-append! (:streaming-depot *round*) thing :ack))
+     thing)))
+
 (defn- time-sent
   "The time that the door wrote on the thing that it sent for a result of
-  `send-act`, read back from the log of the depot that the act-id names; or
+  `send-act`, read back from the log of the depot of the act-id's lane; or
   nil when that log holds no record, or more than one, under the act-id."
   [sent]
   (when (:act-id sent)
@@ -573,7 +639,7 @@
   [{:keys [sent answer]}]
   (if (:could-not sent)
     (pr-str (select-keys sent [:could-not :appended :at]))
-    (str (subs (str (nth (:act-id sent) 2)) 0 8) " " (:ack sent) " " (pr-str answer))))
+    (str (subs (str (nth (:act-id sent) 1)) 0 8) " " (:ack sent) " " (pr-str answer))))
 
 (defn- utf8-bytes
   "How many bytes the UTF-8 of a String has, by the JVM's own encoder and
@@ -620,18 +686,19 @@
         door-time (time-on in-log)
         round-the-door (answer-round before)
         after (act-id-for! d :alice)
+        asked-ahead (counting #(door/act-id-for d :alice))
         series (counting #(door/act-ids-for d :alice 20))
         ids (noted (:result series))]
     (swap! kept assoc :making {:act-id before :digest (:digest sent) :answer answer})
-    (check "act-id-for a lane that is not made: the lane, the depot that it starts with, and a uuid"
-           [:alice :streaming true 3] [(nth before 0) (nth before 1) (uuid? (nth before 2)) (count before)])
+    (check "act-id-for a lane that is not made: the lane and a uuid, and no depot word; it is made with no query and no append, since nothing of the cluster is in it"
+           [:alice true 2 [0 0]] [(nth before 0) (uuid? (nth before 1)) (count before) [(:queries asked-ahead) (:appends asked-ahead)]])
     (check "the making act through the door: the act-id that the maker gave back, a digest of 64 hex characters, and the streaming gate's ack"
            [before true :gate-ran #{:act-id :digest :ack}] [(:act-id sent) (hex64? (:digest sent)) (:ack sent) (set (keys sent))])
     (check "one record more in the streaming depot's log, and none in the other" [1 0] (mapv - logs-after logs-before))
     (check "answer-of gives accepted, with a stamp and a time" [:accepted true true #{:answer :stamp :time}]
            [(:answer answer) (int? (:stamp answer)) (int? (:time answer)) (set (keys answer))])
-    (check "the record in the log is the maker's act with the door's three additions, and nothing else changed: without its time it is the act with :act-id and :depot, and its parts are the maker's parts and those three"
-           [(assoc making :act-id before :depot :streaming) (conj (set (keys making)) :act-id :depot declaration/time-part)]
+    (check "the record in the log is the maker's act with the door's two additions, and nothing else changed: without its time it is the act with :act-id, and its parts are the maker's parts and those two; it holds no :depot"
+           [(assoc making :act-id before) (conj (set (keys making)) :act-id declaration/time-part)]
            [(without-the-time in-log) (set (keys in-log))])
     (check "the time that the door wrote on it, read back from the depot, is a fixed-width integer, not before the proof's reading of the clock just before the send and not after its reading just after"
            [true true] [(int? door-time) (time-between? door-time clock-before clock-after)])
@@ -643,18 +710,18 @@
            [door-time true] [(:time answer) (time-between? (:time answer) clock-before clock-after)])
     (check "the stamp of the answer holds no time: this making act is the first decision of its lane, and its stamp is 0"
            0 (:stamp answer))
-    (check "after the making, act-id-for gives the same lane and depot, and another uuid"
-           [[:alice :streaming] true] [(vec (take 2 after)) (not= (nth before 2) (nth after 2))])
-    (check "act-ids-for 20: 20 different act-ids of the lane, made with one query and no append"
-           [20 20 #{[:alice :streaming]} 1 0]
-           [(count ids) (count (set ids)) (set (map (fn [id] (vec (take 2 id))) ids)) (:queries series) (:appends series)])
+    (check "after the making, act-id-for gives the same lane, and another uuid"
+           [[:alice] true] [(vec (take 1 after)) (not= (nth before 1) (nth after 1))])
+    (check "act-ids-for 20: 20 different act-ids of the lane, each the lane and a uuid, made with no query and no append"
+           [20 20 #{[:alice]} 0 0]
+           [(count ids) (count (set ids)) (set (map (fn [id] (vec (take 1 id))) ids)) (:queries series) (:appends series)])
     (shown "the making act of a streaming lane through the door:" (pr-str (dissoc sent :digest)) "| answer-of:" (pr-str answer))
     (shown "the time that the door wrote on that act, read back from the depot:" door-time
            "| the proof's readings of the clock just before and just after the send:" clock-before clock-after
            "| the stamp and the time of its answer:" (:stamp answer) (:time answer)
            "| the parts of the record that the maker did not give:" (pr-str (vec (sort (remove (set (keys making)) (keys in-log))))))
     (shown "act-ids-for 20 in one lane: 20 different act-ids with" (:queries series)
-           "query. The proof counted the query by standing in for Rama's client call with a function that counts and then calls Rama.")))
+           "queries. The proof counted the queries by standing in for Rama's client call with a function that counts and then calls Rama.")))
 
 (deftest round-trips-are-counted
   (let [d (the-door)
@@ -665,6 +732,19 @@
         held (counting #(send! d (act-of :carol [(value :c-2 "two")]) given-id))
         five (counting #(send! d (act-of :carol (mapv (fn [i] (value (keyword (str "c-5-" i)) i)) (range 5)))))
         logs-after (log-counts)
+        series-ids (door/act-ids-for d :carol 4)
+        series (counting #(mapv noted (door/send-acts d (mapv (fn [i id] [(act-of :carol [(value (keyword (str "c-series-" i)) i)]) id])
+                                                         (range 4) series-ids))))
+        series-answers (mapv (fn [receipt] (:answer (answer! d (:act-id receipt) (:digest receipt)))) (:result series))
+        unreadable (counting #(send! d (assoc (act-of :carol [(value :c-9 "nine")]) :act-id given-id)))
+        stopped (counting #(mapv noted (door/send-acts d [[(act-of :carol [(value :c-s-1 1)]) nil]
+                                                     [(assoc (act-of :carol [(value :c-s-2 2)]) declaration/time-part 5) nil]
+                                                     [(act-of :carol [(value :c-s-3 3)]) nil]])))
+        not-a-series (counting #(mapv noted (door/send-acts d 5)))
+        odd-series (mapv (fn [pairs] (counting #(mapv noted (door/send-acts d pairs))))
+                         [nil {:act (act-of :carol [(value :c-odd-1 1)])} [(list (act-of :carol [(value :c-odd-2 2)]) nil)]])
+        throws-at-two (counting #(mapv noted (door/send-acts d (lazy-cat [[(act-of :carol [(value :c-lazy-1 1)]) nil]]
+                                                                       (lazy-seq (throw (ex-info "the proof's sequence throws at its second entry" {})))))))
         answers (mapv (fn [counted] (answer! d (:act-id (:result counted)) (:digest (:result counted)))) [first-value five])
         one-read (counting #(answer! d given-id (:digest (:result held))))
         never (act-id-for! d :carol)
@@ -681,7 +761,20 @@
     (check "the lane of this check is made" true made?)
     (check "each of the three sends went in" [nil nil nil] (mapv (comp :could-not :result) [first-value held five]))
     (check "a person's first send of a value, which makes its act-id: 1 append, of the act, and 1 query, the read of the lane's depot" [1 1] (trips first-value))
-    (check "a send of a value with a given act-id: 1 append and no query" [1 0] (trips held))
+    (check "a send of a value with a given act-id: 1 append and 1 query, the read of the lane's depot, as for a send that makes its act-id; an act-id names no depot, so the door reads the lane's for every send" [1 1] (trips held))
+    (check "a series of four acts of one lane, under act-ids asked for ahead, sent with one call: 4 appends and 1 query, one read of the lane's depot for the whole series; each act has its receipt under its own act-id and is accepted"
+           [[4 1] series-ids (vec (repeat 4 :accepted))]
+           [(trips series) (mapv :act-id (:result series)) series-answers])
+    (check "a thing that the door cannot send costs no round trip: the read of the lane's depot is made after the thing was read"
+           [[0 0] :add-its-parts] [(trips unreadable) (:could-not (:result unreadable))])
+    (check "a series stops at the first act that ends in a word of the door's, which is its last result, and the act behind it is not sent: of three acts whose second already holds a time, one append, one query, a receipt and the word"
+           [[1 1] 2 true :add-its-parts]
+           [(trips stopped) (count (:result stopped)) (hex64? (:digest (first (:result stopped)))) (:could-not (peek (:result stopped)))])
+    (check "a thing that is no series ends in the word of a thing that the door could not read, with no round trip"
+           [[0 0] [:read-the-act]] [(trips not-a-series) (mapv :could-not (:result not-a-series))])
+    (check "a series that is nothing, a map, or a sequence whose entry is no pair of an act and an act-id ends in that word too, one result, with no round trip; a lazy sequence that throws at its second entry gives the first act's receipt and then that word, with one append"
+           [[[0 0] [:read-the-act]] [[0 0] [:read-the-act]] [[0 0] [:read-the-act]] [[1 1] [nil :read-the-act]]]
+           (mapv (fn [counted] [(trips counted) (mapv :could-not (:result counted))]) (conj odd-series throws-at-two)))
     (check "a send of five values that makes its act-id: 1 append and 1 query, as for one value" [1 1] (trips five))
     (check "the three sends are three records more in the streaming depot's log and none in the other, and the two that made their act-id are accepted"
            [[3 0] [:accepted :accepted]] [(mapv - logs-after logs-before) (mapv :answer answers)])
@@ -696,6 +789,7 @@
            [[0 0] {:answer :nothing-yet} true] [(trips no-id) (:result no-id) (< no-id-ms 300)])
     (shown "round trips of one call of the door, [appends queries]: a person's first send of a value, which makes its act-id" (pr-str (trips first-value))
            "| a send with its act-id given" (pr-str (trips held))
+           "| a series of four acts of one lane, sent with one call" (pr-str (trips series))
            "| a send of five values that makes its act-id" (pr-str (trips five)) "| an answer-of" (pr-str (trips one-read))
            "| a wait of 600 ms that finds nothing" (pr-str (trips waited)) "in" waited-ms
            "ms. The proof counted them by standing in for Rama's two client calls with functions that count and then call Rama.")))
@@ -725,8 +819,8 @@
     (check "the lane of this check is made" true made?)
     (check "a person's first act with a value is one record more in the streaming depot's log, the act itself, and it is accepted"
            [[1 0] true] [(mapv - logs-after logs-before) (accepted? landed)])
-    (check "the record in the log is the maker's act with the door's three additions: without its time it is the act with :act-id and :depot, its time is a time of the door's clock between the proof's two readings round the call, and its fact holds :e, :k and :v and no other part"
-           [(assoc first-act :act-id act-id :depot :streaming) true #{:e :k :v}]
+    (check "the record in the log is the maker's act with the door's two additions: without its time it is the act with :act-id, its time is a time of the door's clock between the proof's two readings round the call, and its fact holds :e, :k and :v and no other part"
+           [(assoc first-act :act-id act-id) true #{:e :k :v}]
            [(without-the-time record) (time-between? (time-on record) clock-before clock-after) (set (keys fact))])
     (check "its answer carries the time that the door wrote on it, read back from the depot; and its stamp is 1: the lane's making act was the lane's first decision, and this act is its second"
            [(time-on record) 1] [(:time (:answer landed)) (:stamp (:answer landed))])
@@ -758,7 +852,7 @@
   no time, or with a time of another kind, stays as it is and equals no
   record whose time was set aside."
   [r]
-  (cond-> (assoc r :act-id (assoc (:act-id r) 2 :the-acts-uuid))
+  (cond-> (assoc r :act-id (assoc (:act-id r) 1 :the-acts-uuid))
     (int? (time-on r)) (assoc declaration/time-part :the-time-of-a-clock)))
 
 (deftest the-door-and-the-hand-send-the-same-thing
@@ -773,10 +867,10 @@
         clock-after (clock)
         door-record (record-of (:act-id (:sent by-door)))
         ;; by the hand: the hand's steps, written out a second time
-        depot-word (or (rama/foreign-invoke-query (:depot-of-lane *round*) :erin) (first-act/depot-at-making :erin))
-        hand-id [:erin depot-word (UUID/randomUUID)]
+        depot-word (first-act/depot-as-said :erin (rama/foreign-invoke-query (:depot-of-lane *round*) :erin))
+        hand-id [:erin (UUID/randomUUID)]
         hand-time (clock)
-        hand-thing (merge {:act-id hand-id :depot depot-word declaration/time-part hand-time} (act-of :erin facts))
+        hand-thing (merge {:act-id hand-id declaration/time-part hand-time} (act-of :erin facts))
         _ (rama/foreign-append! (:streaming-depot *round*) hand-thing :ack)
         hand-answer (answer-round hand-id)
         hand-record (record-of hand-id)]
@@ -785,13 +879,12 @@
     (check "the same act by the hand is accepted, with the digest of what the hand sent, and the time in its answer is the time that the hand wrote on it, a reading of the clock after the door's send"
            [:accepted (digest/hex-of hand-thing) hand-time]
            [(:verdict hand-answer) (:digest hand-answer) (:time hand-answer)])
-    (check "the door's record in the log, with the uuid of its act-id and its time set aside, is the maker's act with the door's three additions, written out here"
+    (check "the door's record in the log, with the uuid of its act-id and its time set aside, is the maker's act with the door's two additions, written out here"
            {:version 1 :who (person :erin) :lane :erin :permission (perm/permission-id (own :erin)) :session :door-proof
             :facts [{:e :note-1 :k :text :v {:n 1 :tags #{:a}}}
                     {:e :note-2 :k :text}
                     {:e :erin :k :softland.store/who-may-read-acts :v :members}]
-            :act-id [:erin :streaming :the-acts-uuid]
-            :depot :streaming
+            :act-id [:erin :the-acts-uuid]
             declaration/time-part :the-time-of-a-clock}
            (without-the-uuid-and-the-time door-record))
     (check "the time that was set aside in the door's record is a time of the door's clock between the proof's two readings round the call, and the hand's record holds the time that the hand wrote"
@@ -801,8 +894,8 @@
     (check "the two act-ids differ, and each holds a uuid: two records were compared, and the uuid and the time are the two parts in which they can differ"
            [false true true]
            [(= (:act-id door-record) (:act-id hand-record))
-            (uuid? (get (:act-id door-record) 2))
-            (uuid? (get (:act-id hand-record) 2))])
+            (uuid? (get (:act-id door-record) 1))
+            (uuid? (get (:act-id hand-record) 1))])
     (check "the place that both acts wrote holds one row, with the one text of the value in its normal form"
            ["{:n 1 :tags #{:a}}"] (mapv :value (rows-at :erin :note-1 :text)))
     (shown "the door and the hand send the same thing for one act with a value, a retract and a store-key fact, but for the uuid of the act-id and the time:"
@@ -875,11 +968,13 @@
          ["a :lane that is no id" (mapv (fn [lane] (said (send! d (assoc (alice [(value :n 1)]) :lane lane)))) ["notes" 7])
           (vec (repeat 2 (could-not :make-an-act-id :lane)))]
          ["a :lane of 257 characters" (said (send! d (assoc (alice []) :lane (keyword (apply str (repeat 256 "a")))))) (could-not :make-an-act-id :lane)]
-         ["an act that already carries :act-id, or :depot"
-          [(said (send! d (assoc (alice [(value :n 1)]) :act-id [:alice :streaming (UUID/randomUUID)])))
-           (said (send! d (assoc (alice [(value :n 1)]) :depot :streaming)))]
-          [(could-not :add-its-parts :act-id) (could-not :add-its-parts :depot)]]
-         ["an act-id given back that is of another lane" (said (send! d (alice [(value :n 1)]) [:carol :streaming (UUID/randomUUID)])) (could-not :make-an-act-id :act-id)]
+         ["an act that already carries :act-id"
+          (said (send! d (assoc (alice [(value :n 1)]) :act-id [:alice (UUID/randomUUID)])))
+          (could-not :add-its-parts :act-id)]
+         ["an act-id given back with a depot word in it, as the form before 28 November 2026 had it, of either depot: the door sends nothing under it"
+          (mapv (fn [depot] (said (send! d (alice [(value :n 1)]) [:alice depot (UUID/randomUUID)]))) [:streaming :microbatch])
+          (vec (repeat 2 (could-not :make-an-act-id :act-id)))]
+         ["an act-id given back that is of another lane" (said (send! d (alice [(value :n 1)]) [:carol (UUID/randomUUID)])) (could-not :make-an-act-id :act-id)]
          ["a :session that throws when it is read, which the door meets in the walk for its digest"
           (said (send! d (alice [(value :n 1)] {:session throws-when-read}))) (could-not :read-the-act)]]
         ;; a who that the door does not read, and that Rama's client cannot write
@@ -903,7 +998,7 @@
          ["a :who that is a sorted map" (alice [(value :by-a-sorted-map "a value")] {:who (sorted-map :a 1)}) :who-not-a-party]
          ["a :who that is a map with string keys" (alice [(value :by-a-map "a value")] {:who {"a" 1}}) :who-not-a-party]
          ["a fact that carries :sealed and :lock-id, and no :v"
-          (alice [{:e :forged :k :text :sealed (byte-array 40) :lock-id [[:alice :streaming (UUID/randomUUID)] 0]}]) :unknown-part]
+          (alice [{:e :forged :k :text :sealed (byte-array 40) :lock-id [[:alice (UUID/randomUUID)] 0]}]) :unknown-part]
          ["a fact with a value that also holds :sealed" (alice [(assoc (value :n-sealed 1) :sealed (byte-array 3))]) :unknown-part]
          ["a fact with a value under a store key that also holds :sealed" (alice [{:e :alice :k :softland.store/depot :v :streaming :sealed (byte-array 3)}]) :unknown-part]
          ["a fact under :softland.store/lock-request, which is no key of the store" (alice [{:e :asked :k :softland.store/lock-request :v 4}]) :store-key-not-known]
@@ -911,7 +1006,7 @@
          ["a part that is named as the door's own words are, :could-not" (assoc (alice [{:e :n :k :text}]) :could-not :read-the-act) :unknown-part]
          ["257 facts, two with a value" (alice (into [(value :m-1 1) (value :m-2 2)] (map (fn [i] {:e (keyword (str "r" i)) :k :text}) (range 255)))) :too-many-facts]
          ["300 facts that each hold a value" (alice (mapv (fn [i] (value (keyword (str "e" i)) i)) (range 300))) :too-many-facts]
-         ["1,025 entries of :based-on" (assoc (alice [{:e :n :k :text}]) :based-on (into {} (map (fn [_] [[[:alice :streaming (UUID/randomUUID)] 0] 1])) (range 1025))) :too-many-based-on]
+         ["1,025 entries of :based-on" (assoc (alice [{:e :n :k :text}]) :based-on (into {} (map (fn [_] [[[:alice (UUID/randomUUID)] 0] 1])) (range 1025))) :too-many-based-on]
          ["an entity of 300 characters" (alice [{:e (keyword (apply str (repeat 299 "a"))) :k :text}]) :id-too-long]]
         gone-in (mapv (fn [[what thing reason]] [what (decide! d thing) reason]) goes-in)
         logs-after (log-counts)
@@ -976,7 +1071,7 @@
         id-1 (act-id-for! d :alice)
         first-sent (decide! d (act-of :alice [(value :stamped "one")]) id-1)
         first-time (time-sent (:sent first-sent))
-        stale (decide! d (act-of :alice [{:e :stale :k :text :replaces [[:alice :streaming (UUID/randomUUID)] 0]}]))
+        stale (decide! d (act-of :alice [{:e :stale :k :text :replaces [[:alice (UUID/randomUUID)] 0]}]))
         stale-time (time-sent (:sent stale))
         ;; nothing yet
         never (answer! d (act-id-for! d :alice) (:digest (:sent first-sent)))
@@ -1030,8 +1125,8 @@
            [:gate-ran {:answer :not-mine}] [(:ack other) others-answer])
     (check "the first act's own digest still reads its own answer; no digest reads not mine"
            [(:answer first-sent) {:answer :not-mine}] [still no-digest])
-    (check "a maker's own second send of one act with a value, under the act-id that she gives back: one digest of 64 hex characters for both sends; both went to the depot, which holds two records under the act-id; and each of the two, without its time, is the maker's act with :act-id and :depot"
-           [true true [:gate-ran :gate-ran] 2 (vec (repeat 2 (assoc twice :act-id id-2 :depot :streaming)))]
+    (check "a maker's own second send of one act with a value, under the act-id that she gives back: one digest of 64 hex characters for both sends; both went to the depot, which holds two records under the act-id; and each of the two, without its time, is the maker's act with :act-id"
+           [true true [:gate-ran :gate-ran] 2 (vec (repeat 2 (assoc twice :act-id id-2)))]
            [(hex64? (:digest send-1)) (= (:digest send-1) (:digest send-2)) [(:ack send-1) (:ack send-2)]
             (count twice-records) (mapv without-the-time twice-records)])
     (check "each of the two records holds the time of its own send: the first a time between the proof's readings of the clock round the first send, the second a time between its readings round the second; so the second is not before the first, and the two have one digest, the one that the sends gave"
@@ -1088,11 +1183,11 @@
         not-made-id (:act-id (:sent not-made))]
     (check "a value of the lane's holder is accepted, and the select round the door finds its one row"
            [true ["\"a value of the lane's holder\""]] [(accepted? alices) (mapv :value alices-rows)])
-    (check "a who under a permission that was never given sends a value act into that lane: the door checks nothing of her and stops nothing; one append and no query, the streaming gate's ack, and one record more in the streaming depot's log"
-           [nil :gate-ran [1 0] [1 0]]
+    (check "a who under a permission that was never given sends a value act into that lane: the door checks nothing of her and stops nothing; one append and one query, the read of the lane's depot, the streaming gate's ack, and one record more in the streaming depot's log"
+           [nil :gate-ran [1 1] [1 0]]
            [(:could-not (:result sent)) (:ack (:result sent)) [(:appends sent) (:queries sent)] (mapv - logs-after logs-before)])
-    (check "the log holds her act under its own act-id, as she gave it, with its value plain: one record, which without its time is her act with :act-id and :depot, and whose time is a time of the door's clock between the proof's two readings round the send"
-           [[(assoc mallorys-act :act-id id :depot :streaming) true]] (seen-in-log id clock-before clock-after))
+    (check "the log holds her act under its own act-id, as she gave it, with its value plain: one record, which without its time is her act with :act-id, and whose time is a time of the door's clock between the proof's two readings round the send"
+           [[(assoc mallorys-act :act-id id) true]] (seen-in-log id clock-before clock-after))
     (check "a gate refuses it, and the refusal is recorded under the act's own act-id with the gate's word: answer-of gives it for the digest that the send gave, with the time that the door wrote on the thing, and the record's answer round the door is of that digest"
            [(as-answered (:result sent) {:answer :refused :reason :permission-never-given}) [:refused :permission-never-given (:digest (:result sent))]]
            [(dissoc answer :stamp) [(:verdict round-the-door) (:reason round-the-door) (:digest round-the-door)]])
@@ -1100,8 +1195,8 @@
     (check "a value act into a lane that is not made: the thing goes to the depot that the lane would start with, one record more in its log, and a gate refuses it under its own act-id with its word and with the time that the door wrote on it"
            [nil :gate-ran [1 0] (as-answered (:sent not-made) {:answer :refused :reason :lane-not-made})]
            [(:could-not (:sent not-made)) (:ack (:sent not-made)) (mapv - logs-after-2 logs-before-2) (dissoc (:answer not-made) :stamp)])
-    (check "the log holds that act too, as its maker gave it, with its value plain, and with the door's three additions: one record, which without its time is the act with :act-id and :depot, and whose time is between the proof's two readings round the call; and no gate holds a row at its place"
-           [[[(assoc nowheres-act :act-id not-made-id :depot :streaming) true]] []]
+    (check "the log holds that act too, as its maker gave it, with its value plain, and with the door's two additions: one record, which without its time is the act with :act-id, and whose time is between the proof's two readings round the call; and no gate holds a row at its place"
+           [[[(assoc nowheres-act :act-id not-made-id) true]] []]
            [(when not-made-id (seen-in-log not-made-id clock-before-2 clock-after-2)) (rows-at :nowhere :n-1 :text)])
     (shown "a value act of a who under a permission that was never given goes in with" (:appends sent) "append and" (:queries sent)
            "queries, and is refused under its own act-id:" (pr-str (dissoc answer :stamp))
@@ -1126,8 +1221,8 @@
                              :facts [{:e :v-1 :k :text}]})]
     (check "Alice gives, through the door, a permission in her lane that says see: a fact under a store key, and it is accepted"
            true (accepted? gave))
-    (check "the holder of see sends a value: the thing goes in under the act-id that she gave back, one record more in the streaming depot's log, and the log holds her act as she gave it, with its value plain: one record, which without its time is her act with :act-id and :depot, and whose time is a time of the door's clock between the proof's two readings round the send"
-           [nil :gate-ran [1 0] [[(assoc veras-act :act-id id :depot :streaming) true]]]
+    (check "the holder of see sends a value: the thing goes in under the act-id that she gave back, one record more in the streaming depot's log, and the log holds her act as she gave it, with its value plain: one record, which without its time is her act with :act-id, and whose time is a time of the door's clock between the proof's two readings round the send"
+           [nil :gate-ran [1 0] [[(assoc veras-act :act-id id) true]]]
            [(:could-not sent) (:ack sent) (mapv - logs-after logs-before) (seen-in-log id clock-before clock-after)])
     (check "a gate refuses it under its own act-id with its word, an act needs act: answer-of gives the refusal for the digest that the send gave, with the time that the door wrote on the thing, and the record's answer round the door is of that digest"
            [(as-answered sent {:answer :refused :reason :permission-does-not-allow-writing}) [:refused :permission-does-not-allow-writing (:digest sent)]]
@@ -1164,7 +1259,7 @@
         another-told (answer! d id (:digest another-under-id))
         give-yes-2 (decide! d (act-of :alice [(perm/permission-fact yes-2)]))
         another-act (decide! d (assoc the-act :permission (perm/permission-id yes-2) :facts [(value :w-3 "another value")]))
-        written-another-way (decide! d (assoc the-act :permission (perm/permission-id yes-2) :subjects #{} :based-on {}
+        written-another-way (decide! d (assoc the-act :permission (perm/permission-id yes-2) :because-of nil :based-on {}
                                               :facts (list (value :w-3 "the act said yes to"))))
         [yes-1-row yes-2-row] (map #(let [{:keys [e k]} (perm/permission-fact %)] (row-of :alice e k)) [yes-1 yes-2])]
     (check "through the door, Alice gives Will a permission for his run; his act in that run is taken, and in another run refused"
@@ -1183,7 +1278,7 @@
            [(accepted? give-yes-2) [(:answer (:answer another-act)) (:reason (:answer another-act))]
             (:answer (:answer written-another-way))])
     (check "each yes's place holds its use: an end, written by the act that used it"
-           [[true (nth (:act-id (:sent taken)) 2)] [true (nth (:act-id (:sent written-another-way)) 2)]]
+           [[true (nth (:act-id (:sent taken)) 1)] [true (nth (:act-id (:sent written-another-way)) 1)]]
            [[(record/used? yes-1-row) (:by-act yes-1-row)] [(record/used? yes-2-row) (:by-act yes-2-row)]])
     (shown "a permission for a run and a yes for one act, through the door: in his run" (told in-run)
            "| the act under its yes:" (told taken) "| again under another act-id:" (told again)
@@ -1193,30 +1288,36 @@
 (deftest reads-that-throw
   (let [d (the-door)
         logs-before (log-counts)
-        ;; the read of a lane's depot
-        depot-word (with-read-thrown 1 #(act-id-for! d :alice))
+        ;; the read of a lane's depot, which a send makes and the making of an
+        ;; act-id does not
+        asked-ahead (with-read-thrown 1 #(act-id-for! d :alice))
+        series-ahead (with-read-thrown 1 #(noted (door/act-ids-for d :alice 3)))
         depot-word-in-send (with-read-thrown 1 #(send! d (act-of :alice [(value :read-thrown-1 "a value")])))
-        series-word (with-read-thrown 1 #(noted (door/act-ids-for d :alice 3)))
+        depot-word-with-id (with-read-thrown 1 #(send! d (act-of :alice [(value :read-thrown-2 "a value")]) asked-ahead))
+        depot-word-in-series (with-read-thrown 1 #(mapv noted (door/send-acts d [[(act-of :alice [(value :read-thrown-3 "a value")]) nil]])))
         ;; the read of an answer
         making (:making @kept)
         answer-word (with-read-thrown 2 #(answer! d (:act-id making) (:digest making) 600))
         logs-after (log-counts)
-        ;; a send whose act-id is given makes no read
-        given (act-id-for! d :alice)
-        no-read (with-read-thrown 1 #(send! d (act-of :alice [(value :read-thrown-2 "a value")]) given))
-        no-read-answer (when-not (:could-not no-read) (answer! d given (:digest no-read)))]
-    (check "the read of a lane's depot is made to throw: the word, from act-id-for, from a send of a value that makes its act-id, and from act-ids-for"
+        rows-after [(rows-at :alice :read-thrown-1 :text) (rows-at :alice :read-thrown-2 :text) (rows-at :alice :read-thrown-3 :text)]
+        ;; the same act-id again, with the read left alone
+        sent-after (send! d (act-of :alice [(value :read-thrown-2 "a value")]) asked-ahead)
+        sent-after-answer (when-not (:could-not sent-after) (answer! d asked-ahead (:digest sent-after)))]
+    (check "the making of an act-id reads nothing of the cluster: with the read of a lane's depot made to throw, act-id-for gives an act-id and act-ids-for gives three"
+           [true 2 3] [(uuid? (get asked-ahead 1)) (count asked-ahead) (count series-ahead)])
+    (check "the read of a lane's depot is made to throw: the word, from a send of a value that makes its act-id, from a send under an act-id that was asked for ahead, and as the one result of a series"
            (vec (repeat 3 [:read-the-lanes-depot :nothing :alice "clojure.lang.ExceptionInfo"]))
-           (mapv (juxt :could-not :appended :lane :threw) [depot-word depot-word-in-send series-word]))
+           (mapv (juxt :could-not :appended :lane :threw) [depot-word-in-send depot-word-with-id (first depot-word-in-series)]))
     (check "the read of an answer is made to throw: the word, and none of the four answers"
            [:read-the-answer :nothing (:act-id making) nil] [(:could-not answer-word) (:appended answer-word) (:act-id answer-word) (:answer answer-word)])
-    (check "nothing was appended by those four calls, and no row is at the place of the value whose send ended in the word"
-           [logs-before []] [logs-after (rows-at :alice :read-thrown-1 :text)])
-    (check "a send of a value whose act-id is given makes no read, so the read that is made to throw does not meet it: the thing goes in and is accepted"
-           [nil :gate-ran :accepted] [(:could-not no-read) (:ack no-read) (:answer no-read-answer)])
+    (check "nothing was appended by those calls, and no row is at the place of a value whose send ended in the word"
+           [logs-before [] [] []]
+           (into [logs-after] rows-after))
+    (check "the act whose send ended in the word, sent again under the same act-id with the read left alone, goes in and is accepted"
+           [nil :gate-ran :accepted] [(:could-not sent-after) (:ack sent-after) (:answer sent-after-answer)])
     (shown "two reads that the proof made throw itself, by standing in for Rama's client call foreign-invoke-query with a function that throws for a call with that query's count of arguments:"
-           (pr-str (mapv :could-not [depot-word answer-word])) "| each says" (pr-str (:appended depot-word)) "of the act"
-           "| a send of a value with its act-id given made no read and went in")))
+           (pr-str (mapv :could-not [depot-word-in-send answer-word])) "| each says" (pr-str (:appended depot-word-in-send)) "of the act"
+           "| the making of an act-id read nothing, and a send under an act-id that was asked for ahead read the lane's depot")))
 
 (deftest the-openers-numbers
   (let [paced (the-paced-door)
@@ -1251,25 +1352,44 @@
         word (send! d (act-of :alice [{:e :note-9 :k :text}] {:note (Object.)}) id-1)
         answer (answer! d id-1 (:digest word))
         in-log (count (records-of id-1))
-        ;; a throw for an append that went through
-        id-2 (act-id-for! d :alice)
-        [interrupted mark-set?]
+        ;; an interrupt mark set before the call: the read of the lane's
+        ;; depot comes before the append, and it is that read that throws
+        id-0 (act-id-for! d :alice)
+        [read-interrupted read-mark-set?]
         (on-a-thread
          (fn []
            (.interrupt (Thread/currentThread))
-           (let [got (send! d (act-of :alice [{:e :note-10 :k :text}]) id-2)]
+           (let [got (send! d (act-of :alice [{:e :note-11 :k :text}]) id-0)]
              [got (Thread/interrupted)])))
+        ;; a throw for an append that went through: the mark is set after
+        ;; the door's read of the lane's depot, by a stand-in for that read
+        ;; that calls Rama and then sets it, so the throw is the append's
+        id-2 (act-id-for! d :alice)
+        real-query rama/foreign-invoke-query
+        [interrupted mark-set?]
+        (with-redefs [rama/foreign-invoke-query (fn [query & args]
+                                                  (let [got (apply real-query query args)]
+                                                    (when (= 1 (count args)) (.interrupt (Thread/currentThread)))
+                                                    got))]
+          (on-a-thread
+           (fn []
+             (let [got (send! d (act-of :alice [{:e :note-10 :k :text}]) id-2)]
+               [got (Thread/interrupted)]))))
         arrived (loop [tries 0]
                   (let [found (records-of id-2)]
                     (if (or (seq found) (<= 200 tries))
                       found
                       (do (Thread/sleep 50) (recur (inc tries))))))
+        in-log-0 (count (records-of id-0))
         answer-2 (answer! d id-2 (:digest interrupted) 10000)]
     (check "an act with a part that the form does not know, which holds a plain Java object: a real throw of Rama's client. The word carries the act-id and the digest, and says that the door does not know"
            [:append-cleanly :not-known id-1 true true]
            [(:could-not word) (:appended word) (:act-id word) (hex64? (:digest word)) (string? (:threw word))])
     (check "answer-of with that pair gives nothing yet" {:answer :nothing-yet} answer)
-    (check "an act with no value and a given act-id, sent on a thread whose interrupt mark the proof set: Rama's client throws. The word carries the act-id and a digest, and the thread's mark is set again"
+    (check "an act with no value and a given act-id, sent on a thread whose interrupt mark the proof set before the call: the door's read of the lane's depot, which comes before the append, throws in Rama's client. The word says that nothing was appended, the log holds no record under the act-id, and the thread's mark is set again"
+           [:read-the-lanes-depot :nothing :alice "java.lang.InterruptedException" 0 true]
+           [(:could-not read-interrupted) (:appended read-interrupted) (:lane read-interrupted) (:threw read-interrupted) in-log-0 read-mark-set?])
+    (check "an act with no value and a given act-id, sent on a thread whose interrupt mark the proof set after the door's read of the lane's depot: Rama's client throws in the append. The word carries the act-id and a digest, and the thread's mark is set again"
            [:append-cleanly :not-known id-2 "java.lang.InterruptedException" true true]
            [(:could-not interrupted) (:appended interrupted) (:act-id interrupted) (:threw interrupted) (hex64? (:digest interrupted)) mark-set?])
     (check "the append went through all the same: the log holds one record under that act-id, and its digest is the word's"
@@ -1281,7 +1401,8 @@
            "| a real throw of Rama's client")
     (shown "an append that threw and went through:" (pr-str (select-keys interrupted [:could-not :appended :threw]))
            "| the log holds" (count arrived) "record under its act-id, with the word's digest | answer-of:" (pr-str (dissoc answer-2 :stamp))
-           "| the proof set the interrupt mark of its own thread before the call; the throw is Rama's client's")))
+           "| the proof set the interrupt mark of its own thread after the door's read of the lane's depot, by standing in for that call of Rama's client with a function that calls Rama and then sets the mark; the throw is Rama's client's"
+           "| with the mark set before the call:" (pr-str (select-keys read-interrupted [:could-not :appended :threw])))))
 
 (deftest many-makers-at-once
   (let [d (the-door)
@@ -1353,11 +1474,14 @@
   (let [d (the-door)
         asked-before (asking #(act-id-for! d :base))
         before (:result asked-before)
-        ;; an act for the base under an act-id with the other depot word, before the base is made
-        other-id (assoc (act-id-for! d :base) 1 :streaming)
+        ;; a thing for the base on the streaming depot, where the door sends none
+        ;; and another appender can, before the base is made
+        other-act (system-act [(value :wrong-depot-base-1 "a value")])
         logs-before-other (log-counts)
-        other (decide! d (system-act [(value :wrong-depot-base-1 "a value")]) other-id)
+        other (by-hand! :streaming other-act)
         logs-after-other (log-counts)
+        other-kept (gates-answer :streaming (:act-id other))
+        other-told (answer! d (:act-id other) (digest/hex-of other))
         making (perm/making-act :base :system :system :door-proof)
         made-sent (send! d making)
         made-answer (answer! d (:act-id made-sent) (:digest made-sent) wait-ms)
@@ -1375,28 +1499,32 @@
         _ (settle-base!)
         first-rows (rows-in :microbatch-facts :base :doc-1 :text)
         asked-again (asking #(answer! d (:act-id first-value) (:digest first-value)))
-        gave (decide! d (system-act [(perm/permission-fact alice-in-base)]))]
+        gave (decide! d (system-act [(perm/permission-fact alice-in-base)]))
+        ;; the same act under the same act-id, through the door, now that the base is made
+        other-told-after (answer! d (:act-id other) (digest/hex-of other))
+        same-id (decide! d other-act (:act-id other))]
     (swap! kept assoc
-           :base-under-the-streaming-word (:answer other)
+           :base-on-the-streaming-depot other-kept
            :base-answers [[(:act-id made-sent) (:digest made-sent) made-answer]
                           [(:act-id first-value) (:digest first-value) first-answer]])
-    (check "act-id-for the base before it is made: the base starts as a microbatch lane" [:base :microbatch] (vec (take 2 before)))
-    (check "that act-id came of one read of the lane's depot, asked with the lane alone, which gave nothing: the base was not made, and the door gave the depot that the base starts with"
-           [[[[:base] nil]] (first-act/depot-at-making :base)] [(:asked asked-before) (get before 1)])
-    (check "an act for the base under an act-id with the streaming depot word, sent before the base is made: the thing goes to the streaming depot, one record more in its log and none in the other; the streaming gate's ack; and that gate's recorded refusal comes back, with the word of a lane of the other gate and not the word of a lane that is not made, and with the time that the door wrote on the thing"
-           [nil :gate-ran [1 0] (as-answered (:sent other) {:answer :refused :reason :lane-belongs-to-the-other-gate})]
-           [(:could-not (:sent other)) (:ack (:sent other)) (mapv - logs-after-other logs-before-other) (dissoc (:answer other) :stamp)])
+    (check "act-id-for the base before it is made: the base and a uuid, made with no read of the cluster; an act-id names no depot"
+           [:base true 2 []] [(nth before 0) (uuid? (nth before 1)) (count before) (:asked asked-before)])
+    (check "a thing for the base on the streaming depot, put there by an appender that is not the door, before the base is made: one record more in the streaming depot's log and none in the other. The streaming gate refuses it and keeps the refusal in its own answers, under the thing's act-id, with the word of a lane of the other gate and not the word of a lane that is not made, with the digest of the thing and the time on it, and with the stamp 0: the first of a count that the streaming gate keeps for the base by itself, which is no stamp of the base's line"
+           [[1 0] {:verdict :refused :reason :lane-belongs-to-the-other-gate :stamp 0 :time (time-on other) :digest (digest/hex-of other)} 0]
+           [(mapv - logs-after-other logs-before-other) other-kept (gates-last-stamp :streaming :base)])
+    (check "the door's read of an answer under that act-id, with the digest of the thing, gives nothing yet, before the base is made and after: the read follows the lane's depot, which is the microbatch depot, and the microbatch gate's answers hold no row for a thing that its depot never held"
+           [{:answer :nothing-yet} {:answer :nothing-yet}] [other-told other-told-after])
     (check "the base's making act by the system: the microbatch depot's ack, which says only that the depot holds the thing; and a wait gives accepted"
-           [:depot-holds [:base :microbatch] :accepted] [(:ack made-sent) (vec (take 2 (:act-id made-sent))) (:answer made-answer)])
-    (check "the making act is the first decision of the base in the microbatch gate's record, so the stamp of its answer is 0; and the answer carries the time that the door wrote on the act"
+           [:depot-holds [:base] :accepted] [(:ack made-sent) (vec (take 1 (:act-id made-sent))) (:answer made-answer)])
+    (check "the making act is the first decision of the base in the microbatch gate's record, so the stamp of its answer is 0: the thing that the streaming gate refused took no stamp of the base's line. And the answer carries the time that the door wrote on the act"
            [true 0 made-time] [(int? made-time) (:stamp made-answer) (:time made-answer)])
     (check "a value act into the base: the microbatch depot's ack, and one record more in its log, the act itself"
            [nil :depot-holds [0 1]]
            [(:could-not first-value) (:ack first-value) (mapv - logs-after logs-before)])
     (check "the calls of Rama's client inside that send, in their order: the read of the lane's depot, and the act's append"
            [[:query 1] [:append 2]] (:calls noted-calls))
-    (check "the record in the log is the system's act with the door's three additions, its value plain: without its time it is the act with :act-id and :depot, and its time is a time of the door's clock between the proof's two readings round the send. The door writes the time on a thing for the microbatch depot as it does for the other"
-           [(assoc first-act :act-id (:act-id first-value) :depot :microbatch) true]
+    (check "the record in the log is the system's act with the door's two additions, its value plain: without its time it is the act with :act-id, and its time is a time of the door's clock between the proof's two readings round the send. The door writes the time on a thing for the microbatch depot as it does for the other"
+           [(assoc first-act :act-id (:act-id first-value)) true]
            [(without-the-time first-record) (time-between? (time-on first-record) clock-before clock-after)])
     (check "the act's answer by a wait is accepted; the microbatch gate holds the row of its place on each task, one row, with the text of its value; and the streaming gate holds no row there on any task"
            [:accepted (vec (repeat tasks "\"a title\"")) 1 (vec (repeat tasks nil))]
@@ -1405,6 +1533,11 @@
            [[[:base (:act-id first-value)]] :base first-answer]
            [(mapv first (:asked asked-again)) (record/routing-id (:act-id first-value)) (:result asked-again)])
     (check "the system gives Alice a permission in the base" true (accepted? gave))
+    (check "the same act under the same act-id, sent through the door after the base is made, goes to the base's own depot and is accepted there, with a stamp of the base's line; it has the digest of the thing that the hand appended, since the two differ in their time alone. So two records hold two answers under one act-id: the door's read gives the base's own, and the streaming gate's refusal stands in the streaming gate's answers as it was"
+           [:depot-holds (digest/hex-of other) :accepted true other-kept]
+           [(:ack (:sent same-id)) (:digest (:sent same-id)) (:answer (:answer same-id))
+            (= (:stamp (:answer same-id)) (gates-last-stamp :microbatch :base))
+            (gates-answer :streaming (:act-id other))])
     (shown "the base through the door: its making act" (pr-str (dissoc made-sent :digest)) "and a wait gave" (pr-str made-answer)
            "| the time that the door wrote on it:" made-time "| the stamp and the time of its answer:"
            (:stamp made-answer) (:time made-answer))
@@ -1412,39 +1545,59 @@
            "of Rama's client, which the proof noted by standing in for them with functions that note and then call Rama; a wait gave" (pr-str first-answer)
            "| the value at its place in the microbatch gate's table, task by task:" (pr-str (mapv :value first-rows))
            "| a read of its answer with no wait asked the query with its routing id and its act-id, and the routing id was" (pr-str (first (ffirst (:asked asked-again)))))
-    (shown "an act for the base under an act-id with the streaming depot word, sent before the base was made:" (told other))))
+    (shown "a thing for the base that an appender put on the streaming depot before the base was made: the streaming gate keeps"
+           (pr-str (dissoc other-kept :digest :time)) "in its own answers, and its last stamp for the base is" (gates-last-stamp :streaming :base)
+           "| the door's read under that act-id gave" (pr-str other-told) "| the same act under that act-id through the door, after the base was made:" (told same-id))))
 
 (deftest the-depot-of-a-lane
   (let [d (the-door)
-        asked (fn [lane] (asking #(act-id-for! d lane)))
-        base (asked :base)
-        streaming (asked :alice)
-        not-made (asked :no-such-lane)
-        seen (fn [got] [(:asked got) (vec (take 2 (:result got)))])
+        ahead (asking #(act-id-for! d :base))
         series (asking #(noted (door/act-ids-for d :base 3)))
-        sent (asking #(send! d (system-act [(value :depot-read-doc "a value")])))
+        base-sent (asking #(send! d (system-act [(value :depot-read-doc "a value")])))
+        sent base-sent
         sent-answer (answer! d (:act-id (:result sent)) (:digest (:result sent)) wait-ms)
+        streaming-id (act-id-for! d :alice)
+        streaming-sent (asking #(send! d (act-of :alice [(value :depot-read-note "a value")]) streaming-id))
+        not-made-sent (asking #(send! d (act-of :no-such-lane [(value :depot-read-nowhere "a value")])))
+        seen (fn [got] [(:asked got) (:ack (:result got))])
         by-hand (mapv (fn [lane] (rama/foreign-invoke-query (:depot-of-lane *round*) lane)) [:base :alice :no-such-lane])]
     (swap! kept update :base-answers conj [(:act-id (:result sent)) (:digest (:result sent)) sent-answer])
-    (check "act-id-for the base, which is made: one read of the lane's depot, asked with the lane alone; the read gave the microbatch depot, and the act-id names it"
-           [[[[:base] :microbatch]] [:base :microbatch]] (seen base))
-    (check "act-id-for a streaming lane that is made: one read, which gave the streaming depot, and the act-id names it"
-           [[[[:alice] :streaming]] [:alice :streaming]] (seen streaming))
-    (check "act-id-for a lane that is not made: one read, which gave nothing; the act-id names the depot that the lane starts with, which for a lane that is not the base is the streaming depot"
-           [[[[:no-such-lane] nil]] [:no-such-lane :streaming] :streaming]
-           (conj (seen not-made) (first-act/depot-at-making :no-such-lane)))
-    (check "act-ids-for 3 in the base: one read, which gave the microbatch depot, and 3 act-ids that name it"
-           [[[[:base] :microbatch]] 3 #{[:base :microbatch]}]
-           [(:asked series) (count (:result series)) (set (map (fn [id] (vec (take 2 id))) (:result series)))])
-    (check "a send into the base that makes its act-id: one read, of the base's depot, which gave the microbatch depot; the thing went to that depot, and its answer by a wait is accepted"
-           [[[[:base] :microbatch]] [:base :microbatch] :depot-holds :accepted]
-           [(:asked sent) (vec (take 2 (:act-id (:result sent)))) (:ack (:result sent)) (:answer sent-answer)])
+    (check "act-id-for the base, and act-ids-for 3 in the base: no read of a lane's depot, and each act-id is the base and a uuid"
+           [[] [] #{[:base]}]
+           [(:asked ahead) (:asked series) (set (map (fn [id] (vec (take 1 id))) (conj (:result series) (:result ahead))))])
+    (check "a send into the base: one read of the lane's depot, asked with the lane alone, which gave the microbatch depot; the thing went to the microbatch depot, where the base also starts, so this does not tell the read from the lane's id (the next check does), and its answer by a wait is accepted"
+           [[[[[:base] :microbatch]] :depot-holds] :accepted]
+           [(seen base-sent) (:answer sent-answer)])
+    (check "a send into a streaming lane that is made, under an act-id that was asked for ahead: one read, which gave the streaming depot, and the thing went there"
+           [[[[:alice] :streaming]] :gate-ran] (seen streaming-sent))
+    (check "a send into a lane that is not made: one read, which gave nothing, since no fact says the lane's depot; the thing went to the depot that the lane starts with, which for a lane that is not the base is the streaming depot"
+           [[[[[:no-such-lane] nil]] :gate-ran] :streaming]
+           [(seen not-made-sent) (first-act/depot-at-making :no-such-lane)])
     (check "the query of a lane's depot, called with the proof's own handle for the same three lanes, gives the microbatch depot, the streaming depot, and nothing"
            [:microbatch :streaming nil] by-hand)
-    (shown "the depot of a lane, as the door's read of it gave it, each read asked with the lane alone: the base" (pr-str (:asked base))
-           "| a streaming lane that is made" (pr-str (:asked streaming)) "| a lane that is not made" (pr-str (:asked not-made))
-           "for which the door gave" (pr-str (vec (take 2 (:result not-made))))
+    (shown "the depot of a lane, as the door's read of it gave it at a send, each read asked with the lane alone: the base" (pr-str (:asked base-sent))
+           "| a streaming lane that is made" (pr-str (:asked streaming-sent)) "| a lane that is not made" (pr-str (:asked not-made-sent))
+           "whose thing went to the streaming depot | the making of an act-id asked nothing:" (pr-str (:asked ahead))
            "| the proof noted each read by standing in for Rama's client call with a function that calls Rama and notes what it gave")))
+
+(deftest the-door-goes-by-the-lanes-depot-fact
+  (let [d (the-door)
+        lane :told-another-depot
+        sent-under (fn [said text]
+                     (let [id (act-id-for! d lane)
+                           before (log-counts)
+                           sent (with-depot-said lane said #(send! d (act-of lane [(value (keyword (str "told-" text)) text)]) id))
+                           after (log-counts)]
+                       [(mapv - after before) (:ack sent) (= id (:act-id sent))]))
+        told-microbatch (sent-under :microbatch "microbatch")
+        told-no-depot (sent-under :fast "no-depot")
+        told-nothing (sent-under nil "nothing")]
+    (check "the door sends a thing to the depot that its read of the lane's depot gives, and not to the one that the lane starts with: for a lane that starts on the streaming depot, a read that says the microbatch depot sends the thing there, one record more in the microbatch log and none in the streaming log, with the microbatch depot's ack; a read that says a word that is no depot, and a read that gives nothing, send it to the depot that the lane starts with"
+           [:streaming [[0 1] :depot-holds true] [[1 0] :gate-ran true] [[1 0] :gate-ran true]]
+           [(first-act/depot-at-making lane) told-microbatch told-no-depot told-nothing])
+    (shown "the door's read of a lane's depot, given by the proof another word than where the lane starts, for a lane of this check's own that no other check sends into: [streaming microbatch] records more, the ack, the act-id kept | said :microbatch" (pr-str told-microbatch)
+           "| said :fast" (pr-str told-no-depot) "| said nothing" (pr-str told-nothing)
+           "| the proof gave the word by standing in for Rama's client call foreign-invoke-query, for that lane's read alone")))
 
 (deftest the-ack-of-the-base-is-no-answer
   (let [d (the-door)
@@ -1508,7 +1661,7 @@
         give-ids (noted (door/act-ids-for d :base 2))
         give (system-act [(perm/permission-fact orens)])
         orens-first (base-act-of (person :oren) orens [(value :orens-doc "the first act under a permission that was just given")])
-        give-calls (noting (fn [] [(send! d give (get give-ids 0)) (send! d orens-first (get give-ids 1))]))
+        give-calls (noting (fn [] (mapv noted (door/send-acts d [[give (get give-ids 0)] [orens-first (get give-ids 1)]]))))
         give-sent (:result give-calls)
         give-answers (answers-of give-sent)
         give-times (mapv time-sent give-sent)
@@ -1516,7 +1669,7 @@
         replace-ids (noted (door/act-ids-for d :base 2))
         written (system-act [(value :two-sends-doc "as first sent")])
         replacing (system-act [(assoc (value :two-sends-doc "as replaced") :replaces [(get replace-ids 0) 0])])
-        replace-calls (noting (fn [] [(send! d written (get replace-ids 0)) (send! d replacing (get replace-ids 1))]))
+        replace-calls (noting (fn [] (mapv noted (door/send-acts d [[written (get replace-ids 0)] [replacing (get replace-ids 1)]]))))
         replace-sent (:result replace-calls)
         replace-answers (answers-of replace-sent)
         replace-times (mapv time-sent replace-sent)
@@ -1528,7 +1681,7 @@
                          (map (fn [i] (base-act-of (person :petra) petras [(assoc (value :chain-doc i) :replaces [(get chain-ids (dec i)) 0])])))
                          (range 2 8))
         _ (pause-base!)
-        chain-calls (noting (fn [] (vec (map-indexed (fn [i act] (send! d act (get chain-ids i))) chain-acts))))
+        chain-calls (noting (fn [] (mapv noted (door/send-acts d (mapv vector chain-acts chain-ids)))))
         chain-sent (:result chain-calls)
         chain-paused (mapv (fn [one] (answer! d (:act-id one) (:digest one))) chain-sent)
         _ (resume-base!)
@@ -1537,19 +1690,19 @@
         _ (settle-base!)
         replaced-rows (rows-in :microbatch-facts :base :two-sends-doc :text)
         chain-rows (rows-in :microbatch-facts :base :chain-doc :text)]
-    (check "a give in the base and then the first act under the given permission, sent one after the other under act-ids asked for ahead: the calls of Rama's client from the first send to the return of the second are two appends, and no read"
-           [[:append 2] [:append 2]] (:calls give-calls))
+    (check "a give in the base and then the first act under the given permission, sent as one series under act-ids asked for ahead: the calls of Rama's client in that call are one read of the lane's depot and then two appends, with no read between them"
+           [[:query 1] [:append 2] [:append 2]] (:calls give-calls))
     (check "both are accepted: the gate decided the give before the act that needs it, which is the order of the two sends. The second stamp is the first plus one, and each answer carries the time that the door wrote on its thing"
            [[:accepted :accepted] true give-times]
            [(mapv :answer give-answers) (one-apart? (mapv :stamp give-answers)) (mapv :time give-answers)])
-    (check "an act that writes a fact and then an act that names that fact to replace, sent the same way: two appends, and no read"
-           [[:append 2] [:append 2]] (:calls replace-calls))
+    (check "an act that writes a fact and then an act that names that fact to replace, sent the same way: one read of the lane's depot and two appends"
+           [[:query 1] [:append 2] [:append 2]] (:calls replace-calls))
     (check "both are accepted: the gate decided the first before the act that replaces its fact. The second stamp is the first plus one, each answer carries the time that the door wrote on its thing, and the place holds the value of the second, one row on each task"
            [[:accepted :accepted] true replace-times (vec (repeat tasks "\"as replaced\"")) 1]
            [(mapv :answer replace-answers) (one-apart? (mapv :stamp replace-answers)) (mapv :time replace-answers)
             (mapv :value replaced-rows) (count (set replaced-rows))])
-    (check "8 acts of the base sent one after the other while the gate is paused, under act-ids asked for ahead: 8 appends and no read; each send comes back with the depot's ack, and each reads nothing yet"
-           [(vec (repeat 8 [:append 2])) (vec (repeat 8 :depot-holds)) (vec (repeat 8 {:answer :nothing-yet}))]
+    (check "8 acts of the base sent as one series while the gate is paused, under act-ids asked for ahead: one read of the lane's depot and 8 appends; each act has its receipt with the depot's ack, and each reads nothing yet"
+           [(into [[:query 1]] (repeat 8 [:append 2])) (vec (repeat 8 :depot-holds)) (vec (repeat 8 {:answer :nothing-yet}))]
            [(:calls chain-calls) (mapv :ack chain-sent) chain-paused])
     (check "the gate goes on, and each of the 8 is accepted by a bounded wait. The first is a give, the second is the first act under it, and each of the next six replaces the fact of the act before it: so each was decided with the rows that the act before it wrote"
            (vec (repeat 8 :accepted)) (mapv :answer chain-answers))
@@ -1557,7 +1710,7 @@
            [true chain-times] [(one-apart? (mapv :stamp chain-answers)) (mapv :time chain-answers)])
     (check "the place that the last seven wrote holds the value of the last of them, one row on each task"
            [(vec (repeat tasks "7")) 1] [(mapv :value chain-rows) (count (set chain-rows))])
-    (shown "two sends into the base with no read between them are decided in their order: a give and then the first act under it read" (pr-str (mapv :answer give-answers))
+    (shown "two acts of a series into the base, with no read between their appends, are decided in their order: a give and then the first act under it read" (pr-str (mapv :answer give-answers))
            "| an act and then an act that replaces its fact read" (pr-str (mapv :answer replace-answers))
            "| the calls of Rama's client in each pair:" (pr-str (:calls give-calls)) (pr-str (:calls replace-calls))
            "| the proof noted the calls by standing in for them with functions that note and then call Rama")
@@ -1674,57 +1827,62 @@
     (shown "for example" (pr-str {:b 1.50M :a [1 2N]}) "is kept as" (pr-str "{:a [1 2] :b 1.5M}")
            "| the texts of a few kinds:" (str/join " | " (map (fn [[what _ text]] (str what " " (pr-str text))) (take 12 (drop 12 kinds-of-value)))))))
 
-(deftest an-act-id-with-the-other-depot-word
+(deftest a-thing-on-the-depot-of-the-other-gate
   (let [d (the-door)
-        id-1 (assoc (act-id-for! d :alice) 1 :microbatch)
-        no-value (decide! d (act-of :alice [{:e :wrong-depot :k :text}]) id-1)
-        id-2 (assoc (act-id-for! d :alice) 1 :microbatch)
-        with-value-act (act-of :alice [(value :wrong-depot-2 "a value")])
+        kept-as (fn [depot-word thing] (dissoc (gates-answer depot-word (:act-id thing)) :stamp))
+        refusal-of (fn [thing] {:verdict :refused :reason :lane-belongs-to-the-other-gate
+                                :time (time-on thing) :digest (digest/hex-of thing)})
+        told (fn [thing] (answer! d (:act-id thing) (digest/hex-of thing)))
+        ;; a streaming lane that is made, on the microbatch depot: with no value, and with one
+        last-before (gates-last-stamp :streaming :alice)
+        no-value (by-hand! :microbatch (act-of :alice [{:e :wrong-depot :k :text}]))
         logs-before (log-counts)
-        clock-before (clock)
-        with-value (decide! d with-value-act id-2)
-        clock-after (clock)
+        with-value (by-hand! :microbatch (act-of :alice [(value :wrong-depot-2 "a value")]))
         logs-after (log-counts)
-        ;; a lane that is not made and that starts with the streaming depot, under the microbatch depot word
-        id-3 (assoc (act-id-for! d :made-by-nobody) 1 :microbatch)
-        not-made (decide! d (act-of :made-by-nobody [(value :wrong-depot-3 "a value")]) id-3)
-        ;; the base, which is made, under the streaming depot word
-        id-4 (assoc (act-id-for! d :base) 1 :streaming)
-        base-act (system-act [(value :wrong-depot-base-2 "a value")])
+        stamps-there [(:stamp (gates-answer :microbatch (:act-id no-value))) (:stamp (gates-answer :microbatch (:act-id with-value)))
+                      (gates-last-stamp :microbatch :alice)]
+        ;; a lane that is not made and that starts with the streaming depot, on the microbatch depot
+        not-made (by-hand! :microbatch (act-of :made-by-nobody [(value :wrong-depot-3 "a value")]))
+        ;; the base, which is made, on the streaming depot
         logs-before-base (log-counts)
-        clock-before-base (clock)
-        base-other (decide! d base-act id-4)
-        clock-after-base (clock)
+        base-other (by-hand! :streaming (system-act [(value :wrong-depot-base-2 "a value")]))
         logs-after-base (log-counts)
-        before-the-making (:base-under-the-streaming-word @kept)]
-    (check "an act of a streaming lane under an act-id that a maker gives back with the other depot word: the thing goes to the depot that the act-id names, and that gate's recorded refusal comes back, with the time that the door wrote on the thing"
-           [:depot-holds (as-answered (:sent no-value) {:answer :refused :reason :lane-belongs-to-the-other-gate})]
-           [(:ack (:sent no-value)) (dissoc (:answer no-value) :stamp)])
-    (check "the same with a value: the thing goes to the depot that the act-id names, one record more in that log and none in the lane's own, and that gate's recorded refusal comes back under the act's own act-id, with the time that the door wrote on the thing"
-           [nil :depot-holds [0 1] (as-answered (:sent with-value) {:answer :refused :reason :lane-belongs-to-the-other-gate})]
-           [(:could-not (:sent with-value)) (:ack (:sent with-value)) (mapv - logs-after logs-before) (dissoc (:answer with-value) :stamp)])
-    (check "the log of that depot holds the act as its maker gave it, with its value plain: one record, which without its time is the act with :act-id and :depot, the depot that the act-id names, and whose time is a time of the door's clock between the proof's two readings round the call; and no fact of it is in the tables: no gate holds a row at its place, on any task"
-           [[[(assoc with-value-act :act-id id-2 :depot :microbatch) true]] []]
-           [(seen-in-log id-2 clock-before clock-after) (rows-at :alice :wrong-depot-2 :text)])
-    (check "an act into a lane that is not made and that starts with the streaming depot, under an act-id with the microbatch depot word: the microbatch gate refuses it with the same word, the word of a lane of the other gate, and not with the word of a lane that is not made, and with the time that the door wrote on the thing; no gate holds a row at its place, on any task"
-           [:depot-holds (as-answered (:sent not-made) {:answer :refused :reason :lane-belongs-to-the-other-gate}) []]
-           [(:ack (:sent not-made)) (dissoc (:answer not-made) :stamp) (rows-at :made-by-nobody :wrong-depot-3 :text)])
-    (check "an act of the base, which is made, under an act-id with the streaming depot word: the thing goes to the streaming depot, one record more in that log and none in the base's own; the streaming gate's ack; and that gate's recorded refusal comes back under the act's own act-id, with the time that the door wrote on the thing"
-           [nil :gate-ran [1 0] (as-answered (:sent base-other) {:answer :refused :reason :lane-belongs-to-the-other-gate})]
-           [(:could-not (:sent base-other)) (:ack (:sent base-other)) (mapv - logs-after-base logs-before-base) (dissoc (:answer base-other) :stamp)])
-    (check "the log of the streaming depot holds that act as its maker gave it: one record, which without its time is the act with :act-id and :depot, the depot that the act-id names, and whose time is a time of the door's clock between the proof's two readings round the call; and no gate holds a row at its place, on any task"
-           [[[(assoc base-act :act-id id-4 :depot :streaming) true]] []]
-           [(seen-in-log id-4 clock-before-base clock-after-base) (rows-at :base :wrong-depot-base-2 :text)])
-    (check "the streaming gate gave the same word for an act of the base before the base was made: the word of an act for a lane of the other gate does not follow what the other gate has made"
-           [{:answer :refused :reason :lane-belongs-to-the-other-gate} true]
-           [(dissoc before-the-making :stamp :time) (= (dissoc before-the-making :stamp :time) (dissoc (:answer base-other) :stamp :time))])
-    (shown "an act-id given back with the other depot word: an act with no value comes back" (pr-str (dissoc (:answer no-value) :stamp))
-           "| an act with a value goes to the depot that the act-id names and comes back" (pr-str (dissoc (:answer with-value) :stamp))
-           "under its own act-id, with no row at its place")
-    (shown "the other depot word on each depot: an act of a streaming lane that is made, on the microbatch depot," (pr-str (:reason (:answer with-value)))
-           "| an act into a streaming lane that is not made, on the microbatch depot," (pr-str (:reason (:answer not-made)))
-           "| an act of the base on the streaming depot, before the base was made" (pr-str (:reason before-the-making))
-           "and after" (pr-str (:reason (:answer base-other))))))
+        before-the-making (:base-on-the-streaming-depot @kept)
+        ;; what stood before the door sends under one of those act-ids
+        last-after (gates-last-stamp :streaming :alice)
+        rows-before [(rows-at :alice :wrong-depot :text) (rows-at :alice :wrong-depot-2 :text)]
+        told-before [(told no-value) (told with-value)]
+        ;; the act of the streaming lane again, through the door, under the act-id that the hand used
+        through-the-door (decide! d (act-of :alice [(value :wrong-depot-2 "a value")]) (:act-id with-value))]
+    (check "the door sends nothing to the depot of the gate that does not have a lane; an appender that is not the door puts two things of a streaming lane on the microbatch depot, one with no value and one with a value: one record more in that log for the second, and none in the lane's own. The microbatch gate refuses each and keeps the refusal in its own answers, under the thing's act-id, with the word of a lane of the other gate, the digest of the thing and the time on it"
+           [[0 1] (refusal-of no-value) (refusal-of with-value)]
+           [(mapv - logs-after logs-before) (kept-as :microbatch no-value) (kept-as :microbatch with-value)])
+    (check "those refusals take stamps of a count that the microbatch gate keeps for the lane by itself, 0 and 1, and no stamp of the lane's line: the last stamp of the lane in its own gate's record is as it was"
+           [[0 1 1] last-before] [stamps-there last-after])
+    (check "no fact of either is in the tables: no gate holds a row at its place, on any task; and the door's read of an answer under each act-id gives nothing yet, since it reads the answers of the lane's own depot"
+           [[] [] {:answer :nothing-yet} {:answer :nothing-yet}]
+           (into rows-before told-before))
+    (check "a thing for a lane that is not made and that starts with the streaming depot, on the microbatch depot: the microbatch gate refuses it with the same word, the word of a lane of the other gate, and not with the word of a lane that is not made; no gate holds a row at its place, on any task, and the door's read gives nothing yet"
+           [(refusal-of not-made) [] {:answer :nothing-yet}]
+           [(kept-as :microbatch not-made) (rows-at :made-by-nobody :wrong-depot-3 :text) (told not-made)])
+    (check "a thing for the base, which is made, on the streaming depot: one record more in that log and none in the base's own; the streaming gate refuses it in its own answers with that word; no gate holds a row at its place, and the door's read gives nothing yet"
+           [[1 0] (refusal-of base-other) [] {:answer :nothing-yet}]
+           [(mapv - logs-after-base logs-before-base) (kept-as :streaming base-other)
+            (rows-at :base :wrong-depot-base-2 :text) (told base-other)])
+    (check "the streaming gate gave the same word for a thing of the base before the base was made: the word of a thing for a lane of the other gate does not follow what the other gate has made"
+           [:lane-belongs-to-the-other-gate :lane-belongs-to-the-other-gate]
+           [(:reason before-the-making) (:reason (kept-as :streaming base-other))])
+    (check "the act of the streaming lane, sent through the door under the act-id that the hand used on the other depot: it goes to the lane's own depot and is accepted there with the next stamp of the lane's line, and the door's read gives that answer; the microbatch gate's refusal under the same act-id stands in its own answers. A change of a lane's depot would have to meet such a row: it stands under the key that an answer of the lane has"
+           [:gate-ran :accepted (inc last-before) (refusal-of with-value)]
+           [(:ack (:sent through-the-door)) (:answer (:answer through-the-door)) (:stamp (:answer through-the-door))
+            (kept-as :microbatch with-value)])
+    (shown "a thing on the depot of the gate that does not have its lane, which the door never sends: of a streaming lane that is made, on the microbatch depot, the microbatch gate keeps"
+           (pr-str (dissoc (kept-as :microbatch with-value) :digest :time)) "with the stamps" (pr-str stamps-there)
+           "of its own count for the lane | of a streaming lane that is not made:" (pr-str (:reason (kept-as :microbatch not-made)))
+           "| of the base on the streaming depot, before the base was made" (pr-str (:reason before-the-making))
+           "and after" (pr-str (:reason (kept-as :streaming base-other)))
+           "| the door's read of an answer under such an act-id:" (pr-str (second told-before)) "until the lane's own gate decides a thing under it, and then"
+           (pr-str (told with-value)))))
 
 (deftest the-module-is-started-again
   (let [d (the-door)
@@ -1814,11 +1972,12 @@
   (many-makers-at-once)
   (the-base-through-the-door)
   (the-depot-of-a-lane)
+  (the-door-goes-by-the-lanes-depot-fact)
   (the-ack-of-the-base-is-no-answer)
   (two-sends-into-the-base-are-decided-in-their-order)
   (how-long-an-act-of-the-base-takes)
   (a-value-of-each-kind-through-each-depot)
-  (an-act-id-with-the-other-depot-word)
+  (a-thing-on-the-depot-of-the-other-gate)
   (the-module-is-started-again)
   (the-door-holds-nothing)
   (each-word-and-no-stray))

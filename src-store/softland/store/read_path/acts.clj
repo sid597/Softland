@@ -176,7 +176,7 @@
 (defn- whole-entry
   [lane stamp row]
   {:stamp stamp
-   :act-id [lane (first-act/depot-at-making lane) (:act row)]
+   :act-id [lane (:act row)]
    :answer (rows/line-answer stamp row)})
 
 (defn- keeps-no-thing?

@@ -27,27 +27,27 @@
     :appended :nothing}
 
    :make-an-act-id
-   {:from     #{:act-id-for :act-ids-for :send-act}
+   {:from     #{:act-id-for :act-ids-for :send-act :send-acts}
     :says     "no act-id can be made for this lane, or the act-id given is not one of this lane, or the count of a series is no fixed-width integer of 1 or more"
     :appended :nothing}
 
    :read-the-lanes-depot
-   {:from     #{:act-id-for :act-ids-for :send-act}
+   {:from     #{:send-act :send-acts}
     :says     "the read of the lane's depot threw; a read that failed has not said that the lane is not made"
     :appended :nothing}
 
    :read-the-act
-   {:from     #{:send-act}
+   {:from     #{:send-act :send-acts}
     :says     "the thing is no plain map, or it threw while the door read it or took its digest"
     :appended :nothing}
 
    :add-its-parts
-   {:from     #{:send-act}
-    :says     "the thing already holds a part that the door adds, :act-id, :depot or :door-time on the act; the door writes over nothing"
+   {:from     #{:send-act :send-acts}
+    :says     "the thing already holds a part that the door adds, :act-id or :door-time on the act; the door writes over nothing"
     :appended :nothing}
 
    :append-cleanly
-   {:from     #{:send-act}
+   {:from     #{:send-act :send-acts}
     :says     "the append of the act threw; the door does not know whether the depot holds the thing; the maker reads the record with the act-id and the digest that the word carries"
     :appended :not-known}
 
@@ -114,8 +114,8 @@
       (some? (:time read)) (assoc :time (:time read)))))
 
 (def acks
-  "The word of the ack of an append, by the depot word. Neither is ever the
-  answer: a maker reads the answer by act-id.
+  "The word of the ack of an append, by the word of the depot that the thing
+  went to. Neither is ever the answer: a maker reads the answer by act-id.
 
   `:gate-ran` is the streaming depot's ack, at the ack level :ack: the
   streaming gate has processed the thing and its rows are visible.

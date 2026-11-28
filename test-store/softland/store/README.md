@@ -8,7 +8,7 @@
 | [pure_proof.clj](pure_proof.clj) | The gates' pure namespaces, beside the act: the one text and the digest, the door's declaration, the time on the act, the stamp, the first act of a lane, the record's rows, and the checks of the decision, each alone and as the walk of one thing calls them, one thing after the other. And [the door's](../../../src-store/softland/store/door/README.md) three pure namespaces: its words, what it makes of one act, and the numbers of its wait. And the source of the store's tree, read as data. It needs no cluster. | One atom: the lines that it showed. It reads the clock for nothing and draws no random number. It reads the source files of the store's tree and of the proofs, and writes none. |
 | [permission_proof.clj](permission_proof.clj) | The permission rules of the store's pure code, in the form of the permission fix: the act's form and the door's declaration of what a permission says, the gate's checks of a give, a change and an end, the rows that a decision writes, and the read of an asker's rights asked once. Each check sends acts through the door's additions and [the walk of one thing](../../../src-store/softland/store/gate/walk.clj), against [a record held as a map](../../../src-store/softland/store/record/in_memory.clj). It needs no cluster. On 27 November 2026 it is the one proof that holds against the store's pure code: the others on this page hold the store before the permission fix, and fail or do not load until they are brought to the new form. | One atom: the lines that it showed. |
 | [module_proof.clj](module_proof.clj) | [The store's module](../../../src-store/softland/store/README.md) on Rama's in-process cluster: the two gates, their records and the two reads. It plays the door by hand, and, where it reads a fact's row or a run of the facts by value, a reader of the tables. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts two functions of its own into the vars of two pure functions of the store that the walk of one thing calls, and puts the store's back when that cluster is closed. Its atoms: the lines shown, the things sent to each depot, the first answers of the streaming gate, what later checks come back to, and, for the second cluster, the batch that is to fail and the events of the streaming gate that it watches, each with the calls that were noted for it. It reads the clock for the time that the hand writes on a thing, and to end a loop that watches a table. |
-| [door_proof.clj](door_proof.clj) | [The door](../../../src-store/softland/store/door.clj) on Rama's in-process cluster: acts into both depots through the door's five calls, and their answers back. The proof is the door's one maker. | It starts one cluster in its own JVM and closes it. It opens seven doors on the module. It pauses the microbatch gate with Rama's test tool, and lets it go on each time. Three atoms: the lines shown, each result that a door gave, and what later checks come back to. It reads two clocks of its JVM and sets neither. |
+| [door_proof.clj](door_proof.clj) | [The door](../../../src-store/softland/store/door.clj) on Rama's in-process cluster: acts into both depots through the door's six calls, and their answers back. The proof is the door's one maker. | It starts one cluster in its own JVM and closes it. It opens seven doors on the module. It pauses the microbatch gate with Rama's test tool, and lets it go on each time. Three atoms: the lines shown, each result that a door gave, and what later checks come back to. It reads two clocks of its JVM and sets neither. |
 | [read_path_pure_proof.clj](read_path_pure_proof.clj) | [The read path's](../../../src-store/softland/store/read_path/README.md) six pure namespaces: the form of a query and its check, the lanes, the sources, the answer and the steps of a live read, the read of a lane's acts by stamp, the words; and the functions of the record's rows that only a read needs. It needs no cluster. | One atom: the lines that it showed. Its row makers remember each row that they made. |
 | [read_path_proof.clj](read_path_proof.clj) | [The read path](../../../src-store/softland/store/read_path.clj) on Rama's in-process cluster: facts into both depots through the door, and back out through the read path's five calls, once and kept live; and a lane's acts, taken and refused, back out by stamp, read once by each kind of asker. The proof is the read path's one asker. | It starts two clusters in its own JVM, one after the other, and closes each. For the second alone it puts one function of its own into the var of one pure function that the walk of both gates calls, and puts the store's back. It opens one door and four read paths on each; and on the first, five read paths more: two, each with one small number, for the group of the read path's own bound, one for the counts of pushes of the group of the base that is read where the asker's lane lives, and two with small bounds of a read of acts. Eight atoms: what it holds of the cluster, the lines shown, each permission that it made, each thing that the door sent, each live read that it opened, and for the second cluster the rows of facts of each decision, the place at whose decision a throw is asked, and how many throws were made. |
 | [line_statements.clj](line_statements.clj) | Piece 3's statements (`src/proposal/runtime-2026-11-21/store-piece-3/statements/`), which another session wrote from the spec alone, over the store: the judge's probe of the bounds and its generated histories, played through the door, the two gates and the read of a lane's acts on Rama's in-process cluster, each step held against the judge's model. | It starts one cluster in its own JVM and closes it, with a module of its own for each history, four at once, each destroyed after. It writes no file. |
@@ -327,7 +327,7 @@ clojure -M:store-module -m softland.store.door-proof
 ```
 
 The proof plays the door's maker: each act and each
-answer goes through the door's five calls. The checks run in one order on one
+answer goes through the door's six calls. The checks run in one order on one
 cluster. The proof opens seven doors on the module: the door of most checks; a
 second door, opened with a read each 100 ms; one for the count of the handles
 that an opening fetches; two in the check of the opener's number; one that
@@ -337,11 +337,10 @@ the end, which stands for the door of another process.
 A pass shows the door in one process, with a maker that the proof plays. No
 other maker uses the door yet.
 
-The door adds three parts to a maker's act: the act-id, the depot, and the time
-of the clock of the server that runs the door. The first two are known before
-the send. The time is not, so the proof holds it in two steps: a record of the
-log without its time is the maker's act with the act-id and the depot; and the
-time is a fixed-width integer between two readings of the clock that the proof
+The door adds two parts to a maker's act: the act-id, and the time of the clock
+of the server that runs the door. The act-id is known before the send. The time
+is not, so the proof holds it in two steps: a record of the log without its
+time is the maker's act with the act-id; and the time is a fixed-width integer between two readings of the clock that the proof
 makes, one just before the call of the door and one just after. The proof and
 its doors run in one process, so the proof reads the clock that the door reads.
 
@@ -364,7 +363,7 @@ group observed. This page does not retell the checks.
 Clojure lets a proof put a function of its own in the place of Rama's client
 calls `foreign-append!`, `foreign-invoke-query`, `foreign-depot` and
 `foreign-query` for a while. The proof does so
-for four things, and each `SHOWN` line that rests on it says so:
+for six things, and each `SHOWN` line that rests on it says so:
 
 - to count the handles that the opening of a door fetches (the test `the-door-is-opened`);
 - to count the round trips of a call of the door: the function counts and
@@ -373,7 +372,14 @@ for four things, and each `SHOWN` line that rests on it says so:
   asked and what Rama gave (the tests `the-base-through-the-door`, `the-depot-of-a-lane` and `two-sends-into-the-base-are-decided-in-their-order`);
 - to make a read throw (the test `reads-that-throw`): no real throw of a query was found
   that the in-process cluster gives without a fault of the cluster, because the
-  door tests each thing that it passes to a read before it calls.
+  door tests each thing that it passes to a read before it calls;
+- to set a thread's interrupt mark between the door's read of a lane's depot
+  and its append (the test `an-append-that-threw`): the read is Rama's, and the
+  mark is set after it, so that the throw is the append's own;
+- to give the door's read of one lane's depot another word than the depot
+  that the lane starts with (the test `the-door-goes-by-the-lanes-depot-fact`):
+  no act can make a lane's depot fact say another word, so without it no
+  check tells the door's use of the fact from where the lane starts.
 
 The other throws are real: a module name under which no module runs; a thing
 that holds a plain Java object, which Rama's client cannot turn into bytes; a

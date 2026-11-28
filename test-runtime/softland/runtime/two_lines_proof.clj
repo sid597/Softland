@@ -76,16 +76,15 @@
          (boolean (some #(and (= lane (:lane %)) (= :may-not-see (:why %)))
                         (:left-out anew))))))
 
-(defn- send-facts! [opened lane perm facts & [subjects]]
+(defn- send-facts! [opened lane perm facts]
   (let [hello (:hello opened)]
     (say opened {:word :send
-                 :act (cond-> {:version 1
-                               :who (:who hello)
-                               :session (:session hello)
-                               :lane lane
-                               :permission (perm/permission-id perm)
-                               :facts facts}
-                        subjects (assoc :subjects subjects))
+                 :act {:version 1
+                       :who (:who hello)
+                       :session (:session hello)
+                       :lane lane
+                       :permission (perm/permission-id perm)
+                       :facts facts}
                  :act-id (UUID/randomUUID)})))
 
 (defn- run-checks! [url-a url-b first-person tag]
@@ -119,7 +118,7 @@
     (try
       ;; Seed fact and grant Bea :see-and-act on Ada's lane
       (send-facts! ada-a lane ada-own [{:e :secret :k :note :v "v0"}])
-      (send-facts! ada-a lane ada-own [(perm/permission-fact bea-perm)] #{bea-who})
+      (send-facts! ada-a lane ada-own [(perm/permission-fact bea-perm)])
       ;; 1. Direct permission ending across two copies
       (let [ada-watch (watching ada-a {:asks [:place :secret :note] :asker ada-who :lanes [lane]})
             bea-q {:asks [:place :secret :note] :asker bea-who :lanes [lane]}
@@ -131,7 +130,7 @@
             got-v1-a (wait-for #(= "v1" (value-of @(:seen w-a))) 10000)
             got-v1-b (wait-for #(= "v1" (value-of @(:seen w-b))) 10000)
             ;; End Bea's permission through copy B
-            ended (send-facts! ada-b lane ada-own [(perm/end-fact bea-perm)] #{bea-who})
+            ended (send-facts! ada-b lane ada-own [(perm/end-fact bea-perm)])
             revoked-a (wait-for #(may-not-see? @(:seen w-a) lane) 10000)
             revoked-b (wait-for #(may-not-see? @(:seen w-b) lane) 10000)
             cnt-a (count @(:seen w-a))
@@ -161,14 +160,14 @@
         (client/leave (:line bea-b) (:id w-b))
 
         ;; 2. Chain revocation: Ada grants Bea again, Bea grants Cal, Ada ends Bea -> Cal's watches on both copies close off the lane
-        (send-facts! ada-a lane ada-own [(perm/permission-fact bea-perm-2)] #{bea-who})
-        (send-facts! bea-a lane bea-perm-2 [(perm/permission-fact cal-perm)] #{cal-who})
+        (send-facts! ada-a lane ada-own [(perm/permission-fact bea-perm-2)])
+        (send-facts! bea-a lane bea-perm-2 [(perm/permission-fact cal-perm)])
         (let [cal-q {:asks [:place :secret :note] :asker cal-who :lanes [lane]}
               cw-a (watching cal-a cal-q)
               cw-b (watching cal-b cal-q)
               got-c-a (wait-for #(= "v2" (value-of @(:seen cw-a))) 10000)
               got-c-b (wait-for #(= "v2" (value-of @(:seen cw-b))) 10000)
-              end-above (send-facts! ada-b lane ada-own [(perm/end-fact bea-perm-2)] #{bea-who})
+              end-above (send-facts! ada-b lane ada-own [(perm/end-fact bea-perm-2)])
               c-rev-a (wait-for #(may-not-see? @(:seen cw-a) lane) 10000)
               c-rev-b (wait-for #(may-not-see? @(:seen cw-b) lane) 10000)
               cc-a (count @(:seen cw-a))
@@ -193,16 +192,14 @@
               cal-b-same (line url-b cal-cred run-sess)
               run-perm (perm/run-permission cal-who lane ada-own run-sess :see)
               _ (send-facts! ada-a lane ada-own
-                             [(perm/permission-fact run-perm)]
-                             #{cal-who})
+                             [(perm/permission-fact run-perm)])
               rq {:asks [:place :secret :note] :asker cal-who :session run-sess :lanes [lane]}
               rw-a (watching cal-a rq)
               rw-b (watching cal-b-same rq)
               got-r-a (wait-for #(= "v3" (value-of @(:seen rw-a))) 10000)
               got-r-b (wait-for #(= "v3" (value-of @(:seen rw-b))) 10000)
               end-run (send-facts! ada-b lane ada-own
-                                   [(perm/end-fact run-perm)]
-                                   #{cal-who})
+                                   [(perm/end-fact run-perm)])
               r-rev-a (wait-for #(may-not-see? @(:seen rw-a) lane) 10000)
               r-rev-b (wait-for #(may-not-see? @(:seen rw-b) lane) 10000)
               rc-a (count @(:seen rw-a))

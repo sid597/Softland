@@ -4,14 +4,16 @@
   function throws.
 
   Two digests, of two things. The digest of a thing, `digest` and `hex-of`,
-  is of the thing as it arrived: it holds the act-id, the depot and the
-  maker's syntax, so that a maker tells her own answer from another thing's
-  under the same act-id. The digest by which a permission for one exact act
-  names its act, `hex-for-a-yes`, is of the act as its maker made it, in
-  the one form that `softland.store.act/parse` gives, without the act-id,
-  the depot, the time and the permission. So it is made before the act has
-  an act-id or a permission, and the gate makes the same of the thing that
-  arrives under any act-id of hers.
+  is of the thing as it arrived: it holds the act-id and the maker's
+  syntax, so that a maker tells her own answer from another thing's under
+  the same act-id. It holds no depot: a thing names none, so the digest of
+  a thing does not change with the depot that its lane is on. The digest
+  by which a permission for one exact act names its act, `hex-for-a-yes`,
+  is of the act as its maker made it, in the one form that
+  `softland.store.act/parse` gives, without the act-id, the time and the
+  permission. So it is made before the act has an act-id or a permission,
+  and the gate makes the same of the thing that arrives under any act-id of
+  hers.
 
   Why the time is left out: a maker's second send of one act under one
   act-id carries another time, and both sends must read the one answer as
@@ -180,12 +182,12 @@
 (def ^:private no-part-of-the-act-a-yes-names
   "A permission for one exact act names its act before the act has any of
   them: the act names its permission, and the permission names the act."
-  [:act-id :depot declaration/time-part :permission])
+  [:act-id declaration/time-part :permission])
 
 (defn act-for-a-yes
   "The act that a permission for one exact act names: the one form that
-  `softland.store.act/parse` gives, without its act-id, its depot, its time
-  and its permission. `x` is a maker's act, with its permission or without
+  `softland.store.act/parse` gives, without its act-id, its time and its
+  permission. `x` is a maker's act, with its permission or without
   one, or a thing as it arrives on a depot. nil for a thing whose other
   parts are no act. It never throws.
 
@@ -214,7 +216,7 @@
   [x]
   (into #{}
         (keep (fn [fact]
-                (try (let [[[_ _ u]] (:replaces fact)] (when (uuid? u) u))
+                (try (let [[[_ u]] (:replaces fact)] (when (uuid? u) u))
                      (catch Throwable _ nil))))
         (try (seq (:facts x)) (catch Throwable _ nil))))
 
@@ -229,8 +231,7 @@
         taken (replaced-uuids x)
         uuid (first (remove taken (map #(java.util.UUID. 0 (long %)) (range))))]
     (assoc (apply dissoc x no-part-of-the-act-a-yes-names)
-           :act-id [lane :streaming uuid]
-           :depot :streaming
+           :act-id [lane uuid]
            declaration/time-part 0
            :permission uuid)))
 

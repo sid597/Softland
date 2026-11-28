@@ -19,6 +19,7 @@
   (:require [clojure.string :as str]
             [softland.command.client :as client]
             [softland.command.main]
+            [softland.store.act :as act]
             [softland.wire.credential :as credential]
             [softland.wire.frame :as frame]
             [softland.wire.proof :refer [check finish]])
@@ -124,6 +125,14 @@
                     [["write" ":e" ":k" "12" "--lane" ":l" "--as" "{f"] ["agent" "new" "{x" "--out" "[y"] ["send" "{acts"]]))
            (mapv (fn [typed] (dissoc (read typed) :does))
                  [["write" ":e" ":k" "12" "--lane" ":l" "--as" "{f"] ["agent" "new" "{x" "--out" "[y"] ["send" "{acts"]]))
+    (check "A key is typed as an entity is, as an id: of `write :chair-7 0b0b0b0b-0000-4000-8000-00000000000b oak` the function is handed a UUID as the key, and a fact of that entity, that key and that value is one that the store's form takes; a key typed as a bare word is a text, which the form does not take as a key."
+           (let [[e k v] (:rest (read ["write" ":chair-7" "0b0b0b0b-0000-4000-8000-00000000000b" "oak"]))
+                 [_ word _] (:rest (read ["write" ":chair-7" "colour" "oak"]))]
+             (and (= (UUID/fromString "0b0b0b0b-0000-4000-8000-00000000000b") k)
+                  (act/has-shape? :fact {:e e :k k :v v})
+                  (= "colour" word)
+                  (not (act/has-shape? :fact {:e e :k word :v v}))))
+           (read ["write" ":chair-7" "0b0b0b0b-0000-4000-8000-00000000000b" "oak"]))
     (check "A flag whose value is left out is not run, and the result names the flag: `write e k v --lane`, which would be written into her own lane; `new-session --model`; and `write e k v --lane --as file`, where the next thing typed is another flag."
            (= [{:why :flag-with-no-value :at "--lane"} {:why :flag-with-no-value :at "--model"} {:why :flag-with-no-value :at "--lane"}]
               (mapv why [["write" ":e" ":k" ":v" "--lane"] ["new-session" "--model"] ["write" ":e" ":k" ":v" "--lane" "--as" "file"]]))
